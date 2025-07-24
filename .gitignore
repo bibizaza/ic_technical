@@ -1,0 +1,97 @@
+# ──────────────  Core Python  ──────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+# editable-install helpers (pip >= 23)
+__editable__.*.pth
+__editable___*__finder.py
+
+# ──────────────  Virtual environments  ──────────────
+.venv/
+env/
+venv/
+ENV/
+# pyenv & poetry
+.python-version
+.poetry/
+
+# ──────────────  Notebooks / experiments  ──────────────
+.ipynb_checkpoints/
+*.ipynb
+# remove the above two lines if you *do* want to track notebooks
+
+# ──────────────  Data artefacts  ──────────────
+*.csv
+*.xls
+*.xlsx
+*.xlsm
+*.feather
+*.parquet
+*.h5
+*.pkl
+*.pickle
+*.joblib
+*.npz
+*.npy
+data/
+datasets/
+outputs/
+reports/
+
+# ──────────────  Dash / Django runtime files  ──────────────
+instance/
+*.log
+*.pot
+local_settings.py
+*.sqlite3
+
+# ──────────────  macOS  ──────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+*.swp
+
+# ──────────────  IDE / Editor files  ──────────────
+# VS Code
+.vscode/
+# PyCharm / IntelliJ
+.idea/
+# Sublime
+*.sublime-project
+*.sublime-workspace
+# JetBrains Rider & others
+*.iml
+*.ipr
+*.iws
+
+# ──────────────  Tests / coverage  ──────────────
+htmlcov/
+.coverage
+.pytest_cache/
+.tox/
+.nox/
+.cache/
+
+# ──────────────  Containers / CI  ──────────────
+docker-compose.override.yml
+*.local.yml
+.env                # comment out if you keep env-files under VC
+.env.*
+*.pem
+
+# ──────────────  Misc  ──────────────
+# npm / yarn if you add React assets inside Dash
+node_modules/
+*.lock
+
+# Custom: ignore any secret notebooks
+secret_*.ipynb
