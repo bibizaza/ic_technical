@@ -24,6 +24,7 @@ from pathlib import Path
 from technical_analysis.equity.spx import (
     make_spx_figure,
     insert_spx_technical_chart,
+    insert_spx_technical_score_number
 )
 
 # -----------------------------------------------------------------------------
@@ -352,6 +353,11 @@ elif page == "Generate Presentation":
     from ytd_perf.equity_ytd import insert_equity_chart
     from ytd_perf.commodity_ytd import insert_commodity_chart
     from ytd_perf.crypto_ytd import insert_crypto_chart
+    # Import our new score insertion function
+    from technical_analysis.equity.spx import (
+        insert_spx_technical_chart,
+        insert_spx_technical_score_number,
+    )
 
     st.sidebar.write("### Summary of selections")
     st.sidebar.write("Equities:", st.session_state.get("selected_eq_names", []))
@@ -359,7 +365,6 @@ elif page == "Generate Presentation":
     st.sidebar.write("Cryptos:", st.session_state.get("selected_cr_names", []))
 
     if st.sidebar.button("Generate updated PPTX", key="gen_ppt_button"):
-        # Save uploaded PPTX to a temporary file
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp_input:
             tmp_input.write(st.session_state["pptx_file"].getbuffer())
             tmp_input.flush()
@@ -385,15 +390,20 @@ elif page == "Generate Presentation":
             tickers=st.session_state.get("selected_cr_tickers", []),
         )
 
-        # Insert SPX technical-analysis chart using spx module
+        # Insert SPX technical-analysis chart
         anchor_dt = st.session_state.get("ta_anchor")
         prs = insert_spx_technical_chart(
             prs,
             st.session_state["excel_file"],
-            anchor_dt
+            anchor_dt,
         )
 
-        # Save and provide download
+        # Insert SPX technical score number
+        prs = insert_spx_technical_score_number(
+            prs,
+            st.session_state["excel_file"],
+        )
+
         out_stream = BytesIO()
         prs.save(out_stream)
         out_stream.seek(0)

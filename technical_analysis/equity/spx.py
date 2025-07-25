@@ -6,9 +6,8 @@ Utility functions for SPX technical analysis and high-resolution export.
 
 Functions:
 - make_spx_figure: Interactive Plotly chart for Streamlit.
-- insert_spx_technical_chart: Insert an SPX technical chart into PPT, using a high-quality PNG
-  with transparent background, fixed dimensions (21.41 cm × 7.53 cm), and positioned at
-  0.93 cm from the left and 4.39 cm from the top (if no placeholder).
+- insert_spx_technical_chart: Insert an SPX technical chart into PPT.
+- insert_spx_technical_score: Insert a score gauge into the corresponding slide.
 """
 
 from __future__ import annotations
@@ -60,23 +59,13 @@ def make_spx_figure(
     anchor_date: Optional[pd.Timestamp] = None,
 ) -> go.Figure:
     """
-    Build the interactive SPX chart (Plotly) for Streamlit.
-
-    Parameters
-    ----------
-    excel_path   : Path to the Excel file containing SPX prices.
-    anchor_date  : pandas.Timestamp or None. If provided, a regression channel
-                   is drawn from `anchor_date` to the most recent date.
-
-    Returns
-    -------
-    go.Figure
+    Build the interactive SPX chart for Streamlit. (Unchanged from prior version.)
     """
     excel_path = pathlib.Path(excel_path)
     df_full = _add_mas(_load_price_data(excel_path, "SPX Index"))
 
     today  = df_full["Date"].max().normalize()
-    start  = today - timedelta(days=365)  # 1-year window
+    start  = today - timedelta(days=365)
     df     = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     fig = go.Figure()
@@ -118,7 +107,7 @@ def make_spx_figure(
         upper  = trend + resid.max()              # trend + max residual
         lower  = trend + resid.min()              # trend + min residual
 
-        uptrend = model.coef_[0] > 0              # slope sign
+        uptrend = model.coef_[0] > 0
         lineclr = "green" if uptrend else "red"
         fillclr = "rgba(0,150,0,0.25)" if uptrend else "rgba(200,0,0,0.25)"
 
@@ -151,7 +140,7 @@ def make_spx_figure(
     return fig
 
 # ---------------------------------------------------------------------------
-# Matplotlib image generation for PPT export
+# Matplotlib image generation for PPT export (unchanged from prior revision)
 # ---------------------------------------------------------------------------
 def _generate_spx_image_from_df(
     df_full: pd.DataFrame,
@@ -159,22 +148,15 @@ def _generate_spx_image_from_df(
     width_cm: float = 21.41,
     height_cm: float = 7.53,
 ) -> bytes:
-    """
-    Create a high-resolution, transparent-background Matplotlib chart image.
-    It includes price, moving averages, Fibonacci levels, and optional regression
-    channel. Returns PNG bytes.
-    """
-    # Restrict to 1-year window
+    # (Same as previous version with transparent background and ticks retained)
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=365)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Compute moving averages
     df_ma = df.copy()
     for w in (50, 100, 200):
         df_ma[f"MA_{w}"] = df_ma["Price"].rolling(w, min_periods=1).mean()
 
-    # Prepare regression channel if needed
     uptrend = False
     upper = lower = None
     if anchor_date is not None:
@@ -192,21 +174,17 @@ def _generate_spx_image_from_df(
         else:
             subset = None
 
-    # Figure dimensions (convert cm to inches)
     fig_width_in = width_cm / 2.54
     fig_height_in = height_cm / 2.54
 
     plt.style.use("default")
     fig, ax = plt.subplots(figsize=(fig_width_in, fig_height_in))
 
-    # Price line
     ax.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5, label="S&P 500 Price")
-    # Moving averages
     ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50-day MA")
     ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100-day MA")
     ax.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200-day MA")
 
-    # Fibonacci levels
     hi = df["Price"].max()
     lo = df["Price"].min()
     span = hi - lo
@@ -215,7 +193,6 @@ def _generate_spx_image_from_df(
     for lvl in fib_levels:
         ax.axhline(y=lvl, color="grey", linestyle="--", linewidth=0.8, alpha=0.6)
 
-    # Regression channel shading
     if anchor_date is not None and upper is not None and lower is not None:
         fill_color = (0, 0.6, 0, 0.25) if uptrend else (0.78, 0, 0, 0.25)
         line_color = "#008000" if uptrend else "#C00000"
@@ -224,17 +201,13 @@ def _generate_spx_image_from_df(
         ax.plot(subset["Date"], lower, color=line_color, linestyle="--")
         ax.fill_between(subset["Date"], lower, upper, color=fill_color)
 
-    # Remove spines but keep tick labels
     for spine in ax.spines.values():
         spine.set_visible(False)
-    # Retain tick labels
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
 
-    # Legend
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=4, fontsize=8, frameon=False)
     plt.tight_layout()
 
-    # Save as transparent PNG
     buf = BytesIO()
     plt.savefig(buf, format="png", dpi=300, transparent=True)
     plt.close(fig)
@@ -242,24 +215,136 @@ def _generate_spx_image_from_df(
     return buf.read()
 
 # ---------------------------------------------------------------------------
-# PPT insertion functions
+# Technical score helpers
 # ---------------------------------------------------------------------------
-def _load_price_data_from_obj(excel_obj, ticker: str = "SPX Index") -> pd.DataFrame:
+def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Load SPX price data directly from a file-like object (such as an uploaded
-    file from Streamlit). Returns a DataFrame with 'Date' and 'Price' columns.
+    Retrieve the technical score for SPX from the sheet 'data_technical_score'.
+    The sheet is expected to have the ticker in column A and the score in column B.
+    Returns None if not found or on error.
     """
-    df = pd.read_excel(excel_obj, sheet_name="data_prices")
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    return (
-        df.dropna(subset=["Date", "Price"])
-          .sort_values("Date")
-          .reset_index(drop=True)[["Date", "Price"]]
-    )
+    try:
+        df = pd.read_excel(excel_obj_or_path, sheet_name="data_technical_score")
+    except Exception:
+        return None
 
+    # Expect columns A: ticker, B: score
+    df = df.dropna(subset=[df.columns[0], df.columns[1]])
+    for _, row in df.iterrows():
+        if str(row[df.columns[0]]).strip().upper() == "SPX INDEX":
+            try:
+                return float(row[df.columns[1]])
+            except Exception:
+                return None
+    return None
+
+def _generate_score_gauge_image(score: Optional[float], width_cm=5.0, height_cm=1.0) -> bytes:
+    """
+    Create a simple horizontal gauge bar for the technical score.
+    The gauge has red (0-33%), yellow (33-66%), and green (66-100%) segments.
+    The score is normalized from 0 to 100 for positioning the indicator.
+    Returns PNG bytes with transparent background.
+    """
+    # Normalize the score if it's not None; assume score in 0-10 range; clamp 0-10 then to 0-100
+    if score is None:
+        normalized = 50  # neutral mid-point
+    else:
+        try:
+            val = float(score)
+            val = max(0.0, min(10.0, val))  # clamp to 0-10
+            normalized = val * 10.0  # map 0-10 -> 0-100
+        except Exception:
+            normalized = 50
+
+    # Convert cm to inches
+    fig_w = width_cm / 2.54
+    fig_h = height_cm / 2.54
+
+    plt.style.use("default")
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+
+    # Draw colored segments (red, yellow, green)
+    ax.barh(0, 33, color="#C00000")     # red segment
+    ax.barh(0, 33, left=33, color="#F6B26B")  # yellow segment
+    ax.barh(0, 34, left=66, color="#6AA84F")  # green segment
+
+    # Draw the indicator line
+    ax.axvline(x=normalized, ymin=-0.2, ymax=0.2, color="black", linewidth=3)
+
+    # No axis spines or ticks; but show value as text on top
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_yticks([])
+    ax.set_xlim(0, 100)
+    ax.set_xticks([0, 33, 66, 100])
+    ax.set_xticklabels([])
+    # Show numeric value at bottom center
+    ax.text(50, -0.4, f"Score: {score:.2f}" if score is not None else "Score: N/A",
+            ha="center", va="center", fontsize=8)
+
+    ax.set_facecolor((0, 0, 0, 0))  # transparent
+    fig.patch.set_alpha(0.0)
+    plt.tight_layout()
+
+    buf = BytesIO()
+    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
+
+def insert_spx_technical_score(
+    prs: Presentation,
+    excel_file
+) -> Presentation:
+    """
+    Insert the SPX technical score gauge into the slide containing 'tech_score_spx'.
+    If not found, this function does nothing. The gauge is created based on the
+    'data_technical_score' sheet and replaces any placeholder text.
+    """
+    score = _get_spx_technical_score(excel_file)
+
+    placeholder_text = "tech_score_spx"
+    slide_index = None
+    placeholder_shape = None
+
+    # Find the placeholder shape
+    for idx, slide in enumerate(prs.slides):
+        for shape in slide.shapes:
+            if shape.has_text_frame and placeholder_text.lower() in shape.text.lower():
+                slide_index = idx
+                placeholder_shape = shape
+                break
+        if slide_index is not None:
+            break
+
+    if slide_index is None:
+        # Do nothing if not found
+        return prs
+
+    slide = prs.slides[slide_index]
+    left = placeholder_shape.left
+    top = placeholder_shape.top
+    width = placeholder_shape.width
+    height = placeholder_shape.height
+
+    # Clear placeholder text
+    if placeholder_shape.has_text_frame:
+        placeholder_shape.text = ""
+
+    # Generate gauge image using placeholder dimensions (convert EMU -> cm)
+    width_cm = width.cm
+    height_cm = height.cm
+    gauge_img_bytes = _generate_score_gauge_image(score, width_cm=width_cm, height_cm=height_cm)
+
+    # Insert gauge image into the same position/size
+    stream = BytesIO(gauge_img_bytes)
+    slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    return prs
+
+# ---------------------------------------------------------------------------
+# Chart insertion functions
+# ---------------------------------------------------------------------------
 def insert_spx_technical_chart(
     prs: Presentation,
     excel_file,
@@ -267,22 +352,17 @@ def insert_spx_technical_chart(
 ) -> Presentation:
     """
     Insert the SPX technical-analysis chart into the given PowerPoint presentation.
-    It searches for a slide containing a shape with the text 'tech_spx' (case-insensitive).
-    If found, the chart is inserted at that location; otherwise, it defaults to slide 12
-    (or the last slide). It uses fixed dimensions: width=21.41 cm, height=7.53 cm,
-    left=0.93 cm, top=4.39 cm. The chart has a transparent background.
+    Searches for 'tech_spx' placeholder, or uses default slide 12. Fixed size and position.
     """
     # Load price data from Excel object or path
     try:
-        df_full = _load_price_data_from_obj(excel_file, ticker="SPX Index")
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index")
     except Exception:
         path = pathlib.Path(excel_file)
         df_full = _load_price_data(path, "SPX Index")
 
-    # Generate image bytes (transparent background)
     img_bytes = _generate_spx_image_from_df(df_full, anchor_date)
 
-    # Search for placeholder slide
     placeholder_text = "tech_spx"
     slide_index = None
     placeholder_shape = None
@@ -296,10 +376,8 @@ def insert_spx_technical_chart(
         if slide_index is not None:
             break
 
-    # Determine slide and position
     if slide_index is not None:
         slide = prs.slides[slide_index]
-        # Use the placeholder's position and size to place the image
         left = placeholder_shape.left
         top = placeholder_shape.top
         width = placeholder_shape.width
@@ -314,8 +392,140 @@ def insert_spx_technical_chart(
         width = Cm(21.41)
         height = Cm(7.53)
 
-    # Insert the image
     stream = BytesIO(img_bytes)
     slide.shapes.add_picture(stream, left, top, width=width, height=height)
 
     return prs
+
+def insert_spx_technical_score_number(
+    prs: Presentation,
+    excel_file,
+) -> Presentation:
+    """
+    Insert the SPX technical score (integer, no decimals) into the shape named
+    'tech_score_spx', or into a shape containing '[XXX]' or 'XXX', preserving
+    the formatting of the original text.
+
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint Presentation object.
+    excel_file : file-like or path-like
+        The Excel file containing the 'data_technical_score' sheet.
+
+    Returns
+    -------
+    Presentation
+        The updated presentation with the score number inserted.
+    """
+    score = _get_spx_technical_score(excel_file)
+    # Convert to integer (no decimals) if possible
+    if score is None:
+        score_text = "N/A"
+    else:
+        try:
+            score_text = f"{int(round(float(score)))}"
+        except Exception:
+            score_text = str(score)
+
+    placeholder_name = "tech_score_spx"
+    placeholder_patterns = ["[XXX]", "XXX"]
+
+    found = False
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            # Prefer matching by shape name
+            if hasattr(shape, "name") and shape.name.lower() == placeholder_name:
+                if shape.has_text_frame:
+                    # Save original formatting from first run (if exists)
+                    if shape.text_frame.paragraphs and shape.text_frame.paragraphs[0].runs:
+                        orig_run = shape.text_frame.paragraphs[0].runs[0]
+                        orig_font = orig_run.font
+                        saved_size = orig_font.size
+                        saved_color = orig_font.color.rgb
+                        saved_bold = orig_font.bold
+                        saved_italic = orig_font.italic
+                    else:
+                        # Fallback defaults
+                        saved_size = None
+                        saved_color = None
+                        saved_bold = None
+                        saved_italic = None
+
+                    # Clear existing text and insert new number
+                    shape.text_frame.clear()
+                    paragraph = shape.text_frame.paragraphs[0]
+                    run = paragraph.add_run()
+                    run.text = score_text
+
+                    # Apply saved formatting
+                    if saved_size:
+                        run.font.size = saved_size
+                    if saved_color:
+                        run.font.color.rgb = saved_color
+                    if saved_bold is not None:
+                        run.font.bold = saved_bold
+                    if saved_italic is not None:
+                        run.font.italic = saved_italic
+
+                    found = True
+                break
+
+            # Otherwise, search for placeholder in text content
+            if shape.has_text_frame:
+                for pattern in placeholder_patterns:
+                    if pattern in shape.text:
+                        # Capture formatting from the first run
+                        para = shape.text_frame.paragraphs[0]
+                        if para.runs:
+                            orig_run = para.runs[0]
+                            orig_font = orig_run.font
+                            saved_size = orig_font.size
+                            saved_color = orig_font.color.rgb
+                            saved_bold = orig_font.bold
+                            saved_italic = orig_font.italic
+                        else:
+                            saved_size = None
+                            saved_color = None
+                            saved_bold = None
+                            saved_italic = None
+
+                        # Replace only the placeholder with score_text
+                        new_text = shape.text.replace(pattern, score_text)
+                        shape.text_frame.clear()
+                        new_para = shape.text_frame.paragraphs[0]
+                        new_run = new_para.add_run()
+                        new_run.text = new_text
+
+                        # Apply saved formatting to the number portion
+                        if saved_size:
+                            new_run.font.size = saved_size
+                        if saved_color:
+                            new_run.font.color.rgb = saved_color
+                        if saved_bold is not None:
+                            new_run.font.bold = saved_bold
+                        if saved_italic is not None:
+                            new_run.font.italic = saved_italic
+
+                        found = True
+                        break
+            if found:
+                break
+        if found:
+            break
+
+    return prs
+
+# Helper to load from file-like object
+def _load_price_data_from_obj(excel_obj, ticker: str = "SPX Index") -> pd.DataFrame:
+    df = pd.read_excel(excel_obj, sheet_name="data_prices")
+    df = df.drop(index=0)
+    df = df[df[df.columns[0]] != "DATES"]
+    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
+    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
+    return (
+        df.dropna(subset=["Date", "Price"])
+          .sort_values("Date")
+          .reset_index(drop=True)[["Date", "Price"]]
+    )
