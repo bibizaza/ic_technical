@@ -2,14 +2,13 @@
 technical_analysis/equity/spx.py
 ================================
 
-This module provides utility functions for interactive SPX technical analysis
-and high-quality chart insertion into PowerPoint. It includes:
+Utility functions for SPX technical analysis and high-resolution export.
 
-- Data loading and moving average computation.
-- Plotly chart construction for Streamlit interactivity (make_spx_figure).
-- Matplotlib chart generation for static image export to PPT.
-- Functions to insert the SPX chart into a PPT slide by searching for a
-  placeholder named "tech_spx" (case-insensitive).
+Functions:
+- make_spx_figure: Interactive Plotly chart for Streamlit.
+- insert_spx_technical_chart: Insert an SPX technical chart into PPT, using a high-quality PNG
+  with transparent background, fixed dimensions (21.41 cm × 7.53 cm), and positioned at
+  0.93 cm from the left and 4.39 cm from the top (if no placeholder).
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ from sklearn.linear_model import LinearRegression
 
 # For PPT insertion
 from pptx import Presentation
-from pptx.util import Inches
+from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
 
@@ -61,7 +60,7 @@ def make_spx_figure(
     anchor_date: Optional[pd.Timestamp] = None,
 ) -> go.Figure:
     """
-    Build the interactive SPX chart.
+    Build the interactive SPX chart (Plotly) for Streamlit.
 
     Parameters
     ----------
@@ -71,13 +70,13 @@ def make_spx_figure(
 
     Returns
     -------
-    go.Figure for plotting in Streamlit.
+    go.Figure
     """
     excel_path = pathlib.Path(excel_path)
     df_full = _add_mas(_load_price_data(excel_path, "SPX Index"))
 
     today  = df_full["Date"].max().normalize()
-    start  = today - timedelta(days=365)          # 1-year window
+    start  = today - timedelta(days=365)  # 1-year window
     df     = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     fig = go.Figure()
@@ -154,11 +153,16 @@ def make_spx_figure(
 # ---------------------------------------------------------------------------
 # Matplotlib image generation for PPT export
 # ---------------------------------------------------------------------------
-def _generate_spx_image_from_df(df_full: pd.DataFrame, anchor_date: Optional[pd.Timestamp]) -> bytes:
+def _generate_spx_image_from_df(
+    df_full: pd.DataFrame,
+    anchor_date: Optional[pd.Timestamp],
+    width_cm: float = 21.41,
+    height_cm: float = 7.53,
+) -> bytes:
     """
-    Create a high-resolution Matplotlib chart image from a DataFrame. Includes
-    price, moving averages, Fibonacci levels, and optional regression channel.
-    Returns PNG bytes.
+    Create a high-resolution, transparent-background Matplotlib chart image.
+    It includes price, moving averages, Fibonacci levels, and optional regression
+    channel. Returns PNG bytes.
     """
     # Restrict to 1-year window
     today = df_full["Date"].max().normalize()
@@ -188,10 +192,12 @@ def _generate_spx_image_from_df(df_full: pd.DataFrame, anchor_date: Optional[pd.
         else:
             subset = None
 
-    # Create the Matplotlib figure
-    # Use a basic style (default) to ensure compatibility
+    # Figure dimensions (convert cm to inches)
+    fig_width_in = width_cm / 2.54
+    fig_height_in = height_cm / 2.54
+
     plt.style.use("default")
-    fig, ax = plt.subplots(figsize=(10, 5.63))  # 16:9 aspect ratio
+    fig, ax = plt.subplots(figsize=(fig_width_in, fig_height_in))
 
     # Price line
     ax.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5, label="S&P 500 Price")
@@ -218,17 +224,19 @@ def _generate_spx_image_from_df(df_full: pd.DataFrame, anchor_date: Optional[pd.
         ax.plot(subset["Date"], lower, color=line_color, linestyle="--")
         ax.fill_between(subset["Date"], lower, upper, color=fill_color)
 
-    # Aesthetics
-    ax.set_xlabel("")
-    ax.set_ylabel("")
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.12), ncol=4, fontsize=9, frameon=False)
-    ax.grid(False)
-    plt.xticks(rotation=45)
+    # Remove spines but keep tick labels
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Retain tick labels
+    ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+
+    # Legend
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=4, fontsize=8, frameon=False)
     plt.tight_layout()
 
-    # Save to PNG bytes
+    # Save as transparent PNG
     buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=300)
+    plt.savefig(buf, format="png", dpi=300, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.read()
@@ -260,32 +268,18 @@ def insert_spx_technical_chart(
     """
     Insert the SPX technical-analysis chart into the given PowerPoint presentation.
     It searches for a slide containing a shape with the text 'tech_spx' (case-insensitive).
-    If found, the chart is inserted at that location. Otherwise, it defaults to slide 12
-    (or the last slide if fewer than 12 slides exist).
-
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint Presentation object.
-    excel_file : file-like or pathlib.Path
-        The uploaded Excel file containing SPX price data.
-    anchor_date : pandas.Timestamp or None
-        The start date for the regression channel. If None, the channel is omitted.
-
-    Returns
-    -------
-    Presentation
-        The updated presentation with the SPX chart inserted.
+    If found, the chart is inserted at that location; otherwise, it defaults to slide 12
+    (or the last slide). It uses fixed dimensions: width=21.41 cm, height=7.53 cm,
+    left=0.93 cm, top=4.39 cm. The chart has a transparent background.
     """
     # Load price data from Excel object or path
     try:
         df_full = _load_price_data_from_obj(excel_file, ticker="SPX Index")
     except Exception:
-        # Fallback to reading via path if file-like fails
         path = pathlib.Path(excel_file)
-        df_full = _add_mas(_load_price_data(path, "SPX Index"))
+        df_full = _load_price_data(path, "SPX Index")
 
-    # Generate image bytes
+    # Generate image bytes (transparent background)
     img_bytes = _generate_spx_image_from_df(df_full, anchor_date)
 
     # Search for placeholder slide
@@ -295,33 +289,30 @@ def insert_spx_technical_chart(
 
     for idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
-            if shape.has_text_frame:
-                if placeholder_text.lower() in shape.text.lower():
-                    slide_index = idx
-                    placeholder_shape = shape
-                    break
+            if shape.has_text_frame and placeholder_text.lower() in shape.text.lower():
+                slide_index = idx
+                placeholder_shape = shape
+                break
         if slide_index is not None:
             break
 
     # Determine slide and position
     if slide_index is not None:
         slide = prs.slides[slide_index]
+        # Use the placeholder's position and size to place the image
         left = placeholder_shape.left
         top = placeholder_shape.top
         width = placeholder_shape.width
         height = placeholder_shape.height
-        # Clear the placeholder text
         if placeholder_shape.has_text_frame:
             placeholder_shape.text = ""
     else:
-        # Default to slide 12 (0-index 11) or the last slide available
         slide_index = min(11, len(prs.slides) - 1)
         slide = prs.slides[slide_index]
-        # Use a centered position with margins
-        left = Inches(0.5)
-        top = Inches(1.0)
-        width = Inches(9)
-        height = Inches(4.5)
+        left = Cm(0.93)
+        top = Cm(4.39)
+        width = Cm(21.41)
+        height = Cm(7.53)
 
     # Insert the image
     stream = BytesIO(img_bytes)

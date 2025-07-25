@@ -4,8 +4,8 @@ Streamlit application with multi-page navigation:
 - YTD Update: configure and preview year-to-date performance charts for equity,
   commodity and crypto indices.
 - Technical Analysis: display a one-year SPX price chart with moving averages,
-  Fibonacci levels and an optional regression channel. Controls are placed within
-  the chart’s expander.
+  Fibonacci levels and an optional regression channel. Controls are within the
+  chart’s expander.
 - Generate Presentation: insert the configured charts into the uploaded PPTX,
   including the SPX technical-analysis chart via spx.insert_spx_technical_chart.
 """
@@ -27,7 +27,7 @@ from technical_analysis.equity.spx import (
 )
 
 # -----------------------------------------------------------------------------
-# Synthetic fallback helpers (for interactive chart if no Excel uploaded)
+# Fallback helpers for interactive chart if no Excel
 # -----------------------------------------------------------------------------
 def _create_synthetic_spx_series() -> pd.DataFrame:
     end_date = pd.Timestamp.today().normalize()
@@ -45,10 +45,6 @@ def _add_moving_averages(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 def _build_fallback_figure(df_full: pd.DataFrame, anchor_date: pd.Timestamp | None = None) -> go.Figure:
-    """
-    Construct an SPX chart using fallback data for the interactive Streamlit view.
-    Mirrors logic of spx.make_spx_figure but operates on DataFrame directly.
-    """
     if df_full.empty:
         return go.Figure()
 
@@ -166,7 +162,7 @@ elif page == "YTD Update":
         st.sidebar.error("Please upload an Excel file on the Upload page first.")
         st.stop()
 
-    # Lazy import heavy modules for YTD update
+    # Lazy import heavy modules
     from ytd_perf.loader_update import load_data
     from ytd_perf.equity_ytd import get_equity_ytd_series, create_equity_chart
     from ytd_perf.commodity_ytd import get_commodity_ytd_series, create_commodity_chart
@@ -267,7 +263,7 @@ elif page == "Technical Analysis":
         "Asset class", ["Equity", "Commodity", "Crypto"], index=0
     )
 
-    # Provide a clear channel button (global)
+    # Provide a clear channel button
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
         if "ta_anchor" in st.session_state:
             st.session_state.pop("ta_anchor")
@@ -276,7 +272,7 @@ elif page == "Technical Analysis":
     excel_available = "excel_file" in st.session_state
 
     if asset_class == "Equity":
-        # Load price data for interactive chart (real or synthetic)
+        # Load data for interactive chart (real or synthetic)
         if excel_available:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
                 tmp.write(st.session_state["excel_file"].getbuffer())
@@ -389,7 +385,7 @@ elif page == "Generate Presentation":
             tickers=st.session_state.get("selected_cr_tickers", []),
         )
 
-        # Insert SPX technical-analysis chart using the helper in spx module
+        # Insert SPX technical-analysis chart using spx module
         anchor_dt = st.session_state.get("ta_anchor")
         prs = insert_spx_technical_chart(
             prs,
@@ -403,7 +399,6 @@ elif page == "Generate Presentation":
         out_stream.seek(0)
         updated_bytes = out_stream.getvalue()
 
-        # Determine output file name and MIME type
         if st.session_state["pptx_file"].name.lower().endswith(".pptm"):
             fname = "updated_presentation.pptm"
             mime = "application/vnd.ms-powerpoint.presentation.macroEnabled.12"
