@@ -26,6 +26,7 @@ from technical_analysis.equity.spx import (
     insert_spx_technical_chart,
     insert_spx_technical_score_number,
     insert_spx_momentum_score_number,
+    insert_spx_subtitle,  # <- new import
 )
 
 # -----------------------------------------------------------------------------
@@ -322,6 +323,14 @@ elif page == "Technical Analysis":
                     st.session_state.pop("ta_anchor")
                 anchor_ts = None
 
+            # --- Add subtitle text input here ---
+            spx_subtitle = st.text_input(
+                "SPX subtitle",
+                value=st.session_state.get("spx_subtitle", ""),
+                key="spx_subtitle_input"
+            )
+            st.session_state["spx_subtitle"] = spx_subtitle
+
             # Build interactive figure
             if excel_available:
                 fig = make_spx_figure(temp_path, anchor_date=anchor_ts)
@@ -408,6 +417,12 @@ elif page == "Generate Presentation":
         prs = insert_spx_momentum_score_number(
             prs,
             st.session_state["excel_file"]
+        )
+
+        # Insert SPX subtitle
+        prs = insert_spx_subtitle(
+            prs,
+            st.session_state.get("spx_subtitle", "")
         )
 
         out_stream = BytesIO()
