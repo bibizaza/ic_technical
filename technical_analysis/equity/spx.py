@@ -559,39 +559,23 @@ def insert_spx_subtitle(
 # ---------------------------------------------------------------------------
 def _interpolate_color(value: float) -> Tuple[float, float, float]:
     """
-    Interpolate a colour from red → yellow → green based on a value between 0 and 100.
+    Interpolate a colour from red → yellow → green based on a value between
+    0 and 100.  The colour palette uses vivid hues to avoid muddiness: pure
+    red at 0, bright yellow at 40 and a rich green at 70.  Values are
+    blended linearly between these breakpoints; above 70 the colour is
+    clamped to green.
     """
-    red = (192 / 255, 0, 0)  # #C00000
-    yellow = (246 / 255, 178 / 255, 107 / 255)  # #F6B26B
-    green = (106 / 255, 168 / 255, 79 / 255)  # #6AA84F
-
-    if value <= 33:
-        t = value / 33
-        return tuple(red[i] + t * (yellow[i] - red[i]) for i in range(3))
-    elif value <= 66:
-        t = (value - 33) / 33
-        return tuple(yellow[i] + t * (green[i] - yellow[i]) for i in range(3))
-    else:
-        return green
-
-
-# ---------------------------------------------------------------------------
-# Average gauge generation
-# ---------------------------------------------------------------------------
-# Revised _interpolate_color with vivid colours and new breakpoints
-def _interpolate_color(value: float) -> Tuple[float, float, float]:
-    red    = (255/255, 0/255, 0/255)      # pure red
-    yellow = (255/255, 204/255, 0/255)    # bright yellow
-    green  = (0/255, 153/255, 81/255)     # rich green
+    red    = (1.0, 0.0, 0.0)                      # #FF0000
+    yellow = (1.0, 204.0/255.0, 0.0)              # #FFCC00
+    green  = (0.0, 153.0/255.0, 81.0/255.0)       # #009951
 
     if value <= 40:
         t = value / 40.0
-        return tuple(red[i] + t*(yellow[i] - red[i]) for i in range(3))
-    elif value <= 70:
+        return tuple(red[i] + t*(yellow[i]-red[i]) for i in range(3))
+    if value <= 70:
         t = (value - 40.0) / 30.0
-        return tuple(yellow[i] + t*(green[i] - yellow[i]) for i in range(3))
-    else:
-        return green
+        return tuple(yellow[i] + t*(green[i]-yellow[i]) for i in range(3))
+    return green
 
 def generate_average_gauge_image(
     tech_score: float,
@@ -602,17 +586,19 @@ def generate_average_gauge_image(
     width_cm: float = 15.15,
     height_cm: float = 3.13,
 ) -> bytes:
-    """Draw a horizontal gauge showing the average of technical and momentum scores."""
+    """
+    Create a horizontal gauge showing the average of two scores (0–100) alongside
+    last week's average (0–100).  Uses pure red, yellow and green for the
+    gradient, and positions the labels with increased spacing.
+    """
     def clamp100(x: float) -> float:
         return max(0.0, min(100.0, float(x)))
 
     curr = (clamp100(tech_score) + clamp100(mom_score)) / 2.0
     prev = clamp100(last_week_avg)
 
+    # Build gradient with our vivid colours
     from matplotlib.colors import LinearSegmentedColormap
-    import numpy as np
-
-    # Build gradient colormap
     cmap = LinearSegmentedColormap.from_list(
         "gauge_gradient", ["#FF0000", "#FFCC00", "#009951"], N=256
     )
@@ -621,11 +607,12 @@ def generate_average_gauge_image(
     plt.style.use("default")
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
-    # Draw the gradient bar
+    # Draw gradient bar
+    import numpy as np
     gradient = np.linspace(0, 1, 500).reshape(1, -1)
-    bar_thickness = 0.2
-    bar_bottom_y  = -bar_thickness / 2.0
-    bar_top_y     =  bar_thickness / 2.0
+    bar_thickness = 0.4
+    bar_bottom_y = -bar_thickness / 2.0
+    bar_top_y    =  bar_thickness / 2.0
     ax.imshow(
         gradient,
         extent=[0, 100, bar_bottom_y, bar_top_y],
@@ -634,65 +621,68 @@ def generate_average_gauge_image(
         origin="lower",
     )
 
-    # Triangle size and spacing parameters
-    marker_width  = 3.0
-    marker_height = 0.15
-    gap           = 0.07   # space between bar and triangle
-    number_space  = 0.20   # space between triangle and number
-    label_space   = 0.20   # space between number and label
+    # Marker size and spacing constants
+    marker_width       = 3.0
+    marker_height      = 0.15
+    gap                = 0.1   # bar–triangle gap
+    number_space       = 0.25   # triangle–number spacing
+    top_label_offset   = 0.40   # number–top-label spacing
+    bottom_label_offset= 0.40   # number–bottom-label spacing
 
-    # Calculate Y positions
+    # Compute Y coordinates for current average
     top_apex_y    = bar_top_y + gap
     top_base_y    = top_apex_y + marker_height
     top_number_y  = top_base_y + number_space
-    top_label_y   = top_number_y + label_space
+    top_label_y   = top_number_y + top_label_offset
 
+    # Compute Y coordinates for last week average
     bottom_apex_y   = bar_bottom_y - gap
     bottom_base_y   = bottom_apex_y - marker_height
     bottom_number_y = bottom_base_y - number_space
-    bottom_label_y  = bottom_number_y - label_space
+    bottom_label_y  = bottom_number_y - bottom_label_offset
 
-    # Get colours from interpolation
+    # Colours via interpolation
     curr_colour = _interpolate_color(curr)
     prev_colour = _interpolate_color(prev)
 
-    # Draw triangles
-    ax.add_patch(patches.Polygon([
-        (curr - marker_width/2, top_base_y),
-        (curr + marker_width/2, top_base_y),
-        (curr, top_apex_y)
-    ], color=curr_colour))
-    ax.add_patch(patches.Polygon([
-        (prev - marker_width/2, bottom_base_y),
-        (prev + marker_width/2, bottom_base_y),
-        (prev, bottom_apex_y)
-    ], color=prev_colour))
-
-    # Draw numbers
+    # Draw triangles and numbers
+    ax.add_patch(
+        patches.Polygon([
+            (curr - marker_width/2, top_base_y),
+            (curr + marker_width/2, top_base_y),
+            (curr, top_apex_y)
+        ], color=curr_colour)
+    )
+    ax.add_patch(
+        patches.Polygon([
+            (prev - marker_width/2, bottom_base_y),
+            (prev + marker_width/2, bottom_base_y),
+            (prev, bottom_apex_y)
+        ], color=prev_colour)
+    )
     ax.text(curr, top_number_y, f"{curr:.0f}", color=curr_colour,
             ha="center", va="center", fontsize=8, fontweight="bold")
     ax.text(prev, bottom_number_y, f"{prev:.0f}", color=prev_colour,
             ha="center", va="center", fontsize=8, fontweight="bold")
 
-    # Draw labels – same size for both “Last” and “Last Week”
+    # Draw labels
     if date_text:
         ax.text(curr, top_label_y, date_text, color="#0063B0",
                 ha="center", va="center", fontsize=7, fontweight="bold")
     ax.text(prev, bottom_label_y, last_label_text, color="#133C74",
             ha="center", va="center", fontsize=7, fontweight="bold")
 
-    # Adjust plot limits and hide axes
+    # Axis limits and hide axes
     ax.set_xlim(0, 100)
     ax.set_ylim(bottom_label_y - 0.35, top_label_y + 0.35)
     ax.axis("off")
 
-    # Return PNG bytes
+    # Export to PNG
     buf = BytesIO()
     plt.savefig(buf, format="png", dpi=300, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
-
 # ---------------------------------------------------------------------------
 # Helper to load from file‑like object
 # ---------------------------------------------------------------------------
