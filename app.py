@@ -1,13 +1,29 @@
+# Streamlit app for technical dashboard and presentation generation
+
 """
-Streamlit application with multi-page navigation:
-- Upload: allow user to upload an Excel file and a PowerPoint template.
-- YTD Update: configure and preview year-to-date performance charts for equity,
-  commodity and crypto indices.
-- Technical Analysis: display a one-year SPX price chart with moving averages,
-  Fibonacci levels and an optional regression channel. Controls are within the
-  chart’s expander.
-- Generate Presentation: insert the configured charts into the uploaded PPTX,
-  including the SPX technical-analysis chart via spx.insert_spx_technical_chart.
+This Streamlit application allows users to upload data, configure year‑to‑date (YTD)
+charts for various asset classes, perform technical analysis on the S&P 500
+index and generate a customised PowerPoint presentation. The app persists
+configuration selections in the session state and leverages helper functions
+for chart creation and PowerPoint editing.
+
+Key features:
+
+* **Upload** – upload an Excel workbook containing price series, technical scores
+  and trend ratings along with a PowerPoint template.
+* **YTD Update** – configure which equity, commodity and crypto indices to
+  include in the YTD charts and preview the resulting charts.
+* **Technical Analysis** – display a one‑year S&P 500 price chart with
+  optional regression channel and moving averages. A new horizontal gauge
+  below the chart visualises the average of the technical and momentum scores
+  compared with last week’s average. Users input the prior week’s average via
+  a number box. The gauge is also persisted for later insertion into the
+  generated presentation.
+* **Generate Presentation** – insert all configured charts, technical indicators
+  and subtitle text into the uploaded PowerPoint template. The application
+  inserts the SPX technical chart, the technical score number, the momentum
+  score number, the user‑defined subtitle and the average gauge into the
+  appropriate slide.
 """
 
 import streamlit as st
@@ -26,13 +42,18 @@ from technical_analysis.equity.spx import (
     insert_spx_technical_chart,
     insert_spx_technical_score_number,
     insert_spx_momentum_score_number,
-    insert_spx_subtitle,  # <- new import
+    insert_spx_subtitle,
+    generate_average_gauge_image,
+    _get_spx_technical_score,
+    _get_spx_momentum_score,
+    insert_spx_average_gauge,
 )
 
 # -----------------------------------------------------------------------------
 # Fallback helpers for interactive chart if no Excel
 # -----------------------------------------------------------------------------
 def _create_synthetic_spx_series() -> pd.DataFrame:
+    """Create a synthetic SPX price series for demonstration purposes."""
     end_date = pd.Timestamp.today().normalize()
     start_date = end_date - pd.Timedelta(days=730)
     dates = pd.date_range(start=start_date, end=end_date, freq="B")
@@ -41,13 +62,19 @@ def _create_synthetic_spx_series() -> pd.DataFrame:
     prices = 100 * np.exp(np.cumsum(returns))
     return pd.DataFrame({"Date": dates, "Price": prices})
 
+
 def _add_moving_averages(df: pd.DataFrame) -> pd.DataFrame:
+    """Add moving averages to a DataFrame with a Price column."""
     out = df.copy()
     for w in (50, 100, 200):
         out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
     return out
 
-def _build_fallback_figure(df_full: pd.DataFrame, anchor_date: pd.Timestamp | None = None) -> go.Figure:
+
+def _build_fallback_figure(
+    df_full: pd.DataFrame, anchor_date: pd.Timestamp | None = None
+) -> go.Figure:
+    """Build a Plotly figure using synthetic data when no Excel file is loaded."""
     if df_full.empty:
         return go.Figure()
 
@@ -56,26 +83,42 @@ def _build_fallback_figure(df_full: pd.DataFrame, anchor_date: pd.Timestamp | No
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df["Date"], y=df["Price"],
-        mode="lines", name="S&P 500 Price",
-        line=dict(color="#153D64", width=2.5)
-    ))
-    fig.add_trace(go.Scatter(
-        x=df["Date"], y=df.get("MA_50", df["Price"]),
-        mode="lines", name="50-day MA",
-        line=dict(color="#008000", width=1.5)
-    ))
-    fig.add_trace(go.Scatter(
-        x=df["Date"], y=df.get("MA_100", df["Price"]),
-        mode="lines", name="100-day MA",
-        line=dict(color="#FFA500", width=1.5)
-    ))
-    fig.add_trace(go.Scatter(
-        x=df["Date"], y=df.get("MA_200", df["Price"]),
-        mode="lines", name="200-day MA",
-        line=dict(color="#FF0000", width=1.5)
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df["Price"],
+            mode="lines",
+            name="S&P 500 Price",
+            line=dict(color="#153D64", width=2.5),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df.get("MA_50", df["Price"]),
+            mode="lines",
+            name="50-day MA",
+            line=dict(color="#008000", width=1.5),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df.get("MA_100", df["Price"]),
+            mode="lines",
+            name="100-day MA",
+            line=dict(color="#FFA500", width=1.5),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df.get("MA_200", df["Price"]),
+            mode="lines",
+            name="200-day MA",
+            line=dict(color="#FF0000", width=1.5),
+        )
+    )
 
     hi, lo = df["Price"].max(), df["Price"].min()
     span = hi - lo
@@ -99,27 +142,36 @@ def _build_fallback_figure(df_full: pd.DataFrame, anchor_date: pd.Timestamp | No
             uptrend = model.coef_[0] > 0
             lineclr = "green" if uptrend else "red"
             fillclr = "rgba(0,150,0,0.25)" if uptrend else "rgba(200,0,0,0.25)"
-            fig.add_trace(go.Scatter(
-                x=subset["Date"], y=upper,
-                mode="lines",
-                line=dict(color=lineclr, dash="dash"),
-                showlegend=False,
-            ))
-            fig.add_trace(go.Scatter(
-                x=subset["Date"], y=lower,
-                mode="lines",
-                line=dict(color=lineclr, dash="dash"),
-                fill="tonexty", fillcolor=fillclr,
-                showlegend=False,
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=subset["Date"],
+                    y=upper,
+                    mode="lines",
+                    line=dict(color=lineclr, dash="dash"),
+                    showlegend=False,
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=subset["Date"],
+                    y=lower,
+                    mode="lines",
+                    line=dict(color=lineclr, dash="dash"),
+                    fill="tonexty",
+                    fillcolor=fillclr,
+                    showlegend=False,
+                )
+            )
 
     fig.update_layout(
         margin=dict(l=30, r=30, t=60, b=40),
         showlegend=True,
         legend=dict(
             orientation="h",
-            yanchor="bottom", y=1.12,
-            xanchor="center", x=0.5,
+            yanchor="bottom",
+            y=1.12,
+            xanchor="center",
+            x=0.5,
             font=dict(size=12),
         ),
         xaxis_title=None,
@@ -179,8 +231,18 @@ elif page == "YTD Update":
     eq_name_to_ticker = {row["Name"]: row["Tickers"] for _, row in eq_params.iterrows()}
     eq_names_available = eq_params["Name"].tolist()
     default_eq = [
-        name for name in ["Dax", "Ibov", "S&P 500", "Sensex", "SMI",
-                          "Shenzen CSI 300", "Nikkei 225", "TASI"] if name in eq_names_available
+        name
+        for name in [
+            "Dax",
+            "Ibov",
+            "S&P 500",
+            "Sensex",
+            "SMI",
+            "Shenzen CSI 300",
+            "Nikkei 225",
+            "TASI",
+        ]
+        if name in eq_names_available
     ]
     selected_eq_names = st.sidebar.multiselect(
         "Select equity indices",
@@ -201,7 +263,8 @@ elif page == "YTD Update":
     co_name_to_ticker = {row["Name"]: row["Tickers"] for _, row in co_params.iterrows()}
     co_names_available = co_params["Name"].tolist()
     default_co = [
-        name for name in ["Gold", "Silver", "Oil (WTI)", "Platinum", "Copper", "Uranium"]
+        name
+        for name in ["Gold", "Silver", "Oil (WTI)", "Platinum", "Copper", "Uranium"]
         if name in co_names_available
     ]
     selected_co_names = st.sidebar.multiselect(
@@ -223,7 +286,8 @@ elif page == "YTD Update":
     cr_name_to_ticker = {row["Name"]: row["Tickers"] for _, row in cr_params.iterrows()}
     cr_names_available = cr_params["Name"].tolist()
     default_cr = [
-        name for name in ["Ripple", "Bitcoin", "Binance", "Ethereum", "Solana"]
+        name
+        for name in ["Ripple", "Bitcoin", "Binance", "Ethereum", "Solana"]
         if name in cr_names_available
     ]
     selected_cr_names = st.sidebar.multiselect(
@@ -286,7 +350,9 @@ elif page == "Technical Analysis":
             df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
             df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
             df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
-            df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
+            df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(
+                drop=True
+            )
             df_full = df_prices.copy()
         else:
             df_prices = _create_synthetic_spx_series()
@@ -300,21 +366,21 @@ elif page == "Technical Analysis":
             enable_channel = st.checkbox(
                 "Enable regression channel",
                 value=bool(st.session_state.get("ta_anchor")),
-                key="spx_enable_channel"
+                key="spx_enable_channel",
             )
 
             anchor_ts = None
             if enable_channel:
                 default_anchor = st.session_state.get(
                     "ta_anchor",
-                    (max_date - pd.Timedelta(days=180))
+                    (max_date - pd.Timedelta(days=180)),
                 )
                 anchor_input = st.date_input(
                     "Select anchor date",
                     value=default_anchor,
                     min_value=min_date,
                     max_value=max_date,
-                    key="spx_anchor_date_input"
+                    key="spx_anchor_date_input",
                 )
                 anchor_ts = pd.to_datetime(anchor_input)
                 st.session_state["ta_anchor"] = anchor_ts
@@ -323,11 +389,11 @@ elif page == "Technical Analysis":
                     st.session_state.pop("ta_anchor")
                 anchor_ts = None
 
-            # --- Add subtitle text input here ---
+            # Subtitle
             spx_subtitle = st.text_input(
                 "SPX subtitle",
                 value=st.session_state.get("spx_subtitle", ""),
-                key="spx_subtitle_input"
+                key="spx_subtitle_input",
             )
             st.session_state["spx_subtitle"] = spx_subtitle
 
@@ -346,6 +412,63 @@ elif page == "Technical Analysis":
                 "Use the controls above to enable and configure the regression channel. "
                 "Green shading indicates an uptrend; red shading indicates a downtrend."
             )
+
+            # -------------------------------------------------------------------
+            # Gauge for average of technical & momentum scores
+            # -------------------------------------------------------------------
+            st.markdown("---")
+            st.subheader("Average technical and momentum score")
+            # Request last week's average on a 0–100 scale. Persist in session.
+            last_week_avg_input = st.number_input(
+                "Enter last week's average (0–100)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get("spx_last_week_avg", 50.0)),
+                step=1.0,
+                key="spx_last_week_avg_input",
+            )
+            st.session_state["spx_last_week_avg"] = float(last_week_avg_input)
+
+            # Compute current technical and momentum scores from Excel if available
+            tech_score = None
+            mom_score = None
+            if excel_available:
+                try:
+                    tech_score = _get_spx_technical_score(st.session_state["excel_file"])
+                except Exception:
+                    tech_score = None
+                try:
+                    mom_score = _get_spx_momentum_score(st.session_state["excel_file"])
+                except Exception:
+                    mom_score = None
+
+            # If scores are found, draw gauge; otherwise inform user
+            if tech_score is not None and mom_score is not None:
+                # Determine date text from loaded data: for Excel use the last date in df_full; otherwise today's date
+                try:
+                    if excel_available and not df_full.empty:
+                        max_dt = pd.to_datetime(df_full["Date"]).max()
+                        date_label = (
+                            max_dt.strftime("As of %d.%m.%Y") if pd.notnull(max_dt) else None
+                        )
+                    else:
+                        date_label = pd.Timestamp.today().strftime("As of %d.%m.%Y")
+                except Exception:
+                    date_label = None
+
+                gauge_bytes = generate_average_gauge_image(
+                    tech_score,
+                    mom_score,
+                    float(last_week_avg_input),
+                    date_text=date_label,
+                    last_label_text="Previous Week",
+                )
+                st.image(gauge_bytes, caption="Average score gauge")
+            else:
+                st.info(
+                    "Technical or momentum score not available in the uploaded Excel. "
+                    "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
+                )
     else:
         with st.expander(f"{asset_class} technical charts", expanded=False):
             st.info(f"{asset_class} technical analysis not implemented yet.")
@@ -356,18 +479,15 @@ elif page == "Technical Analysis":
 elif page == "Generate Presentation":
     st.sidebar.header("Generate Presentation")
     if "excel_file" not in st.session_state or "pptx_file" not in st.session_state:
-        st.sidebar.error("Please upload both an Excel file and a PowerPoint template in the Upload page.")
+        st.sidebar.error(
+            "Please upload both an Excel file and a PowerPoint template in the Upload page."
+        )
         st.stop()
 
     # Lazy import functions for inserting charts into PPT
     from ytd_perf.equity_ytd import insert_equity_chart
     from ytd_perf.commodity_ytd import insert_commodity_chart
     from ytd_perf.crypto_ytd import insert_crypto_chart
-    # Import our new score insertion function
-    from technical_analysis.equity.spx import (
-        insert_spx_technical_chart,
-        insert_spx_technical_score_number,
-    )
 
     st.sidebar.write("### Summary of selections")
     st.sidebar.write("Equities:", st.session_state.get("selected_eq_names", []))
@@ -414,6 +534,7 @@ elif page == "Generate Presentation":
             st.session_state["excel_file"],
         )
 
+        # Insert SPX momentum score number
         prs = insert_spx_momentum_score_number(
             prs,
             st.session_state["excel_file"]
@@ -422,7 +543,15 @@ elif page == "Generate Presentation":
         # Insert SPX subtitle
         prs = insert_spx_subtitle(
             prs,
-            st.session_state.get("spx_subtitle", "")
+            st.session_state.get("spx_subtitle", ""),
+        )
+
+        # Insert SPX average gauge (last week's average is 0–100)
+        last_week_avg = st.session_state.get("spx_last_week_avg", 50.0)
+        prs = insert_spx_average_gauge(
+            prs,
+            st.session_state["excel_file"],
+            last_week_avg,
         )
 
         out_stream = BytesIO()
