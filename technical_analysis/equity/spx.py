@@ -575,54 +575,57 @@ def _interpolate_color(value: float) -> Tuple[float, float, float]:
         return green
 
 
+# ---------------------------------------------------------------------------
+# Average gauge generation
+# ---------------------------------------------------------------------------
+# Revised _interpolate_color with vivid colours and new breakpoints
+def _interpolate_color(value: float) -> Tuple[float, float, float]:
+    red    = (255/255, 0/255, 0/255)      # pure red
+    yellow = (255/255, 204/255, 0/255)    # bright yellow
+    green  = (0/255, 153/255, 81/255)     # rich green
+
+    if value <= 40:
+        t = value / 40.0
+        return tuple(red[i] + t*(yellow[i] - red[i]) for i in range(3))
+    elif value <= 70:
+        t = (value - 40.0) / 30.0
+        return tuple(yellow[i] + t*(green[i] - yellow[i]) for i in range(3))
+    else:
+        return green
+
 def generate_average_gauge_image(
     tech_score: float,
     mom_score: float,
     last_week_avg: float,
     date_text: str | None = None,
-    last_label_text: str = "Previous Week",
+    last_label_text: str = "Last Week",
     width_cm: float = 15.15,
     height_cm: float = 3.13,
 ) -> bytes:
-    """
-    Create a horizontal gauge that visualises the average of two scores (both on
-    a 0–100 scale) alongside a prior week's average (also on a 0–100 scale).
-
-    The gauge uses a smooth red→yellow→green gradient with no end labels (0
-    and 100 are hidden unless they correspond to the measured values). A
-    downward‑pointing triangle marks the current average above the bar, and an
-    upward‑pointing triangle marks the previous week's average below the bar.
-    Both markers and their numeric labels adopt the colour corresponding to
-    their position on the gradient. A custom label can be displayed above the
-    current marker (for example, "Last"), and a custom label appears beneath
-    the previous week's marker. The default dimensions (15.15 cm wide by 3.13 cm
-    high) are tuned to match the reference design.
-    """
-    # Ensure scores lie within 0–100
-    def clamp100(value: float) -> float:
-        return max(0.0, min(100.0, float(value)))
+    """Draw a horizontal gauge showing the average of technical and momentum scores."""
+    def clamp100(x: float) -> float:
+        return max(0.0, min(100.0, float(x)))
 
     curr = (clamp100(tech_score) + clamp100(mom_score)) / 2.0
     prev = clamp100(last_week_avg)
 
-    # Build a smooth gradient colour map from red → yellow → green
     from matplotlib.colors import LinearSegmentedColormap
+    import numpy as np
 
+    # Build gradient colormap
     cmap = LinearSegmentedColormap.from_list(
-        "gauge_gradient", ["#C00000", "#F6B26B", "#6AA84F"], N=256
+        "gauge_gradient", ["#FF0000", "#FFCC00", "#009951"], N=256
     )
 
     fig_w, fig_h = width_cm / 2.54, height_cm / 2.54
     plt.style.use("default")
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
-    # Draw horizontal gradient bar with increased thickness
-    import numpy as np
-
+    # Draw the gradient bar
     gradient = np.linspace(0, 1, 500).reshape(1, -1)
     bar_thickness = 0.2
-    bar_bottom_y = -bar_thickness / 2.0
-    bar_top_y = bar_thickness / 2.0
+    bar_bottom_y  = -bar_thickness / 2.0
+    bar_top_y     =  bar_thickness / 2.0
     ax.imshow(
         gradient,
         extent=[0, 100, bar_bottom_y, bar_top_y],
@@ -631,100 +634,64 @@ def generate_average_gauge_image(
         origin="lower",
     )
 
-    # Dimensions for the triangular markers (smaller and subtle)
-    marker_width = 3.0
+    # Triangle size and spacing parameters
+    marker_width  = 3.0
     marker_height = 0.15
+    gap           = 0.07   # space between bar and triangle
+    number_space  = 0.20   # space between triangle and number
+    label_space   = 0.20   # space between number and label
 
-    # Vertical positions for current marker and labels
-    top_apex_y = bar_top_y
-    top_base_y = top_apex_y + marker_height
-    top_number_y = top_base_y + 0.10
-    top_date_y = top_number_y + 0.10
+    # Calculate Y positions
+    top_apex_y    = bar_top_y + gap
+    top_base_y    = top_apex_y + marker_height
+    top_number_y  = top_base_y + number_space
+    top_label_y   = top_number_y + label_space
 
-    # Vertical positions for previous marker and labels
-    bottom_apex_y = bar_bottom_y
-    bottom_base_y = bottom_apex_y - marker_height
-    bottom_number_y = bottom_base_y - 0.10
-    bottom_label_y = bottom_number_y - 0.10
+    bottom_apex_y   = bar_bottom_y - gap
+    bottom_base_y   = bottom_apex_y - marker_height
+    bottom_number_y = bottom_base_y - number_space
+    bottom_label_y  = bottom_number_y - label_space
 
-    # Colours for current and previous values
+    # Get colours from interpolation
     curr_colour = _interpolate_color(curr)
     prev_colour = _interpolate_color(prev)
 
-    # Draw downward triangle for current average
-    verts_down = [
-        (curr - marker_width / 2.0, top_base_y),
-        (curr + marker_width / 2.0, top_base_y),
-        (curr, top_apex_y),
-    ]
-    ax.add_patch(patches.Polygon(verts_down, color=curr_colour))
-    # Draw upward triangle for previous average
-    verts_up = [
-        (prev - marker_width / 2.0, bottom_base_y),
-        (prev + marker_width / 2.0, bottom_base_y),
-        (prev, bottom_apex_y),
-    ]
-    ax.add_patch(patches.Polygon(verts_up, color=prev_colour))
+    # Draw triangles
+    ax.add_patch(patches.Polygon([
+        (curr - marker_width/2, top_base_y),
+        (curr + marker_width/2, top_base_y),
+        (curr, top_apex_y)
+    ], color=curr_colour))
+    ax.add_patch(patches.Polygon([
+        (prev - marker_width/2, bottom_base_y),
+        (prev + marker_width/2, bottom_base_y),
+        (prev, bottom_apex_y)
+    ], color=prev_colour))
 
-    # Current value text (small)
-    ax.text(
-        curr,
-        top_number_y,
-        f"{curr:.0f}",
-        color=curr_colour,
-        ha="center",
-        va="center",
-        fontsize=8,
-        fontweight="bold",
-    )
-    # Optional label above current marker
+    # Draw numbers
+    ax.text(curr, top_number_y, f"{curr:.0f}", color=curr_colour,
+            ha="center", va="center", fontsize=8, fontweight="bold")
+    ax.text(prev, bottom_number_y, f"{prev:.0f}", color=prev_colour,
+            ha="center", va="center", fontsize=8, fontweight="bold")
+
+    # Draw labels – same size for both “Last” and “Last Week”
     if date_text:
-        ax.text(
-            curr,
-            top_date_y,
-            date_text,
-            color="#0063B0",
-            ha="center",
-            va="center",
-            fontsize=7,
-            fontweight="bold",
-        )
+        ax.text(curr, top_label_y, date_text, color="#0063B0",
+                ha="center", va="center", fontsize=7, fontweight="bold")
+    ax.text(prev, bottom_label_y, last_label_text, color="#133C74",
+            ha="center", va="center", fontsize=7, fontweight="bold")
 
-    # Previous week value text (small)
-    ax.text(
-        prev,
-        bottom_number_y,
-        f"{prev:.0f}",
-        color=prev_colour,
-        ha="center",
-        va="center",
-        fontsize=8,
-        fontweight="bold",
-    )
-    # Label beneath previous marker (small)
-    ax.text(
-        prev,
-        bottom_label_y,
-        last_label_text,
-        color="#133C74",
-        ha="center",
-        va="center",
-        fontsize=7,
-        fontweight="bold",
-    )
-
-    # Set axes limits and hide spines/ticks
+    # Adjust plot limits and hide axes
     ax.set_xlim(0, 100)
-    ax.set_ylim(bottom_label_y - 0.20, top_date_y + 0.20)
+    ax.set_ylim(bottom_label_y - 0.35, top_label_y + 0.35)
     ax.axis("off")
 
-    # Save the figure to a bytes buffer
+    # Return PNG bytes
     buf = BytesIO()
     plt.savefig(buf, format="png", dpi=300, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
-
 
 # ---------------------------------------------------------------------------
 # Helper to load from file‑like object
