@@ -24,7 +24,8 @@ from pathlib import Path
 from technical_analysis.equity.spx import (
     make_spx_figure,
     insert_spx_technical_chart,
-    insert_spx_technical_score_number
+    insert_spx_technical_score_number,
+    insert_spx_momentum_score_number,
 )
 
 # -----------------------------------------------------------------------------
@@ -402,6 +403,11 @@ elif page == "Generate Presentation":
         prs = insert_spx_technical_score_number(
             prs,
             st.session_state["excel_file"],
+        )
+
+        prs = insert_spx_momentum_score_number(
+            prs,
+            st.session_state["excel_file"]
         )
 
         out_stream = BytesIO()

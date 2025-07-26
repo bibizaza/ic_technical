@@ -517,6 +517,120 @@ def insert_spx_technical_score_number(
 
     return prs
 
+def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
+    """
+    Retrieve the momentum score for SPX from the sheet 'data_trend_rating'.
+    Assumes column A contains the ticker and column D contains the score.
+    Returns None if not found or on error.
+    """
+    try:
+        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
+    except Exception:
+        return None
+
+    # Drop rows without a ticker or score
+    df = df.dropna(subset=[df.columns[0], df.columns[3]])
+    for _, row in df.iterrows():
+        ticker = str(row[df.columns[0]]).strip().upper()
+        if ticker == "SPX INDEX":
+            try:
+                return float(row[df.columns[3]])  # column D (zero-indexed 3)
+            except Exception:
+                return None
+    return None
+
+def insert_spx_momentum_score_number(
+    prs: Presentation,
+    excel_file,
+) -> Presentation:
+    """
+    Insert the SPX momentum score (integer, no decimals) into the shape named
+    'mom_score_spx', or into a shape containing '[XXX]' or 'XXX', preserving
+    the formatting of the original text.
+    """
+    score = _get_spx_momentum_score(excel_file)
+    if score is None:
+        score_text = "N/A"
+    else:
+        try:
+            score_text = f"{int(round(float(score)))}"
+        except Exception:
+            score_text = str(score)
+
+    placeholder_name = "mom_score_spx"
+    placeholder_patterns = ["[XXX]", "XXX"]
+
+    found = False
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            # Check the shape's name first
+            if hasattr(shape, "name") and shape.name.lower() == placeholder_name:
+                if shape.has_text_frame:
+                    # Extract formatting from first run
+                    if shape.text_frame.paragraphs and shape.text_frame.paragraphs[0].runs:
+                        orig_run = shape.text_frame.paragraphs[0].runs[0]
+                        saved_size = orig_run.font.size
+                        saved_color = orig_run.font.color.rgb
+                        saved_bold = orig_run.font.bold
+                        saved_italic = orig_run.font.italic
+                    else:
+                        saved_size = saved_color = saved_bold = saved_italic = None
+                    # Replace text
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = score_text
+                    if saved_size:
+                        new_run.font.size = saved_size
+                    if saved_color:
+                        new_run.font.color.rgb = saved_color
+                    if saved_bold is not None:
+                        new_run.font.bold = saved_bold
+                    if saved_italic is not None:
+                        new_run.font.italic = saved_italic
+                found = True
+                break
+
+            # If not matching by name, look for placeholder patterns in text
+            if shape.has_text_frame:
+                for pattern in placeholder_patterns:
+                    if pattern in shape.text:
+                        # Extract formatting
+                        para = shape.text_frame.paragraphs[0]
+                        if para.runs:
+                            orig_run = para.runs[0]
+                            saved_size = orig_run.font.size
+                            saved_color = orig_run.font.color.rgb
+                            saved_bold = orig_run.font.bold
+                            saved_italic = orig_run.font.italic
+                        else:
+                            saved_size = saved_color = saved_bold = saved_italic = None
+
+                        new_text = shape.text.replace(pattern, score_text)
+                        shape.text_frame.clear()
+                        new_para = shape.text_frame.paragraphs[0]
+                        new_run = new_para.add_run()
+                        new_run.text = new_text
+                        # Apply formatting to the entire text (including the score)
+                        if saved_size:
+                            new_run.font.size = saved_size
+                        if saved_color:
+                            new_run.font.color.rgb = saved_color
+                        if saved_bold is not None:
+                            new_run.font.bold = saved_bold
+                        if saved_italic is not None:
+                            new_run.font.italic = saved_italic
+                        found = True
+                        break
+
+            if found:
+                break
+        if found:
+            break
+
+    return prs
+
 # Helper to load from file-like object
 def _load_price_data_from_obj(excel_obj, ticker: str = "SPX Index") -> pd.DataFrame:
     df = pd.read_excel(excel_obj, sheet_name="data_prices")
