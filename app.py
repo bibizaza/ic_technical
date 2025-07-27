@@ -47,6 +47,7 @@ from technical_analysis.equity.spx import (
     _get_spx_technical_score,
     _get_spx_momentum_score,
     insert_spx_average_gauge,
+    insert_spx_technical_assessment
 )
 
 # -----------------------------------------------------------------------------
@@ -552,6 +553,12 @@ elif page == "Generate Presentation":
             prs,
             st.session_state["excel_file"],
             last_week_avg,
+        )
+
+        # Insert the technical assessment text into the 'tech_spx' textbox
+        prs = insert_spx_technical_assessment(
+            prs,
+            st.session_state["excel_file"],
         )
 
         out_stream = BytesIO()

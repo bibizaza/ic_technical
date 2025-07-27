@@ -1,23 +1,22 @@
 """
-Utility functions for SPX technical analysis and high-resolution export.
+Utility functions for SPX technical analysis and high‑resolution export.
 
 This module provides tools to build interactive and static charts for the
-S&P 500 index, calculate and insert technical and momentum scores into
+S&P 500 index, calculate and insert technical and momentum scores into
 PowerPoint presentations, generate a horizontal gauge that visualises the
 average of the technical and momentum scores, and insert that gauge into
-a slide. Functions are designed to gracefully fall back to default
-positions when placeholders are not found.
+a slide. Functions fall back to sensible defaults when placeholders are
+not found.
 
-Functions
----------
-* ``make_spx_figure`` – build an interactive Plotly chart for Streamlit.
-* ``insert_spx_technical_chart`` – insert a static SPX chart into a PPT slide.
-* ``insert_spx_technical_score_number`` – insert the technical score (integer).
-* ``insert_spx_momentum_score_number`` – insert the momentum score (integer).
-* ``insert_spx_subtitle`` – insert a user-defined subtitle into the SPX slide.
-* ``generate_average_gauge_image`` – create a horizontal gauge showing the
-  average of technical and momentum scores (with last week's average).
-* ``insert_spx_average_gauge`` – insert the average gauge into a PPT slide.
+Key functions:
+  * make_spx_figure – interactive Plotly chart for Streamlit.
+  * insert_spx_technical_chart – insert a static SPX chart into the PPT.
+  * insert_spx_technical_score_number – insert the technical score (integer).
+  * insert_spx_momentum_score_number – insert the momentum score (integer).
+  * insert_spx_subtitle – insert a user‑defined subtitle into the SPX slide.
+  * generate_average_gauge_image – create a horizontal gauge image.
+  * insert_spx_average_gauge – insert the gauge into a PPT slide.
+  * insert_spx_technical_assessment – insert a descriptive “view” text.
 """
 
 from __future__ import annotations
@@ -30,33 +29,23 @@ import pandas as pd
 import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 
-# For PPT insertion
 from pptx import Presentation
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-
 # ---------------------------------------------------------------------------
 # Data helpers
 # ---------------------------------------------------------------------------
-def _load_price_data(
-    excel_path: pathlib.Path,
-    ticker: str = "SPX Index",
-) -> pd.DataFrame:
-    """Read the raw price sheet and return tidy Date–Price DataFrame."""
+def _load_price_data(excel_path: pathlib.Path, ticker: str = "SPX Index") -> pd.DataFrame:
+    """Read the raw price sheet and return tidy Date‑Price DataFrame."""
     df = pd.read_excel(excel_path, sheet_name="data_prices")
-    df = df.drop(index=0)  # first row = '#price'
-    df = df[df[df.columns[0]] != "DATES"]  # second header row
+    df = df.drop(index=0)
+    df = df[df[df.columns[0]] != "DATES"]
     df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
     df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    return (
-        df.dropna(subset=["Date", "Price"])
-        .sort_values("Date")
-        .reset_index(drop=True)[["Date", "Price"]]
-    )
-
+    return df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date","Price"]]
 
 def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
     """Add 50/100/200‑day moving‑average columns."""
@@ -65,16 +54,13 @@ def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
         out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
     return out
 
-
 # ---------------------------------------------------------------------------
 # Plotly interactive chart for Streamlit
 # ---------------------------------------------------------------------------
-def make_spx_figure(
-    excel_path: str | pathlib.Path,
-    anchor_date: Optional[pd.Timestamp] = None,
-) -> go.Figure:
+def make_spx_figure(excel_path: str | pathlib.Path,
+                    anchor_date: Optional[pd.Timestamp] = None) -> go.Figure:
     """
-    Build the interactive SPX chart for Streamlit.
+    Build an interactive SPX chart for Streamlit.
 
     Parameters
     ----------
@@ -95,50 +81,35 @@ def make_spx_figure(
     start = today - timedelta(days=365)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Compute last price for legend
     last_price = df["Price"].iloc[-1]
     last_price_str = f"{last_price:,.2f}"
 
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"],
-            y=df["Price"],
-            mode="lines",
-            name=f"S&P 500 Price (last: {last_price_str})",
-            line=dict(color="#153D64", width=2.5),
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"], y=df["MA_50"],
-            mode="lines", name="50‑day MA", line=dict(color="#008000", width=1.5)
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"], y=df["MA_100"],
-            mode="lines", name="100‑day MA", line=dict(color="#FFA500", width=1.5)
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"], y=df["MA_200"],
-            mode="lines", name="200‑day MA", line=dict(color="#FF0000", width=1.5)
-        )
-    )
+    fig.add_trace(go.Scatter(
+        x=df["Date"], y=df["Price"], mode="lines",
+        name=f"S&P 500 Price (last: {last_price_str})",
+        line=dict(color="#153D64", width=2.5)
+    ))
+    fig.add_trace(go.Scatter(
+        x=df["Date"], y=df["MA_50"],
+        mode="lines", name="50‑day MA", line=dict(color="#008000", width=1.5)
+    ))
+    fig.add_trace(go.Scatter(
+        x=df["Date"], y=df["MA_100"],
+        mode="lines", name="100‑day MA", line=dict(color="#FFA500", width=1.5)
+    ))
+    fig.add_trace(go.Scatter(
+        x=df["Date"], y=df["MA_200"],
+        mode="lines", name="200‑day MA", line=dict(color="#FF0000", width=1.5)
+    ))
 
-    # Fibonacci levels
     hi, lo = df["Price"].max(), df["Price"].min()
     span = hi - lo
-    for lvl in [hi, hi - 0.236 * span, hi - 0.382 * span, hi - 0.5 * span, hi - 0.618 * span, lo]:
-        fig.add_hline(
-            y=lvl,
-            line=dict(color="grey", dash="dash", width=1),
-            opacity=0.6,
-        )
+    for lvl in [hi, hi - 0.236*span, hi - 0.382*span, hi - 0.5*span,
+                hi - 0.618*span, lo]:
+        fig.add_hline(y=lvl, line=dict(color="grey", dash="dash", width=1),
+                      opacity=0.6)
 
-    # Regression channel
     if anchor_date is not None:
         per = df_full[df_full["Date"].between(anchor_date, today)].copy()
         X = per["Date"].map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
@@ -153,50 +124,33 @@ def make_spx_figure(
         lineclr = "green" if uptrend else "red"
         fillclr = "rgba(0,150,0,0.25)" if uptrend else "rgba(200,0,0,0.25)"
 
-        fig.add_trace(
-            go.Scatter(
-                x=per["Date"], y=upper,
-                mode="lines",
-                line=dict(color=lineclr, dash="dash"),
-                showlegend=False,
-            )
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=per["Date"], y=lower,
-                mode="lines",
-                line=dict(color=lineclr, dash="dash"),
-                fill="tonexty", fillcolor=fillclr,
-                showlegend=False,
-            )
-        )
+        fig.add_trace(go.Scatter(x=per["Date"], y=upper,
+                                 mode="lines", line=dict(color=lineclr, dash="dash"),
+                                 showlegend=False))
+        fig.add_trace(go.Scatter(x=per["Date"], y=lower,
+                                 mode="lines", line=dict(color=lineclr, dash="dash"),
+                                 fill="tonexty", fillcolor=fillclr, showlegend=False))
 
     fig.update_layout(
         margin=dict(l=30, r=30, t=60, b=40),
         showlegend=True,
         legend=dict(
-            orientation="h",
-            yanchor="bottom", y=1.12,
-            xanchor="center", x=0.5,
-            font=dict(size=12),
+            orientation="h", yanchor="bottom", y=1.12,
+            xanchor="center", x=0.5, font=dict(size=12)
         ),
-        xaxis_title=None,
-        yaxis_title=None,
+        xaxis_title=None, yaxis_title=None,
         xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=False, zeroline=False),
+        yaxis=dict(showgrid=False, zeroline=False)
     )
     return fig
-
 
 # ---------------------------------------------------------------------------
 # High‑resolution chart export (PNG)
 # ---------------------------------------------------------------------------
-def _generate_spx_image_from_df(
-    df_full: pd.DataFrame,
-    anchor_date: Optional[pd.Timestamp],
-    width_cm: float = 21.41,
-    height_cm: float = 7.53,
-) -> bytes:
+def _generate_spx_image_from_df(df_full: pd.DataFrame,
+                                anchor_date: Optional[pd.Timestamp],
+                                width_cm: float = 21.41,
+                                height_cm: float = 7.53) -> bytes:
     """
     Create a high‑resolution (dpi=300) transparent PNG chart from the DataFrame.
     Includes price, moving averages, Fibonacci lines and optional regression channel.
@@ -218,41 +172,35 @@ def _generate_spx_image_from_df(
             y_vals = subset["Price"].to_numpy()
             model = LinearRegression().fit(X, y_vals)
             trend = model.predict(X)
-            residuals = y_vals - trend
+            resid = y_vals - trend
             uptrend = model.coef_[0] > 0
-            upper = trend + residuals.max()
-            lower = trend + residuals.min()
+            upper = trend + resid.max()
+            lower = trend + resid.min()
 
-    # Determine last price for legend
     last_price = df["Price"].iloc[-1]
     last_price_str = f"{last_price:,.2f}"
 
-    fig_width_in = width_cm / 2.54
-    fig_height_in = height_cm / 2.54
-
+    fig_width_in, fig_height_in = width_cm/2.54, height_cm/2.54
     plt.style.use("default")
     fig, ax = plt.subplots(figsize=(fig_width_in, fig_height_in))
 
-    # Use the formatted legend label for price
-    ax.plot(
-        df["Date"], df["Price"],
-        color="#153D64", linewidth=2.5,
-        label=f"S&P 500 Price (last: {last_price_str})",
-    )
+    ax.plot(df["Date"], df["Price"],
+            color="#153D64", linewidth=2.5,
+            label=f"S&P 500 Price (last: {last_price_str})")
     ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
     ax.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
 
-    hi = df["Price"].max()
-    lo = df["Price"].min()
+    hi, lo = df["Price"].max(), df["Price"].min()
     span = hi - lo
-    fib_levels = [hi, hi - 0.236 * span, hi - 0.382 * span, hi - 0.5 * span,
-                  hi - 0.618 * span, lo]
+    fib_levels = [hi, hi - 0.236*span, hi - 0.382*span,
+                  hi - 0.5*span, hi - 0.618*span, lo]
     for lvl in fib_levels:
-        ax.axhline(y=lvl, color="grey", linestyle="--", linewidth=0.8, alpha=0.6)
+        ax.axhline(y=lvl, color="grey", linestyle="--",
+                   linewidth=0.8, alpha=0.6)
 
     if anchor_date is not None and upper is not None and lower is not None:
-        fill_color = (0, 0.6, 0, 0.25) if uptrend else (0.78, 0, 0, 0.25)
+        fill_color = (0,0.6,0,0.25) if uptrend else (0.78,0,0,0.25)
         line_color = "#008000" if uptrend else "#C00000"
         subset = df_full[df_full["Date"].between(anchor_date, today)].copy().reset_index(drop=True)
         ax.plot(subset["Date"], upper, color=line_color, linestyle="--")
@@ -263,23 +211,23 @@ def _generate_spx_image_from_df(
         spine.set_visible(False)
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
 
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=4, fontsize=8, frameon=False)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=4,
+              fontsize=8, frameon=False)
     plt.tight_layout()
 
     buf = BytesIO()
     plt.savefig(buf, format="png", dpi=300, transparent=True)
     plt.close(fig)
     buf.seek(0)
-    return buf.read()
-
+    return buf.getvalue()
 
 # ---------------------------------------------------------------------------
 # Score helpers
 # ---------------------------------------------------------------------------
 def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for SPX from 'data_technical_score' (col A: ticker, col B: score).
-    Returns None if the sheet or the score is not available.
+    Retrieve the technical score for SPX from 'data_technical_score' (col A, B).
+    Returns None if the sheet or score is unavailable.
     """
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_technical_score")
@@ -294,14 +242,11 @@ def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
                 return None
     return None
 
-
-def insert_spx_technical_score_number(
-    prs: Presentation,
-    excel_file,
-) -> Presentation:
+def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the SPX technical score (integer) into the shape named 'tech_score_spx'
-    or a shape containing '[XXX]' or 'XXX'. Preserves original formatting.
+    Insert the SPX technical score (integer) into a shape named 'tech_score_spx'
+    or into any shape containing the placeholder '[XXX]' or 'XXX'.  Original
+    formatting (font size, colour, bold, italic) is preserved.
     """
     score = _get_spx_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -311,14 +256,13 @@ def insert_spx_technical_score_number(
 
     for slide in prs.slides:
         for shape in slide.shapes:
-            # Match by name first
             if getattr(shape, "name", "").lower() == placeholder_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
-                    saved_size = runs[0].font.size if runs else None
+                    saved_size  = runs[0].font.size  if runs else None
                     saved_color = runs[0].font.color.rgb if runs else None
-                    saved_bold = runs[0].font.bold if runs else None
-                    saved_italic = runs[0].font.italic if runs else None
+                    saved_bold  = runs[0].font.bold if runs else None
+                    saved_italic= runs[0].font.italic if runs else None
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
@@ -332,20 +276,18 @@ def insert_spx_technical_score_number(
                     if saved_italic is not None:
                         new_run.font.italic = saved_italic
                 return prs
-
-            # Otherwise match by placeholder patterns in text
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
-                        saved_size = runs[0].font.size if runs else None
+                        saved_size  = runs[0].font.size  if runs else None
                         saved_color = runs[0].font.color.rgb if runs else None
-                        saved_bold = runs[0].font.bold if runs else None
-                        saved_italic = runs[0].font.italic if runs else None
+                        saved_bold  = runs[0].font.bold if runs else None
+                        saved_italic= runs[0].font.italic if runs else None
                         new_text = shape.text.replace(pattern, score_text)
                         shape.text_frame.clear()
-                        new_para = shape.text_frame.paragraphs[0]
-                        new_run = new_para.add_run()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
                         new_run.text = new_text
                         if saved_size:
                             new_run.font.size = saved_size
@@ -358,11 +300,10 @@ def insert_spx_technical_score_number(
                         return prs
     return prs
 
-
 def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the momentum score for SPX from 'data_trend_rating' (col A: ticker, col D: score).
-    Returns None if the sheet or the score is not available.
+    Retrieve the momentum score for SPX from 'data_trend_rating' (col A, D).
+    Returns None if unavailable.
     """
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
@@ -378,14 +319,10 @@ def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
                 return None
     return None
 
-
-def insert_spx_momentum_score_number(
-    prs: Presentation,
-    excel_file,
-) -> Presentation:
+def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the SPX momentum score (integer) into the shape named 'mom_score_spx'
-    or a shape containing '[XXX]' or 'XXX'. Preserves original formatting.
+    Insert the SPX momentum score (integer) into a shape named 'mom_score_spx'
+    or into any shape containing '[XXX]' or 'XXX'.  Formatting is preserved.
     """
     score = _get_spx_momentum_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -398,10 +335,10 @@ def insert_spx_momentum_score_number(
             if getattr(shape, "name", "").lower() == placeholder_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
-                    saved_size = runs[0].font.size if runs else None
+                    saved_size  = runs[0].font.size  if runs else None
                     saved_color = runs[0].font.color.rgb if runs else None
-                    saved_bold = runs[0].font.bold if runs else None
-                    saved_italic = runs[0].font.italic if runs else None
+                    saved_bold  = runs[0].font.bold if runs else None
+                    saved_italic= runs[0].font.italic if runs else None
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
@@ -415,20 +352,18 @@ def insert_spx_momentum_score_number(
                     if saved_italic is not None:
                         new_run.font.italic = saved_italic
                 return prs
-
-            # Otherwise match by placeholder patterns in text
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
-                        saved_size = runs[0].font.size if runs else None
+                        saved_size  = runs[0].font.size  if runs else None
                         saved_color = runs[0].font.color.rgb if runs else None
-                        saved_bold = runs[0].font.bold if runs else None
-                        saved_italic = runs[0].font.italic if runs else None
+                        saved_bold  = runs[0].font.bold if runs else None
+                        saved_italic= runs[0].font.italic if runs else None
                         new_text = shape.text.replace(pattern, score_text)
                         shape.text_frame.clear()
-                        new_para = shape.text_frame.paragraphs[0]
-                        new_run = new_para.add_run()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
                         new_run.text = new_text
                         if saved_size:
                             new_run.font.size = saved_size
@@ -441,79 +376,76 @@ def insert_spx_momentum_score_number(
                         return prs
     return prs
 
-
 # ---------------------------------------------------------------------------
 # Chart insertion
 # ---------------------------------------------------------------------------
-def insert_spx_technical_chart(
-    prs: Presentation,
-    excel_file,
-    anchor_date: Optional[pd.Timestamp] = None,
-) -> Presentation:
+def insert_spx_technical_chart(prs: Presentation,
+                               excel_file,
+                               anchor_date: Optional[pd.Timestamp] = None) -> Presentation:
     """
-    Insert the SPX technical‑analysis chart into the PPT. Looks for 'tech_spx'
-    placeholder or falls back to a default slide and position.
+    Insert the SPX technical‑analysis chart into the PPT.
+
+    We only use the textbox named ``spx`` (or containing “[spx]”) to locate
+    the correct slide; the chart itself is always pasted at the fixed
+    coordinates (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
     """
+    # Load data and generate image
     try:
         df_full = _load_price_data_from_obj(excel_file, "SPX Index")
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index")
-
     img_bytes = _generate_spx_image_from_df(df_full, anchor_date)
 
-    placeholder_text = "tech_spx"
+    # Find the slide containing the 'spx' placeholder
+    target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
-            if shape.has_text_frame and placeholder_text.lower() in shape.text.lower():
-                left = shape.left
-                top = shape.top
-                width = shape.width
-                height = shape.height
-                if shape.has_text_frame:
-                    shape.text = ""
-                stream = BytesIO(img_bytes)
-                slide.shapes.add_picture(stream, left, top, width=width, height=height)
-                return prs
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr == "spx":
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                if (shape.text or "").strip().lower() == "[spx]":
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
 
-    # Fallback: insert into slide index 11 or last slide minus one
-    idx = min(11, len(prs.slides) - 1)
-    slide = prs.slides[idx]
+    if target_slide is None:
+        target_slide = prs.slides[min(11, len(prs.slides) - 1)]
+
+    # Always paste the chart at fixed coordinates
     left = Cm(0.93)
     top = Cm(4.39)
     width = Cm(21.41)
     height = Cm(7.53)
     stream = BytesIO(img_bytes)
-    slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
-
 
 # ---------------------------------------------------------------------------
 # Subtitle insertion
 # ---------------------------------------------------------------------------
-def insert_spx_subtitle(
-    prs: Presentation,
-    subtitle: str,
-) -> Presentation:
+def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     """
-    Replace the placeholder text ('XXX' or '[XXX]') in the textbox named
-    'spx_text' (or containing those placeholders) with the provided subtitle,
-    preserving the original formatting.
+    Replace the placeholder ('XXX' or '[XXX]') in a textbox named 'spx_text'
+    (or containing those patterns) with the provided subtitle, preserving
+    original formatting.
     """
     placeholder_name = "spx_text"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    subtitle_text = subtitle if subtitle is not None else ""
+    subtitle_text = subtitle or ""
 
     for slide in prs.slides:
         for shape in slide.shapes:
-            # Match by shape name
             if getattr(shape, "name", "").lower() == placeholder_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
-                    saved_size = runs[0].font.size if runs else None
+                    saved_size  = runs[0].font.size  if runs else None
                     saved_color = runs[0].font.color.rgb if runs else None
-                    saved_bold = runs[0].font.bold if runs else None
-                    saved_italic = runs[0].font.italic if runs else None
+                    saved_bold  = runs[0].font.bold if runs else None
+                    saved_italic= runs[0].font.italic if runs else None
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
@@ -527,20 +459,18 @@ def insert_spx_subtitle(
                     if saved_italic is not None:
                         new_run.font.italic = saved_italic
                 return prs
-
-            # Otherwise match by placeholder patterns in text
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
-                        saved_size = runs[0].font.size if runs else None
+                        saved_size  = runs[0].font.size  if runs else None
                         saved_color = runs[0].font.color.rgb if runs else None
-                        saved_bold = runs[0].font.bold if runs else None
-                        saved_italic = runs[0].font.italic if runs else None
+                        saved_bold  = runs[0].font.bold if runs else None
+                        saved_italic= runs[0].font.italic if runs else None
                         new_text = shape.text.replace(pattern, subtitle_text)
                         shape.text_frame.clear()
-                        new_para = shape.text_frame.paragraphs[0]
-                        new_run = new_para.add_run()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
                         new_run.text = new_text
                         if saved_size:
                             new_run.font.size = saved_size
@@ -553,43 +483,35 @@ def insert_spx_subtitle(
                         return prs
     return prs
 
-
 # ---------------------------------------------------------------------------
-# Average gauge generation
+# Colour interpolation for gauge
 # ---------------------------------------------------------------------------
 def _interpolate_color(value: float) -> Tuple[float, float, float]:
     """
-    Interpolate a colour from red → yellow → green based on a value between
-    0 and 100.  The colour palette uses vivid hues to avoid muddiness: pure
-    red at 0, bright yellow at 40 and a rich green at 70.  Values are
-    blended linearly between these breakpoints; above 70 the colour is
-    clamped to green.
+    Interpolate from red→yellow→green for a 0–100 value.  Pure red at 0,
+    bright yellow at 40 and rich green at 70.
     """
-    red    = (1.0, 0.0, 0.0)                      # #FF0000
-    yellow = (1.0, 204.0/255.0, 0.0)              # #FFCC00
-    green  = (0.0, 153.0/255.0, 81.0/255.0)       # #009951
-
+    red    = (1.0, 0.0, 0.0)
+    yellow = (1.0, 204/255, 0.0)
+    green  = (0.0, 153/255, 81/255)
     if value <= 40:
         t = value / 40.0
         return tuple(red[i] + t*(yellow[i]-red[i]) for i in range(3))
-    if value <= 70:
-        t = (value - 40.0) / 30.0
+    elif value <= 70:
+        t = (value - 40) / 30.0
         return tuple(yellow[i] + t*(green[i]-yellow[i]) for i in range(3))
     return green
 
-def generate_average_gauge_image(
-    tech_score: float,
-    mom_score: float,
-    last_week_avg: float,
-    date_text: str | None = None,
-    last_label_text: str = "Last Week",
-    width_cm: float = 15.15,
-    height_cm: float = 3.13,
-) -> bytes:
+def generate_average_gauge_image(tech_score: float,
+                                 mom_score: float,
+                                 last_week_avg: float,
+                                 date_text: str | None = None,
+                                 last_label_text: str = "Last Week",
+                                 width_cm: float = 15.15,
+                                 height_cm: float = 3.13) -> bytes:
     """
-    Create a horizontal gauge showing the average of two scores (0–100) alongside
-    last week's average (0–100).  Uses pure red, yellow and green for the
-    gradient, and positions the labels with increased spacing.
+    Create a horizontal gauge with a red→yellow→green gradient, marking the
+    average of technical and momentum scores against last week’s average.
     """
     def clamp100(x: float) -> float:
         return max(0.0, min(100.0, float(x)))
@@ -597,18 +519,17 @@ def generate_average_gauge_image(
     curr = (clamp100(tech_score) + clamp100(mom_score)) / 2.0
     prev = clamp100(last_week_avg)
 
-    # Build gradient with our vivid colours
     from matplotlib.colors import LinearSegmentedColormap
+    import numpy as np
+
     cmap = LinearSegmentedColormap.from_list(
         "gauge_gradient", ["#FF0000", "#FFCC00", "#009951"], N=256
     )
 
-    fig_w, fig_h = width_cm / 2.54, height_cm / 2.54
+    fig_w, fig_h = width_cm/2.54, height_cm/2.54
     plt.style.use("default")
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
-    # Draw gradient bar
-    import numpy as np
     gradient = np.linspace(0, 1, 500).reshape(1, -1)
     bar_thickness = 0.4
     bar_bottom_y = -bar_thickness / 2.0
@@ -621,171 +542,221 @@ def generate_average_gauge_image(
         origin="lower",
     )
 
-    # Marker size and spacing constants
-    marker_width       = 3.0
-    marker_height      = 0.15
-    gap                = 0.1   # bar–triangle gap
-    number_space       = 0.25   # triangle–number spacing
-    top_label_offset   = 0.40   # number–top-label spacing
-    bottom_label_offset= 0.40   # number–bottom-label spacing
+    # Marker dimensions and spacing
+    marker_width  = 3.0
+    marker_height = 0.15
+    gap           = 0.10
+    number_space  = 0.25
+    top_label_offset = 0.40
+    bottom_label_offset = 0.40
 
-    # Compute Y coordinates for current average
+    # Y positions for current (top) marker and labels
     top_apex_y    = bar_top_y + gap
     top_base_y    = top_apex_y + marker_height
     top_number_y  = top_base_y + number_space
     top_label_y   = top_number_y + top_label_offset
 
-    # Compute Y coordinates for last week average
+    # Y positions for previous (bottom) marker and labels
     bottom_apex_y   = bar_bottom_y - gap
     bottom_base_y   = bottom_apex_y - marker_height
     bottom_number_y = bottom_base_y - number_space
     bottom_label_y  = bottom_number_y - bottom_label_offset
 
-    # Colours via interpolation
     curr_colour = _interpolate_color(curr)
     prev_colour = _interpolate_color(prev)
 
     # Draw triangles and numbers
-    ax.add_patch(
-        patches.Polygon([
-            (curr - marker_width/2, top_base_y),
-            (curr + marker_width/2, top_base_y),
-            (curr, top_apex_y)
-        ], color=curr_colour)
-    )
-    ax.add_patch(
-        patches.Polygon([
-            (prev - marker_width/2, bottom_base_y),
-            (prev + marker_width/2, bottom_base_y),
-            (prev, bottom_apex_y)
-        ], color=prev_colour)
-    )
-    ax.text(curr, top_number_y, f"{curr:.0f}", color=curr_colour,
-            ha="center", va="center", fontsize=8, fontweight="bold")
-    ax.text(prev, bottom_number_y, f"{prev:.0f}", color=prev_colour,
-            ha="center", va="center", fontsize=8, fontweight="bold")
+    ax.add_patch(patches.Polygon([
+        (curr - marker_width/2, top_base_y),
+        (curr + marker_width/2, top_base_y),
+        (curr, top_apex_y)
+    ], color=curr_colour))
+    ax.add_patch(patches.Polygon([
+        (prev - marker_width/2, bottom_base_y),
+        (prev + marker_width/2, bottom_base_y),
+        (prev, bottom_apex_y)
+    ], color=prev_colour))
+    ax.text(curr, top_number_y, f"{curr:.0f}",
+            color=curr_colour, ha="center", va="center",
+            fontsize=8, fontweight="bold")
+    ax.text(prev, bottom_number_y, f"{prev:.0f}",
+            color=prev_colour, ha="center", va="center",
+            fontsize=8, fontweight="bold")
 
-    # Draw labels
     if date_text:
         ax.text(curr, top_label_y, date_text, color="#0063B0",
                 ha="center", va="center", fontsize=7, fontweight="bold")
     ax.text(prev, bottom_label_y, last_label_text, color="#133C74",
             ha="center", va="center", fontsize=7, fontweight="bold")
 
-    # Axis limits and hide axes
     ax.set_xlim(0, 100)
     ax.set_ylim(bottom_label_y - 0.35, top_label_y + 0.35)
     ax.axis("off")
 
-    # Export to PNG
     buf = BytesIO()
     plt.savefig(buf, format="png", dpi=300, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
+
 # ---------------------------------------------------------------------------
-# Helper to load from file‑like object
+# Helpers for reading Excel from a file-like object
 # ---------------------------------------------------------------------------
 def _load_price_data_from_obj(excel_obj, ticker: str = "SPX Index") -> pd.DataFrame:
     df = pd.read_excel(excel_obj, sheet_name="data_prices")
     df = df.drop(index=0)
     df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
+    df["Date"]  = pd.to_datetime(df[df.columns[0]], errors="coerce")
     df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    return (
-        df.dropna(subset=["Date", "Price"])
-        .sort_values("Date")
-        .reset_index(drop=True)[["Date", "Price"]]
-    )
-
+    return df.dropna(subset=["Date","Price"]).sort_values("Date").reset_index(drop=True)[["Date","Price"]]
 
 # ---------------------------------------------------------------------------
-# Average gauge insertion
+# Gauge insertion
 # ---------------------------------------------------------------------------
-def insert_spx_average_gauge(
-    prs: Presentation,
-    excel_file,
-    last_week_avg: float,
-) -> Presentation:
+def insert_spx_average_gauge(prs: Presentation,
+                             excel_file,
+                             last_week_avg: float) -> Presentation:
     """
-    Insert the average gauge into the SPX slide. The gauge shows the average of
-    the current technical and momentum scores compared with last week's average.
-
-    The function looks for a shape named 'gauge_spx' or containing the
-    placeholder text '[GAUGE]' or 'GAUGE'. If found, the gauge image is
-    inserted at that position and size. Otherwise a default position below
-    the SPX chart on slide index 11 (or the last available slide) is used.
-
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint presentation to modify.
-    excel_file : file‑like object or path
-        The Excel workbook containing technical and momentum scores.
-    last_week_avg : float
-        Last week's average on a 0–100 scale. This value should already
-        represent a percentage‑style score (e.g. 50 means the midpoint).
-
-    Returns
-    -------
-    Presentation
-        The modified presentation with the gauge inserted.
+    Insert the average gauge into the SPX slide.  Looks for a shape named
+    'gauge_spx' or text containing '[GAUGE]', 'GAUGE', or 'gauge_spx'.  If found,
+    the gauge uses that position; otherwise it is inserted below the chart at
+    the default coordinates (8.97 cm left, 12.13 cm top, 15.15 cm wide, 3.13 cm high).
     """
-    # Retrieve current scores
     tech_score = _get_spx_technical_score(excel_file)
-    mom_score = _get_spx_momentum_score(excel_file)
-
-    # If we cannot compute scores, do nothing
+    mom_score  = _get_spx_momentum_score(excel_file)
     if tech_score is None or mom_score is None:
         return prs
 
     try:
-        # Always show 'Last' above the current marker instead of a date
         gauge_bytes = generate_average_gauge_image(
-            tech_score,
-            mom_score,
-            last_week_avg,
-            date_text="Last",
-            last_label_text="Previous Week",
-            width_cm=15.15,
-            height_cm=3.13,
+            tech_score, mom_score, last_week_avg,
+            date_text="Last", last_label_text="Previous Week",
+            width_cm=15.15, height_cm=3.13
         )
     except Exception:
         return prs
 
     placeholder_name = "gauge_spx"
-    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_spx"]
-    # Try to locate a placeholder
+    placeholder_patterns = ["[GAUGE]","GAUGE","gauge_spx"]
+
     for slide in prs.slides:
         for shape in slide.shapes:
-            # Match by name first
-            if hasattr(shape, "name") and shape.name.lower() == placeholder_name:
+            if getattr(shape,"name","").lower() == placeholder_name:
                 left, top, width, height = shape.left, shape.top, shape.width, shape.height
-                # Remove any text in the placeholder
                 if shape.has_text_frame:
                     shape.text = ""
                 stream = BytesIO(gauge_bytes)
                 slide.shapes.add_picture(stream, left, top, width=width, height=height)
                 return prs
-            # Match by placeholder text patterns
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern.lower() in shape.text.lower():
                         left, top, width, height = shape.left, shape.top, shape.width, shape.height
-                        if shape.has_text_frame:
-                            shape.text = shape.text.replace(pattern, "")
+                        shape.text = shape.text.replace(pattern,"")
                         stream = BytesIO(gauge_bytes)
                         slide.shapes.add_picture(stream, left, top, width=width, height=height)
                         return prs
 
-    # Fallback: insert the gauge at a specified location if no placeholder is found
+    # Fallback: fixed coordinates below the chart
     idx = min(11, len(prs.slides) - 1)
     slide = prs.slides[idx]
-    # Use the new dimensions and position provided (left=8.97cm, top=12.13cm)
     left = Cm(8.97)
-    top = Cm(12.13)
+    top  = Cm(12.13)
     width = Cm(15.15)
-    height = Cm(3.13)
+    height= Cm(3.13)
     stream = BytesIO(gauge_bytes)
     slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    return prs
+
+# ---------------------------------------------------------------------------
+# Technical assessment insertion
+# ---------------------------------------------------------------------------
+def insert_spx_technical_assessment(prs: Presentation,
+                                    excel_file) -> Presentation:
+    """
+    Insert a descriptive assessment text into a shape named 'spx_view'
+    (or containing '[spx_view]'), based on the average of technical and
+    momentum scores.  The assessment is:
+      ≥80: Strongly Bullish
+      70–79.99: Bullish
+      60–69.99: Slightly Bullish
+      40–59.99: Neutral
+      30–39.99: Slightly Bearish
+      20–29.99: Bearish
+      <20: Strongly Bearish.
+    """
+    tech_score = _get_spx_technical_score(excel_file)
+    mom_score  = _get_spx_momentum_score(excel_file)
+    if tech_score is None or mom_score is None:
+        return prs
+
+    avg = (float(tech_score) + float(mom_score)) / 2.0
+
+    if avg >= 80:
+        desc = "S&P 500: Strongly Bullish"
+    elif avg >= 70:
+        desc = "S&P 500: Bullish"
+    elif avg >= 60:
+        desc = "S&P 500: Slightly Bullish"
+    elif avg >= 40:
+        desc = "S&P 500: Neutral"
+    elif avg >= 30:
+        desc = "S&P 500: Slightly Bearish"
+    elif avg >= 20:
+        desc = "S&P 500: Bearish"
+    else:
+        desc = "S&P 500: Strongly Bearish"
+
+    target_name = "spx_view"
+    placeholder_patterns = ["[spx_view]","spx_view"]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape,"name","")
+            if name_attr and name_attr.lower() == target_name:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    saved_size  = runs[0].font.size  if runs else None
+                    saved_color = runs[0].font.color.rgb if runs else None
+                    saved_bold  = runs[0].font.bold if runs else None
+                    saved_italic= runs[0].font.italic if runs else None
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = desc
+                    if saved_size:
+                        new_run.font.size = saved_size
+                    if saved_color:
+                        new_run.font.color.rgb = saved_color
+                    if saved_bold is not None:
+                        new_run.font.bold = saved_bold
+                    if saved_italic is not None:
+                        new_run.font.italic = saved_italic
+                return prs
+            if shape.has_text_frame:
+                for pattern in placeholder_patterns:
+                    if pattern.lower() in shape.text.lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        saved_size  = runs[0].font.size  if runs else None
+                        saved_color = runs[0].font.color.rgb if runs else None
+                        saved_bold  = runs[0].font.bold if runs else None
+                        saved_italic= runs[0].font.italic if runs else None
+                        new_text = shape.text
+                        try:
+                            new_text = new_text.replace(pattern, desc)
+                        except Exception:
+                            new_text = desc
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        if saved_size:
+                            new_run.font.size = saved_size
+                        if saved_color:
+                            new_run.font.color.rgb = saved_color
+                        if saved_bold is not None:
+                            new_run.font.bold = saved_bold
+                        if saved_italic is not None:
+                            new_run.font.italic = saved_italic
+                        return prs
     return prs
