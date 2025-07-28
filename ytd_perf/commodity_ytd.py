@@ -1,18 +1,27 @@
-"""
-ytd_perf/commodity_ytd.py
+"""Commodity YTD performance chart generation and insertion.
 
-Compute and plot YTD performance for commodities, and insert the chart into slide 20.
+This module computes year‑to‑date (YTD) performance for commodity
+indices, creates a YTD performance chart with labelled connectors and
+bold annotations, and inserts the chart into a slide identified by
+a placeholder named ``ytd_commo_perf``.  The subtitle for the chart
+is placed into a separate textbox named ``ytd_commo_subtitle`` by
+replacing a ``XXX`` placeholder while preserving the original
+formatting.
 """
 
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from pptx import Presentation
-from pptx.util import Inches
-import tempfile
-import os
-from typing import List, Optional
+from __future__ import annotations
+
 from datetime import datetime
+import os
+import tempfile
+from typing import List, Optional
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import pandas as pd
+from pptx import Presentation
+from pptx.util import Cm
+
 from .loader_update import load_data
 
 # Commodity colours
@@ -25,13 +34,31 @@ COMMO_COLOURS = {
     "Uranium": "#A9D18E",
 }
 
+
 def get_commodity_ytd_series(file_path: str, tickers: Optional[List[str]] = None) -> pd.DataFrame:
-    """Compute YTD performance for commodity tickers (or all commodities if None)."""
+    """
+    Compute YTD performance for commodity tickers (or all commodities if None).
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the Excel workbook.
+    tickers : list of str, optional
+        Specific commodity tickers to include; if ``None``, all
+        commodities are included.
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame with a ``Date`` column and one column per
+        commodity, containing percentage changes from the start of
+        the current year.
+    """
     prices_df, params_df = load_data(file_path)
     now = datetime.now()
     year_start = datetime(now.year, 1, 1)
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
-    commo_params = params_df[params_df["Asset Class"] == "Commodity"]
+    commo_params = params_df[params_df["Asset Class"] == "Commodity"].copy()
     if tickers is not None:
         commo_params = commo_params[commo_params["Tickers"].isin(tickers)]
     result = pd.DataFrame()
@@ -52,19 +79,33 @@ def get_commodity_ytd_series(file_path: str, tickers: Optional[List[str]] = None
         result[name] = ytd.reset_index(drop=True)
     return result
 
-def create_commodity_chart(df: pd.DataFrame):
-    """Create a commodity YTD chart with connectors and bold labels."""
+
+def create_commodity_chart(df: pd.DataFrame) -> plt.Figure:
+    """Create a commodity YTD chart with connectors and bold labels.
+
+    Parameters
+    ----------
+    df : DataFrame
+        The DataFrame returned by ``get_commodity_ytd_series``.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure object representing the chart.
+    """
     fig, ax = plt.subplots(figsize=(10, 5.5))
     for col in df.columns:
         if col == "Date":
             continue
         colour = COMMO_COLOURS.get(col, None)
         ax.plot(df["Date"], df[col], color=colour, linewidth=2)
+    # Determine y-range and sort by final values
     y_min = df[[c for c in df.columns if c != "Date"]].min().min()
     y_max = df[[c for c in df.columns if c != "Date"]].max().max()
     y_range = y_max - y_min if y_max > y_min else 1.0
     series_cols = [c for c in df.columns if c != "Date"]
     sorted_cols = sorted(series_cols, key=lambda c: df[c].iloc[-1], reverse=True)
+    # Annotate with connectors
     for idx, col in enumerate(sorted_cols):
         colour = COMMO_COLOURS.get(col, None)
         last_x = df["Date"].iloc[-1]
@@ -85,6 +126,7 @@ def create_commodity_chart(df: pd.DataFrame):
             va="center",
             ha="left",
         )
+    # Style chart
     ax.set_title("YTD Performance of Commodities (%)", fontsize=14, color="#0A1F44")
     ax.set_xlabel("")
     ax.set_ylabel("Performance")
@@ -98,41 +140,98 @@ def create_commodity_chart(df: pd.DataFrame):
     fig.tight_layout()
     return fig
 
-def insert_commodity_chart(prs: Presentation, file_path: str, subtitle: str = "", tickers: Optional[List[str]] = None) -> Presentation:
-    """Insert a commodity YTD chart into slide 20 (or the slide with YTD_Commo) and update subtitle."""
+
+def insert_commodity_chart(
+    prs: Presentation,
+    file_path: str,
+    subtitle: str = "",
+    tickers: Optional[List[str]] = None,
+    *,
+    left_cm: float = 1.87,
+    top_cm: float = 5.49,
+    width_cm: float = 20.64,
+    height_cm: float = 9.57,
+) -> Presentation:
+    """Insert a commodity YTD chart and subtitle into the appropriate slide.
+
+    This function searches for a slide containing a shape named
+    ``ytd_commo_perf`` (or containing ``[ytd_commo_perf]``).  Once found,
+    it inserts the chart at the specified coordinates on that slide.
+    The subtitle is inserted into the shape named ``ytd_commo_subtitle``
+    by replacing a ``XXX`` placeholder while preserving formatting.
+    If no such slide is found, it falls back to slide 20 (index 19).
+
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation.
+    file_path : str
+        Path to the Excel workbook.
+    subtitle : str, optional
+        Text to replace the ``XXX`` placeholder in the subtitle box.
+    tickers : list of str, optional
+        Commodity tickers to include; if omitted, all commodities are used.
+    left_cm, top_cm, width_cm, height_cm : float
+        Coordinates and size for inserting the chart, in centimetres.
+
+    Returns
+    -------
+    Presentation
+        The modified presentation.
+    """
+    # Compute series and figure
     df_commo = get_commodity_ytd_series(file_path, tickers)
     fig = create_commodity_chart(df_commo)
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_png:
         fig.savefig(tmp_png.name, dpi=200)
         chart_path = tmp_png.name
     try:
-        slide_idx = 19
-        for idx, slide in enumerate(prs.slides):
-            if any(shp.name == "YTD_Commo" for shp in slide.shapes):
-                slide_idx = idx
-                break
-        slide = prs.slides[slide_idx]
-        if subtitle:
+        # Locate slide by placeholder name
+        target_slide = None
+        for slide in prs.slides:
             for shape in slide.shapes:
-                if shape.name == "YTD_Commo_Subtitle" and shape.has_text_frame:
+                name_attr = getattr(shape, "name", "").lower()
+                if name_attr == "ytd_commo_perf":
+                    target_slide = slide
+                    break
+                if shape.has_text_frame:
+                    text_lower = (shape.text or "").strip().lower()
+                    if text_lower == "[ytd_commo_perf]":
+                        target_slide = slide
+                        break
+            if target_slide:
+                break
+        # Fallback to slide 20 (index 19) if placeholder not found
+        if target_slide is None:
+            target_slide = prs.slides[min(19, len(prs.slides) - 1)]
+        # Insert subtitle into designated textbox
+        if subtitle:
+            for shape in target_slide.shapes:
+                name_attr = getattr(shape, "name", "")
+                if name_attr and name_attr.lower() == "ytd_commo_subtitle" and shape.has_text_frame:
                     tf = shape.text_frame
                     for paragraph in tf.paragraphs:
                         for run in paragraph.runs:
                             if "XXX" in run.text:
                                 orig_font = run.font
                                 run.text = run.text.replace("XXX", subtitle)
+                                # Preserve formatting
                                 run.font.name = orig_font.name
                                 run.font.size = orig_font.size
                                 run.font.bold = orig_font.bold
                                 run.font.italic = orig_font.italic
                                 run.font.color.rgb = orig_font.color.rgb
                                 break
-        left = Inches(1.87 / 2.54)
-        top = Inches(5.49 / 2.54)
-        width = Inches(20.64 / 2.54)
-        height = Inches(9.57 / 2.54)
-        picture = slide.shapes.add_picture(chart_path, left, top, width, height)
-        sp_tree = slide.shapes._spTree
+                    break
+        # Convert coordinates to EMU
+        left = Cm(left_cm)
+        top = Cm(top_cm)
+        width = Cm(width_cm)
+        height = Cm(height_cm)
+        # Insert the chart picture
+        picture = target_slide.shapes.add_picture(chart_path, left, top, width, height)
+        # Bring to front
+        sp_tree = target_slide.shapes._spTree
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
         return prs
