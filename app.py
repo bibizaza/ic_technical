@@ -1,29 +1,13 @@
-# Streamlit app for technical dashboard and presentation generation
-
 """
-This Streamlit application allows users to upload data, configure year‑to‑date (YTD)
+Streamlit application for technical dashboard and presentation generation.
+
+This application allows users to upload data, configure year‑to‑date (YTD)
 charts for various asset classes, perform technical analysis on the S&P 500
-index and generate a customised PowerPoint presentation. The app persists
-configuration selections in the session state and leverages helper functions
-for chart creation and PowerPoint editing.
-
-Key features:
-
-* **Upload** – upload an Excel workbook containing price series, technical scores
-  and trend ratings along with a PowerPoint template.
-* **YTD Update** – configure which equity, commodity and crypto indices to
-  include in the YTD charts and preview the resulting charts.
-* **Technical Analysis** – display a one‑year S&P 500 price chart with
-  optional regression channel and moving averages. A new horizontal gauge
-  below the chart visualises the average of the technical and momentum scores
-  compared with last week’s average. Users input the prior week’s average via
-  a number box. The gauge is also persisted for later insertion into the
-  generated presentation.
-* **Generate Presentation** – insert all configured charts, technical indicators
-  and subtitle text into the uploaded PowerPoint template. The application
-  inserts the SPX technical chart, the technical score number, the momentum
-  score number, the user‑defined subtitle and the average gauge into the
-  appropriate slide.
+index (including a new higher‑range/lower‑range gauge) and generate a
+customised PowerPoint presentation.  The app persists configuration
+selections in the session state and leverages helper functions from the
+``technical_analysis.equity.spx`` module for chart creation and PowerPoint
+editing.
 """
 
 import streamlit as st
@@ -39,7 +23,7 @@ from pathlib import Path
 # Import SPX functions from the dedicated module
 from technical_analysis.equity.spx import (
     make_spx_figure,
-    insert_spx_technical_chart,
+    insert_spx_technical_chart_with_callout,
     insert_spx_technical_score_number,
     insert_spx_momentum_score_number,
     insert_spx_subtitle,
@@ -47,7 +31,8 @@ from technical_analysis.equity.spx import (
     _get_spx_technical_score,
     _get_spx_momentum_score,
     insert_spx_average_gauge,
-    insert_spx_technical_assessment
+    insert_spx_technical_assessment,
+    generate_range_gauge_only_image,
 )
 
 # -----------------------------------------------------------------------------
@@ -125,9 +110,7 @@ def _build_fallback_figure(
     span = hi - lo
     for lvl in [hi, hi - 0.236 * span, hi - 0.382 * span, hi - 0.5 * span, hi - 0.618 * span, lo]:
         fig.add_hline(
-            y=lvl,
-            line=dict(color="grey", dash="dash", width=1),
-            opacity=0.6,
+            y=lvl, line=dict(color="grey", dash="dash", width=1), opacity=0.6
         )
 
     if anchor_date is not None:
@@ -181,6 +164,7 @@ def _build_fallback_figure(
         yaxis=dict(showgrid=False, zeroline=False),
     )
     return fig
+
 
 # -----------------------------------------------------------------------------
 # Streamlit configuration
@@ -349,7 +333,9 @@ elif page == "Technical Analysis":
             df_prices = pd.read_excel(temp_path, sheet_name="data_prices")
             df_prices = df_prices.drop(index=0)
             df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
-            df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+            df_prices["Date"] = pd.to_datetime(
+                df_prices[df_prices.columns[0]], errors="coerce"
+            )
             df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
             df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(
                 drop=True
@@ -405,10 +391,7 @@ elif page == "Technical Analysis":
                 df_ma = _add_moving_averages(df_full)
                 fig = _build_fallback_figure(df_ma, anchor_date=anchor_ts)
 
-            st.plotly_chart(
-                fig,
-                use_container_width=True,
-            )
+            st.plotly_chart(fig, use_container_width=True)
             st.caption(
                 "Use the controls above to enable and configure the regression channel. "
                 "Green shading indicates an uptrend; red shading indicates a downtrend."
@@ -470,6 +453,11 @@ elif page == "Technical Analysis":
                     "Technical or momentum score not available in the uploaded Excel. "
                     "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
                 )
+
+            # Note: the vertical range gauge is integrated into the PPT slide only.
+            # To keep the Streamlit interface clean, we omit displaying the gauge
+            # separately here.  Users will see the full trading range gauge in
+            # the generated presentation.
     else:
         with st.expander(f"{asset_class} technical charts", expanded=False):
             st.info(f"{asset_class} technical analysis not implemented yet.")
@@ -521,9 +509,9 @@ elif page == "Generate Presentation":
             tickers=st.session_state.get("selected_cr_tickers", []),
         )
 
-        # Insert SPX technical-analysis chart
+        # Insert SPX technical-analysis chart with call-out range
         anchor_dt = st.session_state.get("ta_anchor")
-        prs = insert_spx_technical_chart(
+        prs = insert_spx_technical_chart_with_callout(
             prs,
             st.session_state["excel_file"],
             anchor_dt,
