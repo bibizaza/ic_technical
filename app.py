@@ -24,6 +24,7 @@ from pathlib import Path
 from technical_analysis.equity.spx import (
     make_spx_figure,
     insert_spx_technical_chart_with_callout,
+    insert_spx_technical_chart,
     insert_spx_technical_score_number,
     insert_spx_momentum_score_number,
     insert_spx_subtitle,
@@ -517,7 +518,9 @@ elif page == "Generate Presentation":
             tickers=st.session_state.get("selected_cr_tickers", []),
         )
 
-        # Insert SPX technical-analysis chart with call-out range
+        # Insert SPX technical-analysis chart with the call-out range gauge.
+        # The call-out image now preserves axis labels, month names and the legend
+        # thanks to the updated ``generate_range_callout_chart_image``.
         anchor_dt = st.session_state.get("ta_anchor")
         prs = insert_spx_technical_chart_with_callout(
             prs,

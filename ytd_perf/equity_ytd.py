@@ -228,9 +228,11 @@ def insert_equity_chart(
                         break
             if target_slide:
                 break
+        # If the placeholder slide is not found, skip inserting the chart.
+        # This avoids placing the equity YTD chart on an unrelated slide
+        # when the target slide has been removed from the template.
         if target_slide is None:
-            # Fallback to slide 11 (index 10) if not found
-            target_slide = prs.slides[min(10, len(prs.slides) - 1)]
+            return prs
         # Insert subtitle
         if subtitle:
             for shape in target_slide.shapes:
