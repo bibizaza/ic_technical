@@ -490,33 +490,30 @@ def generate_range_callout_chart_image(
     y_max = max(hi, upper_bound) * 1.02
     y_min = min(lo, lower_bound) * 0.98
 
-    # Compute widths for chart and call‑out.  Reserve a small margin on the
-    # left of the chart to ensure that y‑axis tick labels and the legend
-    # remain visible when the image is inserted into a PowerPoint slide.
+    # Compute widths for chart and call‑out
     callout_width_cm = min(callout_width_cm, width_cm)
     chart_width_cm = max(width_cm - callout_width_cm, 0.0)
     fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
     fig = plt.figure(figsize=(fig_w_in, fig_h_in))
 
-    # Relative widths as fractions of the full figure width
-    chart_rel_width = chart_width_cm / width_cm if width_cm > 0 else 0.0
-    callout_rel_width = callout_width_cm / width_cm if width_cm > 0 else 0.0
-
-    # Define a margin fraction for the left side of the chart.  Without
-    # this margin, tick labels and the legend can be clipped when the
-    # combined image is saved at high DPI.  Use up to 4% of the figure
-    # width or 10% of the chart portion, whichever is smaller.
-    margin_rel = min(0.04, 0.10 * chart_rel_width)
-
     # Axes for chart and call‑out; share the y‑axis so that the call‑out
     # markers align with the same price levels as the chart.  The chart
-    # occupies the left portion of the figure starting at margin_rel; the
-    # call‑out uses the remaining width starting at chart_rel_width.
+    # occupies the left portion of the figure; the call‑out uses the
+    # remaining width.
+    chart_rel_width = chart_width_cm / width_cm if width_cm > 0 else 0.0
+    callout_rel_width = callout_width_cm / width_cm if width_cm > 0 else 0.0
+    # Allocate a small left margin (as a fraction of the figure width) for
+    # y‑axis tick labels and to prevent legends from being clipped.  The
+    # margin is capped at 3 % of the total width or 10 % of the chart
+    # portion, whichever is smaller.
+    margin_rel = 0.03
+    if chart_rel_width > 0:
+        margin_rel = min(0.03, chart_rel_width * 0.1)
+    # Chart axis occupies the chart portion minus the left margin; it is
+    # shifted right by the margin.  The call‑out axis begins at the
+    # original chart_rel_width position and retains its width.
     ax_chart = fig.add_axes([margin_rel, 0.0, chart_rel_width - margin_rel, 1.0])
-    # Create a separate y‑axis for the call‑out so that hiding its ticks
-    # does not remove the ticks from the main chart.  We will manually
-    # synchronise the y‑limits below.
-    ax_callout = fig.add_axes([chart_rel_width, 0.0, callout_rel_width, 1.0])
+    ax_callout = fig.add_axes([chart_rel_width, 0.0, callout_rel_width, 1.0], sharey=ax_chart)
 
     # Set y‑limits before plotting so that shared axes align properly
     ax_chart.set_ylim(y_min, y_max)
@@ -544,20 +541,12 @@ def generate_range_callout_chart_image(
         ax_chart.plot(subset["Date"], lower_channel, color=line_color, linestyle="--")
         ax_chart.fill_between(subset["Date"], lower_channel, upper_channel, color=fill_color)
 
-    # Style the main chart: remove spines and configure ticks.  We set the
-    # y‑axis tick length to zero so that the small horizontal tick marks
-    # next to the axis labels are not visible, while keeping the labels
-    # themselves.  The x‑axis ticks retain their default length.
+    # Style the main chart: remove spines and configure ticks
     for spine in ax_chart.spines.values():
         spine.set_visible(False)
-    ax_chart.tick_params(axis="y", which="both", length=0)
-    ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: place the legend just above the main chart, aligned to the
-    # left so that it does not overlap the call‑out panel.  Use a
-    # multi‑column layout to fit all entries on a single line.  The
-    # bounding box is anchored slightly above the axes (y=1.05).
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
+    # Legend
+    ax_chart.legend(loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=4,
                     fontsize=8, frameon=False)
 
     # Configure call‑out axis: remove ticks and spines; set background white
@@ -586,27 +575,21 @@ def generate_range_callout_chart_image(
         except Exception:
             return f"{val:.0f}"
 
-    # Compose label strings with percentage differences.  Use bold weight
-    # for the label and value to emphasise the trading range; the
-    # percentage change is left with normal weight.
+    # Compose label strings with percentage differences
     upper_text = f"Higher Range\n{_fmt(upper_bound)} $\n(+{up_pct:.1f}%)"
     lower_text = f"Lower Range\n{_fmt(lower_bound)} $\n(-{down_pct:.1f}%)"
 
-    # Add the text labels at the appropriate y positions.  Set
-    # fontweight='bold' so that the label and value stand out.
+    # Add the text labels at the appropriate y positions
     ax_callout.text(text_x, upper_bound, upper_text, color="#009951",
-                    ha="left", va="center", fontsize=8, fontweight='bold',
+                    ha="left", va="center", fontsize=8,
                     transform=ax_callout.transData)
     ax_callout.text(text_x, lower_bound, lower_text, color="#C00000",
-                    ha="left", va="center", fontsize=8, fontweight='bold',
+                    ha="left", va="center", fontsize=8,
                     transform=ax_callout.transData)
 
-    # Export to transparent PNG.  Use bbox_inches='tight' so that the
-    # entire figure (including legends and tick labels) is saved without
-    # cropping.  A small padding is added to provide breathing room.
+    # Export to transparent PNG
     buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=300, transparent=True,
-                bbox_inches="tight", pad_inches=0.05)
+    fig.savefig(buf, format="png", dpi=300, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
@@ -657,8 +640,8 @@ def insert_spx_technical_chart_with_callout(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
+        width_cm=24.47,
+        height_cm=7.53,
     )
 
     # Locate the slide containing the 'spx' placeholder or text
@@ -679,12 +662,12 @@ def insert_spx_technical_chart_with_callout(
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Insert the image at the requested coordinates.  The user specified
-    # dimensions of 25 cm wide and 7.3 cm high, positioned 0.93 cm
-    # from the left and 4.80 cm from the top.
+    # dimensions of 24.47 cm wide and 7.53 cm high, positioned 0.93 cm
+    # from the left and 4.4 cm from the top.
     left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
+    top = Cm(4.40)
+    width = Cm(24.47)
+    height = Cm(7.53)
     stream = BytesIO(img_bytes)
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
@@ -1083,47 +1066,52 @@ def insert_spx_average_gauge(
     placeholder_name = "gauge_spx"
     placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_spx"]
 
+    # First, locate the SPX slide (named 'spx' or containing '[spx]')
+    spx_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
-            if getattr(shape, "name", "").lower() == placeholder_name:
-                left, top, width, height = (
-                    shape.left,
-                    shape.top,
-                    shape.width,
-                    shape.height,
-                )
-                if shape.has_text_frame:
-                    shape.text = ""
-                stream = BytesIO(gauge_bytes)
-                slide.shapes.add_picture(
-                    stream, left, top, width=width, height=height
-                )
-                return prs
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr == "spx":
+                spx_slide = slide
+                break
             if shape.has_text_frame:
-                for pattern in placeholder_patterns:
-                    if pattern.lower() in shape.text.lower():
-                        left, top, width, height = (
-                            shape.left,
-                            shape.top,
-                            shape.width,
-                            shape.height,
-                        )
-                        shape.text = shape.text.replace(pattern, "")
-                        stream = BytesIO(gauge_bytes)
-                        slide.shapes.add_picture(
-                            stream, left, top, width=width, height=height
-                        )
-                        return prs
+                txt = (shape.text or "").strip().lower()
+                if txt == "[spx]":
+                    spx_slide = slide
+                    break
+        if spx_slide:
+            break
+    # If no SPX slide found, fall back to the first slide
+    if spx_slide is None:
+        spx_slide = prs.slides[0]
 
-    # Fallback: fixed coordinates below the chart
-    idx = min(11, len(prs.slides) - 1)
-    slide = prs.slides[idx]
+    # Try to find the gauge placeholder within the SPX slide only
+    for shape in spx_slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            left, top, width, height = shape.left, shape.top, shape.width, shape.height
+            if shape.has_text_frame:
+                shape.text = ""
+            stream = BytesIO(gauge_bytes)
+            spx_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+            return prs
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern.lower() in shape.text.lower():
+                    left, top, width, height = shape.left, shape.top, shape.width, shape.height
+                    shape.text = shape.text.replace(pattern, "")
+                    stream = BytesIO(gauge_bytes)
+                    spx_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+                    return prs
+
+    # If the placeholder is not present on the SPX slide, insert the gauge
+    # at a default position on that slide (below the main chart).  These
+    # coordinates correspond to the template's original gauge location.
     left = Cm(8.97)
     top = Cm(12.13)
     width = Cm(15.15)
     height = Cm(3.13)
     stream = BytesIO(gauge_bytes)
-    slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    spx_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
 
 

@@ -35,6 +35,14 @@ from technical_analysis.equity.spx import (
     generate_range_gauge_only_image,
 )
 
+# Import performance dashboard helpers
+from performance.equity_perf import (
+    create_weekly_performance_chart,
+    create_historical_performance_table,
+    insert_equity_performance_bar_slide,
+    insert_equity_performance_histo_slide,
+)
+
 # -----------------------------------------------------------------------------
 # Fallback helpers for interactive chart if no Excel
 # -----------------------------------------------------------------------------
@@ -548,6 +556,38 @@ elif page == "Generate Presentation":
             prs,
             st.session_state["excel_file"],
         )
+
+        # ------------------------------------------------------------------
+        # Insert Equity performance charts
+        # ------------------------------------------------------------------
+        try:
+            # Generate and insert the weekly performance bar chart
+            week_img = create_weekly_performance_chart(
+                st.session_state["excel_file"]
+            )
+            prs = insert_equity_performance_bar_slide(
+                prs,
+                week_img,
+                left_cm=1.63,
+                top_cm=4.73,
+                width_cm=22.48,
+                height_cm=10.61,
+            )
+            # Generate and insert the historical performance heatmap
+            histo_img = create_historical_performance_table(
+                st.session_state["excel_file"]
+            )
+            prs = insert_equity_performance_histo_slide(
+                prs,
+                histo_img,
+                left_cm=2.16,
+                top_cm=4.70,
+                width_cm=19.43,
+                height_cm=10.61,
+            )
+        except Exception:
+            # If anything fails, continue without the performance slides
+            pass
 
         out_stream = BytesIO()
         prs.save(out_stream)

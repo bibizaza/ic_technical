@@ -1,20 +1,41 @@
-"""
-ytd_perf/equity_ytd.py
+"""Equity YTD performance chart generation and insertion.
 
-This module provides functions to compute YTD performance for equities,
-create a chart with connectors and bold labels, and insert it into
-slide 11 of a PowerPoint file.  It loads data via loader_update.py.
+This module computes year‑to‑date (YTD) performance for a set of
+equity indices, builds a matplotlib chart with connectors and
+annotations, and provides a helper to insert the chart and its
+subtitle into a PowerPoint slide.  Unlike earlier implementations
+that used fixed slide indices, the insertion helper locates the
+appropriate slide via a placeholder named ``ytd_eq_perf`` and
+inserts the chart at user‑specified coordinates.  The subtitle is
+written into a separate textbox named ``ytd_eq_subtitle`` using
+formatting preserved from a ``XXX`` placeholder.
+
+Functions
+---------
+
+``get_equity_ytd_series``
+    Compute percentage change from the start of the current year for
+    each equity ticker.
+``create_equity_chart``
+    Build a YTD line chart with connectors and annotations.
+``insert_equity_chart``
+    Insert the chart and subtitle into a slide identified by
+    placeholders.
 """
 
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from pptx import Presentation
-from pptx.util import Inches
-import tempfile
-import os
-from typing import List, Optional
+from __future__ import annotations
+
 from datetime import datetime
+import os
+import tempfile
+from typing import List, Optional
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import pandas as pd
+from pptx import Presentation
+from pptx.util import Cm
+
 from .loader_update import load_data
 
 # Colour mapping for equities
@@ -29,20 +50,35 @@ EQUITY_COLOURS = {
     "SMI": "#E4AAF4", "SMI Index": "#E4AAF4",
 }
 
+
 def get_equity_ytd_series(file_path: str, tickers: Optional[List[str]] = None) -> pd.DataFrame:
     """
-    Compute YTD performance for equity tickers.  If `tickers` is None, all equity tickers
-    from the parameters sheet are included.  YTD is calculated from 1 January of the
-    current year.
+    Compute YTD performance for equity tickers.  If ``tickers`` is
+    ``None``, all equity tickers from the parameters sheet are
+    included.  YTD is calculated from 1 January of the current year.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the Excel workbook containing price and parameter
+        sheets.
+    tickers : list of str, optional
+        Specific tickers to include; if omitted, all equities are
+        used.
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame with a ``Date`` column and one column per
+        equity name, containing percentage changes from the start of
+        the year.
     """
     prices_df, params_df = load_data(file_path)
-    # Determine year start as naive datetime
     now = datetime.now()
     year_start = datetime(now.year, 1, 1)
-    # Filter current year data
+    # Filter data from the start of the year
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
-    # Find equity tickers from parameters
-    eq_params = params_df[params_df["Asset Class"] == "Equity"]
+    eq_params = params_df[params_df["Asset Class"] == "Equity"].copy()
     if tickers is not None:
         eq_params = eq_params[eq_params["Tickers"].isin(tickers)]
     result = pd.DataFrame()
@@ -53,7 +89,6 @@ def get_equity_ytd_series(file_path: str, tickers: Optional[List[str]] = None) -
         if ticker not in current_year_df.columns:
             continue
         series = current_year_df[ticker].astype(float)
-        # Use first non-NaN value of the year as base
         base_series = series.dropna()
         if base_series.empty:
             continue
@@ -64,8 +99,24 @@ def get_equity_ytd_series(file_path: str, tickers: Optional[List[str]] = None) -
         result[name] = ytd.reset_index(drop=True)
     return result
 
-def create_equity_chart(df: pd.DataFrame):
-    """Create a YTD equity chart with connectors and bold labels."""
+
+def create_equity_chart(df: pd.DataFrame) -> plt.Figure:
+    """Create a YTD equity chart with connectors and bold labels.
+
+    The chart plots one line per equity index.  At the right edge,
+    connectors lead to bold labels indicating the final value of each
+    series.  Colours are assigned according to ``EQUITY_COLOURS``.
+
+    Parameters
+    ----------
+    df : DataFrame
+        The DataFrame returned by ``get_equity_ytd_series``.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure object ready for saving.
+    """
     fig, ax = plt.subplots(figsize=(10, 5.5))
     # Plot each equity line
     for col in df.columns:
@@ -100,7 +151,7 @@ def create_equity_chart(df: pd.DataFrame):
             va="center",
             ha="left",
         )
-    # Style
+    # Style axes
     ax.set_title("YTD Performance of Equity Indices (%)", fontsize=14, color="#0A1F44")
     ax.set_xlabel("")
     ax.set_ylabel("Performance")
@@ -114,20 +165,77 @@ def create_equity_chart(df: pd.DataFrame):
     fig.tight_layout()
     return fig
 
-def insert_equity_chart(prs: Presentation, file_path: str, subtitle: str = "", tickers: Optional[List[str]] = None) -> Presentation:
+
+def insert_equity_chart(
+    prs: Presentation,
+    file_path: str,
+    subtitle: str = "",
+    tickers: Optional[List[str]] = None,
+    *,
+    left_cm: float = 1.87,
+    top_cm: float = 5.49,
+    width_cm: float = 20.64,
+    height_cm: float = 9.57,
+) -> Presentation:
+    """Insert the YTD equity chart and subtitle into a PowerPoint slide.
+
+    This helper searches for a shape named ``ytd_eq_perf`` or containing
+    ``[ytd_eq_perf]`` to locate the correct slide.  It then inserts
+    the chart image at the specified coordinates, leaving the
+    placeholder text intact.  The subtitle is written into the shape
+    named ``ytd_eq_subtitle`` by replacing the placeholder ``XXX``
+    while preserving the original formatting of the text run.
+
+    Parameters
+    ----------
+    prs : Presentation
+        PowerPoint presentation to modify.
+    file_path : str
+        Path to the Excel workbook.
+    subtitle : str, optional
+        Subtitle text to insert in place of ``XXX``.
+    tickers : list of str, optional
+        Equity tickers to include; if omitted, all equities are
+        included.
+    left_cm, top_cm, width_cm, height_cm : float
+        Coordinates and dimensions (in centimetres) for the chart
+        placement.
+
+    Returns
+    -------
+    Presentation
+        The modified presentation.
     """
-    Compute equity YTD data, create the chart, insert it into slide 11 and update its subtitle.
-    """
+    # Compute YTD data and chart
     df_eq = get_equity_ytd_series(file_path, tickers)
     fig = create_equity_chart(df_eq)
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_png:
         fig.savefig(tmp_png.name, dpi=200)
         chart_path = tmp_png.name
     try:
-        slide = prs.slides[10]
-        if subtitle:
+        # Locate slide by ytd_eq_perf placeholder
+        target_slide = None
+        for slide in prs.slides:
             for shape in slide.shapes:
-                if shape.name == "YTD_EQ_Perf" and shape.has_text_frame:
+                name_attr = getattr(shape, "name", "").lower()
+                if name_attr == "ytd_eq_perf":
+                    target_slide = slide
+                    break
+                if shape.has_text_frame:
+                    text_lower = (shape.text or "").strip().lower()
+                    if text_lower == "[ytd_eq_perf]":
+                        target_slide = slide
+                        break
+            if target_slide:
+                break
+        if target_slide is None:
+            # Fallback to slide 11 (index 10) if not found
+            target_slide = prs.slides[min(10, len(prs.slides) - 1)]
+        # Insert subtitle
+        if subtitle:
+            for shape in target_slide.shapes:
+                name_attr = getattr(shape, "name", "")
+                if name_attr and name_attr.lower() == "ytd_eq_subtitle" and shape.has_text_frame:
                     tf = shape.text_frame
                     for paragraph in tf.paragraphs:
                         for run in paragraph.runs:
@@ -140,12 +248,16 @@ def insert_equity_chart(prs: Presentation, file_path: str, subtitle: str = "", t
                                 run.font.italic = original_font.italic
                                 run.font.color.rgb = original_font.color.rgb
                                 break
-        left = Inches(1.87 / 2.54)
-        top = Inches(5.49 / 2.54)
-        width = Inches(20.64 / 2.54)
-        height = Inches(9.57 / 2.54)
-        picture = slide.shapes.add_picture(chart_path, left, top, width, height)
-        sp_tree = slide.shapes._spTree
+                    break
+        # Convert coordinates to EMU
+        left = Cm(left_cm)
+        top = Cm(top_cm)
+        width = Cm(width_cm)
+        height = Cm(height_cm)
+        # Insert chart picture
+        picture = target_slide.shapes.add_picture(chart_path, left, top, width, height)
+        # Bring to front
+        sp_tree = target_slide.shapes._spTree
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
         return prs
