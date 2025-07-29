@@ -373,7 +373,13 @@ def show_ytd_update_page():
 
     st.header("YTD Performance Charts")
     with st.expander("Equity Chart", expanded=True):
-        df_eq = get_equity_ytd_series(st.session_state["excel_file"], tickers=eq_tickers)
+        # Pass the selected price mode to compute YTD using either
+        # intraday (Last Price) or previous close (Last Close).  This
+        # ensures the chart reflects the user's choice in the sidebar.
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        df_eq = get_equity_ytd_series(
+            st.session_state["excel_file"], tickers=eq_tickers, price_mode=price_mode
+        )
         st.pyplot(create_equity_chart(df_eq))
     with st.expander("Commodity Chart", expanded=False):
         df_co = get_commodity_ytd_series(st.session_state["excel_file"], tickers=co_tickers)
@@ -606,6 +612,7 @@ def show_generate_presentation_page():
             st.session_state["excel_file"],
             subtitle=st.session_state.get("eq_subtitle", ""),
             tickers=st.session_state.get("selected_eq_tickers", []),
+            price_mode=st.session_state.get("price_mode", "Last Price"),
         )
         prs = insert_commodity_chart(
             prs,

@@ -2,33 +2,36 @@
 
 This module computes year‑to‑date (YTD) performance for a set of
 equity indices, builds a matplotlib chart with connectors and
-annotations, and provides a helper to insert the chart and its
-subtitle into a PowerPoint slide.  Unlike earlier implementations
-that used fixed slide indices, the insertion helper locates the
-appropriate slide via a placeholder named ``ytd_eq_perf`` and
-inserts the chart at user‑specified coordinates.  The subtitle is
-written into a separate textbox named ``ytd_eq_subtitle`` using
-formatting preserved from a ``XXX`` placeholder.
+annotations, and provides a helper to insert the chart, its subtitle
+and a data‑source footnote into a PowerPoint slide.  The insertion
+helper locates the appropriate slide via a placeholder named
+``ytd_eq_perf`` and inserts the chart at user‑specified coordinates.
+The subtitle is written into a separate textbox named
+``ytd_eq_subtitle`` using formatting preserved from a ``XXX``
+placeholder.  The data source footnote is inserted into a textbox
+named ``ytd_eq_source`` (or containing ``[ytd_eq_source]``) and
+reflects the effective price mode (``Last Price`` or ``Last Close``)
+selected by the user.
 
 Functions
 ---------
 
 ``get_equity_ytd_series``
     Compute percentage change from the start of the current year for
-    each equity ticker.
+    each equity ticker using the selected price mode.
 ``create_equity_chart``
     Build a YTD line chart with connectors and annotations.
 ``insert_equity_chart``
-    Insert the chart and subtitle into a slide identified by
-    placeholders.
+    Insert the chart, subtitle and source footnote into a slide
+    identified by placeholders.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
 import os
 import tempfile
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Optional, Tuple
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -36,53 +39,167 @@ import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
 
-from .loader_update import load_data
+from utils import adjust_prices_for_mode
+
+try:
+    # Reuse formatting helpers from the SPX module to capture and
+    # reapply font attributes (size, colour, theme colour, brightness,
+    # bold and italic).  These are considered internal but can be
+    # imported since they reside in the same repository.  Should this
+    # import fail, fallback helpers defined locally will be used.
+    from technical_analysis.equity.spx import (
+        _get_run_font_attributes as _capture_font_attrs,
+        _apply_run_font_attributes as _apply_font_attrs,
+    )
+except Exception:
+    def _capture_font_attrs(run) -> Tuple:
+        """Fallback font attribute extractor.  Captures only size, rgb
+        and basic bold/italic settings.  Theme colours and brightness
+        adjustments are ignored in this fallback implementation."""
+        if run is None:
+            return (None, None, None, None, None, None)
+        size = run.font.size
+        colour = run.font.color
+        rgb = None
+        try:
+            rgb = colour.rgb
+        except Exception:
+            rgb = None
+        bold = run.font.bold
+        italic = run.font.italic
+        return (size, rgb, None, None, bold, italic)
+
+    def _apply_font_attrs(new_run, size, rgb, theme_color, brightness, bold, italic) -> None:
+        """Fallback font attribute applier.  Applies size, explicit RGB
+        colour, bold and italic attributes to the provided run."""
+        if size is not None:
+            new_run.font.size = size
+        if rgb is not None:
+            try:
+                new_run.font.color.rgb = rgb
+            except Exception:
+                pass
+        if bold is not None:
+            new_run.font.bold = bold
+        if italic is not None:
+            new_run.font.italic = italic
+
 
 # Colour mapping for equities
 EQUITY_COLOURS = {
-    "S&P 500": "#203864", "SPX Index": "#203864",
-    "Shenzen CSI 300": "#00B0F0", "CSI 300": "#00B0F0", "SHSZ300 Index": "#00B0F0",
-    "Dax": "#0070C0", "DAX": "#0070C0", "DAX Index": "#0070C0",
-    "Ibov": "#BF9000", "IBOV": "#BF9000", "IBOV Index": "#BF9000",
-    "Sensex": "#B4C7E7", "Sensex Index": "#B4C7E7", "SENSEX Index": "#B4C7E7",
-    "TASI": "#A6A6A6", "SASEIDX Index": "#A6A6A6",
-    "Nikkei 225": "#FFC000", "Nikkei": "#FFC000", "NKY Index": "#FFC000",
-    "SMI": "#E4AAF4", "SMI Index": "#E4AAF4",
+    "S&P 500": "#203864",
+    "SPX Index": "#203864",
+    "Shenzen CSI 300": "#00B0F0",
+    "CSI 300": "#00B0F0",
+    "SHSZ300 Index": "#00B0F0",
+    "Dax": "#0070C0",
+    "DAX": "#0070C0",
+    "DAX Index": "#0070C0",
+    "Ibov": "#BF9000",
+    "IBOV": "#BF9000",
+    "IBOV Index": "#BF9000",
+    "Sensex": "#B4C7E7",
+    "Sensex Index": "#B4C7E7",
+    "SENSEX Index": "#B4C7E7",
+    "TASI": "#A6A6A6",
+    "SASEIDX Index": "#A6A6A6",
+    "Nikkei 225": "#FFC000",
+    "Nikkei": "#FFC000",
+    "NKY Index": "#FFC000",
+    "SMI": "#E4AAF4",
+    "SMI Index": "#E4AAF4",
 }
 
 
-def get_equity_ytd_series(file_path: str, tickers: Optional[List[str]] = None) -> pd.DataFrame:
-    """
-    Compute YTD performance for equity tickers.  If ``tickers`` is
-    ``None``, all equity tickers from the parameters sheet are
-    included.  YTD is calculated from 1 January of the current year.
+def _load_prices_and_params(file_path: str, price_mode: str) -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.Timestamp]]:
+    """Load price and parameter data from the Excel workbook, applying the
+    specified price mode adjustment to the price data.
 
     Parameters
     ----------
     file_path : str
-        Path to the Excel workbook containing price and parameter
-        sheets.
+        Path to the Excel workbook containing a ``data_prices`` sheet and
+        a ``parameters`` sheet.
+    price_mode : str
+        Either ``"Last Price"`` or ``"Last Close"``.  When set to
+        ``"Last Close"``, rows with the most recent date (if equal to
+        today's date) will be dropped prior to computing performance.
+
+    Returns
+    -------
+    tuple
+        A three‑tuple ``(prices_df, params_df, used_date)`` where
+        ``prices_df`` contains columns ``Date`` and one column per ticker,
+        ``params_df`` contains the parameter table, and ``used_date`` is
+        the maximum date in the adjusted ``prices_df`` or ``None`` if no
+        dates are available.
+    """
+    # Read the parameters sheet
+    params_df = pd.read_excel(file_path, sheet_name="parameters")
+
+    # Read the raw price sheet
+    df = pd.read_excel(file_path, sheet_name="data_prices")
+    # First row contains text headers (e.g. DATES, #price).  Drop it.
+    df = df.drop(index=0)
+    # The first column holds dates; drop any rows labelled "DATES" just in case
+    df = df[df[df.columns[0]] != "DATES"]
+    df.loc[:, "Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
+    # Remove the original first column
+    df = df.drop(columns=[df.columns[0]])
+    # Convert all price columns to numeric
+    for col in df.columns:
+        if col != "Date":
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    # Drop rows where Date is NaT
+    df = df.dropna(subset=["Date"]).reset_index(drop=True)
+    # Apply price mode adjustment
+    prices_df, used_date = adjust_prices_for_mode(df, price_mode)
+    return prices_df, params_df, used_date
+
+
+def get_equity_ytd_series(
+    file_path: str,
+    tickers: Optional[List[str]] = None,
+    *,
+    price_mode: str = "Last Price",
+) -> pd.DataFrame:
+    """
+    Compute YTD performance for equity tickers using the selected price mode.
+
+    This function returns only the YTD performance DataFrame.  The
+    effective date used for the computation (i.e. the last date after
+    applying the price mode adjustment) can be obtained separately
+    via ``_load_prices_and_params``.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the Excel workbook containing price and parameter sheets.
     tickers : list of str, optional
-        Specific tickers to include; if omitted, all equities are
-        used.
+        Specific tickers to include; if omitted, all equities are used.
+    price_mode : str, default ``"Last Price"``
+        Either ``"Last Price"`` or ``"Last Close"``.  When set to
+        ``"Last Close"``, rows with the most recent date (if equal to
+        today's date) will be dropped prior to computing performance.
 
     Returns
     -------
     DataFrame
-        A DataFrame with a ``Date`` column and one column per
-        equity name, containing percentage changes from the start of
-        the year.
+        A DataFrame containing a ``Date`` column and one column per
+        equity name, holding percentage changes from the start of the
+        current year.
     """
-    prices_df, params_df = load_data(file_path)
+    prices_df, params_df, _ = _load_prices_and_params(file_path, price_mode)
     now = datetime.now()
     year_start = datetime(now.year, 1, 1)
     # Filter data from the start of the year
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
+    # Filter parameter rows to equities
     eq_params = params_df[params_df["Asset Class"] == "Equity"].copy()
     if tickers is not None:
         eq_params = eq_params[eq_params["Tickers"].isin(tickers)]
     result = pd.DataFrame()
-    result["Date"] = current_year_df["Date"]
+    result["Date"] = current_year_df["Date"].reset_index(drop=True)
     for _, row in eq_params.iterrows():
         ticker = str(row["Tickers"]).strip()
         name = str(row["Name"]).strip()
@@ -124,7 +241,7 @@ def create_equity_chart(df: pd.DataFrame) -> plt.Figure:
             continue
         colour = EQUITY_COLOURS.get(col, None)
         ax.plot(df["Date"], df[col], color=colour, linewidth=2)
-    # Determine y-range and sort by final values
+    # Determine y‑range and sort by final values
     y_min = df[[c for c in df.columns if c != "Date"]].min().min()
     y_max = df[[c for c in df.columns if c != "Date"]].max().max()
     y_range = y_max - y_min if y_max > y_min else 1.0
@@ -172,19 +289,24 @@ def insert_equity_chart(
     subtitle: str = "",
     tickers: Optional[List[str]] = None,
     *,
+    price_mode: str = "Last Price",
     left_cm: float = 1.87,
     top_cm: float = 5.49,
     width_cm: float = 20.64,
     height_cm: float = 9.57,
 ) -> Presentation:
-    """Insert the YTD equity chart and subtitle into a PowerPoint slide.
+    """Insert the YTD equity chart, subtitle and source footnote into a slide.
 
     This helper searches for a shape named ``ytd_eq_perf`` or containing
     ``[ytd_eq_perf]`` to locate the correct slide.  It then inserts
-    the chart image at the specified coordinates, leaving the
-    placeholder text intact.  The subtitle is written into the shape
-    named ``ytd_eq_subtitle`` by replacing the placeholder ``XXX``
-    while preserving the original formatting of the text run.
+    the chart image at the specified coordinates.  The subtitle is
+    written into the shape named ``ytd_eq_subtitle`` by replacing the
+    placeholder ``XXX`` or ``[ytd_eq_subtitle]`` while preserving the
+    original formatting of the text run.  Finally, a source footnote
+    indicating the data source and date is inserted into a shape named
+    ``ytd_eq_source`` (or containing ``[ytd_eq_source]``).  If the
+    placeholders are not found, the corresponding elements are not
+    inserted or replaced.
 
     Parameters
     ----------
@@ -197,6 +319,10 @@ def insert_equity_chart(
     tickers : list of str, optional
         Equity tickers to include; if omitted, all equities are
         included.
+    price_mode : str, default ``"Last Price"``
+        Either ``"Last Price"`` or ``"Last Close"``.  Determines how
+        price data is adjusted prior to computing YTD performance and
+        affects the date displayed in the source footnote.
     left_cm, top_cm, width_cm, height_cm : float
         Coordinates and dimensions (in centimetres) for the chart
         placement.
@@ -206,8 +332,12 @@ def insert_equity_chart(
     Presentation
         The modified presentation.
     """
-    # Compute YTD data and chart
-    df_eq = get_equity_ytd_series(file_path, tickers)
+    # Compute YTD data
+    df_eq = get_equity_ytd_series(file_path, tickers, price_mode=price_mode)
+    # Determine the date used for the data: reload price data with the
+    # specified price mode and extract the maximum date.
+    _, _, used_date = _load_prices_and_params(file_path, price_mode)
+    # Build the chart
     fig = create_equity_chart(df_eq)
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_png:
         fig.savefig(tmp_png.name, dpi=200)
@@ -229,45 +359,94 @@ def insert_equity_chart(
             if target_slide:
                 break
         # If the placeholder slide is not found, skip inserting the chart.
-        # This avoids placing the equity YTD chart on an unrelated slide
-        # when the target slide has been removed from the template.
         if target_slide is None:
             return prs
-        # Insert subtitle
+        # ------------------------------------------------------------------
+        # Insert subtitle into the 'ytd_eq_subtitle' placeholder
+        # ------------------------------------------------------------------
         if subtitle:
             for shape in target_slide.shapes:
                 name_attr = getattr(shape, "name", "")
                 if name_attr and name_attr.lower() == "ytd_eq_subtitle" and shape.has_text_frame:
                     tf = shape.text_frame
-                    for paragraph in tf.paragraphs:
-                        for run in paragraph.runs:
-                            # Look for either "XXX" or "[ytd_eq_subtitle]"
-                            if any(token in run.text for token in ("XXX", "[ytd_eq_subtitle]")):
-                                original_font = run.font
-                                # Replace whichever token is present
-                                for token in ("XXX", "[ytd_eq_subtitle]"):
-                                    if token in run.text:
-                                        run.text = run.text.replace(token, subtitle)
-                                        break
-                                # Reapply formatting
-                                run.font.name = original_font.name
-                                run.font.size = original_font.size
-                                run.font.bold = original_font.bold
-                                run.font.italic = original_font.italic
-                                run.font.color.rgb = original_font.color.rgb
-                                break
+                    # We'll modify only the first paragraph's first run for simplicity
+                    paragraph = tf.paragraphs[0]
+                    runs = paragraph.runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    # Determine replacement: replace tokens "XXX" or "[ytd_eq_subtitle]"
+                    original_text = "".join(run.text for run in runs) if runs else ""
+                    new_text = original_text
+                    if "XXX" in new_text:
+                        new_text = new_text.replace("XXX", subtitle)
+                    elif "[ytd_eq_subtitle]" in new_text:
+                        new_text = new_text.replace("[ytd_eq_subtitle]", subtitle)
+                    else:
+                        new_text = subtitle
+                    # Clear and insert new run
+                    tf.clear()
+                    p = tf.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_font_attrs(new_run, *attrs)
                     break
-        # Convert coordinates to EMU
+        # ------------------------------------------------------------------
+        # Insert the chart image
+        # ------------------------------------------------------------------
         left = Cm(left_cm)
         top = Cm(top_cm)
         width = Cm(width_cm)
         height = Cm(height_cm)
-        # Insert chart picture
         picture = target_slide.shapes.add_picture(chart_path, left, top, width, height)
-        # Bring to front
+        # Move the picture to the front (just after the slide's background)
         sp_tree = target_slide.shapes._spTree
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
+        # ------------------------------------------------------------------
+        # Insert data source footnote
+        # ------------------------------------------------------------------
+        if used_date is not None:
+            date_str = used_date.strftime("%d/%m/%Y")
+            suffix = " Close" if price_mode.lower() == "last close" else ""
+            source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+            placeholder_name = "ytd_eq_source"
+            placeholder_patterns = ["[ytd_eq_source]", "ytd_eq_source"]
+            inserted = False
+            for shape in target_slide.shapes:
+                name_attr = getattr(shape, "name", "")
+                if name_attr and name_attr.lower() == placeholder_name:
+                    if shape.has_text_frame:
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_font_attrs(new_run, *attrs)
+                    inserted = True
+                    break
+                if shape.has_text_frame:
+                    for pattern in placeholder_patterns:
+                        if pattern.lower() in (shape.text or "").lower():
+                            runs = shape.text_frame.paragraphs[0].runs
+                            attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                            try:
+                                new_text = shape.text.replace(pattern, source_text)
+                            except Exception:
+                                new_text = source_text
+                            shape.text_frame.clear()
+                            p = shape.text_frame.paragraphs[0]
+                            new_run = p.add_run()
+                            new_run.text = new_text
+                            _apply_font_attrs(new_run, *attrs)
+                            inserted = True
+                            break
+                    if inserted:
+                        break
         return prs
     finally:
-        os.remove(chart_path)
+        # Always remove the temporary image file
+        if os.path.exists(chart_path):
+            try:
+                os.remove(chart_path)
+            except Exception:
+                pass
