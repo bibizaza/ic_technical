@@ -3,11 +3,24 @@ Streamlit application for technical dashboard and presentation generation.
 
 This application allows users to upload data, configure year‑to‑date (YTD)
 charts for various asset classes, perform technical analysis on the S&P 500
-index (including a new higher‑range/lower‑range gauge) and generate a
-customised PowerPoint presentation.  The app persists configuration
-selections in the session state and leverages helper functions from the
-``technical_analysis.equity.spx`` module for chart creation and PowerPoint
-editing.
+index (including a selectable assessment title and a table of scores) and
+generate a customised PowerPoint presentation.  The app persists
+configuration selections in the session state and leverages helper functions
+from the ``technical_analysis.equity.spx`` module for chart creation and
+PowerPoint editing.
+
+Key modifications relative to the original application:
+
+* The SPX “view” title is no longer automatically derived from the average
+  of technical and momentum scores.  Instead, users can select a view
+  (e.g., “Strongly Bullish”) via a dropdown.  The chosen view is
+  prepended with “S&P 500:” and inserted into the PowerPoint slide.
+* The Streamlit interface no longer displays an average gauge for the SPX
+  scores.  Instead, a simple table shows the technical score, momentum
+  score and their average (DMAS), helping users judge the trend.
+* The selected view is stored in ``st.session_state["spx_selected_view"]``
+  and passed to ``insert_spx_technical_assessment`` when generating the
+  presentation.
 """
 
 import streamlit as st
@@ -20,7 +33,9 @@ from pptx import Presentation
 import tempfile
 from pathlib import Path
 
-# Import SPX functions from the dedicated module
+# Import SPX functions from the dedicated module.  Note that
+# insert_spx_technical_assessment has been extended to accept a manual
+# description; see technical_analysis.equity.spx for details.
 from technical_analysis.equity.spx import (
     make_spx_figure,
     insert_spx_technical_chart_with_callout,
@@ -36,7 +51,7 @@ from technical_analysis.equity.spx import (
     generate_range_gauge_only_image,
 )
 
-# Import performance dashboard helpers
+# Import performance dashboard helpers (unchanged)
 from performance.equity_perf import (
     create_weekly_performance_chart,
     create_historical_performance_table,
@@ -44,9 +59,7 @@ from performance.equity_perf import (
     insert_equity_performance_histo_slide,
 )
 
-# -----------------------------------------------------------------------------
-# Fallback helpers for interactive chart if no Excel
-# -----------------------------------------------------------------------------
+
 def _create_synthetic_spx_series() -> pd.DataFrame:
     """Create a synthetic SPX price series for demonstration purposes."""
     end_date = pd.Timestamp.today().normalize()
@@ -185,10 +198,9 @@ page = st.sidebar.radio(
     "Select page", ["Upload", "YTD Update", "Technical Analysis", "Generate Presentation"]
 )
 
-# ---------------------------------------------------------------------------
-# UPLOAD page
-# ---------------------------------------------------------------------------
-if page == "Upload":
+
+def show_upload_page():
+    """Handle file uploads for Excel and PowerPoint templates."""
     st.sidebar.header("Upload files")
     excel_file = st.sidebar.file_uploader(
         "Upload consolidated Excel file", type=["xlsx", "xlsm", "xls"], key="excel_upload"
@@ -202,10 +214,9 @@ if page == "Upload":
         st.session_state["pptx_file"] = pptx_file
     st.sidebar.success("Files uploaded. Navigate to other pages to continue.")
 
-# ---------------------------------------------------------------------------
-# YTD UPDATE page
-# ---------------------------------------------------------------------------
-elif page == "YTD Update":
+
+def show_ytd_update_page():
+    """Display YTD update charts and configuration."""
     st.sidebar.header("YTD Update")
     if "excel_file" not in st.session_state:
         st.sidebar.error("Please upload an Excel file on the Upload page first.")
@@ -315,10 +326,9 @@ elif page == "YTD Update":
 
     st.sidebar.success("Configure YTD charts, then go to 'Generate Presentation'.")
 
-# ---------------------------------------------------------------------------
-# TECHNICAL ANALYSIS page
-# ---------------------------------------------------------------------------
-elif page == "Technical Analysis":
+
+def show_technical_analysis_page():
+    """Display the technical analysis interface for Equity (SPX) and other asset classes."""
     st.sidebar.header("Technical Analysis")
     asset_class = st.sidebar.radio(
         "Asset class", ["Equity", "Commodity", "Crypto"], index=0
@@ -359,6 +369,43 @@ elif page == "Technical Analysis":
 
         # Chart with controls in expander
         with st.expander("S&P 500 Technical Chart", expanded=True):
+            # -------------------------------------------------------------------
+            # Display technical and momentum scores first
+            # -------------------------------------------------------------------
+            st.subheader("Technical and momentum scores")
+            tech_score = None
+            mom_score = None
+            if excel_available:
+                try:
+                    tech_score = _get_spx_technical_score(st.session_state["excel_file"])
+                except Exception:
+                    tech_score = None
+                try:
+                    mom_score = _get_spx_momentum_score(st.session_state["excel_file"])
+                except Exception:
+                    mom_score = None
+
+            # Prepare DMAS and table if both scores are available
+            dmas = None
+            if tech_score is not None and mom_score is not None:
+                dmas = round((float(tech_score) + float(mom_score)) / 2.0, 1)
+                df_scores = pd.DataFrame(
+                    {
+                        "Technical Score": [tech_score],
+                        "Momentum Score": [mom_score],
+                        "Average (DMAS)": [dmas],
+                    }
+                )
+                st.table(df_scores)
+            else:
+                st.info(
+                    "Technical or momentum score not available in the uploaded Excel. "
+                    "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
+                )
+
+            # -------------------------------------------------------------------
+            # Regression channel controls second
+            # -------------------------------------------------------------------
             enable_channel = st.checkbox(
                 "Enable regression channel",
                 value=bool(st.session_state.get("ta_anchor")),
@@ -385,7 +432,47 @@ elif page == "Technical Analysis":
                     st.session_state.pop("ta_anchor")
                 anchor_ts = None
 
-            # Subtitle
+            # -------------------------------------------------------------------
+            # Assessment selection third
+            # -------------------------------------------------------------------
+            if tech_score is not None and mom_score is not None and dmas is not None:
+                options = [
+                    "Strongly Bearish",
+                    "Bearish",
+                    "Slightly Bearish",
+                    "Neutral",
+                    "Slightly Bullish",
+                    "Bullish",
+                    "Strongly Bullish",
+                ]
+                def _default_index_from_dmas(val: float) -> int:
+                    if val >= 80:
+                        return options.index("Strongly Bullish")
+                    elif val >= 70:
+                        return options.index("Bullish")
+                    elif val >= 60:
+                        return options.index("Slightly Bullish")
+                    elif val >= 40:
+                        return options.index("Neutral")
+                    elif val >= 30:
+                        return options.index("Slightly Bearish")
+                    elif val >= 20:
+                        return options.index("Bearish")
+                    else:
+                        return options.index("Strongly Bearish")
+
+                default_idx = _default_index_from_dmas(dmas)
+                user_view = st.selectbox(
+                    "Select your assessment", options, index=default_idx, key="spx_view_select"
+                )
+                st.session_state["spx_selected_view"] = user_view
+                st.caption(
+                    "Your selection will override the automatically computed view in the presentation."
+                )
+
+            # -------------------------------------------------------------------
+            # Subtitle input fourth
+            # -------------------------------------------------------------------
             spx_subtitle = st.text_input(
                 "SPX subtitle",
                 value=st.session_state.get("spx_subtitle", ""),
@@ -393,7 +480,9 @@ elif page == "Technical Analysis":
             )
             st.session_state["spx_subtitle"] = spx_subtitle
 
-            # Build interactive figure
+            # -------------------------------------------------------------------
+            # Finally, build and show the interactive chart
+            # -------------------------------------------------------------------
             if excel_available:
                 fig = make_spx_figure(temp_path, anchor_date=anchor_ts)
             else:
@@ -406,75 +495,13 @@ elif page == "Technical Analysis":
                 "Green shading indicates an uptrend; red shading indicates a downtrend."
             )
 
-            # -------------------------------------------------------------------
-            # Gauge for average of technical & momentum scores
-            # -------------------------------------------------------------------
-            st.markdown("---")
-            st.subheader("Average technical and momentum score")
-            # Request last week's average on a 0–100 scale. Persist in session.
-            last_week_avg_input = st.number_input(
-                "Enter last week's average (0–100)",
-                min_value=0.0,
-                max_value=100.0,
-                value=float(st.session_state.get("spx_last_week_avg", 50.0)),
-                step=1.0,
-                key="spx_last_week_avg_input",
-            )
-            st.session_state["spx_last_week_avg"] = float(last_week_avg_input)
-
-            # Compute current technical and momentum scores from Excel if available
-            tech_score = None
-            mom_score = None
-            if excel_available:
-                try:
-                    tech_score = _get_spx_technical_score(st.session_state["excel_file"])
-                except Exception:
-                    tech_score = None
-                try:
-                    mom_score = _get_spx_momentum_score(st.session_state["excel_file"])
-                except Exception:
-                    mom_score = None
-
-            # If scores are found, draw gauge; otherwise inform user
-            if tech_score is not None and mom_score is not None:
-                # Determine date text from loaded data: for Excel use the last date in df_full; otherwise today's date
-                try:
-                    if excel_available and not df_full.empty:
-                        max_dt = pd.to_datetime(df_full["Date"]).max()
-                        date_label = (
-                            max_dt.strftime("As of %d.%m.%Y") if pd.notnull(max_dt) else None
-                        )
-                    else:
-                        date_label = pd.Timestamp.today().strftime("As of %d.%m.%Y")
-                except Exception:
-                    date_label = None
-
-                gauge_bytes = generate_average_gauge_image(
-                    tech_score,
-                    mom_score,
-                    float(last_week_avg_input),
-                    date_text=date_label,
-                    last_label_text="Previous Week",
-                )
-                st.image(gauge_bytes, caption="Average score gauge")
-            else:
-                st.info(
-                    "Technical or momentum score not available in the uploaded Excel. "
-                    "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
-                )
-
-            # Note: the vertical range gauge is integrated into the PPT slide only.
-            # To keep the Streamlit interface clean, we omit displaying the gauge
-            # separately here.  Users will see the full trading range gauge in
-            # the generated presentation.
     else:
         with st.expander(f"{asset_class} technical charts", expanded=False):
             st.info(f"{asset_class} technical analysis not implemented yet.")
 
-# ---------------------------------------------------------------------------
-# GENERATE PRESENTATION page
-# ---------------------------------------------------------------------------
-elif page == "Generate Presentation":
+
+def show_generate_presentation_page():
+    """Generate a customised PowerPoint presentation based on user selections."""
     st.sidebar.header("Generate Presentation")
     if "excel_file" not in st.session_state or "pptx_file" not in st.session_state:
         st.sidebar.error(
@@ -519,8 +546,6 @@ elif page == "Generate Presentation":
         )
 
         # Insert SPX technical-analysis chart with the call-out range gauge.
-        # The call-out image now preserves axis labels, month names and the legend
-        # thanks to the updated ``generate_range_callout_chart_image``.
         anchor_dt = st.session_state.get("ta_anchor")
         prs = insert_spx_technical_chart_with_callout(
             prs,
@@ -540,7 +565,7 @@ elif page == "Generate Presentation":
             st.session_state["excel_file"]
         )
 
-        # Insert SPX subtitle
+        # Insert SPX subtitle (from user input in UI)
         prs = insert_spx_subtitle(
             prs,
             st.session_state.get("spx_subtitle", ""),
@@ -554,10 +579,13 @@ elif page == "Generate Presentation":
             last_week_avg,
         )
 
-        # Insert the technical assessment text into the 'tech_spx' textbox
+        # Insert the technical assessment text into the 'spx_view' textbox.
+        # Use the user-selected view if available; otherwise fall back to computed view.
+        manual_view = st.session_state.get("spx_selected_view")
         prs = insert_spx_technical_assessment(
             prs,
             st.session_state["excel_file"],
+            manual_desc=manual_view,
         )
 
         # ------------------------------------------------------------------
@@ -614,3 +642,16 @@ elif page == "Generate Presentation":
         )
 
     st.write("Click the button in the sidebar to generate your updated presentation.")
+
+
+# -----------------------------------------------------------------------------
+# Main navigation dispatch
+# -----------------------------------------------------------------------------
+if page == "Upload":
+    show_upload_page()
+elif page == "YTD Update":
+    show_ytd_update_page()
+elif page == "Technical Analysis":
+    show_technical_analysis_page()
+elif page == "Generate Presentation":
+    show_generate_presentation_page()

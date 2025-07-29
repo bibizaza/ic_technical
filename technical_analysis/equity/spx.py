@@ -720,7 +720,6 @@ def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     return mapping.get(rating)
 
 
-
 def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
     """
     Insert the SPX momentum score (integer) into a shape named 'mom_score_spx'
@@ -1141,44 +1140,76 @@ def insert_spx_average_gauge(
 # ---------------------------------------------------------------------------
 # Technical assessment insertion
 # ---------------------------------------------------------------------------
-def insert_spx_technical_assessment(prs: Presentation, excel_file) -> Presentation:
+def insert_spx_technical_assessment(
+    prs: Presentation,
+    excel_file,
+    manual_desc: Optional[str] = None,
+) -> Presentation:
     """
-    Insert a descriptive assessment text into a shape named 'spx_view'
-    (or containing '[spx_view]'), based on the average of technical and
-    momentum scores.  The assessment is:
-      ≥80: Strongly Bullish
-      70–79.99: Bullish
-      60–69.99: Slightly Bullish
-      40–59.99: Neutral
-      30–39.99: Slightly Bearish
-      20–29.99: Bearish
-      <20: Strongly Bearish.
+    Insert a descriptive assessment text into a shape named ``spx_view``
+    (or containing ``[spx_view]``) based on either a user‑provided
+    assessment or, if none is provided, the average of technical and
+    momentum scores.
+
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation to modify.
+    excel_file : file‑like object or path
+        Excel workbook containing SPX technical and momentum scores.
+    manual_desc : str, optional
+        If provided, this string is used verbatim (prefixed with
+        ``"S&P 500: "`` if not already present) as the assessment text.
+        When ``manual_desc`` is ``None``, the function computes the
+        assessment from the average of technical and momentum scores
+        according to the following rules:
+
+          * ≥80: Strongly Bullish
+          * 70–79.99: Bullish
+          * 60–69.99: Slightly Bullish
+          * 40–59.99: Neutral
+          * 30–39.99: Slightly Bearish
+          * 20–29.99: Bearish
+          * <20: Strongly Bearish
+
+    Returns
+    -------
+    Presentation
+        The modified presentation.
     """
-    tech_score = _get_spx_technical_score(excel_file)
-    mom_score = _get_spx_momentum_score(excel_file)
-    if tech_score is None or mom_score is None:
-        return prs
-
-    avg = (float(tech_score) + float(mom_score)) / 2.0
-
-    if avg >= 80:
-        desc = "S&P 500: Strongly Bullish"
-    elif avg >= 70:
-        desc = "S&P 500: Bullish"
-    elif avg >= 60:
-        desc = "S&P 500: Slightly Bullish"
-    elif avg >= 40:
-        desc = "S&P 500: Neutral"
-    elif avg >= 30:
-        desc = "S&P 500: Slightly Bearish"
-    elif avg >= 20:
-        desc = "S&P 500: Bearish"
+    # If manual description is provided, normalise it: ensure it starts
+    # with 'S&P 500:' and strip leading/trailing whitespace.
+    if manual_desc is not None and isinstance(manual_desc, str):
+        desc = manual_desc.strip()
+        if desc and not desc.lower().startswith("s&p 500"):
+            desc = f"S&P 500: {desc}"
+        # Continue with insertion without computing scores
     else:
-        desc = "S&P 500: Strongly Bearish"
+        tech_score = _get_spx_technical_score(excel_file)
+        mom_score = _get_spx_momentum_score(excel_file)
+        if tech_score is None or mom_score is None:
+            # If scores are unavailable, leave the existing text unchanged
+            return prs
+        avg = (float(tech_score) + float(mom_score)) / 2.0
+        if avg >= 80:
+            desc = "S&P 500: Strongly Bullish"
+        elif avg >= 70:
+            desc = "S&P 500: Bullish"
+        elif avg >= 60:
+            desc = "S&P 500: Slightly Bullish"
+        elif avg >= 40:
+            desc = "S&P 500: Neutral"
+        elif avg >= 30:
+            desc = "S&P 500: Slightly Bearish"
+        elif avg >= 20:
+            desc = "S&P 500: Bearish"
+        else:
+            desc = "S&P 500: Strongly Bearish"
 
     target_name = "spx_view"
     placeholder_patterns = ["[spx_view]", "spx_view"]
 
+    # Insert the description into the first matching shape
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "")
@@ -1362,10 +1393,6 @@ def generate_range_gauge_chart_image(
     last_price = df["Price"].iloc[-1]
     last_price_str = f"{last_price:,.2f}"
 
-    # Determine overall width.  If ``width_cm`` is not provided, derive it
-    # by adding the chart and gauge widths.  This allows callers to adjust
-    # the gauge width independently of the slide size.  The chart width
-    # defaults to ~21.41 cm and the gauge to 4.0 cm.
     # Determine overall width.  If ``chart_width_cm`` is not provided,
     # derive it by subtracting the gauge width from the total width.  This
     # ensures that the combined chart and gauge fit within the fixed slide
@@ -1501,8 +1528,8 @@ def generate_range_gauge_chart_image(
     down_pct = (last_price - lower_bound) / last_price * 100 if last_price else 0.0
     # Compose label strings for the upper and lower bounds.  The
     # percentage differences are shown with a sign and one decimal place.
-    upper_text = f"Higher Range\n{upper_label} $\n(+{up_pct:.1f}\%)"
-    lower_text = f"Lower Range\n{lower_label} $\n(-{down_pct:.1f}\%)"
+    upper_text = f"Higher Range\n{upper_label} $\n(+{up_pct:.1f}%)"
+    lower_text = f"Lower Range\n{lower_label} $\n(-{down_pct:.1f}%)"
     # Position the labels just outside the gauge to the right.  We use
     # data coordinates (``transData``) so that the text aligns with the
     # actual price levels.  The x‑coordinate 1.05 places the text slightly
@@ -1534,7 +1561,6 @@ def generate_range_gauge_chart_image(
     ax_gauge.set_xlim(0, 1)
     for side in ["left", "right", "top", "bottom"]:
         ax_gauge.spines[side].set_visible(False)
-
 
     buf = BytesIO()
     plt.savefig(buf, format="png", dpi=600, transparent=True)
