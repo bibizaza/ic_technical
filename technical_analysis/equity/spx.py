@@ -45,6 +45,18 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 
 from pptx import Presentation
+
+# Import helper for adjusting price data according to price mode.  The utils
+# module must reside at the project root (e.g. ``ic/utils.py``).  It is
+# deliberately not imported from ``technical_analysis.utils`` so that this
+# module can be reused when the technical analysis package is nested within
+# ``ic`` and ``utils.py`` sits at the project root.
+try:
+    from utils import adjust_prices_for_mode  # type: ignore
+except Exception:
+    # If the utils module is not available, define a no-op fallback.  This
+    # preserves compatibility with environments where price mode is not used.
+    adjust_prices_for_mode = None  # type: ignore
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -55,18 +67,49 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Data helpers
 # ---------------------------------------------------------------------------
-def _load_price_data(excel_path: pathlib.Path, ticker: str = "SPX Index") -> pd.DataFrame:
-    """Read the raw price sheet and return tidy Date‑Price DataFrame."""
+def _load_price_data(
+    excel_path: pathlib.Path,
+    ticker: str = "SPX Index",
+    price_mode: str = "Last Price",
+) -> pd.DataFrame:
+    """
+    Read the raw price sheet and return a tidy Date‑Price DataFrame.
+
+    Parameters
+    ----------
+    excel_path : pathlib.Path
+        Path to the Excel workbook containing price data.
+    ticker : str, default "SPX Index"
+        Column name corresponding to the desired ticker in the Excel sheet.
+    price_mode : str, default "Last Price"
+        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
+        is available and the mode is "Last Close", rows with the last
+        recorded date (if equal to today's date) will be dropped.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with columns ``Date`` and ``Price``.  The data are
+        sorted by date and any rows with missing values are removed.
+    """
     df = pd.read_excel(excel_path, sheet_name="data_prices")
     df = df.drop(index=0)
     df = df[df[df.columns[0]] != "DATES"]
     df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
     df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    return (
+    df_clean = (
         df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
             ["Date", "Price"]
         ]
     )
+    # Adjust for price mode if helper is available
+    if adjust_prices_for_mode is not None and price_mode:
+        try:
+            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
+        except Exception:
+            # If adjustment fails, silently fall back to unadjusted data
+            pass
+    return df_clean
 
 
 def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
@@ -81,7 +124,9 @@ def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
 # Plotly interactive chart for Streamlit
 # ---------------------------------------------------------------------------
 def make_spx_figure(
-    excel_path: str | pathlib.Path, anchor_date: Optional[pd.Timestamp] = None
+    excel_path: str | pathlib.Path,
+    anchor_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
 ) -> go.Figure:
     """
     Build an interactive SPX chart for Streamlit.
@@ -90,20 +135,37 @@ def make_spx_figure(
     ----------
     excel_path : str or pathlib.Path
         Path to the Excel file containing SPX price data.
-    anchor_date : pandas.Timestamp or None
-        If provided, a regression channel is drawn from anchor_date to the latest date.
+    anchor_date : pandas.Timestamp or None, optional
+        If provided, a regression channel is drawn from ``anchor_date`` to the
+        latest date.
+    price_mode : str, default "Last Price"
+        One of "Last Price" or "Last Close".  When set to "Last Close"
+        and if the ``utils.adjust_prices_for_mode`` helper is available,
+        rows corresponding to the most recent date (if equal to today's
+        date) are excluded from the chart.  This allows the chart to
+        represent the prior day's closing prices rather than an
+        intraday or current price.
 
     Returns
     -------
     go.Figure
-        A Plotly figure with price, moving averages, Fibonacci lines and optional trend channel.
+        A Plotly figure with price, moving averages, Fibonacci lines and
+        an optional regression channel.
     """
     excel_path = pathlib.Path(excel_path)
-    df_full = _add_mas(_load_price_data(excel_path, "SPX Index"))
+    # Load data and adjust according to the price mode
+    df_raw = _load_price_data(excel_path, "SPX Index", price_mode=price_mode)
+    df_full = _add_mas(df_raw)
+
+    if df_full.empty:
+        return go.Figure()
 
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=365)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
+
+    if df.empty:
+        return go.Figure()
 
     last_price = df["Price"].iloc[-1]
     last_price_str = f"{last_price:,.2f}"
@@ -162,38 +224,39 @@ def make_spx_figure(
 
     if anchor_date is not None:
         per = df_full[df_full["Date"].between(anchor_date, today)].copy()
-        X = per["Date"].map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
-        y_vals = per["Price"].to_numpy()
-        model = LinearRegression().fit(X, y_vals)
-        trend = model.predict(X)
-        resid = y_vals - trend
-        upper = trend + resid.max()
-        lower = trend + resid.min()
+        if not per.empty:
+            X = per["Date"].map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
+            y_vals = per["Price"].to_numpy()
+            model = LinearRegression().fit(X, y_vals)
+            trend = model.predict(X)
+            resid = y_vals - trend
+            upper = trend + resid.max()
+            lower = trend + resid.min()
 
-        uptrend = model.coef_[0] > 0
-        lineclr = "green" if uptrend else "red"
-        fillclr = "rgba(0,150,0,0.25)" if uptrend else "rgba(200,0,0,0.25)"
+            uptrend = model.coef_[0] > 0
+            lineclr = "green" if uptrend else "red"
+            fillclr = "rgba(0,150,0,0.25)" if uptrend else "rgba(200,0,0,0.25)"
 
-        fig.add_trace(
-            go.Scatter(
-                x=per["Date"],
-                y=upper,
-                mode="lines",
-                line=dict(color=lineclr, dash="dash"),
-                showlegend=False,
+            fig.add_trace(
+                go.Scatter(
+                    x=per["Date"],
+                    y=upper,
+                    mode="lines",
+                    line=dict(color=lineclr, dash="dash"),
+                    showlegend=False,
+                )
             )
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=per["Date"],
-                y=lower,
-                mode="lines",
-                line=dict(color=lineclr, dash="dash"),
-                fill="tonexty",
-                fillcolor=fillclr,
-                showlegend=False,
+            fig.add_trace(
+                go.Scatter(
+                    x=per["Date"],
+                    y=lower,
+                    mode="lines",
+                    line=dict(color=lineclr, dash="dash"),
+                    fill="tonexty",
+                    fillcolor=fillclr,
+                    showlegend=False,
+                )
             )
-        )
 
     fig.update_layout(
         margin=dict(l=30, r=30, t=60, b=40),
@@ -617,6 +680,7 @@ def insert_spx_technical_chart_with_callout(
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
     lookback_days: int = 90,
+    price_mode: str = "Last Price",
 ) -> Presentation:
     """
     Insert the SPX technical analysis chart with the trading range call‑out
@@ -645,9 +709,9 @@ def insert_spx_technical_chart_with_callout(
     """
     # Load the price data from the Excel file
     try:
-        df_full = _load_price_data_from_obj(excel_file, "SPX Index")
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index")
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
 
     # Generate the image with the call‑out.  Use an extended width of
     # 24.47 cm (matching the user’s requested dimensions) while keeping
@@ -782,7 +846,10 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
 # Chart insertion
 # ---------------------------------------------------------------------------
 def insert_spx_technical_chart(
-    prs: Presentation, excel_file, anchor_date: Optional[pd.Timestamp] = None
+    prs: Presentation,
+    excel_file,
+    anchor_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
 ) -> Presentation:
     """
     Insert the SPX technical‑analysis chart into the PPT.
@@ -793,9 +860,9 @@ def insert_spx_technical_chart(
     """
     # Load data and generate image
     try:
-        df_full = _load_price_data_from_obj(excel_file, "SPX Index")
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index")
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
     img_bytes = _generate_spx_image_from_df(df_full, anchor_date)
 
     # Find the slide containing the 'spx' placeholder
@@ -1047,17 +1114,49 @@ def generate_average_gauge_image(
 # ---------------------------------------------------------------------------
 # Helpers for reading Excel from a file-like object
 # ---------------------------------------------------------------------------
-def _load_price_data_from_obj(excel_obj, ticker: str = "SPX Index") -> pd.DataFrame:
+def _load_price_data_from_obj(
+    excel_obj,
+    ticker: str = "SPX Index",
+    price_mode: str = "Last Price",
+) -> pd.DataFrame:
+    """
+    Load price data from a file-like object and return a tidy DataFrame.
+
+    Parameters
+    ----------
+    excel_obj : file-like
+        File-like object representing an Excel workbook containing a
+        ``data_prices`` sheet.
+    ticker : str, default "SPX Index"
+        Column name corresponding to the desired ticker in the Excel sheet.
+    price_mode : str, default "Last Price"
+        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
+        is available and the mode is "Last Close", rows corresponding to
+        the most recent date (if equal to today's date) will be dropped.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with columns ``Date`` and ``Price``.  The data are
+        sorted by date and any rows with missing values are removed.
+    """
     df = pd.read_excel(excel_obj, sheet_name="data_prices")
     df = df.drop(index=0)
     df = df[df[df.columns[0]] != "DATES"]
     df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
     df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    return (
+    df_clean = (
         df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
             ["Date", "Price"]
         ]
     )
+    # Adjust for price mode if helper is available
+    if adjust_prices_for_mode is not None and price_mode:
+        try:
+            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
+        except Exception:
+            pass
+    return df_clean
 
 
 # ---------------------------------------------------------------------------
@@ -1691,6 +1790,7 @@ def insert_spx_technical_chart_with_range(
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
     lookback_days: int = 90,
+    price_mode: str = "Last Price",
 ) -> Presentation:
     """
     Insert the SPX technical analysis chart with the vertical range gauge into the PPT.
@@ -1719,9 +1819,9 @@ def insert_spx_technical_chart_with_range(
     """
     # Load data
     try:
-        df_full = _load_price_data_from_obj(excel_file, "SPX Index")
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index")
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
     img_bytes = generate_range_gauge_chart_image(
         df_full, anchor_date=anchor_date, lookback_days=lookback_days
     )

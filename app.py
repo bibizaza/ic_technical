@@ -51,6 +51,11 @@ from technical_analysis.equity.spx import (
     generate_range_gauge_only_image,
 )
 
+# Import helper to adjust price data according to price mode.  The utils
+# module resides at the project root (e.g. ``ic/utils.py``) so that it can
+# be shared across technical analysis and performance modules.
+from utils import adjust_prices_for_mode
+
 # Import performance dashboard helpers (unchanged)
 from performance.equity_perf import (
     create_weekly_performance_chart,
@@ -214,6 +219,28 @@ def show_upload_page():
         st.session_state["pptx_file"] = pptx_file
     st.sidebar.success("Files uploaded. Navigate to other pages to continue.")
 
+    # Allow the user to choose between using the last recorded price (which may
+    # be an intraday or current price) and the last close price (i.e. the
+    # previous trading day's close).  The choice is stored in session state
+    # and will affect how data is loaded and displayed elsewhere in the app.
+    # Persist the selected price mode across pages.  Use the previously selected
+    # value from session state (if any) to determine the default index.  If no
+    # value has been stored yet, default to "Last Price".
+    current_mode = st.session_state.get("price_mode", "Last Price")
+    options = ["Last Price", "Last Close"]
+    default_index = options.index(current_mode) if current_mode in options else 0
+    price_mode = st.sidebar.radio(
+        "Price mode",
+        options=options,
+        index=default_index,
+        help=(
+            "Select 'Last Close' to use the previous day's closing prices for all markets. "
+            "Select 'Last Price' to use the most recent price in the data (which may be intraday)."
+        ),
+        key="price_mode_select",
+    )
+    st.session_state["price_mode"] = price_mode
+
 
 def show_ytd_update_page():
     """Display YTD update charts and configuration."""
@@ -229,6 +256,28 @@ def show_ytd_update_page():
     from ytd_perf.crypto_ytd import get_crypto_ytd_series, create_crypto_chart
 
     prices_df, params_df = load_data(st.session_state["excel_file"])
+    # Determine whether to use the last price or the last close.  In 'Last Close'
+    # mode, we drop the most recent date across all tickers only if that
+    # date equals today's date.  Otherwise we keep the data unchanged.  The
+    # resulting used_date reflects the last date in the adjusted DataFrame.
+    used_date = None
+    if not prices_df.empty:
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        unique_dates = prices_df["Date"].dropna().dt.normalize().sort_values().unique()
+        if price_mode == "Last Close" and len(unique_dates) >= 2:
+            last_date = unique_dates[-1]
+            today = pd.Timestamp.today().normalize()
+            if last_date == today:
+                # Drop rows with the last date
+                prices_df = prices_df[prices_df["Date"].dt.normalize() < last_date].copy()
+        used_date = prices_df["Date"].max()
+    # Display a caption indicating which date's prices are being used
+    if used_date is not None:
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        if price_mode == "Last Close":
+            st.sidebar.caption(f"Prices as of {used_date.strftime('%d/%m/%Y')} close")
+        else:
+            st.sidebar.caption(f"Prices as of {used_date.strftime('%d/%m/%Y')}")
 
     # Equities configuration
     st.sidebar.subheader("Equities")
@@ -359,7 +408,12 @@ def show_technical_analysis_page():
             df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(
                 drop=True
             )
+            # Adjust the prices according to the selected price mode using the helper.
+            price_mode = st.session_state.get("price_mode", "Last Price")
+            df_prices, spx_used_date = adjust_prices_for_mode(df_prices, price_mode)
             df_full = df_prices.copy()
+            # Store the used date for later caption display
+            st.session_state["spx_used_date"] = spx_used_date
         else:
             df_prices = _create_synthetic_spx_series()
             df_full = df_prices.copy()
@@ -369,6 +423,14 @@ def show_technical_analysis_page():
 
         # Chart with controls in expander
         with st.expander("S&P 500 Technical Chart", expanded=True):
+            # Display a caption indicating which date's prices are being used for SPX
+            spx_used_date = st.session_state.get("spx_used_date")
+            price_mode = st.session_state.get("price_mode", "Last Price")
+            if spx_used_date is not None:
+                if price_mode == "Last Close":
+                    st.caption(f"Prices as of {spx_used_date.strftime('%d/%m/%Y')} close")
+                else:
+                    st.caption(f"Prices as of {spx_used_date.strftime('%d/%m/%Y')}")
             # -------------------------------------------------------------------
             # Display technical and momentum scores first
             # -------------------------------------------------------------------
@@ -484,7 +546,11 @@ def show_technical_analysis_page():
             # Finally, build and show the interactive chart
             # -------------------------------------------------------------------
             if excel_available:
-                fig = make_spx_figure(temp_path, anchor_date=anchor_ts)
+                # Pass the selected price mode to make_spx_figure so that the
+                # interactive chart reflects the chosen last-price or last-close
+                # setting.  The price mode is persisted in session state.
+                pmode = st.session_state.get("price_mode", "Last Price")
+                fig = make_spx_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             else:
                 df_ma = _add_moving_averages(df_full)
                 fig = _build_fallback_figure(df_ma, anchor_date=anchor_ts)
@@ -547,10 +613,16 @@ def show_generate_presentation_page():
 
         # Insert SPX technical-analysis chart with the call-out range gauge.
         anchor_dt = st.session_state.get("ta_anchor")
+        # Use the selected price mode when inserting the SPX technical chart into
+        # the presentation.  This ensures that the exported chart reflects
+        # either the last price or the previous close, matching the
+        # interactive chart in Streamlit.
+        pmode = st.session_state.get("price_mode", "Last Price")
         prs = insert_spx_technical_chart_with_callout(
             prs,
             st.session_state["excel_file"],
             anchor_dt,
+            price_mode=pmode,
         )
 
         # Insert SPX technical score number
