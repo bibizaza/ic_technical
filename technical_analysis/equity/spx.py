@@ -67,21 +67,82 @@ except Exception:
 # Internal helpers
 ###############################################################################
 
-def _safe_get_rgb(color) -> Optional[object]:
-    """Return the RGB colour value if defined, otherwise ``None``.
+def _get_run_font_attributes(run):
+    """Capture font attributes from a run.
 
-    The python-pptx ``ColorFormat`` object exposes an ``rgb`` property only
-    when the colour is defined explicitly in RGB space.  If the colour is
-    defined as a theme or scheme colour, accessing ``.rgb`` raises
-    ``AttributeError``【284555882015764†L60-L68】【284555882015764†L171-L182】.  This helper safely returns
-    the RGB value when available, or ``None`` otherwise.
+    Returns a tuple ``(size, rgb, theme_color, brightness, bold, italic)``.
+    The colour information includes either the RGB value if explicitly
+    defined, or the theme colour and brightness for a scheme colour.  If
+    colour information is not available, ``rgb`` and ``theme_color`` are
+    ``None``.  Bold and italic attributes are preserved as provided.
     """
-    if color is None:
-        return None
+    if run is None:
+        return None, None, None, None, None, None
+    size = run.font.size
+    colour = run.font.color
+    rgb = None
+    theme_color = None
+    brightness = None
+    # Try to capture an explicit RGB value
     try:
-        return color.rgb
+        rgb = colour.rgb
     except Exception:
-        return None
+        rgb = None
+        # If no RGB value, attempt to capture a theme colour
+        try:
+            theme_color = colour.theme_color
+        except Exception:
+            theme_color = None
+    # Capture brightness adjustment if available
+    try:
+        brightness = colour.brightness
+    except Exception:
+        brightness = None
+    bold = run.font.bold
+    italic = run.font.italic
+    return size, rgb, theme_color, brightness, bold, italic
+
+
+def _apply_run_font_attributes(new_run, size, rgb, theme_color, brightness, bold, italic):
+    """Apply captured font attributes to a new run.
+
+    Parameters
+    ----------
+    new_run : pptx.text.run.Run
+        The run to which attributes should be applied.
+    size : pptx.util.Length or None
+        The font size to apply.
+    rgb : pptx.dml.color.RGBColor or None
+        The explicit RGB colour value to apply.
+    theme_color : MSO_THEME_COLOR or None
+        The theme colour value to apply if no RGB colour is defined.
+    brightness : float or None
+        Brightness adjustment for the colour, if any.
+    bold : bool or None
+        Whether the font should be bold.
+    italic : bool or None
+        Whether the font should be italic.
+    """
+    if size is not None:
+        new_run.font.size = size
+    # Apply colour: prefer explicit RGB, otherwise theme colour
+    if rgb is not None:
+        try:
+            new_run.font.color.rgb = rgb
+        except Exception:
+            pass
+    elif theme_color is not None:
+        try:
+            new_run.font.color.theme_color = theme_color
+            if brightness is not None:
+                new_run.font.color.brightness = brightness
+        except Exception:
+            pass
+    # Apply bold and italic
+    if bold is not None:
+        new_run.font.bold = bold
+    if italic is not None:
+        new_run.font.italic = italic
 
 
 def _load_price_data(
@@ -431,11 +492,24 @@ def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
 
 def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the SPX technical score (integer) into a shape named 'tech_score_spx'
-    or into any shape containing the placeholder '[XXX]' or 'XXX'.  Original
-    formatting (font size, colour, bold, italic) is preserved.  The colour
-    assignment is guarded so that it does not raise when the original colour
-    is a theme or scheme colour【284555882015764†L60-L68】【284555882015764†L171-L182】.
+    Insert the SPX technical score (integer) into a shape named ``tech_score_spx``
+    or into any shape containing the placeholder ``[XXX]`` or ``XXX``.  The
+    function preserves all formatting from the first run of the placeholder,
+    including font size, explicit RGB colour or theme colour with brightness,
+    and bold/italic attributes.  If no run exists, the inserted text uses
+    default formatting.
+
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation to modify.
+    excel_file : file‑like object or path
+        Excel workbook containing the SPX technical score.
+
+    Returns
+    -------
+    Presentation
+        The modified presentation.
     """
     score = _get_spx_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -445,53 +519,32 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
 
     for slide in prs.slides:
         for shape in slide.shapes:
+            # Case 1: the shape is named exactly as the placeholder
             if getattr(shape, "name", "").lower() == placeholder_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
-                    saved_size = runs[0].font.size if runs else None
-                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                    saved_bold = runs[0].font.bold if runs else None
-                    saved_italic = runs[0].font.italic if runs else None
+                    # Capture existing formatting from the first run
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    # Clear and insert the new run
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
                     new_run.text = score_text
-                    if saved_size:
-                        new_run.font.size = saved_size
-                    if saved_color:
-                        try:
-                            new_run.font.color.rgb = saved_color
-                        except Exception:
-                            pass
-                    if saved_bold is not None:
-                        new_run.font.bold = saved_bold
-                    if saved_italic is not None:
-                        new_run.font.italic = saved_italic
+                    # Reapply captured formatting
+                    _apply_run_font_attributes(new_run, *attrs)
                 return prs
+            # Case 2: look for textual placeholders within the shape
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
-                        saved_size = runs[0].font.size if runs else None
-                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                        saved_bold = runs[0].font.bold if runs else None
-                        saved_italic = runs[0].font.italic if runs else None
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                         new_text = shape.text.replace(pattern, score_text)
                         shape.text_frame.clear()
                         p = shape.text_frame.paragraphs[0]
                         new_run = p.add_run()
                         new_run.text = new_text
-                        if saved_size:
-                            new_run.font.size = saved_size
-                        if saved_color:
-                            try:
-                                new_run.font.color.rgb = saved_color
-                            except Exception:
-                                pass
-                        if saved_bold is not None:
-                            new_run.font.bold = saved_bold
-                        if saved_italic is not None:
-                            new_run.font.italic = saved_italic
+                        _apply_run_font_attributes(new_run, *attrs)
                         return prs
     return prs
 
@@ -828,53 +881,29 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
 
     for slide in prs.slides:
         for shape in slide.shapes:
+            # Case 1: shape name matches the placeholder
             if getattr(shape, "name", "").lower() == placeholder_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
-                    saved_size = runs[0].font.size if runs else None
-                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                    saved_bold = runs[0].font.bold if runs else None
-                    saved_italic = runs[0].font.italic if runs else None
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
                     new_run.text = score_text
-                    if saved_size:
-                        new_run.font.size = saved_size
-                    if saved_color:
-                        try:
-                            new_run.font.color.rgb = saved_color
-                        except Exception:
-                            pass
-                    if saved_bold is not None:
-                        new_run.font.bold = saved_bold
-                    if saved_italic is not None:
-                        new_run.font.italic = saved_italic
+                    _apply_run_font_attributes(new_run, *attrs)
                 return prs
+            # Case 2: look for textual placeholders in the shape
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
-                        saved_size = runs[0].font.size if runs else None
-                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                        saved_bold = runs[0].font.bold if runs else None
-                        saved_italic = runs[0].font.italic if runs else None
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                         new_text = shape.text.replace(pattern, score_text)
                         shape.text_frame.clear()
                         p = shape.text_frame.paragraphs[0]
                         new_run = p.add_run()
                         new_run.text = new_text
-                        if saved_size:
-                            new_run.font.size = saved_size
-                        if saved_color:
-                            try:
-                                new_run.font.color.rgb = saved_color
-                            except Exception:
-                                pass
-                        if saved_bold is not None:
-                            new_run.font.bold = saved_bold
-                        if saved_italic is not None:
-                            new_run.font.italic = saved_italic
+                        _apply_run_font_attributes(new_run, *attrs)
                         return prs
     return prs
 
@@ -949,53 +978,29 @@ def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
 
     for slide in prs.slides:
         for shape in slide.shapes:
+            # Case 1: shape name matches
             if getattr(shape, "name", "").lower() == placeholder_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
-                    saved_size = runs[0].font.size if runs else None
-                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                    saved_bold = runs[0].font.bold if runs else None
-                    saved_italic = runs[0].font.italic if runs else None
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
                     new_run.text = subtitle_text
-                    if saved_size:
-                        new_run.font.size = saved_size
-                    if saved_color:
-                        try:
-                            new_run.font.color.rgb = saved_color
-                        except Exception:
-                            pass
-                    if saved_bold is not None:
-                        new_run.font.bold = saved_bold
-                    if saved_italic is not None:
-                        new_run.font.italic = saved_italic
+                    _apply_run_font_attributes(new_run, *attrs)
                 return prs
+            # Case 2: textual placeholder in shape
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
-                        saved_size = runs[0].font.size if runs else None
-                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                        saved_bold = runs[0].font.bold if runs else None
-                        saved_italic = runs[0].font.italic if runs else None
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                         new_text = shape.text.replace(pattern, subtitle_text)
                         shape.text_frame.clear()
                         p = shape.text_frame.paragraphs[0]
                         new_run = p.add_run()
                         new_run.text = new_text
-                        if saved_size:
-                            new_run.font.size = saved_size
-                        if saved_color:
-                            try:
-                                new_run.font.color.rgb = saved_color
-                            except Exception:
-                                pass
-                        if saved_bold is not None:
-                            new_run.font.bold = saved_bold
-                        if saved_italic is not None:
-                            new_run.font.italic = saved_italic
+                        _apply_run_font_attributes(new_run, *attrs)
                         return prs
     return prs
 
@@ -1362,57 +1367,32 @@ def insert_spx_technical_assessment(
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "")
+            # Case 1: the shape's name matches the target placeholder
             if name_attr and name_attr.lower() == target_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
-                    saved_size = runs[0].font.size if runs else None
-                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                    saved_bold = runs[0].font.bold if runs else None
-                    saved_italic = runs[0].font.italic if runs else None
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
                     new_run.text = desc
-                    if saved_size:
-                        new_run.font.size = saved_size
-                    if saved_color:
-                        try:
-                            new_run.font.color.rgb = saved_color
-                        except Exception:
-                            pass
-                    if saved_bold is not None:
-                        new_run.font.bold = saved_bold
-                    if saved_italic is not None:
-                        new_run.font.italic = saved_italic
+                    _apply_run_font_attributes(new_run, *attrs)
                 return prs
+            # Case 2: look for placeholder patterns within the text
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern.lower() in shape.text.lower():
                         runs = shape.text_frame.paragraphs[0].runs
-                        saved_size = runs[0].font.size if runs else None
-                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                        saved_bold = runs[0].font.bold if runs else None
-                        saved_italic = runs[0].font.italic if runs else None
-                        new_text = shape.text
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                         try:
-                            new_text = new_text.replace(pattern, desc)
+                            new_text = shape.text.replace(pattern, desc)
                         except Exception:
                             new_text = desc
                         shape.text_frame.clear()
                         p = shape.text_frame.paragraphs[0]
                         new_run = p.add_run()
                         new_run.text = new_text
-                        if saved_size:
-                            new_run.font.size = saved_size
-                        if saved_color:
-                            try:
-                                new_run.font.color.rgb = saved_color
-                            except Exception:
-                                pass
-                        if saved_bold is not None:
-                            new_run.font.bold = saved_bold
-                        if saved_italic is not None:
-                            new_run.font.italic = saved_italic
+                        _apply_run_font_attributes(new_run, *attrs)
                         return prs
     return prs
 
@@ -1463,58 +1443,33 @@ def insert_spx_source(
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "")
+            # Case 1: the shape's name matches the placeholder
             if name_attr and name_attr.lower() == placeholder_name:
-                # Replace text while preserving formatting
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
-                    saved_size = runs[0].font.size if runs else None
-                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                    saved_bold = runs[0].font.bold if runs else None
-                    saved_italic = runs[0].font.italic if runs else None
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
                     new_run.text = source_text
-                    if saved_size:
-                        new_run.font.size = saved_size
-                    if saved_color:
-                        try:
-                            new_run.font.color.rgb = saved_color
-                        except Exception:
-                            pass
-                    if saved_bold is not None:
-                        new_run.font.bold = saved_bold
-                    if saved_italic is not None:
-                        new_run.font.italic = saved_italic
+                    _apply_run_font_attributes(new_run, *attrs)
                 return prs
+            # Case 2: a textual placeholder appears within the shape
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern.lower() in shape.text.lower():
                         runs = shape.text_frame.paragraphs[0].runs
-                        saved_size = runs[0].font.size if runs else None
-                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
-                        saved_bold = runs[0].font.bold if runs else None
-                        saved_italic = runs[0].font.italic if runs else None
-                        new_text = shape.text
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                        # Replace only the matching pattern (case insensitive)
                         try:
-                            new_text = new_text.replace(pattern, source_text)
+                            new_text = shape.text.replace(pattern, source_text)
                         except Exception:
                             new_text = source_text
                         shape.text_frame.clear()
                         p = shape.text_frame.paragraphs[0]
                         new_run = p.add_run()
                         new_run.text = new_text
-                        if saved_size:
-                            new_run.font.size = saved_size
-                        if saved_color:
-                            try:
-                                new_run.font.color.rgb = saved_color
-                            except Exception:
-                                pass
-                        if saved_bold is not None:
-                            new_run.font.bold = saved_bold
-                        if saved_italic is not None:
-                            new_run.font.italic = saved_italic
+                        _apply_run_font_attributes(new_run, *attrs)
                         return prs
     return prs
 
