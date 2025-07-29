@@ -1,40 +1,41 @@
-"""Equity performance dashboard generation.
+"""Equity performance dashboard generation with price‐mode awareness and source footnotes.
 
-This module produces a two–panel dashboard summarising recent
-performance for a selection of major equity indices.  The left
-panel shows a horizontal bar chart of 1‑week returns, sorted from
-best to worst.  The right panel displays a heatmap of longer
-horizons (YTD, 1‑month, 3‑month, 6‑month and 12‑month) with
-independent colour scales per column.  Positive values are mapped
-to greens and negative values to reds, making it easy to see
-relative strength across markets and timeframes.  The functions
-exposed here allow the dashboard to be generated as a high‑
-resolution PNG and inserted into a PowerPoint slide.
+This module produces charts summarising recent performance for a selection of major
+equity indices.  Users can choose to base calculations on either the most
+recent intraday price ("Last Price") or the previous day's closing price
+("Last Close").  The resulting figures include a weekly returns bar chart and
+a heatmap of longer horizons.  When the charts are inserted into a PowerPoint
+presentation, a source footnote is added to the designated text boxes on
+each slide, reflecting the effective date used in the computations and the
+chosen price mode.  Text formatting from the placeholders is preserved.
 
 Key functions
 -------------
 
-* ``create_equity_performance_figure`` – Build the matplotlib figure
-  for the dashboard and return its binary PNG data.  The caller can
-  control the set of tickers and their display names via an
-  optional mapping.
-* ``insert_equity_performance_slide`` – Insert the generated
-  dashboard into a slide.  The function looks for a shape named
-  ``equity_perf`` (or containing ``[equity_perf]``) and uses that
-  location if present.  Otherwise it inserts at a default
-  coordinate.  Dimensions and positions can be overridden by the
-  caller.
+* ``create_weekly_performance_chart`` – Build the weekly bar chart and return
+  both the image bytes and the effective date used for computation.
+* ``create_historical_performance_table`` – Build the heatmap of returns for
+  multiple horizons and return the image bytes and the effective date.
+* ``insert_equity_performance_bar_slide`` – Insert the weekly bar chart and
+  source footnote into its slide.
+* ``insert_equity_performance_histo_slide`` – Insert the historical performance
+  heatmap and source footnote into its slide.
 
-Example usage::
+Usage example::
 
     from performance.equity_perf import (
-        create_equity_performance_figure,
-        insert_equity_performance_slide,
+        create_weekly_performance_chart,
+        create_historical_performance_table,
+        insert_equity_performance_bar_slide,
+        insert_equity_performance_histo_slide,
     )
-    fig_bytes = create_equity_performance_figure(excel_path)
-    prs = Presentation(template_path)
-    prs = insert_equity_performance_slide(prs, fig_bytes)
-    prs.save("updated.pptx")
+
+    # Generate charts with price-mode awareness
+    bar_bytes, used_date = create_weekly_performance_chart(excel_path, price_mode="Last Close")
+    histo_bytes, _ = create_historical_performance_table(excel_path, price_mode="Last Close")
+    # Insert into PPT, supplying used_date and price_mode for source footnote
+    prs = insert_equity_performance_bar_slide(prs, bar_bytes, used_date, price_mode)
+    prs = insert_equity_performance_histo_slide(prs, histo_bytes, used_date, price_mode)
 
 """
 
@@ -42,7 +43,7 @@ from __future__ import annotations
 
 import io
 import pathlib
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -50,6 +51,41 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
+
+from utils import adjust_prices_for_mode
+
+try:
+    # Reuse font attribute helpers from the SPX module if available
+    from technical_analysis.equity.spx import (
+        _get_run_font_attributes as _capture_font_attrs,  # type: ignore
+        _apply_run_font_attributes as _apply_font_attrs,  # type: ignore
+    )
+except Exception:
+    # Fallback helpers: only support basic size and RGB; ignore theme colours
+    def _capture_font_attrs(run):  # type: ignore
+        if run is None:
+            return (None, None, None, None, None, None)
+        size = run.font.size
+        colour = run.font.color
+        rgb = None
+        try:
+            rgb = colour.rgb
+        except Exception:
+            rgb = None
+        return (size, rgb, None, None, run.font.bold, run.font.italic)
+
+    def _apply_font_attrs(new_run, size, rgb, theme_color, brightness, bold, italic):  # type: ignore
+        if size is not None:
+            new_run.font.size = size
+        if rgb is not None:
+            try:
+                new_run.font.color.rgb = rgb
+            except Exception:
+                pass
+        if bold is not None:
+            new_run.font.bold = bold
+        if italic is not None:
+            new_run.font.italic = italic
 
 ###############################################################################
 # Data loading and return calculations
@@ -173,206 +209,7 @@ def _build_returns_table(
 
 
 ###############################################################################
-# Figure generation
-###############################################################################
-
-def _colour_for_value(val: float, max_pos: float, min_neg: float) -> Tuple[float, float, float, float]:
-    """Return an RGBA colour for a single value using independent scales.
-
-    Positive values produce a gradient from white to green; negative
-    values from white to red.  Zeros (or undefined scales) return
-    white.  The input ``max_pos`` should be the maximum positive value
-    in the column, and ``min_neg`` the minimum (most negative) value.
-
-    Parameters
-    ----------
-    val : float
-        The value to colour.
-    max_pos : float
-        The maximum positive value in the column.
-    min_neg : float
-        The minimum (most negative) value in the column.
-
-    Returns
-    -------
-    tuple of float
-        RGBA quadruple in the range 0–1.
-    """
-    white = np.array([1.0, 1.0, 1.0, 1.0])
-    red = np.array(mcolors.to_rgba("#C70039"))
-    green = np.array(mcolors.to_rgba("#2E8B57"))
-    if val > 0 and max_pos > 0:
-        ratio = float(val) / max_pos
-        return tuple(white + ratio * (green - white))
-    if val < 0 and min_neg < 0:
-        ratio = float(val) / min_neg  # both negative → positive ratio
-        return tuple(white + ratio * (red - white))
-    return tuple(white)
-
-
-def create_equity_performance_figure(
-    excel_path: Union[str, pathlib.Path],
-    ticker_mapping: Dict[str, str] | None = None,
-    *,
-    width: float = 14.0,
-    height: float = 9.0,
-) -> bytes:
-    """Generate the equity performance dashboard as a PNG.
-
-    The function reads price data from the supplied Excel workbook,
-    computes recent returns for a set of major indices and builds a
-    two‑panel figure.  By default the following tickers are used:
-
-    ``SPX Index``, ``CCMP Index``, ``RTY Index``, ``IBOV Index``,
-    ``MEXBOL Index``, ``SX5E Index``, ``SXXP Index``, ``UKX Index``,
-    ``MXME Index``, ``SMI Index``, ``HSI Index``, ``SHSZ300 Index``,
-    ``NKY Index``, ``VNINDEX Index``, ``SKMQAXJN Index``, ``SENSEX Index``,
-    ``DAX Index``, ``SASEIDX Index`` and ``MXWO Index``.
-
-    Parameters
-    ----------
-    excel_path : str or pathlib.Path
-        Path to the Excel workbook containing the price series.
-    ticker_mapping : dict, optional
-        Mapping from ticker codes to display names.  If not provided,
-        sensible defaults are used.
-    width : float, default 14.0
-        Figure width in inches.
-    height : float, default 9.0
-        Figure height in inches.
-
-    Returns
-    -------
-    bytes
-        PNG data for the generated dashboard.
-    """
-    # Default mapping of tickers to human‑friendly names
-    default_mapping = {
-        "SPX Index": "S&P 500",
-        "CCMP Index": "Nasdaq Composite",
-        "RTY Index": "Russell 2000",
-        "IBOV Index": "Bovespa",
-        "MEXBOL Index": "Mexican Bolsa",
-        "SX5E Index": "Eurostoxx 50",
-        "SXXP Index": "Stoxx 600",
-        "UKX Index": "FTSE 100",
-        "MXME Index": "MSCI EM Eastern Europe",
-        "SMI Index": "Swiss Market Index",
-        "HSI Index": "Hang Seng",
-        "SHSZ300 Index": "Shenzhen CSI 300",
-        "NKY Index": "Nikkei 225",
-        "VNINDEX Index": "Ho Chi Minh",
-        "SKMQAXJN Index": "Solactive Macquarie Asia ex JP",
-        "SENSEX Index": "Sensex",
-        "DAX Index": "DAX 30",
-        "SASEIDX Index": "TASI (Saudi Index)",
-        "MXWO Index": "MSCI World",
-    }
-    mapping = ticker_mapping or default_mapping
-    tickers = list(mapping.keys())
-
-    # Load and compute returns
-    df = _load_price_data(excel_path, tickers)
-    perf = _build_returns_table(df, mapping)
-
-    # Build bar chart data (1W) sorted by performance descending
-    bar_df = perf[["Name", "1W"]].dropna().sort_values("1W", ascending=False).reset_index(drop=True)
-    # Build heatmap data sorted by YTD descending
-    heat_df = perf[["Name", "YTD", "1M", "3M", "6M", "12M"]].dropna().sort_values("YTD", ascending=False).reset_index(drop=True)
-
-    # Precompute colour array per column with independent scaling
-    n_rows = len(heat_df)
-    cols = ["YTD", "1M", "3M", "6M", "12M"]
-    color_array = np.zeros((n_rows, len(cols), 4))
-    for j, col in enumerate(cols):
-        col_vals = heat_df[col].astype(float).values
-        pos_vals = col_vals[col_vals > 0]
-        neg_vals = col_vals[col_vals < 0]
-        max_pos = pos_vals.max() if len(pos_vals) > 0 else 0.0
-        min_neg = neg_vals.min() if len(neg_vals) > 0 else 0.0
-        for i, val in enumerate(col_vals):
-            color_array[i, j] = _colour_for_value(float(val), max_pos, min_neg)
-
-    # Create figure and axes
-    fig, (ax_bar, ax_heat) = plt.subplots(
-        2,
-        1,
-        figsize=(width, height),
-        gridspec_kw={"height_ratios": [3, 2]},
-    )
-
-    # Bar chart
-    bar_colors = ["#2E8B57" if x > 0 else "#C70039" for x in bar_df["1W"]]
-    bars = ax_bar.barh(bar_df["Name"], bar_df["1W"], color=bar_colors)
-    # Add labels to bars
-    for bar in bars:
-        width_val = bar.get_width()
-        x_pos = width_val + (0.1 if width_val > 0 else -0.1)
-        ax_bar.text(
-            x_pos,
-            bar.get_y() + bar.get_height() / 2.0,
-            f"{width_val:.1f}%",
-            va="center",
-            ha="left" if width_val > 0 else "right",
-            fontweight="bold",
-            color="black",
-        )
-    # Style bar chart
-    ax_bar.axvline(0.0, color="grey", linewidth=0.8, linestyle="--")
-    ax_bar.set_xticks([])
-    ax_bar.set_yticks(range(len(bar_df)))
-    ax_bar.set_yticklabels(bar_df["Name"], fontsize=10)
-    ax_bar.invert_yaxis()
-    for spine in ax_bar.spines.values():
-        spine.set_visible(False)
-    ax_bar.tick_params(axis="y", length=0)
-    # Provide extra horizontal space so bars do not overlap names
-    min_val = min(bar_df["1W"].min(), 0)
-    max_val = bar_df["1W"].max()
-    margin = (max_val - min_val) * 0.2
-    ax_bar.set_xlim(min_val - margin, max_val + margin)
-
-    # Heatmap
-    ax_heat.imshow(color_array, aspect="auto")
-    for i in range(n_rows):
-        for j, col in enumerate(cols):
-            val = heat_df.iloc[i][col]
-            # Always render text in black for legibility; the colour cell
-            # carries the sign/intensity
-            ax_heat.text(
-                j,
-                i,
-                f"{val:.1f}%",
-                ha="center",
-                va="center",
-                fontsize=9,
-                fontweight="bold",
-                color="black",
-            )
-    ax_heat.set_xticks(range(len(cols)))
-    ax_heat.set_xticklabels(cols, fontsize=12, fontweight="bold")
-    ax_heat.xaxis.set_ticks_position("top")
-    ax_heat.xaxis.set_label_position("top")
-    ax_heat.set_yticks(range(n_rows))
-    ax_heat.set_yticklabels(heat_df["Name"], fontsize=9)
-    ax_heat.tick_params(axis="y", length=0)
-    ax_heat.tick_params(axis="x", length=0)
-    for spine in ax_heat.spines.values():
-        spine.set_visible(False)
-
-    # Adjust layout to create a large left margin for names
-    fig.subplots_adjust(left=0.5, hspace=0.4)
-
-    # Render to PNG
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
-
-
-###############################################################################
-# Separate figure generation for weekly bar and historical heatmap
+# Figure generation functions
 ###############################################################################
 
 def create_weekly_performance_chart(
@@ -381,14 +218,16 @@ def create_weekly_performance_chart(
     *,
     width: float = 14.0,
     height: float = 5.0,
-) -> bytes:
-    """Generate a bar chart of 1‑week returns.
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate a bar chart of 1‑week returns with price‑mode adjustment.
 
-    This helper reads the specified Excel file, computes 1‑week returns
-    for the configured tickers, sorts them in descending order and
-    constructs a horizontal bar chart.  Names are used instead of
-    ticker codes.  The caller can control the figure size via
-    ``width`` and ``height``.
+    This helper reads the specified Excel file, optionally adjusts the price
+    history according to the selected ``price_mode`` (``"Last Price"`` vs
+    ``"Last Close"``), computes 1‑week returns for the configured tickers,
+    sorts them in descending order and constructs a horizontal bar chart.
+    The effective date used for the calculations is returned along with
+    the PNG data.
 
     Parameters
     ----------
@@ -399,11 +238,17 @@ def create_weekly_performance_chart(
         sensible defaults are used.
     width, height : float
         Dimensions of the generated figure in inches.
+    price_mode : str, default ``"Last Price"``
+        One of ``"Last Price"`` or ``"Last Close"``.  Determines whether
+        intraday prices are used or the most recent row is dropped if it
+        corresponds to today's date.
 
     Returns
     -------
-    bytes
-        PNG data for the bar chart.
+    tuple
+        A two‑tuple ``(image_bytes, used_date)`` where ``image_bytes`` is
+        the PNG data for the bar chart and ``used_date`` is the effective
+        date in the adjusted price series.
     """
     default_mapping = {
         "SPX Index": "S&P 500",
@@ -419,7 +264,7 @@ def create_weekly_performance_chart(
         "HSI Index": "Hang Seng",
         "SHSZ300 Index": "Shenzhen CSI 300",
         "NKY Index": "Nikkei 225",
-        "VNINDEX Index": "Ho Chi Minh",
+        "VNINDEX Index": "Vietnam Ho Chi Minh",
         "SKMQAXJN Index": "Solactive Macquarie Asia ex JP",
         "SENSEX Index": "Sensex",
         "DAX Index": "DAX 30",
@@ -428,9 +273,10 @@ def create_weekly_performance_chart(
     }
     mapping = ticker_mapping or default_mapping
     tickers = list(mapping.keys())
-    # Load data and compute returns
+    # Load data and adjust according to price mode
     df = _load_price_data(excel_path, tickers)
-    perf = _build_returns_table(df, mapping)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    perf = _build_returns_table(df_adj, mapping)
     # Build bar chart data sorted by performance descending
     bar_df = perf[["Name", "1W"]].dropna().sort_values("1W", ascending=False).reset_index(drop=True)
     # Create figure and axis
@@ -470,7 +316,7 @@ def create_weekly_performance_chart(
     fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     plt.close(fig)
     buf.seek(0)
-    return buf.getvalue()
+    return buf.getvalue(), used_date
 
 
 def create_historical_performance_table(
@@ -479,14 +325,15 @@ def create_historical_performance_table(
     *,
     width: float = 14.0,
     height: float = 6.0,
-) -> bytes:
-    """Generate a heatmap table of historical returns.
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate a heatmap table of historical returns with price‑mode adjustment.
 
-    This helper reads the price data, computes returns for multiple
-    horizons, sorts the table by YTD performance (descending) and
-    constructs a heatmap where each column is coloured independently.
-    Positive values map to greens and negative values to reds.  The
-    columns appear in the order: YTD, 1M, 3M, 6M, 12M.
+    This helper reads the price data, optionally adjusts it according to
+    ``price_mode``, computes returns for multiple horizons, sorts the
+    table by YTD performance (descending) and constructs a heatmap where
+    each column is coloured independently.  The effective date used
+    for the computations is returned along with the PNG data.
 
     Parameters
     ----------
@@ -497,11 +344,17 @@ def create_historical_performance_table(
         sensible defaults are used.
     width, height : float
         Dimensions of the generated figure in inches.
+    price_mode : str, default ``"Last Price"``
+        Either ``"Last Price"`` or ``"Last Close"``.  Determines how
+        price data is adjusted prior to computing returns and which
+        effective date appears in the source footnote.
 
     Returns
     -------
-    bytes
-        PNG data for the heatmap table.
+    tuple
+        A two‑tuple ``(image_bytes, used_date)`` where ``image_bytes`` is
+        the PNG data for the heatmap and ``used_date`` is the effective
+        date in the adjusted price series.
     """
     default_mapping = {
         "SPX Index": "S&P 500",
@@ -526,9 +379,10 @@ def create_historical_performance_table(
     }
     mapping = ticker_mapping or default_mapping
     tickers = list(mapping.keys())
-    # Load data and compute returns
+    # Load data and adjust according to price mode
     df = _load_price_data(excel_path, tickers)
-    perf = _build_returns_table(df, mapping)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    perf = _build_returns_table(df_adj, mapping)
     heat_df = perf[["Name", "YTD", "1M", "3M", "6M", "12M"]].dropna().sort_values("YTD", ascending=False).reset_index(drop=True)
     n_rows = len(heat_df)
     cols = ["YTD", "1M", "3M", "6M", "12M"]
@@ -573,94 +427,36 @@ def create_historical_performance_table(
     fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     plt.close(fig)
     buf.seek(0)
-    return buf.getvalue()
+    return buf.getvalue(), used_date
 
 
 ###############################################################################
-# Slide insertion
+# Colour helper
 ###############################################################################
 
-def insert_equity_performance_slide(
-    prs: Presentation,
-    image_bytes: bytes,
-    *,
-    left_cm: float = 0.93,
-    top_cm: float = 4.4,
-    width_cm: float = 25.0,
-    height_cm: float = 7.3,
-) -> Presentation:
-    """Insert the equity performance dashboard into a slide.
+def _colour_for_value(val: float, max_pos: float, min_neg: float) -> Tuple[float, float, float, float]:
+    """Return an RGBA colour for a single value using independent scales.
 
-    The function searches for a shape named ``equity_perf`` or a
-    textbox containing the text ``[equity_perf]`` to determine where
-    to place the image.  If no such placeholder is found, the image
-    is inserted at the default position specified by the ``left_cm``,
-    ``top_cm``, ``width_cm`` and ``height_cm`` parameters.
-
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint presentation into which the image should be
-        inserted.
-    image_bytes : bytes
-        PNG data for the dashboard generated by
-        ``create_equity_performance_figure``.
-    left_cm, top_cm, width_cm, height_cm : float
-        Position and size (in centimetres) to use if a placeholder is
-        not found.  These values can be tuned to match your template.
-
-    Returns
-    -------
-    Presentation
-        The modified presentation.
+    Positive values produce a gradient from white to green; negative
+    values from white to red.  Zeros (or undefined scales) return
+    white.  The input ``max_pos`` should be the maximum positive value
+    in the column, and ``min_neg`` the minimum (most negative) value.
     """
-    placeholder_name = "equity_perf"
-    placeholder_patterns = ["[equity_perf]", "equity_perf"]
-    target_slide = None
-    placeholder_box = None
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            if name_attr == placeholder_name:
-                target_slide = slide
-                placeholder_box = shape
-                break
-            if shape.has_text_frame:
-                text_lower = (shape.text or "").strip().lower()
-                if text_lower in [p.lower() for p in placeholder_patterns]:
-                    target_slide = slide
-                    placeholder_box = shape
-                    break
-        if target_slide:
-            break
+    white = np.array([1.0, 1.0, 1.0, 1.0])
+    red = np.array(mcolors.to_rgba("#C70039"))
+    green = np.array(mcolors.to_rgba("#2E8B57"))
+    if val > 0 and max_pos > 0:
+        ratio = float(val) / max_pos
+        return tuple(white + ratio * (green - white))
+    if val < 0 and min_neg < 0:
+        ratio = float(val) / min_neg  # both negative → positive ratio
+        return tuple(white + ratio * (red - white))
+    return tuple(white)
 
-    # Use the found slide or fall back to the last slide
-    if target_slide is None:
-        target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Determine insertion bounds
-    # If a placeholder is found, we use it only to identify the slide
-    # but not its dimensions.  Always insert at the caller‑specified
-    # position and size.  This approach allows the template to act
-    # merely as a marker without constraining the dashboard's
-    # dimensions.
-    if placeholder_box is not None:
-        # Clear the placeholder text if present
-        if placeholder_box.has_text_frame:
-            placeholder_box.text = ""
-
-    # Always use the provided coordinates and dimensions.  If the
-    # caller supplies custom values, they override the defaults.
-    left = Cm(left_cm)
-    top = Cm(top_cm)
-    width = Cm(width_cm)
-    height = Cm(height_cm)
-
-    # Insert the image
-    stream = io.BytesIO(image_bytes)
-    target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
-    return prs
-
+###############################################################################
+# Slide insertion helpers
+###############################################################################
 
 def _insert_dashboard_to_placeholder(
     prs: Presentation,
@@ -671,15 +467,22 @@ def _insert_dashboard_to_placeholder(
     top_cm: float,
     width_cm: float,
     height_cm: float,
+    used_date: Optional[pd.Timestamp],
+    price_mode: str,
+    source_placeholder_names: List[str],
 ) -> Presentation:
-    """Helper to insert an image into a slide identified by placeholders.
+    """Helper to insert an image and source footnote into a slide identified by placeholders.
 
     This internal helper searches for shapes whose names match any of
     ``placeholder_names`` or whose text contains any of those names in
     square brackets.  Once found, it uses the slide but ignores the
     shape's dimensions, inserting the provided image at the specified
-    coordinates and size.  If no matching placeholder is found, the
-    image is inserted on the last slide.
+    coordinates and size.  It also searches for a text box named
+    ``source_placeholder_names`` (or containing the pattern) and
+    replaces its contents with a source footnote based on ``used_date``
+    and ``price_mode`` while preserving the original formatting.  If no
+    matching placeholder is found, the image is inserted on the last
+    slide.  Footnote insertion is skipped if ``used_date`` is ``None``.
 
     Parameters
     ----------
@@ -692,6 +495,14 @@ def _insert_dashboard_to_placeholder(
         recognises text placeholders like ``[equity_perf_1week]``.
     left_cm, top_cm, width_cm, height_cm : float
         Desired position and size in centimetres.
+    used_date : pandas.Timestamp or None
+        The effective date for the source footnote.  If ``None`` the
+        source is not inserted.
+    price_mode : str
+        Either ``"Last Price"`` or ``"Last Close"``, used to suffix
+        ``" Close"`` in the footnote.
+    source_placeholder_names : list of str
+        Names or patterns (without brackets) for the source text box.
 
     Returns
     -------
@@ -729,28 +540,87 @@ def _insert_dashboard_to_placeholder(
     height = Cm(height_cm)
     stream = io.BytesIO(image_bytes)
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    # Insert source footnote if a date is available
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        # Look for source placeholder
+        source_candidates = [n.lower() for n in source_placeholder_names]
+        source_patterns = [f"[{n}]" for n in source_candidates]
+        for shape in target_slide.shapes:
+            name_attr2 = getattr(shape, "name", "").lower()
+            if name_attr2 in source_candidates:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        try:
+                            new_text = shape.text.replace(pattern, source_text)
+                        except Exception:
+                            new_text = source_text
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
     return prs
 
 
 def insert_equity_performance_bar_slide(
     prs: Presentation,
     image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
     *,
     left_cm: float = 0.0,
     top_cm: float = 3.22,
     width_cm: float = 25.0,
     height_cm: float = 11.66,
 ) -> Presentation:
-    """Insert the weekly performance bar chart into its designated slide.
+    """Insert the weekly performance bar chart and source footnote into its designated slide.
 
     The slide is identified by a shape named ``equity_perf_1week`` or
-    containing the text ``[equity_perf_1week]``.  The image is
-    inserted at the specified coordinates regardless of the
-    placeholder's original size.
+    ``equity_perf_1w`` (or containing ``[equity_perf_1week]`` etc.).  The
+    chart is inserted at the specified coordinates regardless of the
+    placeholder's original size.  A source footnote is written into
+    ``equity_1w_source`` or a text box containing ``[equity_1w_source]``
+    reflecting the ``used_date`` and ``price_mode``.
 
-    Returns the modified presentation.
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation to modify.
+    image_bytes : bytes
+        PNG data for the weekly bar chart.
+    used_date : pandas.Timestamp or None, optional
+        Effective date used for performance calculations.  If ``None``,
+        the source footnote is not inserted.
+    price_mode : str, default ``"Last Price"``
+        Either ``"Last Price"`` or ``"Last Close"``.  Determines the
+        suffix appended to the date in the source footnote.
+    left_cm, top_cm, width_cm, height_cm : float
+        Position and size for inserting the chart.
+
+    Returns
+    -------
+    Presentation
+        The modified presentation.
     """
-    # Accept both singular and abbreviated placeholder names for the weekly bar
     return _insert_dashboard_to_placeholder(
         prs,
         image_bytes,
@@ -759,26 +629,50 @@ def insert_equity_performance_bar_slide(
         top_cm=top_cm,
         width_cm=width_cm,
         height_cm=height_cm,
+        used_date=used_date,
+        price_mode=price_mode,
+        source_placeholder_names=["equity_1w_source"],
     )
 
 
 def insert_equity_performance_histo_slide(
     prs: Presentation,
     image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
     *,
     left_cm: float = 0.0,
     top_cm: float = 3.22,
     width_cm: float = 25.0,
     height_cm: float = 11.66,
 ) -> Presentation:
-    """Insert the historical performance heatmap into its designated slide.
+    """Insert the historical performance heatmap and source footnote into its designated slide.
 
-    The slide is identified by a shape named ``equity_perf_histo`` or
-    containing the text ``[equity_perf_histo]``.  The image is
-    inserted at the specified coordinates regardless of the
-    placeholder's original size.
+    The slide is identified by a shape named ``equity_perf_histo`` (or
+    containing ``[equity_perf_histo]``).  The heatmap is inserted at the
+    specified coordinates.  A source footnote is written into
+    ``equity_1w_source2`` or a text box containing ``[equity_1w_source2]``
+    based on the provided ``used_date`` and ``price_mode``.
 
-    Returns the modified presentation.
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation to modify.
+    image_bytes : bytes
+        PNG data for the heatmap.
+    used_date : pandas.Timestamp or None, optional
+        Effective date used for performance calculations.  If ``None``,
+        the source footnote is not inserted.
+    price_mode : str, default ``"Last Price"``
+        Either ``"Last Price"`` or ``"Last Close"``.  Determines the
+        suffix appended to the date in the source footnote.
+    left_cm, top_cm, width_cm, height_cm : float
+        Position and size for inserting the heatmap.
+
+    Returns
+    -------
+    Presentation
+        The modified presentation.
     """
     return _insert_dashboard_to_placeholder(
         prs,
@@ -788,4 +682,7 @@ def insert_equity_performance_histo_slide(
         top_cm=top_cm,
         width_cm=width_cm,
         height_cm=height_cm,
+        used_date=used_date,
+        price_mode=price_mode,
+        source_placeholder_names=["equity_1w_source2"],
     )

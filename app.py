@@ -714,25 +714,31 @@ def show_generate_presentation_page():
         # Insert Equity performance charts
         # ------------------------------------------------------------------
         try:
-            # Generate and insert the weekly performance bar chart
-            week_img = create_weekly_performance_chart(
-                st.session_state["excel_file"]
+            # Generate the weekly performance bar chart with price-mode adjustment
+            bar_bytes, perf_used_date = create_weekly_performance_chart(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_equity_performance_bar_slide(
                 prs,
-                week_img,
+                bar_bytes,
+                used_date=perf_used_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
                 left_cm=1.63,
                 top_cm=4.73,
                 width_cm=22.48,
                 height_cm=10.61,
             )
-            # Generate and insert the historical performance heatmap
-            histo_img = create_historical_performance_table(
-                st.session_state["excel_file"]
+            # Generate the historical performance heatmap with price-mode adjustment
+            histo_bytes, histo_used_date = create_historical_performance_table(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_equity_performance_histo_slide(
                 prs,
-                histo_img,
+                histo_bytes,
+                used_date=histo_used_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
                 left_cm=2.16,
                 top_cm=4.70,
                 width_cm=19.43,
