@@ -318,7 +318,7 @@ def _generate_spx_image_from_df(
     plt.tight_layout()
 
     buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.savefig(buf, format="png", dpi=600, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
@@ -605,7 +605,7 @@ def generate_range_callout_chart_image(
     # entire figure (including legends and tick labels) is saved without
     # cropping.  A small padding is added to provide breathing room.
     buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=300, transparent=True,
+    fig.savefig(buf, format="png", dpi=600, transparent=True,
                 bbox_inches="tight", pad_inches=0.05)
     plt.close(fig)
     buf.seek(0)
@@ -691,23 +691,34 @@ def insert_spx_technical_chart_with_callout(
 
 
 def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """
-    Retrieve the momentum score for SPX from 'data_trend_rating' (col A, D).
-    Returns None if unavailable.
-    """
+    """Return SPX momentum score, mapping letter grades to numeric if needed."""
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
     except Exception:
         return None
-    df = df.dropna(subset=[df.columns[0], df.columns[3]])
-    for _, row in df.iterrows():
-        ticker = str(row[df.columns[0]]).strip().upper()
-        if ticker == "SPX INDEX":
-            try:
-                return float(row[df.columns[3]])
-            except Exception:
-                return None
-    return None
+    # find SPX row
+    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SPX INDEX"
+    if not mask.any():
+        return None
+    row = df.loc[mask].iloc[0]
+    # try to convert the existing value to float
+    try:
+        return float(row.iloc[3])
+    except Exception:
+        pass
+    # fall back to mapping letter rating to numeric using parameters sheet
+    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
+    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
+    # optionally lookup in 'parameters' sheet for customised mapping
+    try:
+        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
+        spx_param = params[params["Tickers"].astype(str).str.upper() == "SPX INDEX"]
+        if not spx_param.empty and "Unnamed: 8" in spx_param:
+            return float(spx_param["Unnamed: 8"].dropna().iloc[0])
+    except Exception:
+        pass
+    return mapping.get(rating)
+
 
 
 def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
@@ -1028,7 +1039,7 @@ def generate_average_gauge_image(
     ax.axis("off")
 
     buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.savefig(buf, format="png", dpi=600, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
@@ -1526,7 +1537,7 @@ def generate_range_gauge_chart_image(
 
 
     buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.savefig(buf, format="png", dpi=600, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
@@ -1643,7 +1654,7 @@ def generate_range_gauge_only_image(
         ax.spines[side].set_visible(False)
     plt.tight_layout()
     buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.savefig(buf, format="png", dpi=600, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
