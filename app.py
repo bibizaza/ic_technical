@@ -381,7 +381,11 @@ def show_ytd_update_page():
         )
         st.pyplot(create_commodity_chart(df_co))
     with st.expander("Crypto Chart", expanded=False):
-        df_cr = get_crypto_ytd_series(st.session_state["excel_file"], tickers=cr_tickers)
+        # Pass price mode to ensure crypto YTD uses the same intraday/close setting
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        df_cr = get_crypto_ytd_series(
+            st.session_state["excel_file"], tickers=cr_tickers, price_mode=price_mode
+        )
         st.pyplot(create_crypto_chart(df_cr))
 
     st.sidebar.success("Configure YTD charts, then go to 'Generate Presentation'.")
@@ -622,6 +626,7 @@ def show_generate_presentation_page():
             st.session_state["excel_file"],
             subtitle=st.session_state.get("cr_subtitle", ""),
             tickers=st.session_state.get("selected_cr_tickers", []),
+            price_mode=st.session_state.get("price_mode", "Last Price"),
         )
 
         # Insert SPX technical-analysis chart with the call-out range gauge.

@@ -5,7 +5,21 @@ cryptocurrencies, generates a YTD performance chart with connectors
 and bold labels, and inserts it into a slide identified by a
 placeholder named ``ytd_crypto_perf``.  The subtitle for the chart
 is written into a textbox named ``ytd_crypto_subtitle`` by replacing
-a ``XXX`` placeholder while preserving formatting.
+a ``XXX`` placeholder while preserving formatting.  A source footnote
+is added into a textbox named ``ytd_crypto_source`` (or containing
+``[ytd_crypto_source]``) that reflects the effective price mode
+selection (``Last Price`` vs ``Last Close``).
+
+Functions
+---------
+
+``get_crypto_ytd_series``
+    Compute YTD performance for crypto tickers using the selected price mode.
+``create_crypto_chart``
+    Build a YTD line chart with connectors and annotations.
+``insert_crypto_chart``
+    Insert the chart, subtitle and source footnote into a slide
+    identified by placeholders.
 """
 
 from __future__ import annotations
@@ -13,7 +27,7 @@ from __future__ import annotations
 from datetime import datetime
 import os
 import tempfile
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -22,31 +36,86 @@ from pptx import Presentation
 from pptx.util import Cm
 
 from .loader_update import load_data
+from utils import adjust_prices_for_mode
+
+try:
+    from technical_analysis.equity.spx import (
+        _get_run_font_attributes as _capture_font_attrs,
+        _apply_run_font_attributes as _apply_font_attrs,
+    )
+except Exception:
+    def _capture_font_attrs(run):
+        if run is None:
+            return None, None, None, None, None, None
+        size = run.font.size
+        colour = run.font.color
+        rgb = None
+        try:
+            rgb = colour.rgb
+        except Exception:
+            rgb = None
+        return size, rgb, None, None, run.font.bold, run.font.italic
+    def _apply_font_attrs(new_run, size, rgb, theme_color, brightness, bold, italic):
+        if size is not None:
+            new_run.font.size = size
+        if rgb is not None:
+            try:
+                new_run.font.color.rgb = rgb
+            except Exception:
+                pass
+        if bold is not None:
+            new_run.font.bold = bold
+        if italic is not None:
+            new_run.font.italic = italic
+
 
 # Colour definitions for crypto (RGB → hex)
 CRYPTO_COLOURS = {
-    "Ripple": "#A9D18E",    # 169,209,142
+    "Ripple": "#A9D18E",
     "XRPUSD Curncy": "#A9D18E",
-    "Bitcoin": "#203864",   # 32,56,100
+    "Bitcoin": "#203864",
     "XBTUSD Curncy": "#203864",
-    "Binance": "#BF9000",   # 191,144,0
+    "Binance": "#BF9000",
     "XBIUSD LUKK Curncy": "#BF9000",
-    "Ethereum": "#00B0F0",  # 0,176,240
+    "Ethereum": "#00B0F0",
     "XETUSD Curncy": "#00B0F0",
-    "Solana": "#FFC000",    # 255,192,0
+    "Solana": "#FFC000",
     "XSOUSD Curncy": "#FFC000",
 }
 
 
-def get_crypto_ytd_series(file_path: str, tickers: Optional[List[str]] = None) -> pd.DataFrame:
+def get_crypto_ytd_series(
+    file_path: str,
+    tickers: Optional[List[str]] = None,
+    *,
+    price_mode: str = "Last Price",
+) -> pd.DataFrame:
     """
-    Compute YTD performance for crypto tickers.  If ``tickers`` is
-    ``None``, all crypto tickers from the parameters sheet are
-    included.  YTD is calculated from 1 January of the current year.
+    Compute YTD performance for crypto tickers using the selected price mode.
 
-    Returns a DataFrame with ``Date`` and one column per crypto name.
+    If ``tickers`` is ``None``, all crypto tickers from the parameters
+    sheet are included.  YTD is calculated from 1 January of the current year.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the Excel workbook.
+    tickers : list of str, optional
+        Specific crypto tickers to include; if omitted, all cryptos are used.
+    price_mode : str, default ``"Last Price"``
+        Either ``"Last Price"`` or ``"Last Close"``.  When set to
+        ``"Last Close"``, rows with the most recent date (if equal to
+        today's date) will be dropped prior to computing performance.
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame with ``Date`` and one column per crypto name
+        containing percentage changes from the start of the current year.
     """
     prices_df, params_df = load_data(file_path)
+    # Adjust price data according to price mode
+    prices_df, _ = adjust_prices_for_mode(prices_df, price_mode)
     now = datetime.now()
     year_start = datetime(now.year, 1, 1)
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
@@ -128,6 +197,7 @@ def insert_crypto_chart(
     subtitle: str = "",
     tickers: Optional[List[str]] = None,
     *,
+    price_mode: str = "Last Price",
     left_cm: float = 1.87,
     top_cm: float = 5.49,
     width_cm: float = 20.64,
@@ -139,8 +209,11 @@ def insert_crypto_chart(
     containing ``[ytd_crypto_perf]``) to locate the slide.  The chart is
     then inserted at the specified coordinates.  The subtitle is
     written into ``ytd_crypto_subtitle`` by replacing a ``XXX``
-    placeholder, preserving the original run formatting.  If no
-    placeholder slide is found, it falls back to slide 26 (index 25).
+    placeholder or ``[ytd_crypto_subtitle]`` while preserving the
+    original run formatting.  A source footnote is inserted into
+    ``ytd_crypto_source`` or a shape containing ``[ytd_crypto_source]``
+    using the same formatting as the placeholder.  If no placeholder
+    slide is found, it falls back to slide 26 (index 25).
 
     Parameters
     ----------
@@ -152,6 +225,10 @@ def insert_crypto_chart(
         Subtitle text to insert.
     tickers : list of str, optional
         Crypto tickers to include; if omitted, all cryptos are used.
+    price_mode : str, default ``"Last Price"``
+        Either ``"Last Price"`` or ``"Last Close"``.  Determines how
+        price data is adjusted prior to computing YTD performance and
+        affects the date displayed in the source footnote.
     left_cm, top_cm, width_cm, height_cm : float
         Position and dimensions for the chart insertion, in centimetres.
 
@@ -161,7 +238,7 @@ def insert_crypto_chart(
         The modified presentation.
     """
     # Compute series and figure
-    df_crypto = get_crypto_ytd_series(file_path, tickers)
+    df_crypto = get_crypto_ytd_series(file_path, tickers, price_mode=price_mode)
     fig = create_crypto_chart(df_crypto)
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_png:
         fig.savefig(tmp_png.name, dpi=200)
@@ -191,29 +268,74 @@ def insert_crypto_chart(
                 name_attr = getattr(shape, "name", "")
                 if name_attr and name_attr.lower() == "ytd_crypto_subtitle" and shape.has_text_frame:
                     tf = shape.text_frame
-                    for paragraph in tf.paragraphs:
-                        for run in paragraph.runs:
-                            if "XXX" in run.text:
-                                orig_font = run.font
-                                run.text = run.text.replace("XXX", subtitle)
-                                run.font.name = orig_font.name
-                                run.font.size = orig_font.size
-                                run.font.bold = orig_font.bold
-                                run.font.italic = orig_font.italic
-                                run.font.color.rgb = orig_font.color.rgb
-                                break
+                    paragraph = tf.paragraphs[0]
+                    runs = paragraph.runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    original_text = "".join(run.text for run in runs) if runs else ""
+                    new_text = original_text
+                    if "XXX" in new_text:
+                        new_text = new_text.replace("XXX", subtitle)
+                    elif "[ytd_crypto_subtitle]" in new_text:
+                        new_text = new_text.replace("[ytd_crypto_subtitle]", subtitle)
+                    else:
+                        new_text = subtitle
+                    tf.clear()
+                    p = tf.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_font_attrs(new_run, *attrs)
                     break
-        # Convert coordinates to EMU
+        # Convert coordinates to EMU and insert the chart
         left = Cm(left_cm)
         top = Cm(top_cm)
         width = Cm(width_cm)
         height = Cm(height_cm)
-        # Insert the chart
         picture = target_slide.shapes.add_picture(chart_path, left, top, width, height)
         # Bring picture to the front
         sp_tree = target_slide.shapes._spTree
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
+        # Insert source footnote
+        prices_df, _ = load_data(file_path)
+        prices_df, used_date = adjust_prices_for_mode(prices_df, price_mode)
+        if used_date is not None:
+            date_str = used_date.strftime("%d/%m/%Y")
+            suffix = " Close" if price_mode.lower() == "last close" else ""
+            source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+            placeholder_name = "ytd_crypto_source"
+            placeholder_patterns = ["[ytd_crypto_source]", "ytd_crypto_source"]
+            inserted = False
+            for shape in target_slide.shapes:
+                name_attr2 = getattr(shape, "name", "")
+                if name_attr2 and name_attr2.lower() == placeholder_name:
+                    if shape.has_text_frame:
+                        runs2 = shape.text_frame.paragraphs[0].runs
+                        attrs2 = _capture_font_attrs(runs2[0]) if runs2 else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p2 = shape.text_frame.paragraphs[0]
+                        new_run2 = p2.add_run()
+                        new_run2.text = source_text
+                        _apply_font_attrs(new_run2, *attrs2)
+                    inserted = True
+                    break
+                if shape.has_text_frame:
+                    for pattern in placeholder_patterns:
+                        if pattern.lower() in (shape.text or "").lower():
+                            runs2 = shape.text_frame.paragraphs[0].runs
+                            attrs2 = _capture_font_attrs(runs2[0]) if runs2 else (None, None, None, None, None, None)
+                            try:
+                                new_text2 = shape.text.replace(pattern, source_text)
+                            except Exception:
+                                new_text2 = source_text
+                            shape.text_frame.clear()
+                            p2 = shape.text_frame.paragraphs[0]
+                            new_run2 = p2.add_run()
+                            new_run2.text = new_text2
+                            _apply_font_attrs(new_run2, *attrs2)
+                            inserted = True
+                            break
+                    if inserted:
+                        break
         return prs
     finally:
         os.remove(chart_path)
