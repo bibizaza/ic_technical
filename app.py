@@ -67,6 +67,25 @@ from performance.equity_perf import (
     insert_equity_performance_histo_slide,
 )
 
+# Import FX performance functions
+try:
+    from performance.fx_perf import (
+        create_weekly_performance_chart as create_weekly_fx_performance_chart,
+        create_historical_performance_table as create_historical_fx_performance_table,
+        insert_fx_performance_bar_slide,
+        insert_fx_performance_histo_slide,
+    )
+except Exception:
+    # If FX module not available, define no-op placeholders
+    def create_weekly_fx_performance_chart(*args, **kwargs):
+        return (b"", None)
+    def create_historical_fx_performance_table(*args, **kwargs):
+        return (b"", None)
+    def insert_fx_performance_bar_slide(prs, image_bytes, *args, **kwargs):
+        return prs
+    def insert_fx_performance_histo_slide(prs, image_bytes, *args, **kwargs):
+        return prs
+
 ###############################################################################
 # Synthetic data helpers (fallback when no Excel is loaded)
 ###############################################################################
@@ -599,6 +618,23 @@ def show_generate_presentation_page():
     st.sidebar.write("Equities:", st.session_state.get("selected_eq_names", []))
     st.sidebar.write("Commodities:", st.session_state.get("selected_co_names", []))
     st.sidebar.write("Cryptos:", st.session_state.get("selected_cr_names", []))
+    # Display FX pairs being analysed (fixed list) for user awareness
+    st.sidebar.write(
+        "FX:",
+        [
+            "DXY",
+            "EUR/USD",
+            "EUR/CHF",
+            "EUR/GBP",
+            "EUR/JPY",
+            "EUR/AUD",
+            "EUR/CAD",
+            "EUR/BRL",
+            "EUR/RUB",
+            "EUR/ZAR",
+            "EUR/MXN",
+        ],
+    )
 
     if st.sidebar.button("Generate updated PPTX", key="gen_ppt_button"):
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp_input:
@@ -738,6 +774,41 @@ def show_generate_presentation_page():
                 prs,
                 histo_bytes,
                 used_date=histo_used_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+                left_cm=2.16,
+                top_cm=4.70,
+                width_cm=19.43,
+                height_cm=10.61,
+            )
+
+            # ------------------------------------------------------------------
+            # Insert FX performance charts
+            # ------------------------------------------------------------------
+            # Generate the weekly FX performance bar chart with price-mode adjustment
+            fx_bar_bytes, fx_used_date = create_weekly_fx_performance_chart(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_fx_performance_bar_slide(
+                prs,
+                fx_bar_bytes,
+                used_date=fx_used_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+                left_cm=1.63,
+                top_cm=4.73,
+                width_cm=22.48,
+                height_cm=10.61,
+            )
+
+            # Generate the FX historical performance heatmap with price-mode adjustment
+            fx_histo_bytes, fx_used_date2 = create_historical_fx_performance_table(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_fx_performance_histo_slide(
+                prs,
+                fx_histo_bytes,
+                used_date=fx_used_date2,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
                 left_cm=2.16,
                 top_cm=4.70,
