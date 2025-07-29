@@ -241,9 +241,15 @@ def insert_equity_chart(
                     tf = shape.text_frame
                     for paragraph in tf.paragraphs:
                         for run in paragraph.runs:
-                            if "XXX" in run.text:
+                            # Look for either "XXX" or "[ytd_eq_subtitle]"
+                            if any(token in run.text for token in ("XXX", "[ytd_eq_subtitle]")):
                                 original_font = run.font
-                                run.text = run.text.replace("XXX", subtitle)
+                                # Replace whichever token is present
+                                for token in ("XXX", "[ytd_eq_subtitle]"):
+                                    if token in run.text:
+                                        run.text = run.text.replace(token, subtitle)
+                                        break
+                                # Reapply formatting
                                 run.font.name = original_font.name
                                 run.font.size = original_font.size
                                 run.font.bold = original_font.bold
