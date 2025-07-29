@@ -86,6 +86,25 @@ except Exception:
     def insert_fx_performance_histo_slide(prs, image_bytes, *args, **kwargs):
         return prs
 
+# Import Crypto performance functions
+try:
+    from performance.crypto_perf import (
+        create_weekly_performance_chart as create_weekly_crypto_performance_chart,
+        create_historical_performance_table as create_historical_crypto_performance_table,
+        insert_crypto_performance_bar_slide,
+        insert_crypto_performance_histo_slide,
+    )
+except Exception:
+    # If Crypto module not available, define no-op placeholders
+    def create_weekly_crypto_performance_chart(*args, **kwargs):
+        return (b"", None)
+    def create_historical_crypto_performance_table(*args, **kwargs):
+        return (b"", None)
+    def insert_crypto_performance_bar_slide(prs, image_bytes, *args, **kwargs):
+        return prs
+    def insert_crypto_performance_histo_slide(prs, image_bytes, *args, **kwargs):
+        return prs
+
 ###############################################################################
 # Synthetic data helpers (fallback when no Excel is loaded)
 ###############################################################################
@@ -809,6 +828,41 @@ def show_generate_presentation_page():
                 prs,
                 fx_histo_bytes,
                 used_date=fx_used_date2,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+                left_cm=2.16,
+                top_cm=4.70,
+                width_cm=19.43,
+                height_cm=10.61,
+            )
+
+            # ------------------------------------------------------------------
+            # Insert cryptocurrency performance charts
+            # ------------------------------------------------------------------
+            # Generate the weekly crypto performance bar chart with price-mode adjustment
+            crypto_bar_bytes, crypto_used_date = create_weekly_crypto_performance_chart(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_crypto_performance_bar_slide(
+                prs,
+                crypto_bar_bytes,
+                used_date=crypto_used_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+                left_cm=1.63,
+                top_cm=4.73,
+                width_cm=22.48,
+                height_cm=10.61,
+            )
+
+            # Generate the cryptocurrency historical performance heatmap with price-mode adjustment
+            crypto_histo_bytes, crypto_used_date2 = create_historical_crypto_performance_table(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_crypto_performance_histo_slide(
+                prs,
+                crypto_histo_bytes,
+                used_date=crypto_used_date2,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
                 left_cm=2.16,
                 top_cm=4.70,
