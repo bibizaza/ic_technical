@@ -260,26 +260,19 @@ def show_ytd_update_page():
 
     # Lazy import heavy modules
     from ytd_perf.loader_update import load_data
+    from utils import adjust_prices_for_mode
     from ytd_perf.equity_ytd import get_equity_ytd_series, create_equity_chart
     from ytd_perf.commodity_ytd import get_commodity_ytd_series, create_commodity_chart
     from ytd_perf.crypto_ytd import get_crypto_ytd_series, create_crypto_chart
 
     prices_df, params_df = load_data(st.session_state["excel_file"])
-    # Determine whether to use the last price or the last close.  In 'Last Close'
-    # mode, we drop the most recent date across all tickers only if that
-    # date equals today's date.  Otherwise we keep the data unchanged.  The
-    # resulting used_date reflects the last date in the adjusted DataFrame.
+    # Determine whether to use the last price or the last close using
+    # the centralised adjust_prices_for_mode helper.  This returns an
+    # adjusted DataFrame and the effective date used for YTD calculations.
     used_date = None
     if not prices_df.empty:
         price_mode = st.session_state.get("price_mode", "Last Price")
-        unique_dates = prices_df["Date"].dropna().dt.normalize().sort_values().unique()
-        if price_mode == "Last Close" and len(unique_dates) >= 2:
-            last_date = unique_dates[-1]
-            today = pd.Timestamp.today().normalize()
-            if last_date == today:
-                # Drop rows with the last date
-                prices_df = prices_df[prices_df["Date"].dt.normalize() < last_date].copy()
-        used_date = prices_df["Date"].max()
+        prices_df, used_date = adjust_prices_for_mode(prices_df, price_mode)
     # Display a caption indicating which date's prices are being used
     if used_date is not None:
         price_mode = st.session_state.get("price_mode", "Last Price")
@@ -382,7 +375,10 @@ def show_ytd_update_page():
         )
         st.pyplot(create_equity_chart(df_eq))
     with st.expander("Commodity Chart", expanded=False):
-        df_co = get_commodity_ytd_series(st.session_state["excel_file"], tickers=co_tickers)
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        df_co = get_commodity_ytd_series(
+            st.session_state["excel_file"], tickers=co_tickers, price_mode=price_mode
+        )
         st.pyplot(create_commodity_chart(df_co))
     with st.expander("Crypto Chart", expanded=False):
         df_cr = get_crypto_ytd_series(st.session_state["excel_file"], tickers=cr_tickers)
@@ -619,6 +615,7 @@ def show_generate_presentation_page():
             st.session_state["excel_file"],
             subtitle=st.session_state.get("co_subtitle", ""),
             tickers=st.session_state.get("selected_co_tickers", []),
+            price_mode=st.session_state.get("price_mode", "Last Price"),
         )
         prs = insert_crypto_chart(
             prs,
