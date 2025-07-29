@@ -33,9 +33,12 @@ from pptx import Presentation
 import tempfile
 from pathlib import Path
 
-# Import SPX functions from the dedicated module.  Note that
-# insert_spx_technical_assessment has been extended to accept a manual
-# description; see technical_analysis.equity.spx for details.
+# Import SPX functions from the dedicated module.  The SPX module
+# resides in ``technical_analysis/equity/spx.py`` and provides all helper
+# functions for building charts, inserting data into slides, and
+# computing scores.  Note that ``insert_spx_technical_assessment``
+# accepts a manual description and ``insert_spx_source`` inserts the
+# source footnote based on the selected price mode.
 from technical_analysis.equity.spx import (
     make_spx_figure,
     insert_spx_technical_chart_with_callout,
@@ -43,11 +46,11 @@ from technical_analysis.equity.spx import (
     insert_spx_technical_score_number,
     insert_spx_momentum_score_number,
     insert_spx_subtitle,
-    generate_average_gauge_image,
-    _get_spx_technical_score,
-    _get_spx_momentum_score,
     insert_spx_average_gauge,
     insert_spx_technical_assessment,
+    insert_spx_source,
+    _get_spx_technical_score,
+    _get_spx_momentum_score,
     generate_range_gauge_only_image,
 )
 
@@ -64,6 +67,9 @@ from performance.equity_perf import (
     insert_equity_performance_histo_slide,
 )
 
+###############################################################################
+# Synthetic data helpers (fallback when no Excel is loaded)
+###############################################################################
 
 def _create_synthetic_spx_series() -> pd.DataFrame:
     """Create a synthetic SPX price series for demonstration purposes."""
@@ -87,7 +93,9 @@ def _add_moving_averages(df: pd.DataFrame) -> pd.DataFrame:
 def _build_fallback_figure(
     df_full: pd.DataFrame, anchor_date: pd.Timestamp | None = None
 ) -> go.Figure:
-    """Build a Plotly figure using synthetic data when no Excel file is loaded."""
+    """
+    Build a Plotly figure using synthetic data when no Excel file is loaded.
+    """
     if df_full.empty:
         return go.Figure()
 
@@ -193,9 +201,10 @@ def _build_fallback_figure(
     return fig
 
 
-# -----------------------------------------------------------------------------
+###############################################################################
 # Streamlit configuration
-# -----------------------------------------------------------------------------
+###############################################################################
+
 st.set_page_config(page_title="IC Technical", layout="wide")
 
 st.sidebar.title("Navigation")
@@ -658,6 +667,38 @@ def show_generate_presentation_page():
             prs,
             st.session_state["excel_file"],
             manual_desc=manual_view,
+        )
+
+        # ------------------------------------------------------------------
+        # Insert the SPX source footnote.  The text varies depending on
+        # whether the user selected "Last Price" or "Last Close".  We
+        # compute the used date by loading the SPX price data, applying
+        # the same price mode adjustment, and taking the maximum date.
+        # If the date cannot be determined, the footnote is left unchanged.
+        # ------------------------------------------------------------------
+        try:
+            # Read raw price data for SPX
+            import pandas as pd
+            temp_file = st.session_state["excel_file"]
+            df_prices = pd.read_excel(temp_file, sheet_name="data_prices")
+            df_prices = df_prices.drop(index=0)
+            df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
+            df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+            df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
+            df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            # Apply price mode adjustment to get the used date
+            price_mode = st.session_state.get("price_mode", "Last Price")
+            df_adj, used_date = adjust_prices_for_mode(df_prices, price_mode)
+        except Exception:
+            used_date = None
+            price_mode = st.session_state.get("price_mode", "Last Price")
+
+        prs = insert_spx_source(
+            prs,
+            used_date,
+            price_mode,
         )
 
         # ------------------------------------------------------------------

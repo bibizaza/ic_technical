@@ -45,18 +45,6 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 
 from pptx import Presentation
-
-# Import helper for adjusting price data according to price mode.  The utils
-# module must reside at the project root (e.g. ``ic/utils.py``).  It is
-# deliberately not imported from ``technical_analysis.utils`` so that this
-# module can be reused when the technical analysis package is nested within
-# ``ic`` and ``utils.py`` sits at the project root.
-try:
-    from utils import adjust_prices_for_mode  # type: ignore
-except Exception:
-    # If the utils module is not available, define a no-op fallback.  This
-    # preserves compatibility with environments where price mode is not used.
-    adjust_prices_for_mode = None  # type: ignore
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -64,9 +52,38 @@ import matplotlib.patches as patches
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
-# ---------------------------------------------------------------------------
-# Data helpers
-# ---------------------------------------------------------------------------
+# Import helper for adjusting price data according to price mode.  The utils
+# module must reside at the project root.  It is deliberately not imported
+# from ``technical_analysis.utils`` so that this module can be reused when
+# nested within ``ic`` and ``utils.py`` sits at the project root.
+try:
+    from utils import adjust_prices_for_mode  # type: ignore
+except Exception:
+    # If the utils module is not available, define a no-op fallback.  This
+    # preserves compatibility with environments where price mode is not used.
+    adjust_prices_for_mode = None  # type: ignore
+
+###############################################################################
+# Internal helpers
+###############################################################################
+
+def _safe_get_rgb(color) -> Optional[object]:
+    """Return the RGB colour value if defined, otherwise ``None``.
+
+    The python-pptx ``ColorFormat`` object exposes an ``rgb`` property only
+    when the colour is defined explicitly in RGB space.  If the colour is
+    defined as a theme or scheme colour, accessing ``.rgb`` raises
+    ``AttributeError``【284555882015764†L60-L68】【284555882015764†L171-L182】.  This helper safely returns
+    the RGB value when available, or ``None`` otherwise.
+    """
+    if color is None:
+        return None
+    try:
+        return color.rgb
+    except Exception:
+        return None
+
+
 def _load_price_data(
     excel_path: pathlib.Path,
     ticker: str = "SPX Index",
@@ -113,16 +130,17 @@ def _load_price_data(
 
 
 def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
-    """Add 50/100/200‑day moving‑average columns."""
+    """Add 50/100/200‑day moving‑average columns to a DataFrame."""
     out = df.copy()
     for w in (50, 100, 200):
         out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
     return out
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # Plotly interactive chart for Streamlit
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def make_spx_figure(
     excel_path: str | pathlib.Path,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -277,9 +295,10 @@ def make_spx_figure(
     return fig
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # High‑resolution chart export (PNG)
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def _generate_spx_image_from_df(
     df_full: pd.DataFrame,
     anchor_date: Optional[pd.Timestamp],
@@ -387,9 +406,10 @@ def _generate_spx_image_from_df(
     return buf.getvalue()
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # Score helpers
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     """
     Retrieve the technical score for SPX from 'data_technical_score' (col A, B).
@@ -413,7 +433,9 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
     """
     Insert the SPX technical score (integer) into a shape named 'tech_score_spx'
     or into any shape containing the placeholder '[XXX]' or 'XXX'.  Original
-    formatting (font size, colour, bold, italic) is preserved.
+    formatting (font size, colour, bold, italic) is preserved.  The colour
+    assignment is guarded so that it does not raise when the original colour
+    is a theme or scheme colour【284555882015764†L60-L68】【284555882015764†L171-L182】.
     """
     score = _get_spx_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -427,7 +449,7 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
                     saved_size = runs[0].font.size if runs else None
-                    saved_color = runs[0].font.color.rgb if runs else None
+                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
                     saved_bold = runs[0].font.bold if runs else None
                     saved_italic = runs[0].font.italic if runs else None
                     shape.text_frame.clear()
@@ -437,7 +459,10 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
                     if saved_size:
                         new_run.font.size = saved_size
                     if saved_color:
-                        new_run.font.color.rgb = saved_color
+                        try:
+                            new_run.font.color.rgb = saved_color
+                        except Exception:
+                            pass
                     if saved_bold is not None:
                         new_run.font.bold = saved_bold
                     if saved_italic is not None:
@@ -448,7 +473,7 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
                         saved_size = runs[0].font.size if runs else None
-                        saved_color = runs[0].font.color.rgb if runs else None
+                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
                         saved_bold = runs[0].font.bold if runs else None
                         saved_italic = runs[0].font.italic if runs else None
                         new_text = shape.text.replace(pattern, score_text)
@@ -459,7 +484,10 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
                         if saved_size:
                             new_run.font.size = saved_size
                         if saved_color:
-                            new_run.font.color.rgb = saved_color
+                            try:
+                                new_run.font.color.rgb = saved_color
+                            except Exception:
+                                pass
                         if saved_bold is not None:
                             new_run.font.bold = saved_bold
                         if saved_italic is not None:
@@ -467,9 +495,11 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
                         return prs
     return prs
 
-# ---------------------------------------------------------------------------
+
+###############################################################################
 # Call‑out range helpers and insertion
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def generate_range_callout_chart_image(
     df_full: pd.DataFrame,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -714,9 +744,8 @@ def insert_spx_technical_chart_with_callout(
         df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
 
     # Generate the image with the call‑out.  Use an extended width of
-    # 24.47 cm (matching the user’s requested dimensions) while keeping
-    # the height at 7.53 cm.  The call‑out width is left at its default
-    # value unless overridden.
+    # 25.0 cm while keeping the height at 7.3 cm.  The call‑out width is
+    # left at its default value unless overridden.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
@@ -742,9 +771,9 @@ def insert_spx_technical_chart_with_callout(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert the image at the requested coordinates.  The user specified
-    # dimensions of 25 cm wide and 7.3 cm high, positioned 0.93 cm
-    # from the left and 4.80 cm from the top.
+    # Insert the image at the requested coordinates.  The dimensions 25 cm
+    # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
+    # template.
     left = Cm(0.93)
     top = Cm(4.80)
     width = Cm(25.0)
@@ -788,6 +817,8 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
     """
     Insert the SPX momentum score (integer) into a shape named 'mom_score_spx'
     or into any shape containing '[XXX]' or 'XXX'.  Formatting is preserved.
+    The colour assignment is guarded to avoid AttributeError when the
+    existing colour is not an RGB value【284555882015764†L60-L68】【284555882015764†L171-L182】.
     """
     score = _get_spx_momentum_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -801,7 +832,7 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
                     saved_size = runs[0].font.size if runs else None
-                    saved_color = runs[0].font.color.rgb if runs else None
+                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
                     saved_bold = runs[0].font.bold if runs else None
                     saved_italic = runs[0].font.italic if runs else None
                     shape.text_frame.clear()
@@ -811,7 +842,10 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
                     if saved_size:
                         new_run.font.size = saved_size
                     if saved_color:
-                        new_run.font.color.rgb = saved_color
+                        try:
+                            new_run.font.color.rgb = saved_color
+                        except Exception:
+                            pass
                     if saved_bold is not None:
                         new_run.font.bold = saved_bold
                     if saved_italic is not None:
@@ -822,7 +856,7 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
                         saved_size = runs[0].font.size if runs else None
-                        saved_color = runs[0].font.color.rgb if runs else None
+                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
                         saved_bold = runs[0].font.bold if runs else None
                         saved_italic = runs[0].font.italic if runs else None
                         new_text = shape.text.replace(pattern, score_text)
@@ -833,7 +867,10 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
                         if saved_size:
                             new_run.font.size = saved_size
                         if saved_color:
-                            new_run.font.color.rgb = saved_color
+                            try:
+                                new_run.font.color.rgb = saved_color
+                            except Exception:
+                                pass
                         if saved_bold is not None:
                             new_run.font.bold = saved_bold
                         if saved_italic is not None:
@@ -842,9 +879,10 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
     return prs
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # Chart insertion
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def insert_spx_technical_chart(
     prs: Presentation,
     excel_file,
@@ -893,14 +931,16 @@ def insert_spx_technical_chart(
     return prs
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # Subtitle insertion
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     """
     Replace the placeholder ('XXX' or '[XXX]') in a textbox named 'spx_text'
     (or containing those patterns) with the provided subtitle, preserving
-    original formatting.
+    original formatting.  The colour assignment is guarded to avoid
+    AttributeError for non‑RGB colours【284555882015764†L60-L68】【284555882015764†L171-L182】.
     """
     placeholder_name = "spx_text"
     placeholder_patterns = ["[XXX]", "XXX"]
@@ -913,7 +953,7 @@ def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
                     saved_size = runs[0].font.size if runs else None
-                    saved_color = runs[0].font.color.rgb if runs else None
+                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
                     saved_bold = runs[0].font.bold if runs else None
                     saved_italic = runs[0].font.italic if runs else None
                     shape.text_frame.clear()
@@ -923,7 +963,10 @@ def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
                     if saved_size:
                         new_run.font.size = saved_size
                     if saved_color:
-                        new_run.font.color.rgb = saved_color
+                        try:
+                            new_run.font.color.rgb = saved_color
+                        except Exception:
+                            pass
                     if saved_bold is not None:
                         new_run.font.bold = saved_bold
                     if saved_italic is not None:
@@ -934,7 +977,7 @@ def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
                     if pattern in shape.text:
                         runs = shape.text_frame.paragraphs[0].runs
                         saved_size = runs[0].font.size if runs else None
-                        saved_color = runs[0].font.color.rgb if runs else None
+                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
                         saved_bold = runs[0].font.bold if runs else None
                         saved_italic = runs[0].font.italic if runs else None
                         new_text = shape.text.replace(pattern, subtitle_text)
@@ -945,7 +988,10 @@ def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
                         if saved_size:
                             new_run.font.size = saved_size
                         if saved_color:
-                            new_run.font.color.rgb = saved_color
+                            try:
+                                new_run.font.color.rgb = saved_color
+                            except Exception:
+                                pass
                         if saved_bold is not None:
                             new_run.font.bold = saved_bold
                         if saved_italic is not None:
@@ -954,9 +1000,10 @@ def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     return prs
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # Colour interpolation for gauge
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def _interpolate_color(value: float) -> Tuple[float, float, float]:
     """
     Interpolate from red→yellow→green for a 0–100 value.  Pure red at 0,
@@ -1111,9 +1158,10 @@ def generate_average_gauge_image(
     return buf.getvalue()
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # Helpers for reading Excel from a file-like object
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def _load_price_data_from_obj(
     excel_obj,
     ticker: str = "SPX Index",
@@ -1159,9 +1207,10 @@ def _load_price_data_from_obj(
     return df_clean
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # Gauge insertion
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def insert_spx_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
 ) -> Presentation:
@@ -1236,9 +1285,10 @@ def insert_spx_average_gauge(
     return prs
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
 # Technical assessment insertion
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def insert_spx_technical_assessment(
     prs: Presentation,
     excel_file,
@@ -1316,7 +1366,7 @@ def insert_spx_technical_assessment(
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
                     saved_size = runs[0].font.size if runs else None
-                    saved_color = runs[0].font.color.rgb if runs else None
+                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
                     saved_bold = runs[0].font.bold if runs else None
                     saved_italic = runs[0].font.italic if runs else None
                     shape.text_frame.clear()
@@ -1326,7 +1376,10 @@ def insert_spx_technical_assessment(
                     if saved_size:
                         new_run.font.size = saved_size
                     if saved_color:
-                        new_run.font.color.rgb = saved_color
+                        try:
+                            new_run.font.color.rgb = saved_color
+                        except Exception:
+                            pass
                     if saved_bold is not None:
                         new_run.font.bold = saved_bold
                     if saved_italic is not None:
@@ -1337,7 +1390,7 @@ def insert_spx_technical_assessment(
                     if pattern.lower() in shape.text.lower():
                         runs = shape.text_frame.paragraphs[0].runs
                         saved_size = runs[0].font.size if runs else None
-                        saved_color = runs[0].font.color.rgb if runs else None
+                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
                         saved_bold = runs[0].font.bold if runs else None
                         saved_italic = runs[0].font.italic if runs else None
                         new_text = shape.text
@@ -1352,7 +1405,10 @@ def insert_spx_technical_assessment(
                         if saved_size:
                             new_run.font.size = saved_size
                         if saved_color:
-                            new_run.font.color.rgb = saved_color
+                            try:
+                                new_run.font.color.rgb = saved_color
+                            except Exception:
+                                pass
                         if saved_bold is not None:
                             new_run.font.bold = saved_bold
                         if saved_italic is not None:
@@ -1361,9 +1417,112 @@ def insert_spx_technical_assessment(
     return prs
 
 
-# ---------------------------------------------------------------------------
+###############################################################################
+# Source footnote insertion
+###############################################################################
+
+def insert_spx_source(
+    prs: Presentation,
+    used_date: Optional[pd.Timestamp],
+    price_mode: str,
+) -> Presentation:
+    """
+    Insert the source footnote into a shape named 'spx_source' (or
+    containing '[spx_source]').  The footnote text depends on the selected
+    price mode.  For example:
+
+      * Last Close  → "Source: Bloomberg, Herculis Group, Data as of 29/07/2025 Close"
+      * Last Price  → "Source: Bloomberg, Herculis Group, Data as of 29/07/2025"
+
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation to modify.
+    used_date : pandas.Timestamp or None
+        The date that should appear in the footnote.  If ``None``, no
+        changes are made.
+    price_mode : str
+        Either 'Last Price' or 'Last Close'.  Determines whether the
+        suffix " Close" is appended to the date.
+
+    Returns
+    -------
+    Presentation
+        The modified presentation.
+    """
+    if used_date is None:
+        return prs
+    try:
+        date_str = used_date.strftime("%d/%m/%Y")
+    except Exception:
+        return prs
+    suffix = " Close" if str(price_mode).lower() == "last close" else ""
+    source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+    placeholder_name = "spx_source"
+    placeholder_patterns = ["[spx_source]", "spx_source"]
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == placeholder_name:
+                # Replace text while preserving formatting
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    saved_size = runs[0].font.size if runs else None
+                    saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
+                    saved_bold = runs[0].font.bold if runs else None
+                    saved_italic = runs[0].font.italic if runs else None
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    if saved_size:
+                        new_run.font.size = saved_size
+                    if saved_color:
+                        try:
+                            new_run.font.color.rgb = saved_color
+                        except Exception:
+                            pass
+                    if saved_bold is not None:
+                        new_run.font.bold = saved_bold
+                    if saved_italic is not None:
+                        new_run.font.italic = saved_italic
+                return prs
+            if shape.has_text_frame:
+                for pattern in placeholder_patterns:
+                    if pattern.lower() in shape.text.lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        saved_size = runs[0].font.size if runs else None
+                        saved_color = _safe_get_rgb(runs[0].font.color) if runs else None
+                        saved_bold = runs[0].font.bold if runs else None
+                        saved_italic = runs[0].font.italic if runs else None
+                        new_text = shape.text
+                        try:
+                            new_text = new_text.replace(pattern, source_text)
+                        except Exception:
+                            new_text = source_text
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        if saved_size:
+                            new_run.font.size = saved_size
+                        if saved_color:
+                            try:
+                                new_run.font.color.rgb = saved_color
+                            except Exception:
+                                pass
+                        if saved_bold is not None:
+                            new_run.font.bold = saved_bold
+                        if saved_italic is not None:
+                            new_run.font.italic = saved_italic
+                        return prs
+    return prs
+
+
+###############################################################################
 # Range gauge helpers and insertion
-# ---------------------------------------------------------------------------
+###############################################################################
+
 def _compute_range_bounds(
     df_full: pd.DataFrame, lookback_days: int = 90
 ) -> Tuple[float, float]:

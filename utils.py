@@ -23,8 +23,7 @@ from typing import Tuple, Optional
 def adjust_prices_for_mode(
     df: pd.DataFrame, price_mode: str = "Last Price"
 ) -> Tuple[pd.DataFrame, Optional[pd.Timestamp]]:
-    """
-    Adjust a price DataFrame according to the specified price mode.
+    """Adjust a price DataFrame according to the specified price mode.
 
     Parameters
     ----------
