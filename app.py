@@ -104,6 +104,25 @@ except Exception:
         return prs
     def insert_crypto_performance_histo_slide(prs, image_bytes, *args, **kwargs):
         return prs
+    
+# Import Rates performance functions
+try:
+    from performance.rates_perf import (
+        create_weekly_performance_chart as create_weekly_rates_performance_chart,
+        create_historical_performance_table as create_historical_rates_performance_table,
+        insert_rates_performance_bar_slide,
+        insert_rates_performance_histo_slide,
+    )
+except Exception:
+    # If Rates module is not available, define no-op placeholders
+    def create_weekly_rates_performance_chart(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def create_historical_rates_performance_table(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def insert_rates_performance_bar_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
+    def insert_rates_performance_histo_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
 
 ###############################################################################
 # Synthetic data helpers (fallback when no Excel is loaded)
@@ -654,6 +673,24 @@ def show_generate_presentation_page():
             "EUR/MXN",
         ],
     )
+    # Display rates tickers being analysed (fixed list)
+    st.sidebar.write(
+        "Rates:",
+        [
+            "US - 2Y",
+            "US - 10Y",
+            "US - 30Y",
+            "EUR - 2Y",
+            "EUR - 10Y",
+            "EUR - 30Y",
+            "CN - 2Y",
+            "CN - 10Y",
+            "CN - 30Y",
+            "JP - 2Y",
+            "JP - 10Y",
+            "JP - 30Y",
+        ],
+    )
 
     if st.sidebar.button("Generate updated PPTX", key="gen_ppt_button"):
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp_input:
@@ -863,6 +900,41 @@ def show_generate_presentation_page():
                 prs,
                 crypto_histo_bytes,
                 used_date=crypto_used_date2,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+                left_cm=2.16,
+                top_cm=4.70,
+                width_cm=19.43,
+                height_cm=10.61,
+            )
+
+            # ------------------------------------------------------------------
+            # Insert Rates performance charts
+            # ------------------------------------------------------------------
+            # Generate the weekly rates performance bar chart with price-mode adjustment
+            rates_bar_bytes, rates_used_date = create_weekly_rates_performance_chart(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_rates_performance_bar_slide(
+                prs,
+                rates_bar_bytes,
+                used_date=rates_used_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+                left_cm=1.63,
+                top_cm=4.73,
+                width_cm=22.48,
+                height_cm=10.61,
+            )
+
+            # Generate the rates historical performance heatmap with price-mode adjustment
+            rates_histo_bytes, rates_used_date2 = create_historical_rates_performance_table(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_rates_performance_histo_slide(
+                prs,
+                rates_histo_bytes,
+                used_date=rates_used_date2,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
                 left_cm=2.16,
                 top_cm=4.70,
