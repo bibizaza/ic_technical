@@ -26,17 +26,23 @@ Key functions include:
   analysis chart with the higher/lower range gauge into the PPT.
 
 The range gauge illustrates the recent trading range for the S&P 500.
-Instead of using the absolute high and low closes of the last 90 days,
-this implementation employs a volatility‑based approach.  It computes
-the Average True Range (ATR) of the closing prices over a lookback
-window (default 90 trading days) and sets the bounds around the
-current closing price.  The upper bound is the current price plus
-the ATR and the lower bound is the current price minus the ATR.  A
-horizontal line continues the last price through to the gauge so that
-viewers can quickly assess how far the index lies from its typical
-volatility band.  This method provides context on potential upside
-and downside moves based on recent price variability rather than
-simply the most recent highs and lows.
+Instead of using the absolute high and low closes of the last 90 days,
+the bounds are estimated from recent volatility.  Whenever possible the
+code looks up the forward‑looking volatility index (VIX) and computes a
+1‑week expected move as ``(current_price × (VIX / 100)) / sqrt(52)``.
+The upper and lower bounds are the current price plus and minus that
+expected move.  If the volatility index is unavailable, the code falls
+back to using realised volatility: it computes the standard deviation of
+30‑day daily returns, annualises it and converts it to a 1‑week move
+using the same formula.  As a last resort when neither volatility
+measure can be computed the bounds default to ±2 % of the current price.
+A minimum ±1 % band is enforced to avoid overlapping annotations when
+volatility is extremely low.  A horizontal line continues the last
+price through to the gauge so that viewers can quickly assess how far
+the index lies from its typical volatility band.  This method
+provides context on potential upside and downside moves based on
+recent price variability rather than simply the most recent highs and
+lows.
 """
 
 from __future__ import annotations
@@ -201,6 +207,64 @@ def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
     for w in (50, 100, 200):
         out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
     return out
+
+def _get_vol_index_value(
+    excel_obj_or_path,
+    price_mode: str = "Last Price",
+    vol_ticker: str = "VIX Index",
+) -> Optional[float]:
+    """
+    Retrieve the most recent value of a volatility index (e.g. VIX) from
+    the ``data_prices`` sheet.  If ``price_mode`` is ``"Last Close"``,
+    the most recent date is dropped if it matches today's date.  The
+    returned value is the last available entry after price‑mode adjustment.
+
+    Parameters
+    ----------
+    excel_obj_or_path : file‑like or path
+        The Excel workbook containing price data.
+    price_mode : str, default "Last Price"
+        One of "Last Price" or "Last Close".  When set to "Last Close"
+        rows corresponding to the most recent date (if equal to today's
+        date) will be excluded before taking the last value.
+    vol_ticker : str, default "VIX Index"
+        Column name in the ``data_prices`` sheet corresponding to the
+        volatility index whose level should be used.
+
+    Returns
+    -------
+    float or None
+        The most recent volatility index value, or ``None`` if it cannot
+        be read or converted to a float.
+    """
+    try:
+        df = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
+    except Exception:
+        return None
+    # Drop first row and metadata rows
+    df = df.drop(index=0)
+    df = df[df[df.columns[0]] != "DATES"]
+    # Parse dates and the volatility index column
+    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
+    # Ensure the volatility index column exists
+    if vol_ticker not in df.columns:
+        return None
+    df["Price"] = pd.to_numeric(df[vol_ticker], errors="coerce")
+    df_clean = df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+        ["Date", "Price"]
+    ]
+    # Apply price mode adjustment if possible
+    if adjust_prices_for_mode is not None and price_mode:
+        try:
+            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
+        except Exception:
+            pass
+    if df_clean.empty:
+        return None
+    try:
+        return float(df_clean["Price"].iloc[-1])
+    except Exception:
+        return None
 
 
 ###############################################################################
@@ -495,26 +559,33 @@ def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     return None
 
 
+def _find_spx_slide(prs: Presentation) -> Optional[int]:
+    """Locate the index of the slide that contains the SPX placeholder.
+
+    This helper searches for a slide containing a shape named ``spx`` or
+    whose text is exactly ``[spx]`` (case‑insensitive).  It returns the
+    zero‑based slide index or ``None`` if no such slide exists.
+    """
+    for idx, slide in enumerate(prs.slides):
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr == "spx":
+                return idx
+            if shape.has_text_frame:
+                if (shape.text or "").strip().lower() == "[spx]":
+                    return idx
+    return None
+
+
 def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the SPX technical score (integer) into a shape named ``tech_score_spx``
-    or into any shape containing the placeholder ``[XXX]`` or ``XXX``.  The
-    function preserves all formatting from the first run of the placeholder,
-    including font size, explicit RGB colour or theme colour with brightness,
-    and bold/italic attributes.  If no run exists, the inserted text uses
-    default formatting.
+    Insert the SPX technical score (integer) into the SPX slide.
 
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint presentation to modify.
-    excel_file : file‑like object or path
-        Excel workbook containing the SPX technical score.
-
-    Returns
-    -------
-    Presentation
-        The modified presentation.
+    This function looks for a shape named ``tech_score_spx`` on the slide
+    identified by the ``spx`` placeholder.  If not found, it searches for
+    placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
+    the original placeholder run is preserved.  Other slides are not
+    modified, avoiding accidental replacement of CSI placeholders.
     """
     score = _get_spx_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -522,35 +593,37 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
     placeholder_name = "tech_score_spx"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            # Case 1: the shape is named exactly as the placeholder
-            if getattr(shape, "name", "").lower() == placeholder_name:
-                if shape.has_text_frame:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
+        # No SPX slide found; return unmodified
+        return prs
+    slide = prs.slides[spx_idx]
+    # First search for a shape named exactly as the placeholder
+    for shape in slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = score_text
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Otherwise, search for textual placeholders within shapes on the SPX slide
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern in (shape.text or ""):
                     runs = shape.text_frame.paragraphs[0].runs
-                    # Capture existing formatting from the first run
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    # Clear and insert the new run
+                    new_text = shape.text.replace(pattern, score_text)
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
-                    new_run.text = score_text
-                    # Reapply captured formatting
+                    new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
-                return prs
-            # Case 2: look for textual placeholders within the shape
-            if shape.has_text_frame:
-                for pattern in placeholder_patterns:
-                    if pattern in shape.text:
-                        runs = shape.text_frame.paragraphs[0].runs
-                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                        new_text = shape.text.replace(pattern, score_text)
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        new_run = p.add_run()
-                        new_run.text = new_text
-                        _apply_run_font_attributes(new_run, *attrs)
-                        return prs
+                    return prs
     return prs
 
 
@@ -565,6 +638,8 @@ def generate_range_callout_chart_image(
     width_cm: float = 21.41,
     height_cm: float = 7.53,
     callout_width_cm: float = 3.5,
+    *,
+    vol_index_value: Optional[float] = None,
 ) -> bytes:
     """
     Create a PNG image of the SPX price chart with a textual call‑out on the
@@ -626,24 +701,34 @@ def generate_range_callout_chart_image(
             upper_channel = trend + resid.max()
             lower_channel = trend + resid.min()
 
-    # Compute high/low bounds and current price
-    upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
+    # Compute high/low bounds and current price.  If an implied volatility
+    # value is provided (e.g. the VIX level), use it to estimate the
+    # expected one‑week move.  The expected move is computed as
+    # ``last_price × (vol_index_value/100) / sqrt(52)``.  Otherwise
+    # fall back to the realised‑volatility‑based bounds returned by
+    # ``_compute_range_bounds``.
     last_price = df["Price"].iloc[-1]
+    if vol_index_value is not None and last_price and not np.isnan(last_price):
+        expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
+        upper_bound = last_price + expected_move
+        lower_bound = last_price - expected_move
+    else:
+        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
     # Enforce a minimum total range (e.g. ±1 % of the current price) to avoid overlapping text.
-    # If the computed range is narrower than ``min_range_pct`` of the current price,
-    # symmetrically expand it around the last price.  We set ``min_range_pct`` to 0.02
-    # which yields a ±1 % band around the current level, matching the requested
-    # minimum of [-1 %; +1 %].  This avoids overlap when volatility is extremely low.
     min_range_pct = 0.02  # 2% total band → ±1% around the current price
-    if last_price:
+    if last_price and not np.isnan(last_price):
         range_span_pct = (upper_bound - lower_bound) / last_price if last_price else 0.0
         if range_span_pct < min_range_pct:
             half_span = (min_range_pct * last_price) / 2.0
             upper_bound = last_price + half_span
             lower_bound = last_price - half_span
-    # Format difference percentages (recompute after enforcing minimum range)
-    up_pct = (upper_bound - last_price) / last_price * 100 if last_price else 0.0
-    down_pct = (last_price - lower_bound) / last_price * 100 if last_price else 0.0
+        # Recompute percentage differences after adjusting range
+        up_pct = (upper_bound - last_price) / last_price * 100.0
+        down_pct = (last_price - lower_bound) / last_price * 100.0
+    else:
+        # Handle missing last_price gracefully
+        up_pct = 0.0
+        down_pct = 0.0
 
     # Determine y‑axis limits: ensure the axis includes the entire trading
     # range and the observed price range.  We add a small margin so the
@@ -839,15 +924,22 @@ def insert_spx_technical_chart_with_callout(
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
 
+    # Determine the implied volatility index value (VIX) from the Excel file
+    # so that the expected one‑week trading range can be estimated.  If the
+    # volatility index cannot be read, ``None`` is returned and the range
+    # will fall back to an ATR‑based estimate.
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
     # Generate the image with the call‑out.  Use an extended width of
-    # 25.0 cm while keeping the height at 7.3 cm.  The call‑out width is
-    # left at its default value unless overridden.
+    # 25.0 cm while keeping the height at 7.3 cm.  Pass the volatility index
+    # value to ``generate_range_callout_chart_image`` so that the range
+    # calculation can use the implied volatility if available.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
         width_cm=25.0,
         height_cm=7.3,
+        vol_index_value=vol_val,
     )
 
     # Locate the slide containing the 'spx' placeholder or text
@@ -875,7 +967,19 @@ def insert_spx_technical_chart_with_callout(
     width = Cm(25.0)
     height = Cm(7.3)
     stream = BytesIO(img_bytes)
-    target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    # Add the picture and bring it to the front.  In some templates,
+    # additional shapes (e.g. a placeholder gauge) may overlap the chart.
+    # Removing and reinserting the picture element near the start of the
+    # shape tree ensures the chart remains visible above other content.
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    try:
+        sp_tree = target_slide.shapes._spTree
+        # Remove the element and reinsert at position 1 (after background)
+        sp_tree.remove(picture._element)
+        sp_tree.insert(1, picture._element)
+    except Exception:
+        # Fallback: leave the picture at the end of the shape list
+        pass
     return prs
 
 
@@ -911,10 +1015,12 @@ def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
 
 def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the SPX momentum score (integer) into a shape named 'mom_score_spx'
-    or into any shape containing '[XXX]' or 'XXX'.  Formatting is preserved.
-    The colour assignment is guarded to avoid AttributeError when the
-    existing colour is not an RGB value【284555882015764†L60-L68】【284555882015764†L171-L182】.
+    Insert the SPX momentum score (integer) into the SPX slide.
+
+    The momentum score is inserted into a shape named ``mom_score_spx`` on
+    the SPX slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
+    placeholder within the SPX slide is replaced instead.  This avoids
+    inadvertently replacing placeholders on CSI or other slides.
     """
     score = _get_spx_momentum_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -922,32 +1028,36 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
     placeholder_name = "mom_score_spx"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            # Case 1: shape name matches the placeholder
-            if getattr(shape, "name", "").lower() == placeholder_name:
-                if shape.has_text_frame:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
+        return prs
+    slide = prs.slides[spx_idx]
+    # Attempt to replace the named placeholder first
+    for shape in slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = score_text
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Otherwise, replace placeholder patterns on the SPX slide only
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern in (shape.text or ""):
                     runs = shape.text_frame.paragraphs[0].runs
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = shape.text.replace(pattern, score_text)
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
-                    new_run.text = score_text
+                    new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
-                return prs
-            # Case 2: look for textual placeholders in the shape
-            if shape.has_text_frame:
-                for pattern in placeholder_patterns:
-                    if pattern in shape.text:
-                        runs = shape.text_frame.paragraphs[0].runs
-                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                        new_text = shape.text.replace(pattern, score_text)
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        new_run = p.add_run()
-                        new_run.text = new_text
-                        _apply_run_font_attributes(new_run, *attrs)
-                        return prs
+                    return prs
     return prs
 
 
@@ -1009,42 +1119,48 @@ def insert_spx_technical_chart(
 
 def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     """
-    Replace the placeholder ('XXX' or '[XXX]') in a textbox named 'spx_text'
-    (or containing those patterns) with the provided subtitle, preserving
-    original formatting.  The colour assignment is guarded to avoid
-    AttributeError for non‑RGB colours【284555882015764†L60-L68】【284555882015764†L171-L182】.
+    Replace the SPX subtitle placeholder with the provided text.
+
+    Only the slide identified by the ``spx`` placeholder is modified.  A
+    shape named ``spx_text`` takes precedence; if it does not exist
+    within the SPX slide, any occurrences of ``XXX`` or ``[XXX]`` on
+    that slide are replaced instead.  Formatting of the original run is
+    preserved.
     """
     placeholder_name = "spx_text"
     placeholder_patterns = ["[XXX]", "XXX"]
-
     subtitle_text = subtitle or ""
 
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            # Case 1: shape name matches
-            if getattr(shape, "name", "").lower() == placeholder_name:
-                if shape.has_text_frame:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
+        return prs
+    slide = prs.slides[spx_idx]
+    # Try to update the named subtitle shape first
+    for shape in slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = subtitle_text
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Otherwise, replace placeholder patterns within the SPX slide
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern in (shape.text or ""):
                     runs = shape.text_frame.paragraphs[0].runs
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = shape.text.replace(pattern, subtitle_text)
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
-                    new_run.text = subtitle_text
+                    new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
-                return prs
-            # Case 2: textual placeholder in shape
-            if shape.has_text_frame:
-                for pattern in placeholder_patterns:
-                    if pattern in shape.text:
-                        runs = shape.text_frame.paragraphs[0].runs
-                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                        new_text = shape.text.replace(pattern, subtitle_text)
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        new_run = p.add_run()
-                        new_run.text = new_text
-                        _apply_run_font_attributes(new_run, *attrs)
-                        return prs
+                    return prs
     return prs
 
 
@@ -1263,16 +1379,20 @@ def insert_spx_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
 ) -> Presentation:
     """
-    Insert the average gauge into the SPX slide.  Looks for a shape named
-    'gauge_spx' or text containing '[GAUGE]', 'GAUGE', or 'gauge_spx'.  If found,
-    the gauge uses that position; otherwise it is inserted below the chart at
-    the default coordinates (8.97 cm left, 12.13 cm top, 15.15 cm wide, 3.13 cm high).
+    Insert the SPX average gauge into the SPX slide.
+
+    The gauge shows the average of the technical and momentum scores and
+    last week's average.  It is inserted into a shape named
+    ``gauge_spx`` within the SPX slide.  If such a shape is not found
+    within the SPX slide, placeholders ``[GAUGE]``, ``GAUGE`` or
+    ``gauge_spx`` on the SPX slide are used instead.  If neither is
+    present, the gauge is placed at a default position below the chart
+    on the SPX slide.  Other slides remain untouched.
     """
     tech_score = _get_spx_technical_score(excel_file)
     mom_score = _get_spx_momentum_score(excel_file)
     if tech_score is None or mom_score is None:
         return prs
-
     try:
         gauge_bytes = generate_average_gauge_image(
             tech_score,
@@ -1285,45 +1405,33 @@ def insert_spx_average_gauge(
         )
     except Exception:
         return prs
-
+    # Identify SPX slide
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
+        return prs
+    slide = prs.slides[spx_idx]
     placeholder_name = "gauge_spx"
     placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_spx"]
-
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            if getattr(shape, "name", "").lower() == placeholder_name:
-                left, top, width, height = (
-                    shape.left,
-                    shape.top,
-                    shape.width,
-                    shape.height,
-                )
-                if shape.has_text_frame:
-                    shape.text = ""
-                stream = BytesIO(gauge_bytes)
-                slide.shapes.add_picture(
-                    stream, left, top, width=width, height=height
-                )
-                return prs
+    # Search for named gauge placeholder first
+    for shape in slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            left, top, width, height = shape.left, shape.top, shape.width, shape.height
             if shape.has_text_frame:
-                for pattern in placeholder_patterns:
-                    if pattern.lower() in shape.text.lower():
-                        left, top, width, height = (
-                            shape.left,
-                            shape.top,
-                            shape.width,
-                            shape.height,
-                        )
-                        shape.text = shape.text.replace(pattern, "")
-                        stream = BytesIO(gauge_bytes)
-                        slide.shapes.add_picture(
-                            stream, left, top, width=width, height=height
-                        )
-                        return prs
-
-    # Fallback: fixed coordinates below the chart
-    idx = min(11, len(prs.slides) - 1)
-    slide = prs.slides[idx]
+                shape.text = ""
+            stream = BytesIO(gauge_bytes)
+            slide.shapes.add_picture(stream, left, top, width=width, height=height)
+            return prs
+    # Then search for textual gauge placeholders on the SPX slide
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern.lower() in (shape.text or "").lower():
+                    left, top, width, height = shape.left, shape.top, shape.width, shape.height
+                    shape.text = shape.text.replace(pattern, "")
+                    stream = BytesIO(gauge_bytes)
+                    slide.shapes.add_picture(stream, left, top, width=width, height=height)
+                    return prs
+    # Fallback: insert below the chart within the SPX slide using template coordinates
     left = Cm(8.97)
     top = Cm(12.13)
     width = Cm(15.15)
@@ -1343,49 +1451,25 @@ def insert_spx_technical_assessment(
     manual_desc: Optional[str] = None,
 ) -> Presentation:
     """
-    Insert a descriptive assessment text into a shape named ``spx_view``
-    (or containing ``[spx_view]``) based on either a user‑provided
-    assessment or, if none is provided, the average of technical and
-    momentum scores.
+    Insert a descriptive assessment text into the SPX slide.
 
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint presentation to modify.
-    excel_file : file‑like object or path
-        Excel workbook containing SPX technical and momentum scores.
-    manual_desc : str, optional
-        If provided, this string is used verbatim (prefixed with
-        ``"S&P 500: "`` if not already present) as the assessment text.
-        When ``manual_desc`` is ``None``, the function computes the
-        assessment from the average of technical and momentum scores
-        according to the following rules:
+    The assessment is written into a shape named ``spx_view`` on the SPX
+    slide.  If no such shape exists, the function replaces any
+    occurrences of ``[spx_view]`` or ``spx_view`` in text on that slide.
+    A manual description may be provided; if not, the function computes
+    the view from the average of the technical and momentum scores.
 
-          * ≥80: Strongly Bullish
-          * 70–79.99: Bullish
-          * 60–69.99: Slightly Bullish
-          * 40–59.99: Neutral
-          * 30–39.99: Slightly Bearish
-          * 20–29.99: Bearish
-          * <20: Strongly Bearish
-
-    Returns
-    -------
-    Presentation
-        The modified presentation.
+    Other slides remain unmodified.
     """
-    # If manual description is provided, normalise it: ensure it starts
-    # with 'S&P 500:' and strip leading/trailing whitespace.
+    # Determine the description to insert
     if manual_desc is not None and isinstance(manual_desc, str):
         desc = manual_desc.strip()
         if desc and not desc.lower().startswith("s&p 500"):
             desc = f"S&P 500: {desc}"
-        # Continue with insertion without computing scores
     else:
         tech_score = _get_spx_technical_score(excel_file)
         mom_score = _get_spx_momentum_score(excel_file)
         if tech_score is None or mom_score is None:
-            # If scores are unavailable, leave the existing text unchanged
             return prs
         avg = (float(tech_score) + float(mom_score)) / 2.0
         if avg >= 80:
@@ -1406,37 +1490,40 @@ def insert_spx_technical_assessment(
     target_name = "spx_view"
     placeholder_patterns = ["[spx_view]", "spx_view"]
 
-    # Insert the description into the first matching shape
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "")
-            # Case 1: the shape's name matches the target placeholder
-            if name_attr and name_attr.lower() == target_name:
-                if shape.has_text_frame:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
+        return prs
+    slide = prs.slides[spx_idx]
+    # Try to locate a shape by name on the SPX slide
+    for shape in slide.shapes:
+        name_attr = getattr(shape, "name", "")
+        if name_attr and name_attr.lower() == target_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = desc
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Otherwise, replace placeholder patterns on the SPX slide
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern.lower() in (shape.text or "").lower():
                     runs = shape.text_frame.paragraphs[0].runs
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    try:
+                        new_text = shape.text.replace(pattern, desc)
+                    except Exception:
+                        new_text = desc
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
-                    new_run.text = desc
+                    new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
-                return prs
-            # Case 2: look for placeholder patterns within the text
-            if shape.has_text_frame:
-                for pattern in placeholder_patterns:
-                    if pattern.lower() in shape.text.lower():
-                        runs = shape.text_frame.paragraphs[0].runs
-                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                        try:
-                            new_text = shape.text.replace(pattern, desc)
-                        except Exception:
-                            new_text = desc
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        new_run = p.add_run()
-                        new_run.text = new_text
-                        _apply_run_font_attributes(new_run, *attrs)
-                        return prs
+                    return prs
     return prs
 
 
@@ -1483,37 +1570,41 @@ def insert_spx_source(
     source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
     placeholder_name = "spx_source"
     placeholder_patterns = ["[spx_source]", "spx_source"]
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "")
-            # Case 1: the shape's name matches the placeholder
-            if name_attr and name_attr.lower() == placeholder_name:
-                if shape.has_text_frame:
+    # Restrict insertion to the SPX slide only
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
+        return prs
+    slide = prs.slides[spx_idx]
+    # Case 1: replace a shape named exactly as the placeholder
+    for shape in slide.shapes:
+        name_attr = getattr(shape, "name", "")
+        if name_attr and name_attr.lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = source_text
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Case 2: replace occurrences of the placeholder pattern in text on the SPX slide
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern.lower() in (shape.text or "").lower():
                     runs = shape.text_frame.paragraphs[0].runs
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    try:
+                        new_text = (shape.text or "").replace(pattern, source_text)
+                    except Exception:
+                        new_text = source_text
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     new_run = p.add_run()
-                    new_run.text = source_text
+                    new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
-                return prs
-            # Case 2: a textual placeholder appears within the shape
-            if shape.has_text_frame:
-                for pattern in placeholder_patterns:
-                    if pattern.lower() in shape.text.lower():
-                        runs = shape.text_frame.paragraphs[0].runs
-                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                        # Replace only the matching pattern (case insensitive)
-                        try:
-                            new_text = shape.text.replace(pattern, source_text)
-                        except Exception:
-                            new_text = source_text
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        new_run = p.add_run()
-                        new_run.text = new_text
-                        _apply_run_font_attributes(new_run, *attrs)
-                        return prs
+                    return prs
     return prs
 
 
@@ -1525,49 +1616,66 @@ def _compute_range_bounds(
     df_full: pd.DataFrame, lookback_days: int = 90
 ) -> Tuple[float, float]:
     """
-    Compute volatility‑based high and low range bounds for the S&P 500.
+    Compute fallback high and low range bounds for the S&P 500 using
+    realised volatility.
 
-    Instead of using raw high and low closes, this function estimates a
-    typical trading band around the most recent closing price by
-    computing the Average True Range (ATR) of closing prices over the
-    last ``lookback_days`` sessions.  The ATR here is approximated as
-    the mean of the absolute day‑to‑day changes in the closing price.
+    This helper is used when an implied volatility index (e.g. VIX) is
+    unavailable.  It computes the annualised realised volatility over a
+    30‑session window by taking the standard deviation of daily
+    percentage returns, multiplying by ``sqrt(252)`` and converting to
+    a percentage.  The resulting 1‑week expected move is
+    ``(current_price × (realised_vol / 100)) / sqrt(52)``.  The upper
+    and lower bounds are the current price plus and minus this
+    expected move.  If realised volatility cannot be computed or is
+    zero, the function falls back to a ±2 % band around the current
+    price.
 
     Parameters
     ----------
     df_full : pandas.DataFrame
         DataFrame containing at least 'Date' and 'Price' columns,
         sorted by date ascending.
-    lookback_days : int, default 90
-        Number of trading days used to compute the average true range.
+    lookback_days : int, optional
+        Number of trading days used to compute the approximate true range
+        if realised volatility is unavailable.  Currently unused but
+        retained for API compatibility.
 
     Returns
     -------
     Tuple[float, float]
         A two‑tuple ``(upper_bound, lower_bound)`` representing the
-        current closing price plus and minus the ATR.  If the ATR
-        cannot be computed (e.g., insufficient history), bounds are
-        approximated as ±2 % of the current price.
+        current closing price plus and minus the realised volatility
+        based expected move, or ±2 % of the current price if no
+        volatility can be computed.
     """
     if df_full.empty:
         return (np.nan, np.nan)
-    # Current closing price
     current_price = df_full["Price"].iloc[-1]
-    # Select the last ``lookback_days`` rows (or the entire series if
-    # shorter) to compute volatility
-    window = df_full.tail(lookback_days).copy()
-    # Approximate true range using absolute change between consecutive
-    # closes.  This is a simplification of the true range formula
-    # (which would require high and low prices) but serves as a proxy
-    # for closing‑price volatility.
-    window["TR"] = window["Price"].diff().abs()
-    atr = window["TR"].dropna().mean()
-    # If ATR cannot be computed or is zero, fall back to a ±2 % band
-    if pd.isna(atr) or atr <= 0:
-        return (float(current_price * 1.02), float(current_price * 0.98))
-    upper_bound = current_price + atr
-    lower_bound = current_price - atr
-    return (float(upper_bound), float(lower_bound))
+    # Attempt to compute 30‑day realised volatility (annualised) as a fallback.  Use
+    # the last 30 trading days of closing prices to compute daily returns.
+    # If the realised volatility can be computed, convert it into a 1‑week
+    # expected move.  Otherwise fall back to a ±2 % band.
+    try:
+        # At least 2 data points are needed for pct_change; ensure there are
+        # enough rows (we use min to handle shorter histories gracefully).
+        lookback = 30
+        window_prices = df_full["Price"].tail(lookback)
+        # Compute daily percentage returns
+        rets = window_prices.pct_change().dropna()
+        # Standard deviation of daily returns
+        std_daily = rets.std()
+        if std_daily is not None and not np.isnan(std_daily) and std_daily > 0:
+            # Annualise the standard deviation (multiply by sqrt(252)) and convert to %
+            realised_vol = std_daily * np.sqrt(252.0) * 100.0
+            # Convert to 1‑week expected move by dividing by sqrt(52)
+            expected_move = (current_price * (realised_vol / 100.0)) / np.sqrt(52.0)
+            upper_bound = current_price + expected_move
+            lower_bound = current_price - expected_move
+            return (float(upper_bound), float(lower_bound))
+    except Exception:
+        pass
+    # Fallback: ±2 % of the current price
+    return (float(current_price * 1.02), float(current_price * 0.98))
 
 
 def generate_range_gauge_chart_image(
@@ -1578,6 +1686,8 @@ def generate_range_gauge_chart_image(
     height_cm: float = 7.53,
     chart_width_cm: float = None,
     gauge_width_cm: float = 4.0,
+    *,
+    vol_index_value: Optional[float] = None,
 ) -> bytes:
     """
     Create a PNG image of the SPX price chart with a vertical range gauge
@@ -1631,9 +1741,15 @@ def generate_range_gauge_chart_image(
             upper_channel = trend + resid.max()
             lower_channel = trend + resid.min()
 
-    # Determine recent high and support levels
-    upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
+    # Determine recent high and support levels.  Use the implied volatility
+    # if available to estimate a 1‑week range; otherwise fall back to ATR.
     last_price = df["Price"].iloc[-1]
+    if vol_index_value is not None and last_price and not np.isnan(last_price):
+        expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
+        upper_bound = last_price + expected_move
+        lower_bound = last_price - expected_move
+    else:
+        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
     last_price_str = f"{last_price:,.2f}"
 
     # Determine overall width.  If ``chart_width_cm`` is not provided,
@@ -1966,8 +2082,16 @@ def insert_spx_technical_chart_with_range(
         df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
+    # Determine the implied volatility index value (VIX) from the Excel file
+    # so that the expected one‑week trading range can be estimated.  If the
+    # volatility index cannot be read, ``None`` is returned and the range
+    # will fall back to an ATR‑based estimate.
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
     img_bytes = generate_range_gauge_chart_image(
-        df_full, anchor_date=anchor_date, lookback_days=lookback_days
+        df_full,
+        anchor_date=anchor_date,
+        lookback_days=lookback_days,
+        vol_index_value=vol_val,
     )
 
     # Locate target slide

@@ -537,10 +537,12 @@ def show_technical_analysis_page():
         "Asset class", ["Equity", "Commodity", "Crypto"], index=0
     )
 
-    # Provide a clear channel button
+    # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
-        if "ta_anchor" in st.session_state:
-            st.session_state.pop("ta_anchor")
+        # Remove stored anchors for SPX and CSI if present
+        for key in ["spx_anchor", "csi_anchor"]:
+            if key in st.session_state:
+                st.session_state.pop(key)
         st.experimental_rerun()
 
     excel_available = "excel_file" in st.session_state
@@ -618,17 +620,19 @@ def show_technical_analysis_page():
             mom_score = None
             if excel_available:
                 try:
+                    # Use the temporary file path for reading scores so that
+                    # pandas can access the Excel multiple times reliably.
                     if selected_index == "S&P 500":
-                        tech_score = _get_spx_technical_score(st.session_state["excel_file"])
+                        tech_score = _get_spx_technical_score(temp_path)
                     else:
-                        tech_score = _get_csi_technical_score(st.session_state["excel_file"])
+                        tech_score = _get_csi_technical_score(temp_path)
                 except Exception:
                     tech_score = None
                 try:
                     if selected_index == "S&P 500":
-                        mom_score = _get_spx_momentum_score(st.session_state["excel_file"])
+                        mom_score = _get_spx_momentum_score(temp_path)
                     else:
-                        mom_score = _get_csi_momentum_score(st.session_state["excel_file"])
+                        mom_score = _get_csi_momentum_score(temp_path)
                 except Exception:
                     mom_score = None
 
@@ -644,6 +648,28 @@ def show_technical_analysis_page():
                     }
                 )
                 st.table(df_scores)
+                # Provide an input for last week's average DMAS to be used in the gauge
+                # Only applicable to SPX and CSI indices.  The value is stored in
+                # session state and used when generating the presentation.
+                if selected_index == "S&P 500":
+                    # Provide a number input with sensible defaults and bounds
+                    spx_last_week_input = st.number_input(
+                        "Last week's average (DMAS)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=st.session_state.get("spx_last_week_avg", 50.0),
+                        key="spx_last_week_avg_input",
+                    )
+                    st.session_state["spx_last_week_avg"] = spx_last_week_input
+                elif selected_index == "CSI 300":
+                    csi_last_week_input = st.number_input(
+                        "Last week's average (DMAS)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=st.session_state.get("csi_last_week_avg", 50.0),
+                        key="csi_last_week_avg_input",
+                    )
+                    st.session_state["csi_last_week_avg"] = csi_last_week_input
             else:
                 st.info(
                     "Technical or momentum score not available in the uploaded Excel. "
@@ -653,12 +679,51 @@ def show_technical_analysis_page():
             # Show recent trading range (high/low) beneath the score table
             # -------------------------------------------------------------------
             try:
-                # Compute high and low range using the same logic as the range gauge (90 days)
-                upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=90)
-                # Compute current price for percentage calculations
+                # Compute trading range for the last 90 days.  For the S&P 500,
+                # prefer to use the implied volatility index (VIX) to estimate
+                # the expected one‑week move.  If the volatility data are
+                # unavailable or the index is not SPX, fall back to the
+                # ATR‑based range.
                 current_price = df_full["Price"].iloc[-1] if not df_full.empty else None
                 if current_price and not np.isnan(current_price):
-                    # Percentage differences relative to the current price
+                    use_implied = False
+                    vol_val = None
+                    if selected_index == "S&P 500":
+                        try:
+                            # Read the volatility index (VIX) series from the same Excel file
+                            df_vol = pd.read_excel(temp_path, sheet_name="data_prices")
+                            df_vol = df_vol.drop(index=0)
+                            df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
+                            df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
+                            if "VIX Index" in df_vol.columns:
+                                df_vol["Price"] = pd.to_numeric(df_vol["VIX Index"], errors="coerce")
+                                df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
+                                # Apply price mode adjustment to align with the chosen price mode
+                                pm = st.session_state.get("price_mode", "Last Price")
+                                if adjust_prices_for_mode is not None:
+                                    try:
+                                        df_vol, _ = adjust_prices_for_mode(df_vol, pm)
+                                    except Exception:
+                                        pass
+                                if not df_vol.empty:
+                                    vol_val = float(df_vol["Price"].iloc[-1])
+                                    use_implied = True
+                        except Exception:
+                            use_implied = False
+                    if use_implied and vol_val is not None:
+                        # Compute expected 1‑week move from implied volatility
+                        expected_move = (current_price * (vol_val / 100.0)) / np.sqrt(52.0)
+                        lower_bound = current_price - expected_move
+                        upper_bound = current_price + expected_move
+                        # Enforce a minimum ±1 % band around the current price
+                        min_span = 0.02 * current_price
+                        if (upper_bound - lower_bound) < min_span:
+                            half = min_span / 2.0
+                            lower_bound = current_price - half
+                            upper_bound = current_price + half
+                    else:
+                        # Fall back to ATR‑based range
+                        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=90)
                     low_pct = (lower_bound - current_price) / current_price * 100.0
                     high_pct = (upper_bound - current_price) / current_price * 100.0
                     st.write(
@@ -666,6 +731,8 @@ def show_technical_analysis_page():
                         f"High {upper_bound:,.0f} ({high_pct:+.1f}%)"
                     )
                 else:
+                    # If no current price, just compute bounds normally
+                    upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=90)
                     st.write(
                         f"Trading range (90d): Low {lower_bound:,.0f} – High {upper_bound:,.0f}"
                     )
@@ -873,94 +940,23 @@ def show_generate_presentation_page():
             price_mode=st.session_state.get("price_mode", "Last Price"),
         )
 
-        # Insert SPX technical-analysis chart with the call-out range gauge.
-        anchor_dt = st.session_state.get("ta_anchor")
-        # Use the selected price mode when inserting the SPX technical chart into
-        # the presentation.  This ensures that the exported chart reflects
-        # either the last price or the previous close, matching the
-        # interactive chart in Streamlit.
+
+        # Determine which equity index was selected for technical analysis
+        selected_index = st.session_state.get("ta_equity_index", "S&P 500")
+
+        # We will insert either the SPX or CSI technical analysis slides depending on the selected index.
+        # Retrieve the appropriate anchor, subtitle and last-week average values from session state.
+        # Note: anchors are stored under keys like 'spx_anchor' or 'csi_anchor'.
+        spx_anchor_dt = st.session_state.get("spx_anchor")
+        csi_anchor_dt = st.session_state.get("csi_anchor")
+
+        # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
-        prs = insert_spx_technical_chart_with_callout(
-            prs,
-            st.session_state["excel_file"],
-            anchor_dt,
-            price_mode=pmode,
-        )
 
-        # Insert SPX technical score number
-        prs = insert_spx_technical_score_number(
-            prs,
-            st.session_state["excel_file"],
-        )
-
-        # Insert SPX momentum score number
-        prs = insert_spx_momentum_score_number(
-            prs,
-            st.session_state["excel_file"]
-        )
-
-        # Insert SPX subtitle (from user input in UI)
-        prs = insert_spx_subtitle(
-            prs,
-            st.session_state.get("spx_subtitle", ""),
-        )
-
-        # Insert SPX average gauge (last week's average is 0–100)
-        last_week_avg = st.session_state.get("spx_last_week_avg", 50.0)
-        prs = insert_spx_average_gauge(
-            prs,
-            st.session_state["excel_file"],
-            last_week_avg,
-        )
-
-        # Insert the technical assessment text into the 'spx_view' textbox.
-        # Use the user-selected view if available; otherwise fall back to computed view.
-        manual_view = st.session_state.get("spx_selected_view")
-        prs = insert_spx_technical_assessment(
-            prs,
-            st.session_state["excel_file"],
-            manual_desc=manual_view,
-        )
-
-        # ------------------------------------------------------------------
-        # Insert the SPX source footnote.  The text varies depending on
-        # whether the user selected "Last Price" or "Last Close".  We
-        # compute the used date by loading the SPX price data, applying
-        # the same price mode adjustment, and taking the maximum date.
-        # If the date cannot be determined, the footnote is left unchanged.
-        # ------------------------------------------------------------------
-        try:
-            # Read raw price data for SPX
-            import pandas as pd
-            temp_file = st.session_state["excel_file"]
-            df_prices = pd.read_excel(temp_file, sheet_name="data_prices")
-            df_prices = df_prices.drop(index=0)
-            df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
-            df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
-            df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
-            df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            # Apply price mode adjustment to get the used date
-            price_mode = st.session_state.get("price_mode", "Last Price")
-            df_adj, used_date = adjust_prices_for_mode(df_prices, price_mode)
-        except Exception:
-            used_date = None
-            price_mode = st.session_state.get("price_mode", "Last Price")
-
-        prs = insert_spx_source(
-            prs,
-            used_date,
-            price_mode,
-        )
-
-        # ------------------------------------------------------------------
-        # Insert CSI technical slides, scores, gauge, assessment and source
-        # ------------------------------------------------------------------
-        try:
-            # Insert the CSI technical analysis chart with the call‑out range gauge.
-            csi_anchor_dt = st.session_state.get("csi_anchor")
-            pmode = st.session_state.get("price_mode", "Last Price")
+        if selected_index == "CSI 300":
+            # ------------------------------------------------------------------
+            # Insert CSI technical analysis slide
+            # ------------------------------------------------------------------
             prs = insert_csi_technical_chart_with_callout(
                 prs,
                 st.session_state["excel_file"],
@@ -975,9 +971,9 @@ def show_generate_presentation_page():
             # Insert CSI momentum score number
             prs = insert_csi_momentum_score_number(
                 prs,
-                st.session_state["excel_file"]
+                st.session_state["excel_file"],
             )
-            # Insert CSI subtitle (from user input in UI)
+            # Insert CSI subtitle from user input
             prs = insert_csi_subtitle(
                 prs,
                 st.session_state.get("csi_subtitle", ""),
@@ -996,9 +992,11 @@ def show_generate_presentation_page():
                 st.session_state["excel_file"],
                 manual_desc=manual_view_csi,
             )
-            # Insert the CSI source footnote
+            # Compute used date for CSI source footnote
             try:
-                df_prices_csi = pd.read_excel(st.session_state["excel_file"], sheet_name="data_prices")
+                import pandas as pd
+                temp_file = st.session_state["excel_file"]
+                df_prices_csi = pd.read_excel(temp_file, sheet_name="data_prices")
                 df_prices_csi = df_prices_csi.drop(index=0)
                 df_prices_csi = df_prices_csi[df_prices_csi[df_prices_csi.columns[0]] != "DATES"]
                 df_prices_csi["Date"] = pd.to_datetime(df_prices_csi[df_prices_csi.columns[0]], errors="coerce")
@@ -1006,21 +1004,80 @@ def show_generate_presentation_page():
                 df_prices_csi = df_prices_csi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
                 ]
-                # Apply price mode adjustment to get the used date for CSI
-                pmode_local = st.session_state.get("price_mode", "Last Price")
-                df_adj_csi, used_date_csi = adjust_prices_for_mode(df_prices_csi, pmode_local)
+                df_adj_csi, used_date_csi = adjust_prices_for_mode(df_prices_csi, pmode)
             except Exception:
                 used_date_csi = None
-                pmode_local = st.session_state.get("price_mode", "Last Price")
-
             prs = insert_csi_source(
                 prs,
                 used_date_csi,
-                pmode_local,
+                pmode,
             )
-        except Exception:
-            # Ignore failures in inserting CSI technical analysis
-            pass
+        else:
+            # ------------------------------------------------------------------
+            # Insert SPX technical analysis slide
+            # ------------------------------------------------------------------
+            prs = insert_spx_technical_chart_with_callout(
+                prs,
+                st.session_state["excel_file"],
+                spx_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert SPX technical score number
+            prs = insert_spx_technical_score_number(
+                prs,
+                st.session_state["excel_file"],
+            )
+            # Insert SPX momentum score number
+            prs = insert_spx_momentum_score_number(
+                prs,
+                st.session_state["excel_file"],
+            )
+            # Insert SPX subtitle from user input
+            prs = insert_spx_subtitle(
+                prs,
+                st.session_state.get("spx_subtitle", ""),
+            )
+            # Insert SPX average gauge (last week's average is 0–100)
+            spx_last_week_avg = st.session_state.get("spx_last_week_avg", 50.0)
+            prs = insert_spx_average_gauge(
+                prs,
+                st.session_state["excel_file"],
+                spx_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'spx_view' textbox.
+            manual_view_spx = st.session_state.get("spx_selected_view")
+            prs = insert_spx_technical_assessment(
+                prs,
+                st.session_state["excel_file"],
+                manual_desc=manual_view_spx,
+            )
+            # Compute used date for SPX source footnote
+            try:
+                import pandas as pd
+                temp_file = st.session_state["excel_file"]
+                df_prices = pd.read_excel(temp_file, sheet_name="data_prices")
+                df_prices = df_prices.drop(index=0)
+                df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
+                df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+                df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
+                df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj, used_date_spx = adjust_prices_for_mode(df_prices, pmode)
+            except Exception:
+                used_date_spx = None
+            prs = insert_spx_source(
+                prs,
+                used_date_spx,
+                pmode,
+            )
+
+        # When CSI 300 is the selected index, the technical analysis slides
+        # for CSI have already been inserted in the branch above.  Avoid
+        # inserting CSI slides again here.  Likewise, when SPX is selected,
+        # CSI slides are not inserted at all.  This prevents duplicate
+        # insertion of CSI slides that could override SPX content or leave
+        # placeholders empty.
 
         # ------------------------------------------------------------------
         # Insert Equity performance charts

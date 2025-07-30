@@ -1,11 +1,11 @@
 """Utility functions for CSI 300 technical analysis and high‑resolution export.
 
 This module provides tools to build interactive and static charts for the
-CSI 300 index (Shenzen CSI 300), calculate and insert technical and momentum
+CSI 300 index (Shenzhen CSI 300), calculate and insert technical and momentum
 scores into PowerPoint presentations, generate horizontal and vertical gauges
 that visualise the average of the technical and momentum scores, as well as
-contextual trading ranges (higher and lower range bounds).  Functions fall
-back to sensible defaults when placeholders are not found.
+contextual trading ranges (higher and lower range bounds).  Functions
+fall back to sensible defaults when placeholders are not found.
 
 Key functions include:
 
@@ -25,12 +25,22 @@ Key functions include:
   analysis chart with the higher/lower range gauge into the PPT.
 
 The range gauge illustrates the recent trading range for the CSI 300.
-By default the higher range is the maximum closing price over the last
-90 trading days; the lower range is the 50‑day moving average if the
-current price is above its 50‑day average, otherwise the minimum
-closing price over the same lookback window.  A horizontal line
-continues the last price through to the gauge so that the viewer can
-quickly assess where the index sits relative to its recent extremes.
+Instead of using the absolute high and low closes of the last 90 days,
+the bounds are estimated from recent realised volatility.  Because
+there is no widely‑used implied volatility index for the CSI 300, the
+expected 1‑week move is derived from the standard deviation of
+30‑day daily returns: the standard deviation is annualised (multiplied
+by ``sqrt(252)``) and converted to a percentage, then the 1‑week move
+is ``(current_price × (realised_vol / 100)) / sqrt(52)``.  The upper
+and lower bounds are the current price plus and minus this move.  If
+realised volatility cannot be computed, the bounds default to ±2 % of
+the current price.  A minimum ±1 % band is enforced to avoid
+overlapping annotations when volatility is extremely low.  A
+horizontal line continues the last price through to the gauge so
+viewers can quickly assess how far the index lies from its typical
+volatility band.  This method provides context on potential upside and
+downside moves based on recent price variability rather than simply
+the most recent highs and lows.
 """
 
 from __future__ import annotations
@@ -150,14 +160,14 @@ def _load_price_data(
     price_mode: str = "Last Price",
 ) -> pd.DataFrame:
     """
-    Read the raw price sheet and return a tidy Date‑Price DataFrame for CSI.
+    Read the raw price sheet and return a tidy Date‑Price DataFrame for the CSI 300.
 
     Parameters
     ----------
     excel_path : pathlib.Path
         Path to the Excel workbook containing price data.
     ticker : str, default "SHSZ300 Index"
-        Column name corresponding to the CSI index in the Excel sheet.
+        Column name corresponding to the desired ticker in the Excel sheet.
     price_mode : str, default "Last Price"
         One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
         is available and the mode is "Last Close", rows with the last
@@ -207,7 +217,7 @@ def make_csi_figure(
     price_mode: str = "Last Price",
 ) -> go.Figure:
     """
-    Build an interactive CSI chart for Streamlit.
+    Build an interactive CSI 300 chart for Streamlit.
 
     Parameters
     ----------
@@ -472,7 +482,7 @@ def _generate_csi_image_from_df(
 
 def _get_csi_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for CSI from 'data_technical_score' (col A, B).
+    Retrieve the technical score for CSI 300 from 'data_technical_score' (col A, B).
     Returns None if the sheet or score is unavailable.
     """
     try:
@@ -591,6 +601,7 @@ def insert_csi_momentum_score_number(prs: Presentation, excel_file) -> Presentat
 
     for slide in prs.slides:
         for shape in slide.shapes:
+            # Case 1: shape name matches the placeholder
             if getattr(shape, "name", "").lower() == placeholder_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
@@ -601,6 +612,7 @@ def insert_csi_momentum_score_number(prs: Presentation, excel_file) -> Presentat
                     new_run.text = score_text
                     _apply_run_font_attributes(new_run, *attrs)
                 return prs
+            # Case 2: look for textual placeholders in the shape
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern in shape.text:
@@ -1189,62 +1201,53 @@ def _compute_range_bounds(
     df_full: pd.DataFrame, lookback_days: int = 90
 ) -> Tuple[float, float]:
     """
-    Compute the higher and lower range bounds for the CSI 300.
+    Compute fallback high and low range bounds for the CSI 300 using
+    realised volatility.
 
-    The higher range is defined as the maximum closing price over the
-    ``lookback_days`` window ending at the latest date in the dataset.
-    The lower range is selected as follows:
-
-      * If the current price is above its 50‑day moving average, use that
-        moving average as the lower bound.
-      * Otherwise, use the minimum closing price over the same window as
-        the lower bound.  This ensures that the lower bound always lies
-        below the current price.
+    The CSI 300 does not have a widely‑used implied volatility index, so
+    this helper estimates the 1‑week expected move from realised
+    volatility.  It computes the standard deviation of daily returns
+    over a 30‑session window, annualises it (multiplying by
+    ``sqrt(252)``) and converts it to a percentage.  The expected
+    1‑week move is then ``(current_price × (realised_vol / 100)) /
+    sqrt(52)``.  The upper and lower bounds are set to the current
+    price plus and minus this expected move.  If realised volatility
+    cannot be computed or is zero, a ±2 % band around the current
+    price is returned.
 
     Parameters
     ----------
     df_full : pandas.DataFrame
-        DataFrame containing at least 'Date' and 'Price' columns, sorted by
-        date ascending.
-    lookback_days : int, default 90
-        Number of trading days to look back when computing high/low range.
+        DataFrame containing at least 'Date' and 'Price' columns,
+        sorted by date ascending.
+    lookback_days : int, optional
+        Number of trading days used for compatibility with the SPX API.
+        Ignored by this implementation.
 
     Returns
     -------
     Tuple[float, float]
-        A two‑tuple (upper_bound, lower_bound) representing the recent high
-        and support levels.
+        A two‑tuple ``(upper_bound, lower_bound)`` representing the
+        current closing price plus and minus the realised‑volatility
+        based expected move, or ±2 % of the current price if no
+        volatility can be computed.
     """
     if df_full.empty:
         return (np.nan, np.nan)
-
-    today = df_full["Date"].max().normalize()
-    window_start = today - timedelta(days=lookback_days)
-    window_data = df_full[df_full["Date"].between(window_start, today)]
-    if window_data.empty:
-        window_data = df_full
-
     current_price = df_full["Price"].iloc[-1]
-    # compute 50‑day moving average for entire series
-    ma_50_series = df_full["Price"].rolling(50, min_periods=1).mean()
-    ma_50 = ma_50_series.iloc[-1]
-
-    # Determine the highest closing price in the lookback window
-    upper_bound = window_data["Price"].max()
-    # Lower bound based on current price vs MA_50
-    if current_price >= ma_50:
-        lower_bound = ma_50
-    else:
-        lower_bound = window_data["Price"].min()
-    # Ensure the upper bound is above the current price.  If the highest
-    # price in the lookback window equals or lies below the last price, we
-    # extend the upper bound so that it always exceeds the last price.  A
-    # conservative uplift of 2 % of the current price is applied.  This
-    # prevents the “Higher Range” from coinciding with the current price,
-    # especially when momentum is bullish.
-    if upper_bound <= current_price:
-        upper_bound = current_price * 1.02
-    return (float(upper_bound), float(lower_bound))
+    # Use a 30‑day window of closing prices to compute realised volatility
+    window = df_full["Price"].tail(30)
+    rets = window.pct_change().dropna()
+    if not rets.empty:
+        std_daily = rets.std()
+        if std_daily is not None and not np.isnan(std_daily) and std_daily > 0:
+            realised_vol = std_daily * np.sqrt(252.0) * 100.0
+            expected_move = (current_price * (realised_vol / 100.0)) / np.sqrt(52.0)
+            upper_bound = current_price + expected_move
+            lower_bound = current_price - expected_move
+            return (float(upper_bound), float(lower_bound))
+    # Fallback: ±2 % band
+    return (float(current_price * 1.02), float(current_price * 0.98))
 
 
 def generate_range_gauge_chart_image(
@@ -1308,22 +1311,23 @@ def generate_range_gauge_chart_image(
             upper_channel = trend + resid.max()
             lower_channel = trend + resid.min()
 
-    # Determine recent high and support levels
+    # Determine recent high and support levels.  Use realised volatility as
+    # computed by ``_compute_range_bounds``.  Enforce a minimum ±1 % band
+    # around the current price to avoid overlapping annotations when
+    # volatility is extremely low.
     upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
-    # Enforce a minimum total range of ±1 % of the current price to avoid
-    # extremely tight bands that cause annotation overlap.  If the
-    # computed range is narrower than ±1 % of the last price, expand it
-    # symmetrically around the last price.  This logic mirrors the
-    # call‑out behaviour in the S&P 500 module.
-    if last_price:
-        range_span_pct = (upper_bound - lower_bound) / last_price if last_price else 0.0
-        min_total_range = 0.02  # 2 % total band → ±1 %
-        if range_span_pct < min_total_range:
-            half_span = (min_total_range * last_price) / 2.0
-            upper_bound = last_price + half_span
-            lower_bound = last_price - half_span
     last_price = df["Price"].iloc[-1]
     last_price_str = f"{last_price:,.2f}"
+    # Ensure a minimum total span (±1 % of the last price)
+    try:
+        if last_price and not np.isnan(last_price):
+            min_span = 0.02 * last_price
+            if (upper_bound - lower_bound) < min_span:
+                half = min_span / 2.0
+                lower_bound = last_price - half
+                upper_bound = last_price + half
+    except Exception:
+        pass
 
     # Determine overall width.  If ``chart_width_cm`` is not provided,
     # derive it by subtracting the gauge width from the total width.  This
@@ -1458,33 +1462,21 @@ def generate_range_gauge_chart_image(
     # Compute percentage differences relative to the last price
     up_pct = (upper_bound - last_price) / last_price * 100 if last_price else 0.0
     down_pct = (last_price - lower_bound) / last_price * 100 if last_price else 0.0
-    # Compose label strings for the upper and lower bounds.  To ensure
-    # that the middle line (index and percentage) aligns with the price
-    # level, we insert a symmetrical blank line above or below the value.
-    # The currency symbol is omitted, and the index and percentage are on
-    # the same line to reduce clutter.  Three lines are used: for the
-    # upper bound, ``Higher Range`` then the value line then a blank line;
-    # for the lower bound, a blank line then the value line then ``Lower Range``.
-    upper_text = (
-        f"Higher Range\n"
-        f"{upper_label} (+{up_pct:.1f}%)\n"
-        f""
-    )
-    lower_text = (
-        f"\n"
-        f"{lower_label} (-{down_pct:.1f}%)\n"
-        f"Lower Range"
-    )
-    # Position the labels just outside the gauge to the right.  Use
-    # ``va='center'`` so that the middle line aligns with the price
-    # level.  ``ha='left'`` aligns all text to a common left margin.
+    # Compose label strings for the upper and lower bounds.  The
+    # percentage differences are shown with a sign and one decimal place.
+    upper_text = f"Higher Range\n{upper_label} $\n(+{up_pct:.1f}%)"
+    lower_text = f"Lower Range\n{lower_label} $\n(-{down_pct:.1f}%)"
+    # Position the labels just outside the gauge to the right.  We use
+    # data coordinates (``transData``) so that the text aligns with the
+    # actual price levels.  The x‑coordinate 1.05 places the text slightly
+    # to the right of the gauge.
     ax_gauge.text(
         1.05,
         upper_bound,
         upper_text,
         color="#009951",
         ha="left",
-        va="center",
+        va="top",
         fontsize=8,
         fontweight="bold",
         transform=ax_gauge.transData,
@@ -1495,7 +1487,7 @@ def generate_range_gauge_chart_image(
         lower_text,
         color="#C00000",
         ha="left",
-        va="center",
+        va="bottom",
         fontsize=8,
         fontweight="bold",
         transform=ax_gauge.transData,
@@ -1689,6 +1681,12 @@ def insert_csi_technical_chart_with_range(
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Position and dimensions tailored to the original placeholder size.
+    # The CSI slide in the template allocates ~21.41 cm for the chart area
+    # and reserves the remaining width for the chart title, subtitle and
+    # margins.  We therefore insert the combined chart‑and‑gauge image
+    # using the original dimensions (21.41 cm × 7.53 cm) and rely on the
+    # gauge function to include the gauge within that width.  This avoids
+    # cropping the chart when the image is inserted into the slide.
     left = Cm(0.93)
     top = Cm(4.40)
     width = Cm(21.41)
@@ -1696,3 +1694,51 @@ def insert_csi_technical_chart_with_range(
     stream = BytesIO(img_bytes)
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
+
+
+def insert_csi_technical_chart_with_callout(
+    prs: Presentation,
+    excel_file,
+    anchor_date: Optional[pd.Timestamp] = None,
+    lookback_days: int = 90,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """
+    Insert the CSI technical analysis chart with a trading‑range call‑out into the PPT.
+
+    Currently the CSI module does not implement a dedicated call‑out style like the
+    S&P 500 module.  To maintain compatibility with the application’s import
+    mechanism, this function simply forwards to
+    :func:`insert_csi_technical_chart_with_range`, which inserts the chart
+    alongside a vertical range gauge.  If a call‑out style is desired in the
+    future, this function can be updated accordingly.
+
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation into which the chart should be inserted.
+    excel_file : file‑like object or path
+        Excel workbook containing CSI price data.
+    anchor_date : pandas.Timestamp or None, optional
+        Optional anchor date for a regression channel.
+    lookback_days : int, default 90
+        Lookback window for computing the high and low range bounds.
+    price_mode : str, default "Last Price"
+        Either "Last Price" or "Last Close".
+
+    Returns
+    -------
+    Presentation
+        The presentation with the updated slide.
+    """
+    # Forward to the range‑gauge insertion since a call‑out implementation
+    # has not been provided for the CSI index.  This ensures that the
+    # application’s import does not fail and that the chart still appears
+    # with the gauge.
+    return insert_csi_technical_chart_with_range(
+        prs,
+        excel_file,
+        anchor_date=anchor_date,
+        lookback_days=lookback_days,
+        price_mode=price_mode,
+    )
