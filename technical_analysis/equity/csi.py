@@ -1,42 +1,36 @@
-"""
-Utility functions for S&P 500 technical analysis and high‑resolution export.
+"""Utility functions for CSI 300 technical analysis and high‑resolution export.
 
 This module provides tools to build interactive and static charts for the
-S&P 500 index, calculate and insert technical and momentum scores into
-PowerPoint presentations, generate horizontal and vertical gauges that
-visualise the average of the technical and momentum scores, as well as
-contextual trading ranges (higher and lower range bounds).  Functions
-fall back to sensible defaults when placeholders are not found.
+CSI 300 index (Shenzen CSI 300), calculate and insert technical and momentum
+scores into PowerPoint presentations, generate horizontal and vertical gauges
+that visualise the average of the technical and momentum scores, as well as
+contextual trading ranges (higher and lower range bounds).  Functions fall
+back to sensible defaults when placeholders are not found.
 
 Key functions include:
 
-* ``make_spx_figure`` – interactive Plotly chart for Streamlit.
-* ``insert_spx_technical_chart`` – insert a static SPX chart into a PPTX.
-* ``insert_spx_technical_score_number`` – insert the technical score (integer).
-* ``insert_spx_momentum_score_number`` – insert the momentum score (integer).
-* ``insert_spx_subtitle`` – insert a user‑defined subtitle into the SPX slide.
+* ``make_csi_figure`` – interactive Plotly chart for Streamlit.
+* ``insert_csi_technical_chart`` – insert a static CSI chart into a PPTX.
+* ``insert_csi_technical_score_number`` – insert the technical score (integer).
+* ``insert_csi_momentum_score_number`` – insert the momentum score (integer).
+* ``insert_csi_subtitle`` – insert a user‑defined subtitle into the CSI slide.
 * ``generate_average_gauge_image`` – create a horizontal gauge image.
-* ``insert_spx_average_gauge`` – insert the gauge into a PPT slide.
-* ``insert_spx_technical_assessment`` – insert a descriptive “view” text.
+* ``insert_csi_average_gauge`` – insert the gauge into a PPT slide.
+* ``insert_csi_technical_assessment`` – insert a descriptive “view” text.
 * ``generate_range_gauge_chart_image`` – create a combined price chart with
   a vertical range gauge on the right hand side, including a horizontal line
   connecting the last price to the gauge.  This function is used by
-  ``insert_spx_technical_chart_with_range``.
-* ``insert_spx_technical_chart_with_range`` – insert the SPX technical
+  ``insert_csi_technical_chart_with_range``.
+* ``insert_csi_technical_chart_with_range`` – insert the CSI technical
   analysis chart with the higher/lower range gauge into the PPT.
 
-The range gauge illustrates the recent trading range for the S&P 500.
-Instead of using the absolute high and low closes of the last 90 days,
-this implementation employs a volatility‑based approach.  It computes
-the Average True Range (ATR) of the closing prices over a lookback
-window (default 90 trading days) and sets the bounds around the
-current closing price.  The upper bound is the current price plus
-the ATR and the lower bound is the current price minus the ATR.  A
-horizontal line continues the last price through to the gauge so that
-viewers can quickly assess how far the index lies from its typical
-volatility band.  This method provides context on potential upside
-and downside moves based on recent price variability rather than
-simply the most recent highs and lows.
+The range gauge illustrates the recent trading range for the CSI 300.
+By default the higher range is the maximum closing price over the last
+90 trading days; the lower range is the 50‑day moving average if the
+current price is above its 50‑day average, otherwise the minimum
+closing price over the same lookback window.  A horizontal line
+continues the last price through to the gauge so that the viewer can
+quickly assess where the index sits relative to its recent extremes.
 """
 
 from __future__ import annotations
@@ -152,18 +146,18 @@ def _apply_run_font_attributes(new_run, size, rgb, theme_color, brightness, bold
 
 def _load_price_data(
     excel_path: pathlib.Path,
-    ticker: str = "SPX Index",
+    ticker: str = "SHSZ300 Index",
     price_mode: str = "Last Price",
 ) -> pd.DataFrame:
     """
-    Read the raw price sheet and return a tidy Date‑Price DataFrame.
+    Read the raw price sheet and return a tidy Date‑Price DataFrame for CSI.
 
     Parameters
     ----------
     excel_path : pathlib.Path
         Path to the Excel workbook containing price data.
-    ticker : str, default "SPX Index"
-        Column name corresponding to the desired ticker in the Excel sheet.
+    ticker : str, default "SHSZ300 Index"
+        Column name corresponding to the CSI index in the Excel sheet.
     price_mode : str, default "Last Price"
         One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
         is available and the mode is "Last Close", rows with the last
@@ -207,18 +201,18 @@ def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
 # Plotly interactive chart for Streamlit
 ###############################################################################
 
-def make_spx_figure(
+def make_csi_figure(
     excel_path: str | pathlib.Path,
     anchor_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
 ) -> go.Figure:
     """
-    Build an interactive SPX chart for Streamlit.
+    Build an interactive CSI chart for Streamlit.
 
     Parameters
     ----------
     excel_path : str or pathlib.Path
-        Path to the Excel file containing SPX price data.
+        Path to the Excel file containing CSI price data.
     anchor_date : pandas.Timestamp or None, optional
         If provided, a regression channel is drawn from ``anchor_date`` to the
         latest date.
@@ -238,7 +232,7 @@ def make_spx_figure(
     """
     excel_path = pathlib.Path(excel_path)
     # Load data and adjust according to the price mode
-    df_raw = _load_price_data(excel_path, "SPX Index", price_mode=price_mode)
+    df_raw = _load_price_data(excel_path, "SHSZ300 Index", price_mode=price_mode)
     df_full = _add_mas(df_raw)
 
     if df_full.empty:
@@ -260,7 +254,7 @@ def make_spx_figure(
             x=df["Date"],
             y=df["Price"],
             mode="lines",
-            name=f"S&P 500 Price (last: {last_price_str})",
+            name=f"CSI 300 Price (last: {last_price_str})",
             line=dict(color="#153D64", width=2.5),
         )
     )
@@ -365,7 +359,7 @@ def make_spx_figure(
 # High‑resolution chart export (PNG)
 ###############################################################################
 
-def _generate_spx_image_from_df(
+def _generate_csi_image_from_df(
     df_full: pd.DataFrame,
     anchor_date: Optional[pd.Timestamp],
     width_cm: float = 21.41,
@@ -409,7 +403,7 @@ def _generate_spx_image_from_df(
         df["Price"],
         color="#153D64",
         linewidth=2.5,
-        label=f"S&P 500 Price (last: {last_price_str})",
+        label=f"CSI 300 Price (last: {last_price_str})",
     )
     ax.plot(
         df_ma["Date"],
@@ -476,9 +470,9 @@ def _generate_spx_image_from_df(
 # Score helpers
 ###############################################################################
 
-def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
+def _get_csi_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for SPX from 'data_technical_score' (col A, B).
+    Retrieve the technical score for CSI from 'data_technical_score' (col A, B).
     Returns None if the sheet or score is unavailable.
     """
     try:
@@ -487,7 +481,7 @@ def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
         return None
     df = df.dropna(subset=[df.columns[0], df.columns[1]])
     for _, row in df.iterrows():
-        if str(row[df.columns[0]]).strip().upper() == "SPX INDEX":
+        if str(row[df.columns[0]]).strip().upper() == "SHSZ300 INDEX":
             try:
                 return float(row[df.columns[1]])
             except Exception:
@@ -495,9 +489,9 @@ def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     return None
 
 
-def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presentation:
+def insert_csi_technical_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the SPX technical score (integer) into a shape named ``tech_score_spx``
+    Insert the CSI technical score (integer) into a shape named ``tech_score_csi``
     or into any shape containing the placeholder ``[XXX]`` or ``XXX``.  The
     function preserves all formatting from the first run of the placeholder,
     including font size, explicit RGB colour or theme colour with brightness,
@@ -509,17 +503,17 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
     prs : Presentation
         The PowerPoint presentation to modify.
     excel_file : file‑like object or path
-        Excel workbook containing the SPX technical score.
+        Excel workbook containing the CSI technical score.
 
     Returns
     -------
     Presentation
         The modified presentation.
     """
-    score = _get_spx_technical_score(excel_file)
+    score = _get_csi_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
 
-    placeholder_name = "tech_score_spx"
+    placeholder_name = "tech_score_csi"
     placeholder_patterns = ["[XXX]", "XXX"]
 
     for slide in prs.slides:
@@ -554,339 +548,14 @@ def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presenta
     return prs
 
 
-###############################################################################
-# Call‑out range helpers and insertion
-###############################################################################
-
-def generate_range_callout_chart_image(
-    df_full: pd.DataFrame,
-    anchor_date: Optional[pd.Timestamp] = None,
-    lookback_days: int = 90,
-    width_cm: float = 21.41,
-    height_cm: float = 7.53,
-    callout_width_cm: float = 3.5,
-) -> bytes:
-    """
-    Create a PNG image of the SPX price chart with a textual call‑out on the
-    right summarising the recent trading range.  The call‑out lists the
-    higher and lower range values (with ±% changes relative to the last
-    price) and draws small coloured markers aligned with those levels on
-    the y‑axis.  This design preserves the full chart width and avoids
-    overlapping the price plot with additional graphics.
-
-    Parameters
-    ----------
-    df_full : pandas.DataFrame
-        Full SPX price history with 'Date' and 'Price' columns.
-    anchor_date : pandas.Timestamp or None, optional
-        Optional anchor date for a regression channel; if provided, the
-        channel is drawn on the price chart.
-    lookback_days : int, default 90
-        The lookback window for computing the high and low bounds.
-    width_cm : float, default 21.41
-        Overall width of the output image in centimetres.  This should
-        correspond to the template placeholder width.
-    height_cm : float, default 7.53
-        Height of the output image in centimetres.
-    callout_width_cm : float, default 3.5
-        Width of the call‑out area on the right where the range summary
-        appears.  The remaining width is used for the chart.
-
-    Returns
-    -------
-    bytes
-        PNG image bytes with transparency.
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
-
-    if df_full.empty:
-        return b""
-
-    # Restrict to the last year of data for plotting
-    today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
-    df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-
-    # Calculate moving averages on the 1‑year subset
-    df_ma = _add_mas(df)
-
-    # Optional regression channel
-    uptrend = False
-    upper_channel = lower_channel = None
-    if anchor_date is not None:
-        subset_full = df_full[df_full["Date"].between(anchor_date, today)].copy()
-        if not subset_full.empty:
-            X = subset_full["Date"].map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
-            y_vals = subset_full["Price"].to_numpy()
-            model = LinearRegression().fit(X, y_vals)
-            trend = model.predict(X)
-            resid = y_vals - trend
-            uptrend = model.coef_[0] > 0
-            upper_channel = trend + resid.max()
-            lower_channel = trend + resid.min()
-
-    # Compute high/low bounds and current price
-    upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
-    last_price = df["Price"].iloc[-1]
-    # Enforce a minimum total range (e.g. ±1 % of the current price) to avoid overlapping text.
-    # If the computed range is narrower than ``min_range_pct`` of the current price,
-    # symmetrically expand it around the last price.  We set ``min_range_pct`` to 0.02
-    # which yields a ±1 % band around the current level, matching the requested
-    # minimum of [-1 %; +1 %].  This avoids overlap when volatility is extremely low.
-    min_range_pct = 0.02  # 2% total band → ±1% around the current price
-    if last_price:
-        range_span_pct = (upper_bound - lower_bound) / last_price if last_price else 0.0
-        if range_span_pct < min_range_pct:
-            half_span = (min_range_pct * last_price) / 2.0
-            upper_bound = last_price + half_span
-            lower_bound = last_price - half_span
-    # Format difference percentages (recompute after enforcing minimum range)
-    up_pct = (upper_bound - last_price) / last_price * 100 if last_price else 0.0
-    down_pct = (last_price - lower_bound) / last_price * 100 if last_price else 0.0
-
-    # Determine y‑axis limits: ensure the axis includes the entire trading
-    # range and the observed price range.  We add a small margin so the
-    # labels and markers do not overlap the top or bottom edges.
-    hi = df["Price"].max()
-    lo = df["Price"].min()
-    y_max = max(hi, upper_bound) * 1.02
-    y_min = min(lo, lower_bound) * 0.98
-
-    # Compute widths for chart and call‑out.  Reserve a small margin on the
-    # left of the chart to ensure that y‑axis tick labels and the legend
-    # remain visible when the image is inserted into a PowerPoint slide.
-    callout_width_cm = min(callout_width_cm, width_cm)
-    chart_width_cm = max(width_cm - callout_width_cm, 0.0)
-    fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
-    fig = plt.figure(figsize=(fig_w_in, fig_h_in))
-
-    # Relative widths as fractions of the full figure width
-    chart_rel_width = chart_width_cm / width_cm if width_cm > 0 else 0.0
-    callout_rel_width = callout_width_cm / width_cm if width_cm > 0 else 0.0
-
-    # Define a margin fraction for the left side of the chart.  Without
-    # this margin, tick labels and the legend can be clipped when the
-    # combined image is saved at high DPI.  Use up to 4% of the figure
-    # width or 10% of the chart portion, whichever is smaller.
-    margin_rel = min(0.04, 0.10 * chart_rel_width)
-
-    # Axes for chart and call‑out; share the y‑axis so that the call‑out
-    # markers align with the same price levels as the chart.  The chart
-    # occupies the left portion of the figure starting at margin_rel; the
-    # call‑out uses the remaining width starting at chart_rel_width.
-    ax_chart = fig.add_axes([margin_rel, 0.0, chart_rel_width - margin_rel, 1.0])
-    # Create a separate y‑axis for the call‑out so that hiding its ticks
-    # does not remove the ticks from the main chart.  We will manually
-    # synchronise the y‑limits below.
-    ax_callout = fig.add_axes([chart_rel_width, 0.0, callout_rel_width, 1.0])
-
-    # Set y‑limits before plotting so that shared axes align properly
-    ax_chart.set_ylim(y_min, y_max)
-    ax_callout.set_ylim(y_min, y_max)
-
-    # Plot price and moving averages on the main chart
-    ax_chart.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5,
-                  label=f"S&P 500 Price (last: {last_price:,.2f})")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
-    # Fibonacci levels on the subset
-    sub_hi, sub_lo = df["Price"].max(), df["Price"].min()
-    sub_span = sub_hi - sub_lo
-    for lvl in [sub_hi, sub_hi - 0.236 * sub_span, sub_hi - 0.382 * sub_span,
-                sub_hi - 0.5 * sub_span, sub_hi - 0.618 * sub_span, sub_lo]:
-        ax_chart.axhline(lvl, color="grey", linestyle="--", linewidth=0.8, alpha=0.6)
-
-    # Regression channel shading
-    if anchor_date is not None and upper_channel is not None and lower_channel is not None:
-        subset = df_full[df_full["Date"].between(anchor_date, today)].copy().reset_index(drop=True)
-        fill_color = (0, 0.6, 0, 0.25) if uptrend else (0.78, 0, 0, 0.25)
-        line_color = "#008000" if uptrend else "#C00000"
-        ax_chart.plot(subset["Date"], upper_channel, color=line_color, linestyle="--")
-        ax_chart.plot(subset["Date"], lower_channel, color=line_color, linestyle="--")
-        ax_chart.fill_between(subset["Date"], lower_channel, upper_channel, color=fill_color)
-
-    # Style the main chart: remove spines and configure ticks.  We set the
-    # y‑axis tick length to zero so that the small horizontal tick marks
-    # next to the axis labels are not visible, while keeping the labels
-    # themselves.  The x‑axis ticks retain their default length.
-    for spine in ax_chart.spines.values():
-        spine.set_visible(False)
-    ax_chart.tick_params(axis="y", which="both", length=0)
-    ax_chart.tick_params(axis="x", which="both", length=2)
-    ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: place the legend just above the main chart, aligned to the
-    # left so that it does not overlap the call‑out panel.  Use a
-    # multi‑column layout to fit all entries on a single line.  The
-    # bounding box is anchored slightly above the axes (y=1.05).
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                    fontsize=8, frameon=False)
-
-    # Configure call‑out axis: remove ticks and spines; set background white
-    ax_callout.set_xlim(0, 1)
-    ax_callout.set_xticks([])
-    ax_callout.set_yticks([])
-    for spine in ax_callout.spines.values():
-        spine.set_visible(False)
-    ax_callout.set_facecolor("white")
-
-    # Determine x positions for markers and text in relative coordinates.
-    # Place the markers near the left of the call‑out area and the text
-    # closer to the left so that the numeric portions align on their
-    # left edges.  Using ``ha='left'`` keeps all values aligned to the
-    # same left margin while the middle line still aligns with the price
-    # axis via ``va='center'`` and symmetrical blank lines.
-    marker_start_x = 0.02
-    marker_end_x = 0.08
-    text_x = 0.15
-
-    # Draw small horizontal bars as markers aligned with the high/low bounds
-    ax_callout.hlines(upper_bound, xmin=marker_start_x, xmax=marker_end_x,
-                      colors="#009951", linewidth=2, transform=ax_callout.transData)
-    ax_callout.hlines(lower_bound, xmin=marker_start_x, xmax=marker_end_x,
-                      colors="#C00000", linewidth=2, transform=ax_callout.transData)
-
-    # Helper to format values with apostrophes for thousands separators
-    def _fmt(val: float) -> str:
-        try:
-            return f"{val:,.0f}".replace(",", "'")
-        except Exception:
-            return f"{val:.0f}"
-
-    # Compose label strings with percentage differences.  The index level and
-    # percentage are shown together on one line to minimise overlap.  The
-    # "Higher Range" label appears above its number, while the "Lower Range"
-    # label appears below its number.
-    # Compose label strings with percentage differences.  We construct
-    # multi‑line strings with symmetrical blank lines so that when
-    # ``va='center'`` is used, the index/percentage line (the middle line)
-    # aligns exactly with the price level on the y‑axis.  For the upper
-    # bound, place "Higher Range" above the value and a blank line below.
-    # For the lower bound, place a blank line above the value and
-    # "Lower Range" below.  This results in three lines for each label
-    # block, ensuring the middle line (index and percent) sits on the
-    # specified y‑coordinate.
-    upper_text = (
-        f"Higher Range\n"
-        f"{_fmt(upper_bound)} (+{up_pct:.1f}%)\n"
-        f""
-    )
-    lower_text = (
-        f"\n"
-        f"{_fmt(lower_bound)} (-{down_pct:.1f}%)\n"
-        f"Lower Range"
-    )
-
-    # Add the text labels at the appropriate y positions.  Using
-    # ``va='center'`` ensures that the middle line (index and percent)
-    # aligns with the price level, because there is one line above and
-    # one line below.  We align the text to the right so that the plus
-    # and minus signs line up neatly.
-    ax_callout.text(text_x, upper_bound, upper_text, color="#009951",
-                    ha="left", va="center", fontsize=8, fontweight='bold',
-                    transform=ax_callout.transData)
-    ax_callout.text(text_x, lower_bound, lower_text, color="#C00000",
-                    ha="left", va="center", fontsize=8, fontweight='bold',
-                    transform=ax_callout.transData)
-
-    # Export to transparent PNG.  Use bbox_inches='tight' so that the
-    # entire figure (including legends and tick labels) is saved without
-    # cropping.  A small padding is added to provide breathing room.
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=600, transparent=True,
-                bbox_inches="tight", pad_inches=0.05)
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
-
-
-def insert_spx_technical_chart_with_callout(
-    prs: Presentation,
-    excel_file,
-    anchor_date: Optional[pd.Timestamp] = None,
-    lookback_days: int = 90,
-    price_mode: str = "Last Price",
-) -> Presentation:
-    """
-    Insert the SPX technical analysis chart with the trading range call‑out
-    into the PowerPoint.  This function mirrors the behaviour of
-    ``insert_spx_technical_chart_with_range`` but uses the call‑out style to
-    display the high and low bounds instead of a vertical gauge.
-
-    The image is placed at the fixed coordinates (0.93 cm left, 4.40 cm top)
-    with dimensions 21.41 cm wide by 7.53 cm high, matching the template.
-
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint presentation to modify.
-    excel_file : file‑like object or path
-        Excel workbook containing SPX price data.
-    anchor_date : pandas.Timestamp or None, optional
-        Optional anchor date for a regression channel.
-    lookback_days : int, default 90
-        Lookback window for computing the high/low range.
-
-    Returns
-    -------
-    Presentation
-        The presentation with the updated slide.
-    """
-    # Load the price data from the Excel file
-    try:
-        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
-    except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
-
-    # Generate the image with the call‑out.  Use an extended width of
-    # 25.0 cm while keeping the height at 7.3 cm.  The call‑out width is
-    # left at its default value unless overridden.
-    img_bytes = generate_range_callout_chart_image(
-        df_full,
-        anchor_date=anchor_date,
-        lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
-    )
-
-    # Locate the slide containing the 'spx' placeholder or text
-    target_slide = None
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "spx":
-                target_slide = slide
-                break
-            if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[spx]":
-                    target_slide = slide
-                    break
-        if target_slide:
-            break
-    if target_slide is None:
-        target_slide = prs.slides[min(11, len(prs.slides) - 1)]
-
-    # Insert the image at the requested coordinates.  The dimensions 25 cm
-    # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
-    # template.
-    left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
-    stream = BytesIO(img_bytes)
-    target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
-    return prs
-
-
-def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return SPX momentum score, mapping letter grades to numeric if needed."""
+def _get_csi_momentum_score(excel_obj_or_path) -> Optional[float]:
+    """Return CSI momentum score, mapping letter grades to numeric if needed."""
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
     except Exception:
         return None
-    # find SPX row
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SPX INDEX"
+    # find CSI row
+    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SHSZ300 INDEX"
     if not mask.any():
         return None
     row = df.loc[mask].iloc[0]
@@ -901,30 +570,27 @@ def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     # optionally lookup in 'parameters' sheet for customised mapping
     try:
         params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
-        spx_param = params[params["Tickers"].astype(str).str.upper() == "SPX INDEX"]
-        if not spx_param.empty and "Unnamed: 8" in spx_param:
-            return float(spx_param["Unnamed: 8"].dropna().iloc[0])
+        csi_param = params[params["Tickers"].astype(str).str.upper() == "SHSZ300 INDEX"]
+        if not csi_param.empty and "Unnamed: 8" in csi_param:
+            return float(csi_param["Unnamed: 8"].dropna().iloc[0])
     except Exception:
         pass
     return mapping.get(rating)
 
 
-def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
+def insert_csi_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the SPX momentum score (integer) into a shape named 'mom_score_spx'
+    Insert the CSI momentum score (integer) into a shape named 'mom_score_csi'
     or into any shape containing '[XXX]' or 'XXX'.  Formatting is preserved.
-    The colour assignment is guarded to avoid AttributeError when the
-    existing colour is not an RGB value【284555882015764†L60-L68】【284555882015764†L171-L182】.
     """
-    score = _get_spx_momentum_score(excel_file)
+    score = _get_csi_momentum_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
 
-    placeholder_name = "mom_score_spx"
+    placeholder_name = "mom_score_csi"
     placeholder_patterns = ["[XXX]", "XXX"]
 
     for slide in prs.slides:
         for shape in slide.shapes:
-            # Case 1: shape name matches the placeholder
             if getattr(shape, "name", "").lower() == placeholder_name:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
@@ -935,7 +601,6 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
                     new_run.text = score_text
                     _apply_run_font_attributes(new_run, *attrs)
                 return prs
-            # Case 2: look for textual placeholders in the shape
             if shape.has_text_frame:
                 for pattern in placeholder_patterns:
                     if pattern in shape.text:
@@ -955,36 +620,36 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
 # Chart insertion
 ###############################################################################
 
-def insert_spx_technical_chart(
+def insert_csi_technical_chart(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the SPX technical‑analysis chart into the PPT.
+    Insert the CSI technical‑analysis chart into the PPT.
 
-    We only use the textbox named ``spx`` (or containing “[spx]”) to locate
+    We only use the textbox named ``csi`` (or containing “[csi]”) to locate
     the correct slide; the chart itself is always pasted at the fixed
     coordinates (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
     """
     # Load data and generate image
     try:
-        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "SHSZ300 Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
-    img_bytes = _generate_spx_image_from_df(df_full, anchor_date)
+        df_full = _load_price_data(pathlib.Path(excel_file), "SHSZ300 Index", price_mode=price_mode)
+    img_bytes = _generate_csi_image_from_df(df_full, anchor_date)
 
-    # Find the slide containing the 'spx' placeholder
+    # Find the slide containing the 'csi' placeholder
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "spx":
+            if name_attr == "csi":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[spx]":
+                if (shape.text or "").strip().lower() == "[csi]":
                     target_slide = slide
                     break
         if target_slide:
@@ -1007,14 +672,13 @@ def insert_spx_technical_chart(
 # Subtitle insertion
 ###############################################################################
 
-def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
+def insert_csi_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     """
-    Replace the placeholder ('XXX' or '[XXX]') in a textbox named 'spx_text'
+    Replace the placeholder ('XXX' or '[XXX]') in a textbox named 'csi_text'
     (or containing those patterns) with the provided subtitle, preserving
-    original formatting.  The colour assignment is guarded to avoid
-    AttributeError for non‑RGB colours【284555882015764†L60-L68】【284555882015764†L171-L182】.
+    original formatting.
     """
-    placeholder_name = "spx_text"
+    placeholder_name = "csi_text"
     placeholder_patterns = ["[XXX]", "XXX"]
 
     subtitle_text = subtitle or ""
@@ -1212,7 +876,7 @@ def generate_average_gauge_image(
 
 def _load_price_data_from_obj(
     excel_obj,
-    ticker: str = "SPX Index",
+    ticker: str = "SHSZ300 Index",
     price_mode: str = "Last Price",
 ) -> pd.DataFrame:
     """
@@ -1223,7 +887,7 @@ def _load_price_data_from_obj(
     excel_obj : file-like
         File-like object representing an Excel workbook containing a
         ``data_prices`` sheet.
-    ticker : str, default "SPX Index"
+    ticker : str, default "SHSZ300 Index"
         Column name corresponding to the desired ticker in the Excel sheet.
     price_mode : str, default "Last Price"
         One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
@@ -1259,17 +923,17 @@ def _load_price_data_from_obj(
 # Gauge insertion
 ###############################################################################
 
-def insert_spx_average_gauge(
+def insert_csi_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
 ) -> Presentation:
     """
-    Insert the average gauge into the SPX slide.  Looks for a shape named
-    'gauge_spx' or text containing '[GAUGE]', 'GAUGE', or 'gauge_spx'.  If found,
+    Insert the average gauge into the CSI slide.  Looks for a shape named
+    'gauge_csi' or text containing '[GAUGE]', 'GAUGE', or 'gauge_csi'.  If found,
     the gauge uses that position; otherwise it is inserted below the chart at
     the default coordinates (8.97 cm left, 12.13 cm top, 15.15 cm wide, 3.13 cm high).
     """
-    tech_score = _get_spx_technical_score(excel_file)
-    mom_score = _get_spx_momentum_score(excel_file)
+    tech_score = _get_csi_technical_score(excel_file)
+    mom_score = _get_csi_momentum_score(excel_file)
     if tech_score is None or mom_score is None:
         return prs
 
@@ -1286,8 +950,8 @@ def insert_spx_average_gauge(
     except Exception:
         return prs
 
-    placeholder_name = "gauge_spx"
-    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_spx"]
+    placeholder_name = "gauge_csi"
+    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_csi"]
 
     for slide in prs.slides:
         for shape in slide.shapes:
@@ -1337,14 +1001,14 @@ def insert_spx_average_gauge(
 # Technical assessment insertion
 ###############################################################################
 
-def insert_spx_technical_assessment(
+def insert_csi_technical_assessment(
     prs: Presentation,
     excel_file,
     manual_desc: Optional[str] = None,
 ) -> Presentation:
     """
-    Insert a descriptive assessment text into a shape named ``spx_view``
-    (or containing ``[spx_view]``) based on either a user‑provided
+    Insert a descriptive assessment text into a shape named ``csi_view``
+    (or containing ``[csi_view]``) based on either a user‑provided
     assessment or, if none is provided, the average of technical and
     momentum scores.
 
@@ -1353,10 +1017,10 @@ def insert_spx_technical_assessment(
     prs : Presentation
         The PowerPoint presentation to modify.
     excel_file : file‑like object or path
-        Excel workbook containing SPX technical and momentum scores.
+        Excel workbook containing CSI technical and momentum scores.
     manual_desc : str, optional
         If provided, this string is used verbatim (prefixed with
-        ``"S&P 500: "`` if not already present) as the assessment text.
+        ``"CSI 300: "`` if not already present) as the assessment text.
         When ``manual_desc`` is ``None``, the function computes the
         assessment from the average of technical and momentum scores
         according to the following rules:
@@ -1375,36 +1039,36 @@ def insert_spx_technical_assessment(
         The modified presentation.
     """
     # If manual description is provided, normalise it: ensure it starts
-    # with 'S&P 500:' and strip leading/trailing whitespace.
+    # with 'CSI 300:' and strip leading/trailing whitespace.
     if manual_desc is not None and isinstance(manual_desc, str):
         desc = manual_desc.strip()
-        if desc and not desc.lower().startswith("s&p 500"):
-            desc = f"S&P 500: {desc}"
+        if desc and not desc.lower().startswith("csi 300"):
+            desc = f"CSI 300: {desc}"
         # Continue with insertion without computing scores
     else:
-        tech_score = _get_spx_technical_score(excel_file)
-        mom_score = _get_spx_momentum_score(excel_file)
+        tech_score = _get_csi_technical_score(excel_file)
+        mom_score = _get_csi_momentum_score(excel_file)
         if tech_score is None or mom_score is None:
             # If scores are unavailable, leave the existing text unchanged
             return prs
         avg = (float(tech_score) + float(mom_score)) / 2.0
         if avg >= 80:
-            desc = "S&P 500: Strongly Bullish"
+            desc = "CSI 300: Strongly Bullish"
         elif avg >= 70:
-            desc = "S&P 500: Bullish"
+            desc = "CSI 300: Bullish"
         elif avg >= 60:
-            desc = "S&P 500: Slightly Bullish"
+            desc = "CSI 300: Slightly Bullish"
         elif avg >= 40:
-            desc = "S&P 500: Neutral"
+            desc = "CSI 300: Neutral"
         elif avg >= 30:
-            desc = "S&P 500: Slightly Bearish"
+            desc = "CSI 300: Slightly Bearish"
         elif avg >= 20:
-            desc = "S&P 500: Bearish"
+            desc = "CSI 300: Bearish"
         else:
-            desc = "S&P 500: Strongly Bearish"
+            desc = "CSI 300: Strongly Bearish"
 
-    target_name = "spx_view"
-    placeholder_patterns = ["[spx_view]", "spx_view"]
+    target_name = "csi_view"
+    placeholder_patterns = ["[csi_view]", "csi_view"]
 
     # Insert the description into the first matching shape
     for slide in prs.slides:
@@ -1444,18 +1108,18 @@ def insert_spx_technical_assessment(
 # Source footnote insertion
 ###############################################################################
 
-def insert_spx_source(
+def insert_csi_source(
     prs: Presentation,
     used_date: Optional[pd.Timestamp],
     price_mode: str,
 ) -> Presentation:
     """
-    Insert the source footnote into a shape named 'spx_source' (or
-    containing '[spx_source]').  The footnote text depends on the selected
+    Insert the source footnote into a shape named 'csi_source' (or
+    containing '[csi_source]').  The footnote text depends on the selected
     price mode.  For example:
 
-      * Last Close  → "Source: Bloomberg, Herculis Group, Data as of 29/07/2025 Close"
-      * Last Price  → "Source: Bloomberg, Herculis Group, Data as of 29/07/2025"
+      * Last Close  → "Source: Bloomberg, Herculis Group, Data as of DD/MM/YYYY Close"
+      * Last Price  → "Source: Bloomberg, Herculis Group, Data as of DD/MM/YYYY"
 
     Parameters
     ----------
@@ -1481,13 +1145,14 @@ def insert_spx_source(
         return prs
     suffix = " Close" if str(price_mode).lower() == "last close" else ""
     source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
-    placeholder_name = "spx_source"
-    placeholder_patterns = ["[spx_source]", "spx_source"]
+    placeholder_name = "csi_source"
+    placeholder_patterns = ["[csi_source]", "csi_source"]
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "")
             # Case 1: the shape's name matches the placeholder
             if name_attr and name_attr.lower() == placeholder_name:
+                # Replace text while preserving formatting
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
@@ -1503,7 +1168,6 @@ def insert_spx_source(
                     if pattern.lower() in shape.text.lower():
                         runs = shape.text_frame.paragraphs[0].runs
                         attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                        # Replace only the matching pattern (case insensitive)
                         try:
                             new_text = shape.text.replace(pattern, source_text)
                         except Exception:
@@ -1525,48 +1189,61 @@ def _compute_range_bounds(
     df_full: pd.DataFrame, lookback_days: int = 90
 ) -> Tuple[float, float]:
     """
-    Compute volatility‑based high and low range bounds for the S&P 500.
+    Compute the higher and lower range bounds for the CSI 300.
 
-    Instead of using raw high and low closes, this function estimates a
-    typical trading band around the most recent closing price by
-    computing the Average True Range (ATR) of closing prices over the
-    last ``lookback_days`` sessions.  The ATR here is approximated as
-    the mean of the absolute day‑to‑day changes in the closing price.
+    The higher range is defined as the maximum closing price over the
+    ``lookback_days`` window ending at the latest date in the dataset.
+    The lower range is selected as follows:
+
+      * If the current price is above its 50‑day moving average, use that
+        moving average as the lower bound.
+      * Otherwise, use the minimum closing price over the same window as
+        the lower bound.  This ensures that the lower bound always lies
+        below the current price.
 
     Parameters
     ----------
     df_full : pandas.DataFrame
-        DataFrame containing at least 'Date' and 'Price' columns,
-        sorted by date ascending.
+        DataFrame containing at least 'Date' and 'Price' columns, sorted by
+        date ascending.
     lookback_days : int, default 90
-        Number of trading days used to compute the average true range.
+        Number of trading days to look back when computing high/low range.
 
     Returns
     -------
     Tuple[float, float]
-        A two‑tuple ``(upper_bound, lower_bound)`` representing the
-        current closing price plus and minus the ATR.  If the ATR
-        cannot be computed (e.g., insufficient history), bounds are
-        approximated as ±2 % of the current price.
+        A two‑tuple (upper_bound, lower_bound) representing the recent high
+        and support levels.
     """
     if df_full.empty:
         return (np.nan, np.nan)
-    # Current closing price
+
+    today = df_full["Date"].max().normalize()
+    window_start = today - timedelta(days=lookback_days)
+    window_data = df_full[df_full["Date"].between(window_start, today)]
+    if window_data.empty:
+        window_data = df_full
+
     current_price = df_full["Price"].iloc[-1]
-    # Select the last ``lookback_days`` rows (or the entire series if
-    # shorter) to compute volatility
-    window = df_full.tail(lookback_days).copy()
-    # Approximate true range using absolute change between consecutive
-    # closes.  This is a simplification of the true range formula
-    # (which would require high and low prices) but serves as a proxy
-    # for closing‑price volatility.
-    window["TR"] = window["Price"].diff().abs()
-    atr = window["TR"].dropna().mean()
-    # If ATR cannot be computed or is zero, fall back to a ±2 % band
-    if pd.isna(atr) or atr <= 0:
-        return (float(current_price * 1.02), float(current_price * 0.98))
-    upper_bound = current_price + atr
-    lower_bound = current_price - atr
+    # compute 50‑day moving average for entire series
+    ma_50_series = df_full["Price"].rolling(50, min_periods=1).mean()
+    ma_50 = ma_50_series.iloc[-1]
+
+    # Determine the highest closing price in the lookback window
+    upper_bound = window_data["Price"].max()
+    # Lower bound based on current price vs MA_50
+    if current_price >= ma_50:
+        lower_bound = ma_50
+    else:
+        lower_bound = window_data["Price"].min()
+    # Ensure the upper bound is above the current price.  If the highest
+    # price in the lookback window equals or lies below the last price, we
+    # extend the upper bound so that it always exceeds the last price.  A
+    # conservative uplift of 2 % of the current price is applied.  This
+    # prevents the “Higher Range” from coinciding with the current price,
+    # especially when momentum is bullish.
+    if upper_bound <= current_price:
+        upper_bound = current_price * 1.02
     return (float(upper_bound), float(lower_bound))
 
 
@@ -1580,17 +1257,17 @@ def generate_range_gauge_chart_image(
     gauge_width_cm: float = 4.0,
 ) -> bytes:
     """
-    Create a PNG image of the SPX price chart with a vertical range gauge
+    Create a PNG image of the CSI price chart with a vertical range gauge
     appended on the right.  The gauge shows a green–to–red gradient between
     recent high and support levels, with labels for the upper and lower
     bounds.  A horizontal line continues the last price into the gauge so
     that viewers can assess relative positioning.  This function is used by
-    ``insert_spx_technical_chart_with_range``.
+    ``insert_csi_technical_chart_with_range``.
 
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full SPX price history as returned by ``_load_price_data``.
+        Full CSI price history as returned by ``_load_price_data``.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.  If ``None`` no
         channel will be drawn.
@@ -1633,6 +1310,18 @@ def generate_range_gauge_chart_image(
 
     # Determine recent high and support levels
     upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
+    # Enforce a minimum total range of ±1 % of the current price to avoid
+    # extremely tight bands that cause annotation overlap.  If the
+    # computed range is narrower than ±1 % of the last price, expand it
+    # symmetrically around the last price.  This logic mirrors the
+    # call‑out behaviour in the S&P 500 module.
+    if last_price:
+        range_span_pct = (upper_bound - lower_bound) / last_price if last_price else 0.0
+        min_total_range = 0.02  # 2 % total band → ±1 %
+        if range_span_pct < min_total_range:
+            half_span = (min_total_range * last_price) / 2.0
+            upper_bound = last_price + half_span
+            lower_bound = last_price - half_span
     last_price = df["Price"].iloc[-1]
     last_price_str = f"{last_price:,.2f}"
 
@@ -1665,7 +1354,7 @@ def generate_range_gauge_chart_image(
 
     # Plot main price series and MAs
     ax.plot(
-        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"S&P 500 Price (last: {last_price_str})"
+        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"CSI 300 Price (last: {last_price_str})"
     )
     ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
@@ -1769,21 +1458,33 @@ def generate_range_gauge_chart_image(
     # Compute percentage differences relative to the last price
     up_pct = (upper_bound - last_price) / last_price * 100 if last_price else 0.0
     down_pct = (last_price - lower_bound) / last_price * 100 if last_price else 0.0
-    # Compose label strings for the upper and lower bounds.  The
-    # percentage differences are shown with a sign and one decimal place.
-    upper_text = f"Higher Range\n{upper_label} $\n(+{up_pct:.1f}%)"
-    lower_text = f"Lower Range\n{lower_label} $\n(-{down_pct:.1f}%)"
-    # Position the labels just outside the gauge to the right.  We use
-    # data coordinates (``transData``) so that the text aligns with the
-    # actual price levels.  The x‑coordinate 1.05 places the text slightly
-    # to the right of the gauge.
+    # Compose label strings for the upper and lower bounds.  To ensure
+    # that the middle line (index and percentage) aligns with the price
+    # level, we insert a symmetrical blank line above or below the value.
+    # The currency symbol is omitted, and the index and percentage are on
+    # the same line to reduce clutter.  Three lines are used: for the
+    # upper bound, ``Higher Range`` then the value line then a blank line;
+    # for the lower bound, a blank line then the value line then ``Lower Range``.
+    upper_text = (
+        f"Higher Range\n"
+        f"{upper_label} (+{up_pct:.1f}%)\n"
+        f""
+    )
+    lower_text = (
+        f"\n"
+        f"{lower_label} (-{down_pct:.1f}%)\n"
+        f"Lower Range"
+    )
+    # Position the labels just outside the gauge to the right.  Use
+    # ``va='center'`` so that the middle line aligns with the price
+    # level.  ``ha='left'`` aligns all text to a common left margin.
     ax_gauge.text(
         1.05,
         upper_bound,
         upper_text,
         color="#009951",
         ha="left",
-        va="top",
+        va="center",
         fontsize=8,
         fontweight="bold",
         transform=ax_gauge.transData,
@@ -1794,7 +1495,7 @@ def generate_range_gauge_chart_image(
         lower_text,
         color="#C00000",
         ha="left",
-        va="bottom",
+        va="center",
         fontsize=8,
         fontweight="bold",
         transform=ax_gauge.transData,
@@ -1830,7 +1531,7 @@ def generate_range_gauge_only_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full SPX price history as returned by ``_load_price_data``.
+        Full CSI price history as returned by ``_load_price_data``.
     lookback_days : int, default 90
         Number of trading days to look back when computing high/low range.
     width_cm : float, default 2.00
@@ -1929,7 +1630,7 @@ def generate_range_gauge_only_image(
     return buf.getvalue()
 
 
-def insert_spx_technical_chart_with_range(
+def insert_csi_technical_chart_with_range(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -1937,11 +1638,11 @@ def insert_spx_technical_chart_with_range(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the SPX technical analysis chart with the vertical range gauge into the PPT.
+    Insert the CSI technical analysis chart with the vertical range gauge into the PPT.
 
-    This function behaves similarly to ``insert_spx_technical_chart`` but uses
+    This function behaves similarly to ``insert_csi_technical_chart`` but uses
     ``generate_range_gauge_chart_image`` to draw a combined chart and gauge.
-    It attempts to find a shape named 'spx' or containing '[spx]' to locate the
+    It attempts to find a shape named 'csi' or containing '[csi]' to locate the
     slide for insertion.  The image is placed at fixed coordinates matching the
     original template (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
 
@@ -1950,7 +1651,7 @@ def insert_spx_technical_chart_with_range(
     prs : Presentation
         The PowerPoint presentation into which the chart should be inserted.
     excel_file : file‑like object or path
-        Excel workbook containing SPX price data.
+        Excel workbook containing CSI price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.
     lookback_days : int, default 90
@@ -1963,9 +1664,9 @@ def insert_spx_technical_chart_with_range(
     """
     # Load data
     try:
-        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "SHSZ300 Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
+        df_full = _load_price_data(pathlib.Path(excel_file), "SHSZ300 Index", price_mode=price_mode)
     img_bytes = generate_range_gauge_chart_image(
         df_full, anchor_date=anchor_date, lookback_days=lookback_days
     )
@@ -1975,11 +1676,11 @@ def insert_spx_technical_chart_with_range(
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "spx":
+            if name_attr == "csi":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[spx]":
+                if (shape.text or "").strip().lower() == "[csi]":
                     target_slide = slide
                     break
         if target_slide:
@@ -1988,12 +1689,6 @@ def insert_spx_technical_chart_with_range(
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Position and dimensions tailored to the original placeholder size.
-    # The SPX slide in the template allocates ~21.41 cm for the chart area
-    # and reserves the remaining width for the chart title, subtitle and
-    # margins.  We therefore insert the combined chart‑and‑gauge image
-    # using the original dimensions (21.41 cm × 7.53 cm) and rely on the
-    # gauge function to include the gauge within that width.  This avoids
-    # cropping the chart when the image is inserted into the slide.
     left = Cm(0.93)
     top = Cm(4.40)
     width = Cm(21.41)
