@@ -912,29 +912,42 @@ def show_generate_presentation_page():
     )
 
     if st.sidebar.button("Generate updated PPTX", key="gen_ppt_button"):
+        # Write the uploaded PPTX to a temporary file so that python-pptx
+        # can read it reliably.  Also write the uploaded Excel file to a
+        # temporary XLSX path so that multiple reads do not exhaust the
+        # underlying file-like object.  The Excel path is reused for
+        # inserting charts and scores throughout the presentation.
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp_input:
             tmp_input.write(st.session_state["pptx_file"].getbuffer())
             tmp_input.flush()
             prs = Presentation(tmp_input.name)
 
+        # Persist the Excel to a temporary path to avoid file pointer
+        # exhaustion when pandas reads multiple sheets.  Without this,
+        # repeated reads from the UploadedFile can yield empty DataFrames.
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_xls:
+            tmp_xls.write(st.session_state["excel_file"].getbuffer())
+            tmp_xls.flush()
+            excel_path_for_ppt = Path(tmp_xls.name)
+
         # Insert YTD charts
         prs = insert_equity_chart(
             prs,
-            st.session_state["excel_file"],
+            excel_path_for_ppt,
             subtitle=st.session_state.get("eq_subtitle", ""),
             tickers=st.session_state.get("selected_eq_tickers", []),
             price_mode=st.session_state.get("price_mode", "Last Price"),
         )
         prs = insert_commodity_chart(
             prs,
-            st.session_state["excel_file"],
+            excel_path_for_ppt,
             subtitle=st.session_state.get("co_subtitle", ""),
             tickers=st.session_state.get("selected_co_tickers", []),
             price_mode=st.session_state.get("price_mode", "Last Price"),
         )
         prs = insert_crypto_chart(
             prs,
-            st.session_state["excel_file"],
+            excel_path_for_ppt,
             subtitle=st.session_state.get("cr_subtitle", ""),
             tickers=st.session_state.get("selected_cr_tickers", []),
             price_mode=st.session_state.get("price_mode", "Last Price"),
@@ -953,124 +966,121 @@ def show_generate_presentation_page():
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
 
-        if selected_index == "CSI 300":
-            # ------------------------------------------------------------------
-            # Insert CSI technical analysis slide
-            # ------------------------------------------------------------------
-            prs = insert_csi_technical_chart_with_callout(
-                prs,
-                st.session_state["excel_file"],
-                csi_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert CSI technical score number
-            prs = insert_csi_technical_score_number(
-                prs,
-                st.session_state["excel_file"],
-            )
-            # Insert CSI momentum score number
-            prs = insert_csi_momentum_score_number(
-                prs,
-                st.session_state["excel_file"],
-            )
-            # Insert CSI subtitle from user input
-            prs = insert_csi_subtitle(
-                prs,
-                st.session_state.get("csi_subtitle", ""),
-            )
-            # Insert CSI average gauge (last week's average is 0–100)
-            csi_last_week_avg = st.session_state.get("csi_last_week_avg", 50.0)
-            prs = insert_csi_average_gauge(
-                prs,
-                st.session_state["excel_file"],
-                csi_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'csi_view' textbox.
-            manual_view_csi = st.session_state.get("csi_selected_view")
-            prs = insert_csi_technical_assessment(
-                prs,
-                st.session_state["excel_file"],
-                manual_desc=manual_view_csi,
-            )
-            # Compute used date for CSI source footnote
-            try:
-                import pandas as pd
-                temp_file = st.session_state["excel_file"]
-                df_prices_csi = pd.read_excel(temp_file, sheet_name="data_prices")
-                df_prices_csi = df_prices_csi.drop(index=0)
-                df_prices_csi = df_prices_csi[df_prices_csi[df_prices_csi.columns[0]] != "DATES"]
-                df_prices_csi["Date"] = pd.to_datetime(df_prices_csi[df_prices_csi.columns[0]], errors="coerce")
-                df_prices_csi["Price"] = pd.to_numeric(df_prices_csi["SHSZ300 Index"], errors="coerce")
-                df_prices_csi = df_prices_csi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                    ["Date", "Price"]
-                ]
-                df_adj_csi, used_date_csi = adjust_prices_for_mode(df_prices_csi, pmode)
-            except Exception:
-                used_date_csi = None
-            prs = insert_csi_source(
-                prs,
-                used_date_csi,
-                pmode,
-            )
-        else:
-            # ------------------------------------------------------------------
-            # Insert SPX technical analysis slide
-            # ------------------------------------------------------------------
-            prs = insert_spx_technical_chart_with_callout(
-                prs,
-                st.session_state["excel_file"],
-                spx_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert SPX technical score number
-            prs = insert_spx_technical_score_number(
-                prs,
-                st.session_state["excel_file"],
-            )
-            # Insert SPX momentum score number
-            prs = insert_spx_momentum_score_number(
-                prs,
-                st.session_state["excel_file"],
-            )
-            # Insert SPX subtitle from user input
-            prs = insert_spx_subtitle(
-                prs,
-                st.session_state.get("spx_subtitle", ""),
-            )
-            # Insert SPX average gauge (last week's average is 0–100)
-            spx_last_week_avg = st.session_state.get("spx_last_week_avg", 50.0)
-            prs = insert_spx_average_gauge(
-                prs,
-                st.session_state["excel_file"],
-                spx_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'spx_view' textbox.
-            manual_view_spx = st.session_state.get("spx_selected_view")
-            prs = insert_spx_technical_assessment(
-                prs,
-                st.session_state["excel_file"],
-                manual_desc=manual_view_spx,
-            )
-            # Compute used date for SPX source footnote
-            try:
-                import pandas as pd
-                temp_file = st.session_state["excel_file"]
-                df_prices = pd.read_excel(temp_file, sheet_name="data_prices")
-                df_prices = df_prices.drop(index=0)
-                df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
-                df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
-                df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
-                df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                    ["Date", "Price"]
-                ]
-                df_adj, used_date_spx = adjust_prices_for_mode(df_prices, pmode)
-            except Exception:
-                used_date_spx = None
-            prs = insert_spx_source(
-                prs,
-                used_date_spx,
-                pmode,
-            )
+        # ------------------------------------------------------------------
+        # Insert SPX technical analysis slide (always)
+        # ------------------------------------------------------------------
+        prs = insert_spx_technical_chart_with_callout(
+            prs,
+            excel_path_for_ppt,
+            spx_anchor_dt,
+            price_mode=pmode,
+        )
+        # Insert SPX technical score number
+        prs = insert_spx_technical_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert SPX momentum score number
+        prs = insert_spx_momentum_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert SPX subtitle from user input
+        prs = insert_spx_subtitle(
+            prs,
+            st.session_state.get("spx_subtitle", ""),
+        )
+        # Insert SPX average gauge (last week's average is 0–100)
+        spx_last_week_avg = st.session_state.get("spx_last_week_avg", 50.0)
+        prs = insert_spx_average_gauge(
+            prs,
+            excel_path_for_ppt,
+            spx_last_week_avg,
+        )
+        # Insert the technical assessment text into the 'spx_view' textbox.
+        manual_view_spx = st.session_state.get("spx_selected_view")
+        prs = insert_spx_technical_assessment(
+            prs,
+            excel_path_for_ppt,
+            manual_desc=manual_view_spx,
+        )
+        # Compute used date for SPX source footnote
+        try:
+            import pandas as pd
+            df_prices = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices = df_prices.drop(index=0)
+            df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
+            df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+            df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
+            df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            df_adj, used_date_spx = adjust_prices_for_mode(df_prices, pmode)
+        except Exception:
+            used_date_spx = None
+        prs = insert_spx_source(
+            prs,
+            used_date_spx,
+            pmode,
+        )
+
+        # ------------------------------------------------------------------
+        # Insert CSI technical analysis slide (always)
+        # ------------------------------------------------------------------
+        prs = insert_csi_technical_chart_with_callout(
+            prs,
+            excel_path_for_ppt,
+            csi_anchor_dt,
+            price_mode=pmode,
+        )
+        # Insert CSI technical score number
+        prs = insert_csi_technical_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert CSI momentum score number
+        prs = insert_csi_momentum_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert CSI subtitle from user input
+        prs = insert_csi_subtitle(
+            prs,
+            st.session_state.get("csi_subtitle", ""),
+        )
+        # Insert CSI average gauge (last week's average is 0–100)
+        csi_last_week_avg = st.session_state.get("csi_last_week_avg", 50.0)
+        prs = insert_csi_average_gauge(
+            prs,
+            excel_path_for_ppt,
+            csi_last_week_avg,
+        )
+        # Insert the technical assessment text into the 'csi_view' textbox.
+        manual_view_csi = st.session_state.get("csi_selected_view")
+        prs = insert_csi_technical_assessment(
+            prs,
+            excel_path_for_ppt,
+            manual_desc=manual_view_csi,
+        )
+        # Compute used date for CSI source footnote
+        try:
+            import pandas as pd
+            df_prices_csi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices_csi = df_prices_csi.drop(index=0)
+            df_prices_csi = df_prices_csi[df_prices_csi[df_prices_csi.columns[0]] != "DATES"]
+            df_prices_csi["Date"] = pd.to_datetime(df_prices_csi[df_prices_csi.columns[0]], errors="coerce")
+            df_prices_csi["Price"] = pd.to_numeric(df_prices_csi["SHSZ300 Index"], errors="coerce")
+            df_prices_csi = df_prices_csi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            df_adj_csi, used_date_csi = adjust_prices_for_mode(df_prices_csi, pmode)
+        except Exception:
+            used_date_csi = None
+        prs = insert_csi_source(
+            prs,
+            used_date_csi,
+            pmode,
+        )
 
         # When CSI 300 is the selected index, the technical analysis slides
         # for CSI have already been inserted in the branch above.  Avoid
@@ -1085,7 +1095,7 @@ def show_generate_presentation_page():
         try:
             # Generate the weekly performance bar chart with price-mode adjustment
             bar_bytes, perf_used_date = create_weekly_performance_chart(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_equity_performance_bar_slide(
@@ -1100,7 +1110,7 @@ def show_generate_presentation_page():
             )
             # Generate the historical performance heatmap with price-mode adjustment
             histo_bytes, histo_used_date = create_historical_performance_table(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_equity_performance_histo_slide(
@@ -1119,7 +1129,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Generate the weekly FX performance bar chart with price-mode adjustment
             fx_bar_bytes, fx_used_date = create_weekly_fx_performance_chart(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_fx_performance_bar_slide(
@@ -1135,7 +1145,7 @@ def show_generate_presentation_page():
 
             # Generate the FX historical performance heatmap with price-mode adjustment
             fx_histo_bytes, fx_used_date2 = create_historical_fx_performance_table(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_fx_performance_histo_slide(
@@ -1154,7 +1164,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Generate the weekly crypto performance bar chart with price-mode adjustment
             crypto_bar_bytes, crypto_used_date = create_weekly_crypto_performance_chart(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_crypto_performance_bar_slide(
@@ -1170,7 +1180,7 @@ def show_generate_presentation_page():
 
             # Generate the cryptocurrency historical performance heatmap with price-mode adjustment
             crypto_histo_bytes, crypto_used_date2 = create_historical_crypto_performance_table(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_crypto_performance_histo_slide(
@@ -1189,7 +1199,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Generate the weekly rates performance bar chart with price-mode adjustment
             rates_bar_bytes, rates_used_date = create_weekly_rates_performance_chart(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_rates_performance_bar_slide(
@@ -1205,7 +1215,7 @@ def show_generate_presentation_page():
 
             # Generate the rates historical performance heatmap with price-mode adjustment
             rates_histo_bytes, rates_used_date2 = create_historical_rates_performance_table(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_rates_performance_histo_slide(
@@ -1224,7 +1234,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Generate the weekly credit performance bar chart with price-mode adjustment
             credit_bar_bytes, credit_used_date = create_weekly_credit_performance_chart(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_credit_performance_bar_slide(
@@ -1240,7 +1250,7 @@ def show_generate_presentation_page():
 
             # Generate the credit historical performance heatmap with price-mode adjustment
             credit_histo_bytes, credit_used_date2 = create_historical_credit_performance_table(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_credit_performance_histo_slide(
@@ -1259,7 +1269,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Generate the weekly commodity performance bar chart with price-mode adjustment
             commo_bar_bytes, commo_used_date = create_weekly_commodity_performance_chart(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_commodity_performance_bar_slide(
@@ -1275,7 +1285,7 @@ def show_generate_presentation_page():
 
             # Generate the commodity historical performance heatmap with price-mode adjustment
             commo_histo_bytes, commo_used_date2 = create_historical_commodity_performance_table(
-                st.session_state["excel_file"],
+                excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
             prs = insert_commodity_performance_histo_slide(
