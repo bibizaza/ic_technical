@@ -25,6 +25,25 @@ from .crypto_perf import (
     insert_crypto_performance_histo_slide,
 )
 
+# Import credit performance functions (aliased to avoid name clash)
+try:
+    from .credit_perf import (
+        create_weekly_performance_chart as create_weekly_credit_performance_chart,
+        create_historical_performance_table as create_historical_credit_performance_table,
+        insert_credit_performance_bar_slide,
+        insert_credit_performance_histo_slide,
+    )
+except Exception:
+    # Provide no-op fallbacks if the credit module cannot be imported
+    def create_weekly_credit_performance_chart(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def create_historical_credit_performance_table(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def insert_credit_performance_bar_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
+    def insert_credit_performance_histo_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
+
 # Import rates performance functions (aliased to avoid name clash)
 try:
     from .rates_perf import (
@@ -60,6 +79,11 @@ __all__ = [
     "create_historical_crypto_performance_table",
     "insert_crypto_performance_bar_slide",
     "insert_crypto_performance_histo_slide",
+    # Credit performance functions
+    "create_weekly_credit_performance_chart",
+    "create_historical_credit_performance_table",
+    "insert_credit_performance_bar_slide",
+    "insert_credit_performance_histo_slide",
     # Rates performance functions
     "create_weekly_rates_performance_chart",
     "create_historical_rates_performance_table",

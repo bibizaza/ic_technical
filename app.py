@@ -104,6 +104,25 @@ except Exception:
         return prs
     def insert_crypto_performance_histo_slide(prs, image_bytes, *args, **kwargs):
         return prs
+
+# Import Credit performance functions
+try:
+    from performance.credit_perf import (
+        create_weekly_performance_chart as create_weekly_credit_performance_chart,
+        create_historical_performance_table as create_historical_credit_performance_table,
+        insert_credit_performance_bar_slide,
+        insert_credit_performance_histo_slide,
+    )
+except Exception:
+    # If Credit module not available, define no-op placeholders
+    def create_weekly_credit_performance_chart(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def create_historical_credit_performance_table(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def insert_credit_performance_bar_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
+    def insert_credit_performance_histo_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
     
 # Import Rates performance functions
 try:
@@ -691,6 +710,20 @@ def show_generate_presentation_page():
             "JP - 30Y",
         ],
     )
+    # Display credit indices being analysed (fixed list) for user awareness
+    st.sidebar.write(
+        "Credit:",
+        [
+            "USD - IG",
+            "USD - HY",
+            "EUR - IG",
+            "EUR - HY",
+            "Asia (ex JP) - IG",
+            "Asia - HY",
+            "EM - IG",
+            "EM - HY",
+        ],
+    )
 
     if st.sidebar.button("Generate updated PPTX", key="gen_ppt_button"):
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp_input:
@@ -935,6 +968,41 @@ def show_generate_presentation_page():
                 prs,
                 rates_histo_bytes,
                 used_date=rates_used_date2,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+                left_cm=2.16,
+                top_cm=4.70,
+                width_cm=19.43,
+                height_cm=10.61,
+            )
+
+            # ------------------------------------------------------------------
+            # Insert Credit performance charts
+            # ------------------------------------------------------------------
+            # Generate the weekly credit performance bar chart with price-mode adjustment
+            credit_bar_bytes, credit_used_date = create_weekly_credit_performance_chart(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_credit_performance_bar_slide(
+                prs,
+                credit_bar_bytes,
+                used_date=credit_used_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+                left_cm=1.63,
+                top_cm=4.73,
+                width_cm=22.48,
+                height_cm=10.61,
+            )
+
+            # Generate the credit historical performance heatmap with price-mode adjustment
+            credit_histo_bytes, credit_used_date2 = create_historical_credit_performance_table(
+                st.session_state["excel_file"],
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_credit_performance_histo_slide(
+                prs,
+                credit_histo_bytes,
+                used_date=credit_used_date2,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
                 left_cm=2.16,
                 top_cm=4.70,
