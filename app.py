@@ -164,6 +164,55 @@ except Exception:
     def _compute_range_bounds_nikkei(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import TASI functions from the dedicated module.  The TASI module
+# resides in ``technical_analysis/equity/tasi.py`` and provides helper
+# functions analogous to the SPX, CSI and Nikkei functions.  These allow
+# technical analysis of the TASI (Saudi) index.  If the module is not
+# present, Streamlit will fall back gracefully when TASI analysis is
+# not requested.
+try:
+    from technical_analysis.equity.tasi import (
+        make_tasi_figure,
+        insert_tasi_technical_chart_with_callout,
+        insert_tasi_technical_chart,
+        insert_tasi_technical_score_number,
+        insert_tasi_momentum_score_number,
+        insert_tasi_subtitle,
+        insert_tasi_average_gauge,
+        insert_tasi_technical_assessment,
+        insert_tasi_source,
+        _get_tasi_technical_score,
+        _get_tasi_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_tasi,
+    )
+except Exception:
+    # Define no-op stand‑ins if the TASI module is unavailable
+    def make_tasi_figure(*args, **kwargs):
+        return go.Figure()
+    def insert_tasi_technical_chart_with_callout(prs, *args, **kwargs):
+        return prs
+    def insert_tasi_technical_chart(prs, *args, **kwargs):
+        return prs
+    def insert_tasi_technical_score_number(prs, *args, **kwargs):
+        return prs
+    def insert_tasi_momentum_score_number(prs, *args, **kwargs):
+        return prs
+    def insert_tasi_subtitle(prs, *args, **kwargs):
+        return prs
+    def insert_tasi_average_gauge(prs, *args, **kwargs):
+        return prs
+    def insert_tasi_technical_assessment(prs, *args, **kwargs):
+        return prs
+    def insert_tasi_source(prs, *args, **kwargs):
+        return prs
+    def _get_tasi_technical_score(*args, **kwargs):
+        return None
+    def _get_tasi_momentum_score(*args, **kwargs):
+        return None
+    # Fallback: use the SPX range computation as a generic fallback
+    def _compute_range_bounds_tasi(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import helper to adjust price data according to price mode.  The utils
 # module resides at the project root (e.g. ``ic/utils.py``) so that it can
 # be shared across technical analysis and performance modules.
@@ -604,8 +653,8 @@ def show_technical_analysis_page():
 
     # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
-        # Remove stored anchors for SPX and CSI if present
-        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor"]:
+        # Remove stored anchors for all indices if present
+        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor", "tasi_anchor"]:
             if key in st.session_state:
                 st.session_state.pop(key)
         st.experimental_rerun()
@@ -617,7 +666,7 @@ def show_technical_analysis_page():
         # provide two options: S&P 500 and CSI 300.  The selection is stored
         # in session state to persist across reruns.
         # Provide index options.  Add Nikkei 225 alongside SPX and CSI.
-        index_options = ["S&P 500", "CSI 300", "Nikkei 225"]
+        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI"]
         default_index = st.session_state.get("ta_equity_index", "S&P 500")
         selected_index = st.sidebar.selectbox(
             "Select equity index for technical analysis",
@@ -638,11 +687,15 @@ def show_technical_analysis_page():
             ticker = "SHSZ300 Index"
             ticker_key = "csi"
             chart_title = "CSI 300 Technical Chart"
-        else:
-            # Nikkei 225
+        elif selected_index == "Nikkei 225":
             ticker = "NKY Index"
             ticker_key = "nikkei"
             chart_title = "Nikkei 225 Technical Chart"
+        else:
+            # TASI
+            ticker = "SASEIDX Index"
+            ticker_key = "tasi"
+            chart_title = "TASI Technical Chart"
 
         # Load data for interactive chart (real or synthetic)
         if excel_available:
@@ -698,8 +751,10 @@ def show_technical_analysis_page():
                         tech_score = _get_spx_technical_score(temp_path)
                     elif selected_index == "CSI 300":
                         tech_score = _get_csi_technical_score(temp_path)
-                    else:
+                    elif selected_index == "Nikkei 225":
                         tech_score = _get_nikkei_technical_score(temp_path)
+                    else:  # TASI
+                        tech_score = _get_tasi_technical_score(temp_path)
                 except Exception:
                     tech_score = None
                 try:
@@ -707,8 +762,10 @@ def show_technical_analysis_page():
                         mom_score = _get_spx_momentum_score(temp_path)
                     elif selected_index == "CSI 300":
                         mom_score = _get_csi_momentum_score(temp_path)
-                    else:
+                    elif selected_index == "Nikkei 225":
                         mom_score = _get_nikkei_momentum_score(temp_path)
+                    else:
+                        mom_score = _get_tasi_momentum_score(temp_path)
                 except Exception:
                     mom_score = None
 
@@ -746,7 +803,7 @@ def show_technical_analysis_page():
                         key="csi_last_week_avg_input",
                     )
                     st.session_state["csi_last_week_avg"] = csi_last_week_input
-                else:
+                elif selected_index == "Nikkei 225":
                     nikkei_last_week_input = st.number_input(
                         "Last week's average (DMAS)",
                         min_value=0.0,
@@ -755,6 +812,15 @@ def show_technical_analysis_page():
                         key="nikkei_last_week_avg_input",
                     )
                     st.session_state["nikkei_last_week_avg"] = nikkei_last_week_input
+                else:  # TASI
+                    tasi_last_week_input = st.number_input(
+                        "Last week's average (DMAS)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=st.session_state.get("tasi_last_week_avg", 50.0),
+                        key="tasi_last_week_avg_input",
+                    )
+                    st.session_state["tasi_last_week_avg"] = tasi_last_week_input
             else:
                 st.info(
                     "Technical or momentum score not available in the uploaded Excel. "
@@ -815,7 +881,7 @@ def show_technical_analysis_page():
                         elif selected_index == "Nikkei 225":
                             upper_bound, lower_bound = _compute_range_bounds_nikkei(df_full, lookback_days=90)
                         else:
-                            upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
+                            upper_bound, lower_bound = _compute_range_bounds_tasi(df_full, lookback_days=90)
                     low_pct = (lower_bound - current_price) / current_price * 100.0
                     high_pct = (upper_bound - current_price) / current_price * 100.0
                     st.write(
@@ -927,8 +993,11 @@ def show_technical_analysis_page():
                     fig = make_spx_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
                 elif selected_index == "CSI 300":
                     fig = make_csi_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
-                else:
+                elif selected_index == "Nikkei 225":
                     fig = make_nikkei_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+                else:
+                    # TASI
+                    fig = make_tasi_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             else:
                 df_ma = _add_moving_averages(df_full)
                 fig = _build_fallback_figure(df_ma, anchor_date=anchor_ts)
@@ -1061,6 +1130,8 @@ def show_generate_presentation_page():
         # Retrieve anchors for SPX, CSI and Nikkei slides
         spx_anchor_dt = st.session_state.get("spx_anchor")
         csi_anchor_dt = st.session_state.get("csi_anchor")
+        nikkei_anchor_dt = st.session_state.get("nikkei_anchor")
+        tasi_anchor_dt = st.session_state.get("tasi_anchor")
         nikkei_anchor_dt = st.session_state.get("nikkei_anchor")
 
         # Common price mode
@@ -1237,6 +1308,65 @@ def show_generate_presentation_page():
         prs = insert_nikkei_source(
             prs,
             used_date_nikkei,
+            pmode,
+        )
+
+        # ------------------------------------------------------------------
+        # Insert TASI technical analysis slide (always)
+        # ------------------------------------------------------------------
+        prs = insert_tasi_technical_chart_with_callout(
+            prs,
+            excel_path_for_ppt,
+            tasi_anchor_dt,
+            price_mode=pmode,
+        )
+        # Insert TASI technical score number
+        prs = insert_tasi_technical_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert TASI momentum score number
+        prs = insert_tasi_momentum_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert TASI subtitle from user input
+        prs = insert_tasi_subtitle(
+            prs,
+            st.session_state.get("tasi_subtitle", ""),
+        )
+        # Insert TASI average gauge (last week's average is 0–100)
+        tasi_last_week_avg = st.session_state.get("tasi_last_week_avg", 50.0)
+        prs = insert_tasi_average_gauge(
+            prs,
+            excel_path_for_ppt,
+            tasi_last_week_avg,
+        )
+        # Insert the technical assessment text into the 'tasi_view' textbox
+        manual_view_tasi = st.session_state.get("tasi_selected_view")
+        prs = insert_tasi_technical_assessment(
+            prs,
+            excel_path_for_ppt,
+            manual_desc=manual_view_tasi,
+        )
+        # Compute used date for TASI source footnote
+        try:
+            import pandas as pd
+            df_prices_tasi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices_tasi = df_prices_tasi.drop(index=0)
+            df_prices_tasi = df_prices_tasi[df_prices_tasi[df_prices_tasi.columns[0]] != "DATES"]
+            df_prices_tasi["Date"] = pd.to_datetime(df_prices_tasi[df_prices_tasi.columns[0]], errors="coerce")
+            # Use the SASEIDX Index column for TASI prices
+            df_prices_tasi["Price"] = pd.to_numeric(df_prices_tasi["SASEIDX Index"], errors="coerce")
+            df_prices_tasi = df_prices_tasi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            df_adj_tasi, used_date_tasi = adjust_prices_for_mode(df_prices_tasi, pmode)
+        except Exception:
+            used_date_tasi = None
+        prs = insert_tasi_source(
+            prs,
+            used_date_tasi,
             pmode,
         )
 
