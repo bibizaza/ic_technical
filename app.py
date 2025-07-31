@@ -55,6 +55,68 @@ from technical_analysis.equity.spx import (
     _compute_range_bounds as _compute_range_bounds_spx,
 )
 
+# Import SMI functions from the dedicated module.  The SMI module resides
+# in ``technical_analysis/equity/smi.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei, TASI, Sensex and DAX functions.  These
+# allow technical analysis of the Swiss Market Index (SMI).  If the module is
+# not present (e.g. during development), we define no‑op stand‑ins so that
+# the application continues to run without error.  The fallback for the
+# range computation uses the SPX range bounds to avoid crashing when the
+# SMI module is missing.
+try:
+    from technical_analysis.equity.smi import (
+        make_smi_figure,
+        insert_smi_technical_chart_with_callout,
+        insert_smi_technical_chart,
+        insert_smi_technical_score_number,
+        insert_smi_momentum_score_number,
+        insert_smi_subtitle,
+        insert_smi_average_gauge,
+        insert_smi_technical_assessment,
+        insert_smi_source,
+        _get_smi_technical_score,
+        _get_smi_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_smi,
+    )
+except Exception:
+    # Define no‑op stand‑ins if the SMI module is unavailable
+    def make_smi_figure(*args, **kwargs):  # type: ignore
+        return go.Figure()
+
+    def insert_smi_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_chart(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_subtitle(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_average_gauge(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_assessment(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_source(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def _get_smi_technical_score(*args, **kwargs):  # type: ignore
+        return None
+
+    def _get_smi_momentum_score(*args, **kwargs):  # type: ignore
+        return None
+
+    # Fallback: if the SMI module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import CSI functions from the dedicated module.  The CSI module resides
 # in ``technical_analysis/equity/csi.py`` and provides helper functions
 # analogous to the SPX functions.  These allow technical analysis of the
@@ -750,7 +812,7 @@ def show_technical_analysis_page():
     # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
         # Remove stored anchors for all indices if present
-        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor", "tasi_anchor", "sensex_anchor", "dax_anchor"]:
+        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor", "tasi_anchor", "sensex_anchor", "dax_anchor", "smi_anchor"]:
             if key in st.session_state:
                 st.session_state.pop(key)
         st.experimental_rerun()
@@ -762,7 +824,8 @@ def show_technical_analysis_page():
         # provide two options: S&P 500 and CSI 300.  The selection is stored
         # in session state to persist across reruns.
         # Provide index options.  Add Nikkei 225 alongside SPX and CSI.
-        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI", "Sensex", "Dax"]
+        # Include SMI (Swiss Market Index) alongside existing indices
+        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI", "Sensex", "Dax", "SMI"]
         default_index = st.session_state.get("ta_equity_index", "S&P 500")
         selected_index = st.sidebar.selectbox(
             "Select equity index for technical analysis",
@@ -799,6 +862,10 @@ def show_technical_analysis_page():
             ticker = "DAX Index"
             ticker_key = "dax"
             chart_title = "DAX Technical Chart"
+        elif selected_index == "SMI":
+            ticker = "SMI Index"
+            ticker_key = "smi"
+            chart_title = "SMI Technical Chart"
         else:
             # Default fallback (should not occur)
             ticker = "SPX Index"
@@ -867,6 +934,8 @@ def show_technical_analysis_page():
                         tech_score = _get_sensex_technical_score(temp_path)
                     elif selected_index == "Dax":
                         tech_score = _get_dax_technical_score(temp_path)
+                    elif selected_index == "SMI":
+                        tech_score = _get_smi_technical_score(temp_path)
                     else:
                         tech_score = None
                 except Exception:
@@ -884,6 +953,8 @@ def show_technical_analysis_page():
                         mom_score = _get_sensex_momentum_score(temp_path)
                     elif selected_index == "Dax":
                         mom_score = _get_dax_momentum_score(temp_path)
+                    elif selected_index == "SMI":
+                        mom_score = _get_smi_momentum_score(temp_path)
                     else:
                         mom_score = None
                 except Exception:
@@ -959,6 +1030,15 @@ def show_technical_analysis_page():
                         key="dax_last_week_avg_input",
                     )
                     st.session_state["dax_last_week_avg"] = dax_last_week_input
+                elif selected_index == "SMI":
+                    smi_last_week_input = st.number_input(
+                        "Last week's average (DMAS)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=st.session_state.get("smi_last_week_avg", 50.0),
+                        key="smi_last_week_avg_input",
+                    )
+                    st.session_state["smi_last_week_avg"] = smi_last_week_input
             else:
                 st.info(
                     "Technical or momentum score not available in the uploaded Excel. "
@@ -982,6 +1062,27 @@ def show_technical_analysis_page():
                             df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
                             if "VIX Index" in df_vol.columns:
                                 df_vol["Price"] = pd.to_numeric(df_vol["VIX Index"], errors="coerce")
+                                df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
+                                pm = st.session_state.get("price_mode", "Last Price")
+                                if adjust_prices_for_mode is not None:
+                                    try:
+                                        df_vol, _ = adjust_prices_for_mode(df_vol, pm)
+                                    except Exception:
+                                        pass
+                                if not df_vol.empty:
+                                    vol_val = float(df_vol["Price"].iloc[-1])
+                                    use_implied = True
+                        except Exception:
+                            use_implied = False
+                    elif selected_index == "SMI":
+                        # Attempt to use implied volatility for SMI (VSMI1M)
+                        try:
+                            df_vol = pd.read_excel(temp_path, sheet_name="data_prices")
+                            df_vol = df_vol.drop(index=0)
+                            df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
+                            df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
+                            if "VSMI1M Index" in df_vol.columns:
+                                df_vol["Price"] = pd.to_numeric(df_vol["VSMI1M Index"], errors="coerce")
                                 df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
                                 pm = st.session_state.get("price_mode", "Last Price")
                                 if adjust_prices_for_mode is not None:
@@ -1019,6 +1120,8 @@ def show_technical_analysis_page():
                             upper_bound, lower_bound = _compute_range_bounds_sensex(df_full, lookback_days=90)
                         elif selected_index == "Dax":
                             upper_bound, lower_bound = _compute_range_bounds_dax(df_full, lookback_days=90)
+                        elif selected_index == "SMI":
+                            upper_bound, lower_bound = _compute_range_bounds_smi(df_full, lookback_days=90)
                         else:
                             upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     low_pct = (lower_bound - current_price) / current_price * 100.0
@@ -1041,6 +1144,8 @@ def show_technical_analysis_page():
                         upper_bound, lower_bound = _compute_range_bounds_sensex(df_full, lookback_days=90)
                     elif selected_index == "Dax":
                         upper_bound, lower_bound = _compute_range_bounds_dax(df_full, lookback_days=90)
+                    elif selected_index == "SMI":
+                        upper_bound, lower_bound = _compute_range_bounds_smi(df_full, lookback_days=90)
                     else:
                         upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     st.write(
@@ -1146,6 +1251,8 @@ def show_technical_analysis_page():
                     fig = make_sensex_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
                 elif selected_index == "Dax":
                     fig = make_dax_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+                elif selected_index == "SMI":
+                    fig = make_smi_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
                 else:
                     # default fallback: use SPX figure
                     fig = make_spx_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
@@ -1285,6 +1392,7 @@ def show_generate_presentation_page():
         tasi_anchor_dt = st.session_state.get("tasi_anchor")
         sensex_anchor_dt = st.session_state.get("sensex_anchor")
         dax_anchor_dt = st.session_state.get("dax_anchor")
+        smi_anchor_dt = st.session_state.get("smi_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -1638,6 +1746,65 @@ def show_generate_presentation_page():
         prs = insert_dax_source(
             prs,
             used_date_dax,
+            pmode,
+        )
+
+        # ------------------------------------------------------------------
+        # Insert SMI technical analysis slide (always)
+        # ------------------------------------------------------------------
+        prs = insert_smi_technical_chart_with_callout(
+            prs,
+            excel_path_for_ppt,
+            smi_anchor_dt,
+            price_mode=pmode,
+        )
+        # Insert SMI technical score number
+        prs = insert_smi_technical_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert SMI momentum score number
+        prs = insert_smi_momentum_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert SMI subtitle from user input
+        prs = insert_smi_subtitle(
+            prs,
+            st.session_state.get("smi_subtitle", ""),
+        )
+        # Insert SMI average gauge (last week's average is 0–100)
+        smi_last_week_avg = st.session_state.get("smi_last_week_avg", 50.0)
+        prs = insert_smi_average_gauge(
+            prs,
+            excel_path_for_ppt,
+            smi_last_week_avg,
+        )
+        # Insert the technical assessment text into the 'smi_view' textbox.
+        manual_view_smi = st.session_state.get("smi_selected_view")
+        prs = insert_smi_technical_assessment(
+            prs,
+            excel_path_for_ppt,
+            manual_desc=manual_view_smi,
+        )
+        # Compute used date for SMI source footnote
+        try:
+            import pandas as pd
+            df_prices_smi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices_smi = df_prices_smi.drop(index=0)
+            df_prices_smi = df_prices_smi[df_prices_smi[df_prices_smi.columns[0]] != "DATES"]
+            df_prices_smi["Date"] = pd.to_datetime(df_prices_smi[df_prices_smi.columns[0]], errors="coerce")
+            # Use the SMI Index column for SMI prices
+            df_prices_smi["Price"] = pd.to_numeric(df_prices_smi["SMI Index"], errors="coerce")
+            df_prices_smi = df_prices_smi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            df_adj_smi, used_date_smi = adjust_prices_for_mode(df_prices_smi, pmode)
+        except Exception:
+            used_date_smi = None
+        prs = insert_smi_source(
+            prs,
+            used_date_smi,
             pmode,
         )
 
