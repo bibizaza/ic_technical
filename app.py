@@ -261,6 +261,54 @@ except Exception:
     def _compute_range_bounds_sensex(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import DAX functions from the dedicated module.  The DAX module resides
+# in ``technical_analysis/equity/dax.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei, TASI and Sensex functions.  These allow
+# technical analysis of the German DAX index.  If the module is not present,
+# Streamlit will fall back gracefully when DAX analysis is not requested.
+try:
+    from technical_analysis.equity.dax import (
+        make_dax_figure,
+        insert_dax_technical_chart_with_callout,
+        insert_dax_technical_chart,
+        insert_dax_technical_score_number,
+        insert_dax_momentum_score_number,
+        insert_dax_subtitle,
+        insert_dax_average_gauge,
+        insert_dax_technical_assessment,
+        insert_dax_source,
+        _get_dax_technical_score,
+        _get_dax_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_dax,
+    )
+except Exception:
+    # Define no‑op stand-ins if the DAX module is unavailable
+    def make_dax_figure(*args, **kwargs):
+        return go.Figure()
+    def insert_dax_technical_chart_with_callout(prs, *args, **kwargs):
+        return prs
+    def insert_dax_technical_chart(prs, *args, **kwargs):
+        return prs
+    def insert_dax_technical_score_number(prs, *args, **kwargs):
+        return prs
+    def insert_dax_momentum_score_number(prs, *args, **kwargs):
+        return prs
+    def insert_dax_subtitle(prs, *args, **kwargs):
+        return prs
+    def insert_dax_average_gauge(prs, *args, **kwargs):
+        return prs
+    def insert_dax_technical_assessment(prs, *args, **kwargs):
+        return prs
+    def insert_dax_source(prs, *args, **kwargs):
+        return prs
+    def _get_dax_technical_score(*args, **kwargs):
+        return None
+    def _get_dax_momentum_score(*args, **kwargs):
+        return None
+    # Fallback: use the SPX range computation as a generic fallback
+    def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import helper to adjust price data according to price mode.  The utils
 # module resides at the project root (e.g. ``ic/utils.py``) so that it can
 # be shared across technical analysis and performance modules.
@@ -702,7 +750,7 @@ def show_technical_analysis_page():
     # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
         # Remove stored anchors for all indices if present
-        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor", "tasi_anchor", "sensex_anchor"]:
+        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor", "tasi_anchor", "sensex_anchor", "dax_anchor"]:
             if key in st.session_state:
                 st.session_state.pop(key)
         st.experimental_rerun()
@@ -714,7 +762,7 @@ def show_technical_analysis_page():
         # provide two options: S&P 500 and CSI 300.  The selection is stored
         # in session state to persist across reruns.
         # Provide index options.  Add Nikkei 225 alongside SPX and CSI.
-        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI", "Sensex"]
+        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI", "Sensex", "Dax"]
         default_index = st.session_state.get("ta_equity_index", "S&P 500")
         selected_index = st.sidebar.selectbox(
             "Select equity index for technical analysis",
@@ -747,6 +795,10 @@ def show_technical_analysis_page():
             ticker = "SENSEX Index"
             ticker_key = "sensex"
             chart_title = "Sensex Technical Chart"
+        elif selected_index == "Dax":
+            ticker = "DAX Index"
+            ticker_key = "dax"
+            chart_title = "DAX Technical Chart"
         else:
             # Default fallback (should not occur)
             ticker = "SPX Index"
@@ -813,6 +865,8 @@ def show_technical_analysis_page():
                         tech_score = _get_tasi_technical_score(temp_path)
                     elif selected_index == "Sensex":
                         tech_score = _get_sensex_technical_score(temp_path)
+                    elif selected_index == "Dax":
+                        tech_score = _get_dax_technical_score(temp_path)
                     else:
                         tech_score = None
                 except Exception:
@@ -828,6 +882,8 @@ def show_technical_analysis_page():
                         mom_score = _get_tasi_momentum_score(temp_path)
                     elif selected_index == "Sensex":
                         mom_score = _get_sensex_momentum_score(temp_path)
+                    elif selected_index == "Dax":
+                        mom_score = _get_dax_momentum_score(temp_path)
                     else:
                         mom_score = None
                 except Exception:
@@ -894,6 +950,15 @@ def show_technical_analysis_page():
                         key="sensex_last_week_avg_input",
                     )
                     st.session_state["sensex_last_week_avg"] = sensex_last_week_input
+                elif selected_index == "Dax":
+                    dax_last_week_input = st.number_input(
+                        "Last week's average (DMAS)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=st.session_state.get("dax_last_week_avg", 50.0),
+                        key="dax_last_week_avg_input",
+                    )
+                    st.session_state["dax_last_week_avg"] = dax_last_week_input
             else:
                 st.info(
                     "Technical or momentum score not available in the uploaded Excel. "
@@ -903,18 +968,14 @@ def show_technical_analysis_page():
             # Show recent trading range (high/low) beneath the score table
             # -------------------------------------------------------------------
             try:
-                # Compute trading range for the last 90 days.  For the S&P 500,
-                # prefer to use the implied volatility index (VIX) to estimate
-                # the expected one‑week move.  If the volatility data are
-                # unavailable or the index is not SPX, fall back to the
-                # realised‑volatility‑based range.
+                # Compute trading range for the last 90 days based on implied volatility or realised volatility.
                 current_price = df_full["Price"].iloc[-1] if not df_full.empty else None
-                if current_price and not np.isnan(current_price):
+                if current_price is not None and not np.isnan(current_price):
+                    # Attempt to use implied volatility for the S&P 500 (VIX)
                     use_implied = False
                     vol_val = None
                     if selected_index == "S&P 500":
                         try:
-                            # Read the volatility index (VIX) series from the same Excel file
                             df_vol = pd.read_excel(temp_path, sheet_name="data_prices")
                             df_vol = df_vol.drop(index=0)
                             df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
@@ -922,7 +983,6 @@ def show_technical_analysis_page():
                             if "VIX Index" in df_vol.columns:
                                 df_vol["Price"] = pd.to_numeric(df_vol["VIX Index"], errors="coerce")
                                 df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
-                                # Apply price mode adjustment to align with the chosen price mode
                                 pm = st.session_state.get("price_mode", "Last Price")
                                 if adjust_prices_for_mode is not None:
                                     try:
@@ -934,19 +994,19 @@ def show_technical_analysis_page():
                                     use_implied = True
                         except Exception:
                             use_implied = False
+                    # Compute expected move from implied volatility if available
                     if use_implied and vol_val is not None:
-                        # Compute expected 1‑week move from implied volatility
                         expected_move = (current_price * (vol_val / 100.0)) / np.sqrt(52.0)
                         lower_bound = current_price - expected_move
                         upper_bound = current_price + expected_move
-                        # Enforce a minimum ±1 % band around the current price
+                        # Enforce minimum ±1 % band around current price
                         min_span = 0.02 * current_price
                         if (upper_bound - lower_bound) < min_span:
                             half = min_span / 2.0
                             lower_bound = current_price - half
                             upper_bound = current_price + half
                     else:
-                        # Fall back to realised‑volatility‑based range depending on the selected index
+                        # Use realised-volatility based bounds based on the selected index
                         if selected_index == "S&P 500":
                             upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                         elif selected_index == "CSI 300":
@@ -957,6 +1017,8 @@ def show_technical_analysis_page():
                             upper_bound, lower_bound = _compute_range_bounds_tasi(df_full, lookback_days=90)
                         elif selected_index == "Sensex":
                             upper_bound, lower_bound = _compute_range_bounds_sensex(df_full, lookback_days=90)
+                        elif selected_index == "Dax":
+                            upper_bound, lower_bound = _compute_range_bounds_dax(df_full, lookback_days=90)
                         else:
                             upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     low_pct = (lower_bound - current_price) / current_price * 100.0
@@ -966,7 +1028,7 @@ def show_technical_analysis_page():
                         f"High {upper_bound:,.0f} ({high_pct:+.1f}%)"
                     )
                 else:
-                    # If no current price, just compute bounds normally using the appropriate function
+                    # No current price: use realised-volatility-based bounds
                     if selected_index == "S&P 500":
                         upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     elif selected_index == "CSI 300":
@@ -977,6 +1039,8 @@ def show_technical_analysis_page():
                         upper_bound, lower_bound = _compute_range_bounds_tasi(df_full, lookback_days=90)
                     elif selected_index == "Sensex":
                         upper_bound, lower_bound = _compute_range_bounds_sensex(df_full, lookback_days=90)
+                    elif selected_index == "Dax":
+                        upper_bound, lower_bound = _compute_range_bounds_dax(df_full, lookback_days=90)
                     else:
                         upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     st.write(
@@ -1080,6 +1144,8 @@ def show_technical_analysis_page():
                     fig = make_tasi_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
                 elif selected_index == "Sensex":
                     fig = make_sensex_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+                elif selected_index == "Dax":
+                    fig = make_dax_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
                 else:
                     # default fallback: use SPX figure
                     fig = make_spx_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
@@ -1212,12 +1278,13 @@ def show_generate_presentation_page():
         # Determine which equity index was selected for technical analysis (not used here since we insert all indices)
         selected_index = st.session_state.get("ta_equity_index", "S&P 500")
 
-        # Retrieve anchors for SPX, CSI, Nikkei, TASI and Sensex slides
+        # Retrieve anchors for SPX, CSI, Nikkei, TASI, Sensex and DAX slides
         spx_anchor_dt = st.session_state.get("spx_anchor")
         csi_anchor_dt = st.session_state.get("csi_anchor")
         nikkei_anchor_dt = st.session_state.get("nikkei_anchor")
         tasi_anchor_dt = st.session_state.get("tasi_anchor")
         sensex_anchor_dt = st.session_state.get("sensex_anchor")
+        dax_anchor_dt = st.session_state.get("dax_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -1512,6 +1579,65 @@ def show_generate_presentation_page():
         prs = insert_sensex_source(
             prs,
             used_date_sensex,
+            pmode,
+        )
+
+        # ------------------------------------------------------------------
+        # Insert DAX technical analysis slide (always)
+        # ------------------------------------------------------------------
+        prs = insert_dax_technical_chart_with_callout(
+            prs,
+            excel_path_for_ppt,
+            dax_anchor_dt,
+            price_mode=pmode,
+        )
+        # Insert DAX technical score number
+        prs = insert_dax_technical_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert DAX momentum score number
+        prs = insert_dax_momentum_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert DAX subtitle from user input
+        prs = insert_dax_subtitle(
+            prs,
+            st.session_state.get("dax_subtitle", ""),
+        )
+        # Insert DAX average gauge (last week's average is 0–100)
+        dax_last_week_avg = st.session_state.get("dax_last_week_avg", 50.0)
+        prs = insert_dax_average_gauge(
+            prs,
+            excel_path_for_ppt,
+            dax_last_week_avg,
+        )
+        # Insert the technical assessment text into the 'dax_view' textbox.
+        manual_view_dax = st.session_state.get("dax_selected_view")
+        prs = insert_dax_technical_assessment(
+            prs,
+            excel_path_for_ppt,
+            manual_desc=manual_view_dax,
+        )
+        # Compute used date for DAX source footnote
+        try:
+            import pandas as pd
+            df_prices_dax = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices_dax = df_prices_dax.drop(index=0)
+            df_prices_dax = df_prices_dax[df_prices_dax[df_prices_dax.columns[0]] != "DATES"]
+            df_prices_dax["Date"] = pd.to_datetime(df_prices_dax[df_prices_dax.columns[0]], errors="coerce")
+            # Use the DAX Index column for DAX prices
+            df_prices_dax["Price"] = pd.to_numeric(df_prices_dax["DAX Index"], errors="coerce")
+            df_prices_dax = df_prices_dax.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            df_adj_dax, used_date_dax = adjust_prices_for_mode(df_prices_dax, pmode)
+        except Exception:
+            used_date_dax = None
+        prs = insert_dax_source(
+            prs,
+            used_date_dax,
             pmode,
         )
 
