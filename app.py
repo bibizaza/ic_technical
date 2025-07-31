@@ -213,6 +213,54 @@ except Exception:
     def _compute_range_bounds_tasi(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import Sensex functions from the dedicated module.  The Sensex module resides
+# in ``technical_analysis/equity/sensex.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei and TASI functions.  These allow
+# technical analysis of the BSE Sensex 30 index.  If the module is not present,
+# Streamlit will fall back gracefully when Sensex analysis is not requested.
+try:
+    from technical_analysis.equity.sensex import (
+        make_sensex_figure,
+        insert_sensex_technical_chart_with_callout,
+        insert_sensex_technical_chart,
+        insert_sensex_technical_score_number,
+        insert_sensex_momentum_score_number,
+        insert_sensex_subtitle,
+        insert_sensex_average_gauge,
+        insert_sensex_technical_assessment,
+        insert_sensex_source,
+        _get_sensex_technical_score,
+        _get_sensex_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_sensex,
+    )
+except Exception:
+    # Define no-op stand-ins if the Sensex module is unavailable
+    def make_sensex_figure(*args, **kwargs):
+        return go.Figure()
+    def insert_sensex_technical_chart_with_callout(prs, *args, **kwargs):
+        return prs
+    def insert_sensex_technical_chart(prs, *args, **kwargs):
+        return prs
+    def insert_sensex_technical_score_number(prs, *args, **kwargs):
+        return prs
+    def insert_sensex_momentum_score_number(prs, *args, **kwargs):
+        return prs
+    def insert_sensex_subtitle(prs, *args, **kwargs):
+        return prs
+    def insert_sensex_average_gauge(prs, *args, **kwargs):
+        return prs
+    def insert_sensex_technical_assessment(prs, *args, **kwargs):
+        return prs
+    def insert_sensex_source(prs, *args, **kwargs):
+        return prs
+    def _get_sensex_technical_score(*args, **kwargs):
+        return None
+    def _get_sensex_momentum_score(*args, **kwargs):
+        return None
+    # Fallback: use the SPX range computation as a generic fallback
+    def _compute_range_bounds_sensex(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import helper to adjust price data according to price mode.  The utils
 # module resides at the project root (e.g. ``ic/utils.py``) so that it can
 # be shared across technical analysis and performance modules.
@@ -654,7 +702,7 @@ def show_technical_analysis_page():
     # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
         # Remove stored anchors for all indices if present
-        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor", "tasi_anchor"]:
+        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor", "tasi_anchor", "sensex_anchor"]:
             if key in st.session_state:
                 st.session_state.pop(key)
         st.experimental_rerun()
@@ -666,7 +714,7 @@ def show_technical_analysis_page():
         # provide two options: S&P 500 and CSI 300.  The selection is stored
         # in session state to persist across reruns.
         # Provide index options.  Add Nikkei 225 alongside SPX and CSI.
-        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI"]
+        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI", "Sensex"]
         default_index = st.session_state.get("ta_equity_index", "S&P 500")
         selected_index = st.sidebar.selectbox(
             "Select equity index for technical analysis",
@@ -691,11 +739,19 @@ def show_technical_analysis_page():
             ticker = "NKY Index"
             ticker_key = "nikkei"
             chart_title = "Nikkei 225 Technical Chart"
-        else:
-            # TASI
+        elif selected_index == "TASI":
             ticker = "SASEIDX Index"
             ticker_key = "tasi"
             chart_title = "TASI Technical Chart"
+        elif selected_index == "Sensex":
+            ticker = "SENSEX Index"
+            ticker_key = "sensex"
+            chart_title = "Sensex Technical Chart"
+        else:
+            # Default fallback (should not occur)
+            ticker = "SPX Index"
+            ticker_key = "spx"
+            chart_title = "S&P 500 Technical Chart"
 
         # Load data for interactive chart (real or synthetic)
         if excel_available:
@@ -753,8 +809,12 @@ def show_technical_analysis_page():
                         tech_score = _get_csi_technical_score(temp_path)
                     elif selected_index == "Nikkei 225":
                         tech_score = _get_nikkei_technical_score(temp_path)
-                    else:  # TASI
+                    elif selected_index == "TASI":
                         tech_score = _get_tasi_technical_score(temp_path)
+                    elif selected_index == "Sensex":
+                        tech_score = _get_sensex_technical_score(temp_path)
+                    else:
+                        tech_score = None
                 except Exception:
                     tech_score = None
                 try:
@@ -764,8 +824,12 @@ def show_technical_analysis_page():
                         mom_score = _get_csi_momentum_score(temp_path)
                     elif selected_index == "Nikkei 225":
                         mom_score = _get_nikkei_momentum_score(temp_path)
-                    else:
+                    elif selected_index == "TASI":
                         mom_score = _get_tasi_momentum_score(temp_path)
+                    elif selected_index == "Sensex":
+                        mom_score = _get_sensex_momentum_score(temp_path)
+                    else:
+                        mom_score = None
                 except Exception:
                     mom_score = None
 
@@ -812,7 +876,7 @@ def show_technical_analysis_page():
                         key="nikkei_last_week_avg_input",
                     )
                     st.session_state["nikkei_last_week_avg"] = nikkei_last_week_input
-                else:  # TASI
+                elif selected_index == "TASI":
                     tasi_last_week_input = st.number_input(
                         "Last week's average (DMAS)",
                         min_value=0.0,
@@ -821,6 +885,15 @@ def show_technical_analysis_page():
                         key="tasi_last_week_avg_input",
                     )
                     st.session_state["tasi_last_week_avg"] = tasi_last_week_input
+                elif selected_index == "Sensex":
+                    sensex_last_week_input = st.number_input(
+                        "Last week's average (DMAS)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=st.session_state.get("sensex_last_week_avg", 50.0),
+                        key="sensex_last_week_avg_input",
+                    )
+                    st.session_state["sensex_last_week_avg"] = sensex_last_week_input
             else:
                 st.info(
                     "Technical or momentum score not available in the uploaded Excel. "
@@ -880,8 +953,12 @@ def show_technical_analysis_page():
                             upper_bound, lower_bound = _compute_range_bounds_csi(df_full, lookback_days=90)
                         elif selected_index == "Nikkei 225":
                             upper_bound, lower_bound = _compute_range_bounds_nikkei(df_full, lookback_days=90)
-                        else:
+                        elif selected_index == "TASI":
                             upper_bound, lower_bound = _compute_range_bounds_tasi(df_full, lookback_days=90)
+                        elif selected_index == "Sensex":
+                            upper_bound, lower_bound = _compute_range_bounds_sensex(df_full, lookback_days=90)
+                        else:
+                            upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     low_pct = (lower_bound - current_price) / current_price * 100.0
                     high_pct = (upper_bound - current_price) / current_price * 100.0
                     st.write(
@@ -896,6 +973,10 @@ def show_technical_analysis_page():
                         upper_bound, lower_bound = _compute_range_bounds_csi(df_full, lookback_days=90)
                     elif selected_index == "Nikkei 225":
                         upper_bound, lower_bound = _compute_range_bounds_nikkei(df_full, lookback_days=90)
+                    elif selected_index == "TASI":
+                        upper_bound, lower_bound = _compute_range_bounds_tasi(df_full, lookback_days=90)
+                    elif selected_index == "Sensex":
+                        upper_bound, lower_bound = _compute_range_bounds_sensex(df_full, lookback_days=90)
                     else:
                         upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     st.write(
@@ -995,9 +1076,13 @@ def show_technical_analysis_page():
                     fig = make_csi_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
                 elif selected_index == "Nikkei 225":
                     fig = make_nikkei_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
-                else:
-                    # TASI
+                elif selected_index == "TASI":
                     fig = make_tasi_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+                elif selected_index == "Sensex":
+                    fig = make_sensex_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+                else:
+                    # default fallback: use SPX figure
+                    fig = make_spx_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             else:
                 df_ma = _add_moving_averages(df_full)
                 fig = _build_fallback_figure(df_ma, anchor_date=anchor_ts)
@@ -1127,12 +1212,12 @@ def show_generate_presentation_page():
         # Determine which equity index was selected for technical analysis (not used here since we insert all indices)
         selected_index = st.session_state.get("ta_equity_index", "S&P 500")
 
-        # Retrieve anchors for SPX, CSI and Nikkei slides
+        # Retrieve anchors for SPX, CSI, Nikkei, TASI and Sensex slides
         spx_anchor_dt = st.session_state.get("spx_anchor")
         csi_anchor_dt = st.session_state.get("csi_anchor")
         nikkei_anchor_dt = st.session_state.get("nikkei_anchor")
         tasi_anchor_dt = st.session_state.get("tasi_anchor")
-        nikkei_anchor_dt = st.session_state.get("nikkei_anchor")
+        sensex_anchor_dt = st.session_state.get("sensex_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -1367,6 +1452,66 @@ def show_generate_presentation_page():
         prs = insert_tasi_source(
             prs,
             used_date_tasi,
+            pmode,
+        )
+
+        # ------------------------------------------------------------------
+        # Insert Sensex technical analysis slide
+        # ------------------------------------------------------------------
+        # Sensex technical analysis uses realised volatility and a separate implied vol index (INVIXN)
+        prs = insert_sensex_technical_chart_with_callout(
+            prs,
+            excel_path_for_ppt,
+            sensex_anchor_dt,
+            price_mode=pmode,
+        )
+        # Insert Sensex technical score number
+        prs = insert_sensex_technical_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert Sensex momentum score number
+        prs = insert_sensex_momentum_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert Sensex subtitle from user input
+        prs = insert_sensex_subtitle(
+            prs,
+            st.session_state.get("sensex_subtitle", ""),
+        )
+        # Insert Sensex average gauge (last week's average is 0–100)
+        sensex_last_week_avg = st.session_state.get("sensex_last_week_avg", 50.0)
+        prs = insert_sensex_average_gauge(
+            prs,
+            excel_path_for_ppt,
+            sensex_last_week_avg,
+        )
+        # Insert the technical assessment text into the 'sensex_view' textbox.
+        manual_view_sensex = st.session_state.get("sensex_selected_view")
+        prs = insert_sensex_technical_assessment(
+            prs,
+            excel_path_for_ppt,
+            manual_desc=manual_view_sensex,
+        )
+        # Compute used date for Sensex source footnote
+        try:
+            import pandas as pd
+            df_prices_sensex = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices_sensex = df_prices_sensex.drop(index=0)
+            df_prices_sensex = df_prices_sensex[df_prices_sensex[df_prices_sensex.columns[0]] != "DATES"]
+            df_prices_sensex["Date"] = pd.to_datetime(df_prices_sensex[df_prices_sensex.columns[0]], errors="coerce")
+            # Use the SENSEX Index column for Sensex prices
+            df_prices_sensex["Price"] = pd.to_numeric(df_prices_sensex["SENSEX Index"], errors="coerce")
+            df_prices_sensex = df_prices_sensex.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            df_adj_sensex, used_date_sensex = adjust_prices_for_mode(df_prices_sensex, pmode)
+        except Exception:
+            used_date_sensex = None
+        prs = insert_sensex_source(
+            prs,
+            used_date_sensex,
             pmode,
         )
 
