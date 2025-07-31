@@ -52,7 +52,7 @@ from technical_analysis.equity.spx import (
     _get_spx_technical_score,
     _get_spx_momentum_score,
     generate_range_gauge_only_image,
-    _compute_range_bounds,
+    _compute_range_bounds as _compute_range_bounds_spx,
 )
 
 # Import CSI functions from the dedicated module.  The CSI module resides
@@ -73,6 +73,7 @@ try:
         insert_csi_source,
         _get_csi_technical_score,
         _get_csi_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_csi,
     )
 except Exception:
     # Define no-op stand‑ins if the CSI module is unavailable
@@ -98,6 +99,70 @@ except Exception:
         return None
     def _get_csi_momentum_score(*args, **kwargs):
         return None
+
+    # Fallback: if the CSI module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_csi(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Nikkei functions from the dedicated module.  The Nikkei module
+# resides in ``technical_analysis/equity/nikkei.py`` and provides helper
+# functions analogous to the SPX and CSI functions.  These allow
+# technical analysis of the Nikkei 225 index.  If the module is not
+# present, Streamlit will fall back gracefully when Nikkei analysis is
+# not requested.
+try:
+    from technical_analysis.equity.nikkei import (
+        make_nikkei_figure,
+        insert_nikkei_technical_chart_with_callout,
+        insert_nikkei_technical_chart,
+        insert_nikkei_technical_score_number,
+        insert_nikkei_momentum_score_number,
+        insert_nikkei_subtitle,
+        insert_nikkei_average_gauge,
+        insert_nikkei_technical_assessment,
+        insert_nikkei_source,
+        _get_nikkei_technical_score,
+        _get_nikkei_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_nikkei,
+    )
+except Exception:
+    # Define no-op stand‑ins if the Nikkei module is unavailable
+    def make_nikkei_figure(*args, **kwargs):
+        return go.Figure()
+
+    def insert_nikkei_technical_chart_with_callout(prs, *args, **kwargs):
+        return prs
+
+    def insert_nikkei_technical_chart(prs, *args, **kwargs):
+        return prs
+
+    def insert_nikkei_technical_score_number(prs, *args, **kwargs):
+        return prs
+
+    def insert_nikkei_momentum_score_number(prs, *args, **kwargs):
+        return prs
+
+    def insert_nikkei_subtitle(prs, *args, **kwargs):
+        return prs
+
+    def insert_nikkei_average_gauge(prs, *args, **kwargs):
+        return prs
+
+    def insert_nikkei_technical_assessment(prs, *args, **kwargs):
+        return prs
+
+    def insert_nikkei_source(prs, *args, **kwargs):
+        return prs
+
+    def _get_nikkei_technical_score(*args, **kwargs):
+        return None
+
+    def _get_nikkei_momentum_score(*args, **kwargs):
+        return None
+
+    # Fallback: if the Nikkei module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_nikkei(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import helper to adjust price data according to price mode.  The utils
 # module resides at the project root (e.g. ``ic/utils.py``) so that it can
@@ -540,7 +605,7 @@ def show_technical_analysis_page():
     # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
         # Remove stored anchors for SPX and CSI if present
-        for key in ["spx_anchor", "csi_anchor"]:
+        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor"]:
             if key in st.session_state:
                 st.session_state.pop(key)
         st.experimental_rerun()
@@ -551,7 +616,8 @@ def show_technical_analysis_page():
         # Allow the user to select which equity index they wish to analyse.  We
         # provide two options: S&P 500 and CSI 300.  The selection is stored
         # in session state to persist across reruns.
-        index_options = ["S&P 500", "CSI 300"]
+        # Provide index options.  Add Nikkei 225 alongside SPX and CSI.
+        index_options = ["S&P 500", "CSI 300", "Nikkei 225"]
         default_index = st.session_state.get("ta_equity_index", "S&P 500")
         selected_index = st.sidebar.selectbox(
             "Select equity index for technical analysis",
@@ -563,14 +629,20 @@ def show_technical_analysis_page():
         st.session_state["ta_equity_index"] = selected_index
 
         # Determine ticker and names based on the selected index
+        # Determine ticker and label keys based on the selected index
         if selected_index == "S&P 500":
             ticker = "SPX Index"
             ticker_key = "spx"
             chart_title = "S&P 500 Technical Chart"
-        else:
+        elif selected_index == "CSI 300":
             ticker = "SHSZ300 Index"
             ticker_key = "csi"
             chart_title = "CSI 300 Technical Chart"
+        else:
+            # Nikkei 225
+            ticker = "NKY Index"
+            ticker_key = "nikkei"
+            chart_title = "Nikkei 225 Technical Chart"
 
         # Load data for interactive chart (real or synthetic)
         if excel_available:
@@ -624,15 +696,19 @@ def show_technical_analysis_page():
                     # pandas can access the Excel multiple times reliably.
                     if selected_index == "S&P 500":
                         tech_score = _get_spx_technical_score(temp_path)
-                    else:
+                    elif selected_index == "CSI 300":
                         tech_score = _get_csi_technical_score(temp_path)
+                    else:
+                        tech_score = _get_nikkei_technical_score(temp_path)
                 except Exception:
                     tech_score = None
                 try:
                     if selected_index == "S&P 500":
                         mom_score = _get_spx_momentum_score(temp_path)
-                    else:
+                    elif selected_index == "CSI 300":
                         mom_score = _get_csi_momentum_score(temp_path)
+                    else:
+                        mom_score = _get_nikkei_momentum_score(temp_path)
                 except Exception:
                     mom_score = None
 
@@ -670,6 +746,15 @@ def show_technical_analysis_page():
                         key="csi_last_week_avg_input",
                     )
                     st.session_state["csi_last_week_avg"] = csi_last_week_input
+                else:
+                    nikkei_last_week_input = st.number_input(
+                        "Last week's average (DMAS)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=st.session_state.get("nikkei_last_week_avg", 50.0),
+                        key="nikkei_last_week_avg_input",
+                    )
+                    st.session_state["nikkei_last_week_avg"] = nikkei_last_week_input
             else:
                 st.info(
                     "Technical or momentum score not available in the uploaded Excel. "
@@ -683,7 +768,7 @@ def show_technical_analysis_page():
                 # prefer to use the implied volatility index (VIX) to estimate
                 # the expected one‑week move.  If the volatility data are
                 # unavailable or the index is not SPX, fall back to the
-                # ATR‑based range.
+                # realised‑volatility‑based range.
                 current_price = df_full["Price"].iloc[-1] if not df_full.empty else None
                 if current_price and not np.isnan(current_price):
                     use_implied = False
@@ -722,8 +807,15 @@ def show_technical_analysis_page():
                             lower_bound = current_price - half
                             upper_bound = current_price + half
                     else:
-                        # Fall back to ATR‑based range
-                        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=90)
+                        # Fall back to realised‑volatility‑based range depending on the selected index
+                        if selected_index == "S&P 500":
+                            upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
+                        elif selected_index == "CSI 300":
+                            upper_bound, lower_bound = _compute_range_bounds_csi(df_full, lookback_days=90)
+                        elif selected_index == "Nikkei 225":
+                            upper_bound, lower_bound = _compute_range_bounds_nikkei(df_full, lookback_days=90)
+                        else:
+                            upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     low_pct = (lower_bound - current_price) / current_price * 100.0
                     high_pct = (upper_bound - current_price) / current_price * 100.0
                     st.write(
@@ -731,8 +823,15 @@ def show_technical_analysis_page():
                         f"High {upper_bound:,.0f} ({high_pct:+.1f}%)"
                     )
                 else:
-                    # If no current price, just compute bounds normally
-                    upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=90)
+                    # If no current price, just compute bounds normally using the appropriate function
+                    if selected_index == "S&P 500":
+                        upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
+                    elif selected_index == "CSI 300":
+                        upper_bound, lower_bound = _compute_range_bounds_csi(df_full, lookback_days=90)
+                    elif selected_index == "Nikkei 225":
+                        upper_bound, lower_bound = _compute_range_bounds_nikkei(df_full, lookback_days=90)
+                    else:
+                        upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     st.write(
                         f"Trading range (90d): Low {lower_bound:,.0f} – High {upper_bound:,.0f}"
                     )
@@ -826,8 +925,10 @@ def show_technical_analysis_page():
                 pmode = st.session_state.get("price_mode", "Last Price")
                 if selected_index == "S&P 500":
                     fig = make_spx_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
-                else:
+                elif selected_index == "CSI 300":
                     fig = make_csi_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+                else:
+                    fig = make_nikkei_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             else:
                 df_ma = _add_moving_averages(df_full)
                 fig = _build_fallback_figure(df_ma, anchor_date=anchor_ts)
@@ -954,14 +1055,13 @@ def show_generate_presentation_page():
         )
 
 
-        # Determine which equity index was selected for technical analysis
+        # Determine which equity index was selected for technical analysis (not used here since we insert all indices)
         selected_index = st.session_state.get("ta_equity_index", "S&P 500")
 
-        # We will insert either the SPX or CSI technical analysis slides depending on the selected index.
-        # Retrieve the appropriate anchor, subtitle and last-week average values from session state.
-        # Note: anchors are stored under keys like 'spx_anchor' or 'csi_anchor'.
+        # Retrieve anchors for SPX, CSI and Nikkei slides
         spx_anchor_dt = st.session_state.get("spx_anchor")
         csi_anchor_dt = st.session_state.get("csi_anchor")
+        nikkei_anchor_dt = st.session_state.get("nikkei_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -1079,6 +1179,64 @@ def show_generate_presentation_page():
         prs = insert_csi_source(
             prs,
             used_date_csi,
+            pmode,
+        )
+
+        # ------------------------------------------------------------------
+        # Insert Nikkei technical analysis slide (always)
+        # ------------------------------------------------------------------
+        prs = insert_nikkei_technical_chart_with_callout(
+            prs,
+            excel_path_for_ppt,
+            nikkei_anchor_dt,
+            price_mode=pmode,
+        )
+        # Insert Nikkei technical score number
+        prs = insert_nikkei_technical_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert Nikkei momentum score number
+        prs = insert_nikkei_momentum_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert Nikkei subtitle from user input
+        prs = insert_nikkei_subtitle(
+            prs,
+            st.session_state.get("nikkei_subtitle", ""),
+        )
+        # Insert Nikkei average gauge (last week's average is 0–100)
+        nikkei_last_week_avg = st.session_state.get("nikkei_last_week_avg", 50.0)
+        prs = insert_nikkei_average_gauge(
+            prs,
+            excel_path_for_ppt,
+            nikkei_last_week_avg,
+        )
+        # Insert the technical assessment text into the 'nikkei_view' textbox
+        manual_view_nikkei = st.session_state.get("nikkei_selected_view")
+        prs = insert_nikkei_technical_assessment(
+            prs,
+            excel_path_for_ppt,
+            manual_desc=manual_view_nikkei,
+        )
+        # Compute used date for Nikkei source footnote
+        try:
+            import pandas as pd
+            df_prices_nikkei = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices_nikkei = df_prices_nikkei.drop(index=0)
+            df_prices_nikkei = df_prices_nikkei[df_prices_nikkei[df_prices_nikkei.columns[0]] != "DATES"]
+            df_prices_nikkei["Date"] = pd.to_datetime(df_prices_nikkei[df_prices_nikkei.columns[0]], errors="coerce")
+            df_prices_nikkei["Price"] = pd.to_numeric(df_prices_nikkei["NKY Index"], errors="coerce")
+            df_prices_nikkei = df_prices_nikkei.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            df_adj_nikkei, used_date_nikkei = adjust_prices_for_mode(df_prices_nikkei, pmode)
+        except Exception:
+            used_date_nikkei = None
+        prs = insert_nikkei_source(
+            prs,
+            used_date_nikkei,
             pmode,
         )
 
@@ -1307,12 +1465,12 @@ def show_generate_presentation_page():
         out_stream.seek(0)
         updated_bytes = out_stream.getvalue()
 
-        if st.session_state["pptx_file"].name.lower().endswith(".pptm"):
-            fname = "updated_presentation.pptm"
-            mime = "application/vnd.ms-powerpoint.presentation.macroEnabled.12"
-        else:
-            fname = "updated_presentation.pptx"
-            mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        # Always generate a macro‑free PowerPoint (.pptx).  Converting a
+        # macro‑enabled template (.pptm) to .pptx removes any embedded VBA
+        # projects and prevents runtime errors when opening the file.  The
+        # MIME type for .pptx files is used for all downloads.
+        fname = "updated_presentation.pptx"
+        mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
         st.sidebar.success("Updated presentation created successfully.")
         st.sidebar.download_button(
