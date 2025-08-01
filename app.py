@@ -176,6 +176,83 @@ except Exception:
     # Fallback: if the IBOV module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_ibov(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Gold functions from the dedicated module.  The Gold module resides
+# in ``technical_analysis/commodity/gold.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
+# To support running locally (e.g. when the technical_analysis package is
+# unavailable), a second import attempt is made from a top‑level ``gold``
+# module.  Fallbacks ensure the application remains functional even if the
+# Gold module cannot be imported.
+try:
+    from technical_analysis.commodity.gold import (
+        make_gold_figure,
+        insert_gold_technical_chart_with_callout,
+        insert_gold_technical_chart,
+        insert_gold_technical_score_number,
+        insert_gold_momentum_score_number,
+        insert_gold_subtitle,
+        insert_gold_average_gauge,
+        insert_gold_technical_assessment,
+        insert_gold_source,
+        _get_gold_technical_score,
+        _get_gold_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_gold,
+    )
+except Exception:
+    try:
+        from gold import (
+            make_gold_figure,
+            insert_gold_technical_chart_with_callout,
+            insert_gold_technical_chart,
+            insert_gold_technical_score_number,
+            insert_gold_momentum_score_number,
+            insert_gold_subtitle,
+            insert_gold_average_gauge,
+            insert_gold_technical_assessment,
+            insert_gold_source,
+            _get_gold_technical_score,
+            _get_gold_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_gold,
+        )
+    except Exception:
+        # Define no‑op stand‑ins if the Gold module is unavailable
+        def make_gold_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+
+        def insert_gold_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def _get_gold_technical_score(*args, **kwargs):  # type: ignore
+            return None
+
+        def _get_gold_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+
+        # Fallback: if the Gold module is unavailable, fall back to the SPX range computation
+        def _compute_range_bounds_gold(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
 except Exception:
     # Define no‑op stand‑ins if the SMI module is unavailable
     def make_smi_figure(*args, **kwargs):  # type: ignore
@@ -1390,9 +1467,287 @@ def show_technical_analysis_page():
                 "Green shading indicates an uptrend; red shading indicates a downtrend."
             )
 
+    elif asset_class == "Commodity":
+        # Delegate to the commodity technical analysis handler
+        show_commodity_technical_analysis()
     else:
+        # Fallback for unsupported asset classes (e.g. Crypto)
         with st.expander(f"{asset_class} technical charts", expanded=False):
             st.info(f"{asset_class} technical analysis not implemented yet.")
+
+
+def show_commodity_technical_analysis() -> None:
+    """Render the technical analysis interface for commodity assets such as Gold.
+
+    This function mirrors the equity technical analysis interface but is
+    customised for commodity tickers.  Currently only Gold is supported.
+    It handles data loading, score retrieval, DMAS computation, trading
+    range estimation using an implied volatility index (XAUUSDV1M),
+    regression channel controls, assessment selection, subtitle input and
+    interactive chart rendering.  State is persisted in
+    ``st.session_state`` to allow regeneration of the chart with the
+    regression channel anchored at a user‑selected date.
+    """
+    # Identify whether an Excel file has been uploaded
+    excel_available = "excel_file" in st.session_state
+
+    # Commodity selection (only Gold for now)
+    index_options = ["Gold"]
+    default_index = st.session_state.get("ta_commodity_index", "Gold")
+    selected_index = st.sidebar.selectbox(
+        "Select commodity for technical analysis",
+        options=index_options,
+        index=index_options.index(default_index) if default_index in index_options else 0,
+        key="ta_commodity_index_select",
+    )
+    # Persist the selected commodity
+    st.session_state["ta_commodity_index"] = selected_index
+
+    # Determine ticker and keys based on selection
+    if selected_index == "Gold":
+        ticker = "GCA Comdty"
+        ticker_key = "gold"
+        chart_title = "Gold Technical Chart"
+    else:
+        ticker = "GCA Comdty"
+        ticker_key = "gold"
+        chart_title = f"{selected_index} Technical Chart"
+
+    # Load price data (either from Excel or fallback synthetic)
+    if excel_available:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            tmp.write(st.session_state["excel_file"].getbuffer())
+            tmp.flush()
+            temp_path = Path(tmp.name)
+        # Read the data_prices sheet and tidy
+        df_prices = pd.read_excel(temp_path, sheet_name="data_prices")
+        df_prices = df_prices.drop(index=0)
+        df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
+        df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+        df_prices["Price"] = pd.to_numeric(df_prices[ticker], errors="coerce")
+        df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
+        # Adjust for price mode using the helper if available
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        if adjust_prices_for_mode is not None and price_mode:
+            try:
+                df_prices, used_date = adjust_prices_for_mode(df_prices, price_mode)
+            except Exception:
+                used_date = None
+        else:
+            used_date = None
+        df_full = df_prices.copy()
+        st.session_state[f"{ticker_key}_used_date"] = used_date
+    else:
+        # Use a synthetic SPX series as a fallback when no Excel is provided
+        df_prices = _create_synthetic_spx_series()
+        df_full = df_prices.copy()
+        used_date = None
+    # Determine min and max dates for regression channel controls
+    min_date = df_prices["Date"].min().date()
+    max_date = df_prices["Date"].max().date()
+
+    # Chart and controls
+    with st.expander(chart_title, expanded=True):
+        # Caption for date used
+        used_date = st.session_state.get(f"{ticker_key}_used_date")
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        if used_date is not None:
+            if price_mode == "Last Close":
+                st.caption(f"Prices as of {used_date.strftime('%d/%m/%Y')} close")
+            else:
+                st.caption(f"Prices as of {used_date.strftime('%d/%m/%Y')}")
+        # -----------------------------------------------------------------
+        # Technical and momentum scores
+        # -----------------------------------------------------------------
+        st.subheader("Technical and momentum scores")
+        tech_score: Optional[float] = None
+        mom_score: Optional[float] = None
+        if excel_available:
+            try:
+                if selected_index == "Gold":
+                    tech_score = _get_gold_technical_score(temp_path)
+            except Exception:
+                tech_score = None
+            try:
+                if selected_index == "Gold":
+                    mom_score = _get_gold_momentum_score(temp_path)
+            except Exception:
+                mom_score = None
+        # Compute DMAS if scores are available
+        dmas: Optional[float] = None
+        if tech_score is not None and mom_score is not None:
+            dmas = round((float(tech_score) + float(mom_score)) / 2.0, 1)
+            df_scores = pd.DataFrame(
+                {
+                    "Technical Score": [tech_score],
+                    "Momentum Score": [mom_score],
+                    "Average (DMAS)": [dmas],
+                }
+            )
+            st.table(df_scores)
+            # Allow user to input last week's DMAS for the gauge
+            gold_last_week_input = st.number_input(
+                "Last week's average (DMAS)",
+                min_value=0.0,
+                max_value=100.0,
+                value=st.session_state.get("gold_last_week_avg", 50.0),
+                key="gold_last_week_avg_input",
+            )
+            st.session_state["gold_last_week_avg"] = gold_last_week_input
+        else:
+            st.info(
+                "Technical or momentum score not available in the uploaded Excel. "
+                "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
+            )
+        # -----------------------------------------------------------------
+        # Trading range (90d) estimation
+        # -----------------------------------------------------------------
+        try:
+            current_price = df_full["Price"].iloc[-1] if not df_full.empty else None
+            if current_price is not None and not np.isnan(current_price):
+                use_implied = False
+                vol_val: Optional[float] = None
+                # Attempt to use implied volatility via XAUUSDV1M BGN Curncy
+                if selected_index == "Gold":
+                    try:
+                        df_vol = pd.read_excel(temp_path, sheet_name="data_prices")
+                        df_vol = df_vol.drop(index=0)
+                        df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
+                        df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
+                        if "XAUUSDV1M BGN Curncy" in df_vol.columns:
+                            df_vol["Price"] = pd.to_numeric(df_vol["XAUUSDV1M BGN Curncy"], errors="coerce")
+                            df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
+                            pm = st.session_state.get("price_mode", "Last Price")
+                            if adjust_prices_for_mode is not None:
+                                try:
+                                    df_vol, _ = adjust_prices_for_mode(df_vol, pm)
+                                except Exception:
+                                    pass
+                            if not df_vol.empty:
+                                vol_val = float(df_vol["Price"].iloc[-1])
+                                use_implied = True
+                    except Exception:
+                        use_implied = False
+                # If implied vol available, compute expected move
+                if use_implied and vol_val is not None:
+                    expected_move = (current_price * (vol_val / 100.0)) / np.sqrt(52.0)
+                    lower_bound = current_price - expected_move
+                    upper_bound = current_price + expected_move
+                    min_span = 0.02 * current_price
+                    if (upper_bound - lower_bound) < min_span:
+                        half = min_span / 2.0
+                        lower_bound = current_price - half
+                        upper_bound = current_price + half
+                else:
+                    # Fallback to realised volatility
+                    upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
+                low_pct = (lower_bound - current_price) / current_price * 100.0
+                high_pct = (upper_bound - current_price) / current_price * 100.0
+                st.write(
+                    f"Trading range (90d): Low {lower_bound:,.0f} ({low_pct:+.1f}%), "
+                    f"High {upper_bound:,.0f} ({high_pct:+.1f}%)"
+                )
+            else:
+                upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
+                st.write(
+                    f"Trading range (90d): Low {lower_bound:,.0f} – High {upper_bound:,.0f}"
+                )
+        except Exception:
+            pass
+        # -----------------------------------------------------------------
+        # Regression channel controls
+        # -----------------------------------------------------------------
+        enable_channel = st.checkbox(
+            "Enable regression channel",
+            value=bool(st.session_state.get(f"{ticker_key}_anchor")),
+            key=f"{ticker_key}_enable_channel",
+        )
+        anchor_ts: Optional[pd.Timestamp] = None
+        if enable_channel:
+            default_anchor = st.session_state.get(
+                f"{ticker_key}_anchor",
+                (max_date - pd.Timedelta(days=180)),
+            )
+            anchor_input = st.date_input(
+                "Select anchor date",
+                value=default_anchor,
+                min_value=min_date,
+                max_value=max_date,
+                key=f"{ticker_key}_anchor_date_input",
+            )
+            anchor_ts = pd.to_datetime(anchor_input)
+            st.session_state[f"{ticker_key}_anchor"] = anchor_ts
+        else:
+            if f"{ticker_key}_anchor" in st.session_state:
+                st.session_state.pop(f"{ticker_key}_anchor")
+            anchor_ts = None
+        # -----------------------------------------------------------------
+        # Assessment selection
+        # -----------------------------------------------------------------
+        if tech_score is not None and mom_score is not None and dmas is not None:
+            options = [
+                "Strongly Bearish",
+                "Bearish",
+                "Slightly Bearish",
+                "Neutral",
+                "Slightly Bullish",
+                "Bullish",
+                "Strongly Bullish",
+            ]
+            def _default_index_from_dmas(val: float) -> int:
+                if val >= 80:
+                    return options.index("Strongly Bullish")
+                elif val >= 70:
+                    return options.index("Bullish")
+                elif val >= 60:
+                    return options.index("Slightly Bullish")
+                elif val >= 40:
+                    return options.index("Neutral")
+                elif val >= 30:
+                    return options.index("Slightly Bearish")
+                elif val >= 20:
+                    return options.index("Bearish")
+                else:
+                    return options.index("Strongly Bearish")
+            default_idx = _default_index_from_dmas(dmas)
+            user_view = st.selectbox(
+                "Select your assessment",
+                options,
+                index=default_idx,
+                key=f"{ticker_key}_view_select",
+            )
+            st.session_state[f"{ticker_key}_selected_view"] = user_view
+            st.caption(
+                "Your selection will override the automatically computed view in the presentation."
+            )
+        # -----------------------------------------------------------------
+        # Subtitle input
+        # -----------------------------------------------------------------
+        subtitle_value = st.text_input(
+            f"{ticker_key.upper()} subtitle",
+            value=st.session_state.get(f"{ticker_key}_subtitle", ""),
+            key=f"{ticker_key}_subtitle_input",
+        )
+        st.session_state[f"{ticker_key}_subtitle"] = subtitle_value
+        # -----------------------------------------------------------------
+        # Interactive chart
+        # -----------------------------------------------------------------
+        if excel_available:
+            pmode = st.session_state.get("price_mode", "Last Price")
+            if selected_index == "Gold":
+                fig = make_gold_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+            else:
+                fig = make_gold_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+        else:
+            # Fallback: compute simple MA and regression channel on synthetic data
+            from technical_analysis.equity.spx import _add_moving_averages, _build_fallback_figure  # type: ignore
+            df_ma = _add_moving_averages(df_full)
+            fig = _build_fallback_figure(df_ma, anchor_date=anchor_ts)
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(
+            "Use the controls above to enable and configure the regression channel. "
+            "Green shading indicates an uptrend; red shading indicates a downtrend."
+        )
 
 
 def show_generate_presentation_page():
@@ -1518,6 +1873,8 @@ def show_generate_presentation_page():
         dax_anchor_dt = st.session_state.get("dax_anchor")
         smi_anchor_dt = st.session_state.get("smi_anchor")
         ibov_anchor_dt = st.session_state.get("ibov_anchor")
+        # Anchor for Gold regression channel (commodity)
+        gold_anchor_dt = st.session_state.get("gold_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -1991,6 +2348,70 @@ def show_generate_presentation_page():
             used_date_ibov,
             pmode,
         )
+
+        # ------------------------------------------------------------------
+        # Insert Gold technical analysis slide (commodity)
+        # ------------------------------------------------------------------
+        # Only attempt if Gold helper functions are available (imported above)
+        try:
+            # Insert the Gold chart with call-out and regression channel anchored at gold_anchor_dt
+            prs = insert_gold_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                gold_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Gold technical and momentum scores
+            prs = insert_gold_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_gold_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Gold subtitle from user input
+            prs = insert_gold_subtitle(
+                prs,
+                st.session_state.get("gold_subtitle", ""),
+            )
+            # Insert Gold average gauge (last week's average DMAS)
+            gold_last_week_avg = st.session_state.get("gold_last_week_avg", 50.0)
+            prs = insert_gold_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                gold_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'gold_view' textbox
+            manual_view_gold = st.session_state.get("gold_selected_view")
+            prs = insert_gold_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_gold,
+            )
+            # Compute used date for Gold source footnote
+            try:
+                import pandas as pd
+                df_prices_gold = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_gold = df_prices_gold.drop(index=0)
+                df_prices_gold = df_prices_gold[df_prices_gold[df_prices_gold.columns[0]] != "DATES"]
+                df_prices_gold["Date"] = pd.to_datetime(df_prices_gold[df_prices_gold.columns[0]], errors="coerce")
+                # Use the GCA Comdty column for Gold prices
+                df_prices_gold["Price"] = pd.to_numeric(df_prices_gold["GCA Comdty"], errors="coerce")
+                df_prices_gold = df_prices_gold.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_gold, used_date_gold = adjust_prices_for_mode(df_prices_gold, pmode)
+            except Exception:
+                used_date_gold = None
+            prs = insert_gold_source(
+                prs,
+                used_date_gold,
+                pmode,
+            )
+        except Exception:
+            # If Gold module is unavailable or insertion fails, continue without error
+            pass
 
         # When CSI 300 is the selected index, the technical analysis slides
         # for CSI have already been inserted in the branch above.  Avoid
