@@ -253,6 +253,67 @@ except Exception:
         # Fallback: if the Gold module is unavailable, fall back to the SPX range computation
         def _compute_range_bounds_gold(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Silver functions from the dedicated module.  Similar to Gold, these
+# helpers reside in ``technical_analysis/commodity/silver.py``.  If that
+# package is unavailable, a second attempt is made to import a top‑level
+# ``silver`` module.  No‑op fallbacks are defined if both imports fail.
+try:
+    from technical_analysis.commodity.silver import (
+        make_silver_figure,
+        insert_silver_technical_chart_with_callout,
+        insert_silver_technical_chart,
+        insert_silver_technical_score_number,
+        insert_silver_momentum_score_number,
+        insert_silver_subtitle,
+        insert_silver_average_gauge,
+        insert_silver_technical_assessment,
+        insert_silver_source,
+        _get_silver_technical_score,
+        _get_silver_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_silver,
+    )
+except Exception:
+    try:
+        from silver import (
+            make_silver_figure,
+            insert_silver_technical_chart_with_callout,
+            insert_silver_technical_chart,
+            insert_silver_technical_score_number,
+            insert_silver_momentum_score_number,
+            insert_silver_subtitle,
+            insert_silver_average_gauge,
+            insert_silver_technical_assessment,
+            insert_silver_source,
+            _get_silver_technical_score,
+            _get_silver_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_silver,
+        )
+    except Exception:
+        def make_silver_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_silver_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_silver_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_silver_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_silver(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
 except Exception:
     # Define no‑op stand‑ins if the SMI module is unavailable
     def make_smi_figure(*args, **kwargs):  # type: ignore
@@ -1491,8 +1552,8 @@ def show_commodity_technical_analysis() -> None:
     # Identify whether an Excel file has been uploaded
     excel_available = "excel_file" in st.session_state
 
-    # Commodity selection (only Gold for now)
-    index_options = ["Gold"]
+    # Commodity selection (Gold and Silver)
+    index_options = ["Gold", "Silver"]
     default_index = st.session_state.get("ta_commodity_index", "Gold")
     selected_index = st.sidebar.selectbox(
         "Select commodity for technical analysis",
@@ -1508,6 +1569,10 @@ def show_commodity_technical_analysis() -> None:
         ticker = "GCA Comdty"
         ticker_key = "gold"
         chart_title = "Gold Technical Chart"
+    elif selected_index == "Silver":
+        ticker = "SIA Comdty"
+        ticker_key = "silver"
+        chart_title = "Silver Technical Chart"
     else:
         ticker = "GCA Comdty"
         ticker_key = "gold"
@@ -1566,11 +1631,15 @@ def show_commodity_technical_analysis() -> None:
             try:
                 if selected_index == "Gold":
                     tech_score = _get_gold_technical_score(temp_path)
+                elif selected_index == "Silver":
+                    tech_score = _get_silver_technical_score(temp_path)
             except Exception:
                 tech_score = None
             try:
                 if selected_index == "Gold":
                     mom_score = _get_gold_momentum_score(temp_path)
+                elif selected_index == "Silver":
+                    mom_score = _get_silver_momentum_score(temp_path)
             except Exception:
                 mom_score = None
         # Compute DMAS if scores are available
@@ -1585,15 +1654,18 @@ def show_commodity_technical_analysis() -> None:
                 }
             )
             st.table(df_scores)
-            # Allow user to input last week's DMAS for the gauge
-            gold_last_week_input = st.number_input(
+            # Allow user to input last week's DMAS for the gauge. Use a key based on the commodity
+            gauge_key = f"{ticker_key}_last_week_avg"
+            gauge_input_key = f"{ticker_key}_last_week_avg_input"
+            last_week_default = st.session_state.get(gauge_key, 50.0)
+            last_week_input = st.number_input(
                 "Last week's average (DMAS)",
                 min_value=0.0,
                 max_value=100.0,
-                value=st.session_state.get("gold_last_week_avg", 50.0),
-                key="gold_last_week_avg_input",
+                value=last_week_default,
+                key=gauge_input_key,
             )
-            st.session_state["gold_last_week_avg"] = gold_last_week_input
+            st.session_state[gauge_key] = last_week_input
         else:
             st.info(
                 "Technical or momentum score not available in the uploaded Excel. "
@@ -1607,15 +1679,20 @@ def show_commodity_technical_analysis() -> None:
             if current_price is not None and not np.isnan(current_price):
                 use_implied = False
                 vol_val: Optional[float] = None
-                # Attempt to use implied volatility via XAUUSDV1M BGN Curncy
+                # Attempt to use implied volatility via XAUUSDV1M BGN Curncy (Gold) or XAGUSDV1M BGN Curncy (Silver)
+                vol_col_name = None
                 if selected_index == "Gold":
+                    vol_col_name = "XAUUSDV1M BGN Curncy"
+                elif selected_index == "Silver":
+                    vol_col_name = "XAGUSDV1M BGN Curncy"
+                if vol_col_name is not None:
                     try:
                         df_vol = pd.read_excel(temp_path, sheet_name="data_prices")
                         df_vol = df_vol.drop(index=0)
                         df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
                         df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
-                        if "XAUUSDV1M BGN Curncy" in df_vol.columns:
-                            df_vol["Price"] = pd.to_numeric(df_vol["XAUUSDV1M BGN Curncy"], errors="coerce")
+                        if vol_col_name in df_vol.columns:
+                            df_vol["Price"] = pd.to_numeric(df_vol[vol_col_name], errors="coerce")
                             df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
                             pm = st.session_state.get("price_mode", "Last Price")
                             if adjust_prices_for_mode is not None:
@@ -1640,7 +1717,10 @@ def show_commodity_technical_analysis() -> None:
                         upper_bound = current_price + half
                 else:
                     # Fallback to realised volatility
-                    upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
+                    if selected_index == "Gold":
+                        upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
+                    else:
+                        upper_bound, lower_bound = _compute_range_bounds_silver(df_full, lookback_days=90)
                 low_pct = (lower_bound - current_price) / current_price * 100.0
                 high_pct = (upper_bound - current_price) / current_price * 100.0
                 st.write(
@@ -1648,7 +1728,10 @@ def show_commodity_technical_analysis() -> None:
                     f"High {upper_bound:,.0f} ({high_pct:+.1f}%)"
                 )
             else:
-                upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
+                if selected_index == "Gold":
+                    upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
+                else:
+                    upper_bound, lower_bound = _compute_range_bounds_silver(df_full, lookback_days=90)
                 st.write(
                     f"Trading range (90d): Low {lower_bound:,.0f} – High {upper_bound:,.0f}"
                 )
@@ -1737,7 +1820,8 @@ def show_commodity_technical_analysis() -> None:
             if selected_index == "Gold":
                 fig = make_gold_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             else:
-                fig = make_gold_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+                # Use the Silver chart builder for Silver
+                fig = make_silver_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
         else:
             # Fallback: compute simple MA and regression channel on synthetic data
             from technical_analysis.equity.spx import _add_moving_averages, _build_fallback_figure  # type: ignore
@@ -1875,6 +1959,8 @@ def show_generate_presentation_page():
         ibov_anchor_dt = st.session_state.get("ibov_anchor")
         # Anchor for Gold regression channel (commodity)
         gold_anchor_dt = st.session_state.get("gold_anchor")
+        # Anchor for Silver regression channel (commodity)
+        silver_anchor_dt = st.session_state.get("silver_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -2410,7 +2496,63 @@ def show_generate_presentation_page():
                 pmode,
             )
         except Exception:
-            # If Gold module is unavailable or insertion fails, continue without error
+            # If any part of the Gold insertion fails, continue to Silver without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Silver technical analysis slide (commodity)
+        # ------------------------------------------------------------------
+        try:
+            prs = insert_silver_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                silver_anchor_dt,
+                price_mode=pmode,
+            )
+            prs = insert_silver_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_silver_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_silver_subtitle(
+                prs,
+                st.session_state.get("silver_subtitle", ""),
+            )
+            silver_last_week_avg = st.session_state.get("silver_last_week_avg", 50.0)
+            prs = insert_silver_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                silver_last_week_avg,
+            )
+            manual_view_silver = st.session_state.get("silver_selected_view")
+            prs = insert_silver_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_silver,
+            )
+            try:
+                import pandas as pd
+                df_prices_silver = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_silver = df_prices_silver.drop(index=0)
+                df_prices_silver = df_prices_silver[df_prices_silver[df_prices_silver.columns[0]] != "DATES"]
+                df_prices_silver["Date"] = pd.to_datetime(df_prices_silver[df_prices_silver.columns[0]], errors="coerce")
+                df_prices_silver["Price"] = pd.to_numeric(df_prices_silver["SIA Comdty"], errors="coerce")
+                df_prices_silver = df_prices_silver.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_silver, used_date_silver = adjust_prices_for_mode(df_prices_silver, pmode)
+            except Exception:
+                used_date_silver = None
+            prs = insert_silver_source(
+                prs,
+                used_date_silver,
+                pmode,
+            )
+        except Exception:
+            # If Gold or Silver module is unavailable or insertion fails, continue without error
             pass
 
         # When CSI 300 is the selected index, the technical analysis slides
