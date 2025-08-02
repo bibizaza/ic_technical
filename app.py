@@ -414,6 +414,129 @@ except Exception:
     def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import Oil functions from the dedicated module.  Similar to Gold, Silver and Platinum,
+# these helpers reside in ``technical_analysis/commodity/oil.py``.  If that
+# package is unavailable, a second attempt is made to import a top‑level
+# ``oil`` module.  No‑op fallbacks are defined if both imports fail.
+try:
+    from technical_analysis.commodity.oil import (
+        make_oil_figure,
+        insert_oil_technical_chart_with_callout,
+        insert_oil_technical_chart,
+        insert_oil_technical_score_number,
+        insert_oil_momentum_score_number,
+        insert_oil_subtitle,
+        insert_oil_average_gauge,
+        insert_oil_technical_assessment,
+        insert_oil_source,
+        _get_oil_technical_score,
+        _get_oil_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_oil,
+    )
+except Exception:
+    try:
+        from oil import (
+            make_oil_figure,
+            insert_oil_technical_chart_with_callout,
+            insert_oil_technical_chart,
+            insert_oil_technical_score_number,
+            insert_oil_momentum_score_number,
+            insert_oil_subtitle,
+            insert_oil_average_gauge,
+            insert_oil_technical_assessment,
+            insert_oil_source,
+            _get_oil_technical_score,
+            _get_oil_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_oil,
+        )
+    except Exception:
+        def make_oil_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_oil_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_oil_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_oil_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_oil(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Copper functions from the dedicated module.  Similar to other commodities,
+# helpers reside in ``technical_analysis/commodity/copper.py``.  If that package
+# is unavailable, a second attempt is made to import a top‑level ``copper``
+# module.  Fallback functions ensure the application remains functional when
+# copper analysis is not available.
+try:
+    from technical_analysis.commodity.copper import (
+        make_copper_figure,
+        insert_copper_technical_chart_with_callout,
+        insert_copper_technical_chart,
+        insert_copper_technical_score_number,
+        insert_copper_momentum_score_number,
+        insert_copper_subtitle,
+        insert_copper_average_gauge,
+        insert_copper_technical_assessment,
+        insert_copper_source,
+        _get_copper_technical_score,
+        _get_copper_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_copper,
+    )
+except Exception:
+    try:
+        from copper import (
+            make_copper_figure,
+            insert_copper_technical_chart_with_callout,
+            insert_copper_technical_chart,
+            insert_copper_technical_score_number,
+            insert_copper_momentum_score_number,
+            insert_copper_subtitle,
+            insert_copper_average_gauge,
+            insert_copper_technical_assessment,
+            insert_copper_source,
+            _get_copper_technical_score,
+            _get_copper_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_copper,
+        )
+    except Exception:
+        def make_copper_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_copper_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_copper_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_copper_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_copper(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import CSI functions from the dedicated module.  The CSI module resides
 # in ``technical_analysis/equity/csi.py`` and provides helper functions
 # analogous to the SPX functions.  These allow technical analysis of the
@@ -1614,8 +1737,8 @@ def show_commodity_technical_analysis() -> None:
     excel_available = "excel_file" in st.session_state
 
     # Commodity selection (Gold and Silver)
-    # Include Gold, Silver and Platinum in the commodity options
-    index_options = ["Gold", "Silver", "Platinum"]
+    # Include Gold, Silver, Platinum, Oil and Copper in the commodity options
+    index_options = ["Gold", "Silver", "Platinum", "Oil", "Copper"]
     default_index = st.session_state.get("ta_commodity_index", "Gold")
     selected_index = st.sidebar.selectbox(
         "Select commodity for technical analysis",
@@ -1639,6 +1762,14 @@ def show_commodity_technical_analysis() -> None:
         ticker = "XPT Comdty"
         ticker_key = "platinum"
         chart_title = "Platinum Technical Chart"
+    elif selected_index == "Oil":
+        ticker = "CL1 Comdty"
+        ticker_key = "oil"
+        chart_title = "Oil Technical Chart"
+    elif selected_index == "Copper":
+        ticker = "LP1 Comdty"
+        ticker_key = "copper"
+        chart_title = "Copper Technical Chart"
     else:
         # Default back to Gold if an unknown commodity is selected
         ticker = "GCA Comdty"
@@ -1702,6 +1833,10 @@ def show_commodity_technical_analysis() -> None:
                     tech_score = _get_silver_technical_score(temp_path)
                 elif selected_index == "Platinum":
                     tech_score = _get_platinum_technical_score(temp_path)
+                elif selected_index == "Oil":
+                    tech_score = _get_oil_technical_score(temp_path)
+                elif selected_index == "Copper":
+                    tech_score = _get_copper_technical_score(temp_path)
             except Exception:
                 tech_score = None
             try:
@@ -1711,6 +1846,10 @@ def show_commodity_technical_analysis() -> None:
                     mom_score = _get_silver_momentum_score(temp_path)
                 elif selected_index == "Platinum":
                     mom_score = _get_platinum_momentum_score(temp_path)
+                elif selected_index == "Oil":
+                    mom_score = _get_oil_momentum_score(temp_path)
+                elif selected_index == "Copper":
+                    mom_score = _get_copper_momentum_score(temp_path)
             except Exception:
                 mom_score = None
         # Compute DMAS if scores are available
@@ -1758,6 +1897,12 @@ def show_commodity_technical_analysis() -> None:
                     vol_col_name = "XAGUSDV1M BGN Curncy"
                 elif selected_index == "Platinum":
                     vol_col_name = "XPTUSDV1M BGN Curncy"
+                elif selected_index == "Oil":
+                    # Oil implied volatility index column
+                    vol_col_name = "WTI US 1M 50D VOL BVOL Equity"
+                else:
+                    # Copper implied volatility index column
+                    vol_col_name = "LPR1 Index"
                 if vol_col_name is not None:
                     try:
                         df_vol = pd.read_excel(temp_path, sheet_name="data_prices")
@@ -1789,14 +1934,18 @@ def show_commodity_technical_analysis() -> None:
                         lower_bound = current_price - half
                         upper_bound = current_price + half
                 else:
-                    # Fallback to realised volatility
+                    # Fallback to realised volatility when implied vol is unavailable
                     if selected_index == "Gold":
                         upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
                     elif selected_index == "Silver":
                         upper_bound, lower_bound = _compute_range_bounds_silver(df_full, lookback_days=90)
-                    else:
-                        # Platinum
+                    elif selected_index == "Platinum":
                         upper_bound, lower_bound = _compute_range_bounds_platinum(df_full, lookback_days=90)
+                    elif selected_index == "Oil":
+                        upper_bound, lower_bound = _compute_range_bounds_oil(df_full, lookback_days=90)
+                    else:
+                        # Copper (or any other commodity default)
+                        upper_bound, lower_bound = _compute_range_bounds_copper(df_full, lookback_days=90)
                 low_pct = (lower_bound - current_price) / current_price * 100.0
                 high_pct = (upper_bound - current_price) / current_price * 100.0
                 st.write(
@@ -1808,9 +1957,13 @@ def show_commodity_technical_analysis() -> None:
                     upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
                 elif selected_index == "Silver":
                     upper_bound, lower_bound = _compute_range_bounds_silver(df_full, lookback_days=90)
-                else:
-                    # Platinum
+                elif selected_index == "Platinum":
                     upper_bound, lower_bound = _compute_range_bounds_platinum(df_full, lookback_days=90)
+                elif selected_index == "Oil":
+                    upper_bound, lower_bound = _compute_range_bounds_oil(df_full, lookback_days=90)
+                else:
+                    # Copper (or other commodity)
+                    upper_bound, lower_bound = _compute_range_bounds_copper(df_full, lookback_days=90)
                 st.write(
                     f"Trading range (90d): Low {lower_bound:,.0f} – High {upper_bound:,.0f}"
                 )
@@ -1900,9 +2053,15 @@ def show_commodity_technical_analysis() -> None:
                 fig = make_gold_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             elif selected_index == "Silver":
                 fig = make_silver_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
-            else:
-                # Use the Platinum chart builder for Platinum
+            elif selected_index == "Platinum":
                 fig = make_platinum_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+            elif selected_index == "Oil":
+                fig = make_oil_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+            elif selected_index == "Copper":
+                fig = make_copper_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+            else:
+                # Fallback: show an empty figure if unknown commodity
+                fig = go.Figure()
         else:
             # Fallback: compute simple MA and regression channel on synthetic data
             from technical_analysis.equity.spx import _add_moving_averages, _build_fallback_figure  # type: ignore
@@ -2044,6 +2203,10 @@ def show_generate_presentation_page():
         silver_anchor_dt = st.session_state.get("silver_anchor")
         # Anchor for Platinum regression channel (commodity)
         platinum_anchor_dt = st.session_state.get("platinum_anchor")
+        # Anchor for Oil regression channel (commodity)
+        oil_anchor_dt = st.session_state.get("oil_anchor")
+        # Anchor for Copper regression channel (commodity)
+        copper_anchor_dt = st.session_state.get("copper_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -2709,6 +2872,152 @@ def show_generate_presentation_page():
             )
         except Exception:
             # If Platinum module is unavailable or insertion fails, continue without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Oil technical analysis slide (commodity)
+        # ------------------------------------------------------------------
+        try:
+            # Insert the Oil chart with call-out and regression channel anchored at oil_anchor_dt
+            prs = insert_oil_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                oil_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Oil technical and momentum scores
+            prs = insert_oil_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_oil_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Oil subtitle from user input
+            prs = insert_oil_subtitle(
+                prs,
+                st.session_state.get("oil_subtitle", ""),
+            )
+            # Insert Oil average gauge (last week's average DMAS)
+            oil_last_week_avg = st.session_state.get("oil_last_week_avg", 50.0)
+            prs = insert_oil_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                oil_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'oil_view' textbox
+            manual_view_oil = st.session_state.get("oil_selected_view")
+            prs = insert_oil_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_oil,
+            )
+            # Compute used date for Oil source footnote
+            try:
+                import pandas as pd
+                df_prices_oil = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_oil = df_prices_oil.drop(index=0)
+                df_prices_oil = df_prices_oil[
+                    df_prices_oil[df_prices_oil.columns[0]] != "DATES"
+                ]
+                df_prices_oil["Date"] = pd.to_datetime(
+                    df_prices_oil[df_prices_oil.columns[0]], errors="coerce"
+                )
+                # Use the CL1 Comdty column for Oil prices
+                df_prices_oil["Price"] = pd.to_numeric(
+                    df_prices_oil["CL1 Comdty"], errors="coerce"
+                )
+                df_prices_oil = df_prices_oil.dropna(subset=["Date", "Price"]).sort_values(
+                    "Date"
+                ).reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_oil, used_date_oil = adjust_prices_for_mode(
+                    df_prices_oil, pmode
+                )
+            except Exception:
+                used_date_oil = None
+            prs = insert_oil_source(
+                prs,
+                used_date_oil,
+                pmode,
+            )
+        except Exception:
+            # If Oil module is unavailable or insertion fails, continue without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Copper technical analysis slide (commodity)
+        # ------------------------------------------------------------------
+        try:
+            # Insert the Copper chart with call-out and regression channel anchored at copper_anchor_dt
+            prs = insert_copper_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                copper_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Copper technical and momentum scores
+            prs = insert_copper_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_copper_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Copper subtitle from user input
+            prs = insert_copper_subtitle(
+                prs,
+                st.session_state.get("copper_subtitle", ""),
+            )
+            # Insert Copper average gauge (last week's average DMAS)
+            copper_last_week_avg = st.session_state.get("copper_last_week_avg", 50.0)
+            prs = insert_copper_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                copper_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'copper_view' textbox
+            manual_view_copper = st.session_state.get("copper_selected_view")
+            prs = insert_copper_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_copper,
+            )
+            # Compute used date for Copper source footnote
+            try:
+                import pandas as pd
+                df_prices_copper = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_copper = df_prices_copper.drop(index=0)
+                df_prices_copper = df_prices_copper[
+                    df_prices_copper[df_prices_copper.columns[0]] != "DATES"
+                ]
+                df_prices_copper["Date"] = pd.to_datetime(
+                    df_prices_copper[df_prices_copper.columns[0]], errors="coerce"
+                )
+                # Use the LP1 Comdty column for Copper prices
+                df_prices_copper["Price"] = pd.to_numeric(
+                    df_prices_copper["LP1 Comdty"], errors="coerce"
+                )
+                df_prices_copper = df_prices_copper.dropna(subset=["Date", "Price"]).sort_values(
+                    "Date"
+                ).reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_copper, used_date_copper = adjust_prices_for_mode(
+                    df_prices_copper, pmode
+                )
+            except Exception:
+                used_date_copper = None
+            prs = insert_copper_source(
+                prs,
+                used_date_copper,
+                pmode,
+            )
+        except Exception:
+            # If Copper module is unavailable or insertion fails, continue without error
             pass
 
         # When CSI 300 is the selected index, the technical analysis slides
