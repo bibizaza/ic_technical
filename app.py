@@ -314,6 +314,67 @@ except Exception:
             return None
         def _compute_range_bounds_silver(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Platinum functions from the dedicated module.  Similar to Gold and Silver,
+# these helpers reside in ``technical_analysis/commodity/platinum.py``.  If that
+# package is unavailable, a second attempt is made to import a top‑level
+# ``platinum`` module.  No‑op fallbacks are defined if both imports fail.
+try:
+    from technical_analysis.commodity.platinum import (
+        make_platinum_figure,
+        insert_platinum_technical_chart_with_callout,
+        insert_platinum_technical_chart,
+        insert_platinum_technical_score_number,
+        insert_platinum_momentum_score_number,
+        insert_platinum_subtitle,
+        insert_platinum_average_gauge,
+        insert_platinum_technical_assessment,
+        insert_platinum_source,
+        _get_platinum_technical_score,
+        _get_platinum_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_platinum,
+    )
+except Exception:
+    try:
+        from platinum import (
+            make_platinum_figure,
+            insert_platinum_technical_chart_with_callout,
+            insert_platinum_technical_chart,
+            insert_platinum_technical_score_number,
+            insert_platinum_momentum_score_number,
+            insert_platinum_subtitle,
+            insert_platinum_average_gauge,
+            insert_platinum_technical_assessment,
+            insert_platinum_source,
+            _get_platinum_technical_score,
+            _get_platinum_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_platinum,
+        )
+    except Exception:
+        def make_platinum_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_platinum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_platinum_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_platinum_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_platinum(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
 except Exception:
     # Define no‑op stand‑ins if the SMI module is unavailable
     def make_smi_figure(*args, **kwargs):  # type: ignore
@@ -1553,7 +1614,8 @@ def show_commodity_technical_analysis() -> None:
     excel_available = "excel_file" in st.session_state
 
     # Commodity selection (Gold and Silver)
-    index_options = ["Gold", "Silver"]
+    # Include Gold, Silver and Platinum in the commodity options
+    index_options = ["Gold", "Silver", "Platinum"]
     default_index = st.session_state.get("ta_commodity_index", "Gold")
     selected_index = st.sidebar.selectbox(
         "Select commodity for technical analysis",
@@ -1573,7 +1635,12 @@ def show_commodity_technical_analysis() -> None:
         ticker = "SIA Comdty"
         ticker_key = "silver"
         chart_title = "Silver Technical Chart"
+    elif selected_index == "Platinum":
+        ticker = "XPT Comdty"
+        ticker_key = "platinum"
+        chart_title = "Platinum Technical Chart"
     else:
+        # Default back to Gold if an unknown commodity is selected
         ticker = "GCA Comdty"
         ticker_key = "gold"
         chart_title = f"{selected_index} Technical Chart"
@@ -1633,6 +1700,8 @@ def show_commodity_technical_analysis() -> None:
                     tech_score = _get_gold_technical_score(temp_path)
                 elif selected_index == "Silver":
                     tech_score = _get_silver_technical_score(temp_path)
+                elif selected_index == "Platinum":
+                    tech_score = _get_platinum_technical_score(temp_path)
             except Exception:
                 tech_score = None
             try:
@@ -1640,6 +1709,8 @@ def show_commodity_technical_analysis() -> None:
                     mom_score = _get_gold_momentum_score(temp_path)
                 elif selected_index == "Silver":
                     mom_score = _get_silver_momentum_score(temp_path)
+                elif selected_index == "Platinum":
+                    mom_score = _get_platinum_momentum_score(temp_path)
             except Exception:
                 mom_score = None
         # Compute DMAS if scores are available
@@ -1685,6 +1756,8 @@ def show_commodity_technical_analysis() -> None:
                     vol_col_name = "XAUUSDV1M BGN Curncy"
                 elif selected_index == "Silver":
                     vol_col_name = "XAGUSDV1M BGN Curncy"
+                elif selected_index == "Platinum":
+                    vol_col_name = "XPTUSDV1M BGN Curncy"
                 if vol_col_name is not None:
                     try:
                         df_vol = pd.read_excel(temp_path, sheet_name="data_prices")
@@ -1719,8 +1792,11 @@ def show_commodity_technical_analysis() -> None:
                     # Fallback to realised volatility
                     if selected_index == "Gold":
                         upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
-                    else:
+                    elif selected_index == "Silver":
                         upper_bound, lower_bound = _compute_range_bounds_silver(df_full, lookback_days=90)
+                    else:
+                        # Platinum
+                        upper_bound, lower_bound = _compute_range_bounds_platinum(df_full, lookback_days=90)
                 low_pct = (lower_bound - current_price) / current_price * 100.0
                 high_pct = (upper_bound - current_price) / current_price * 100.0
                 st.write(
@@ -1730,8 +1806,11 @@ def show_commodity_technical_analysis() -> None:
             else:
                 if selected_index == "Gold":
                     upper_bound, lower_bound = _compute_range_bounds_gold(df_full, lookback_days=90)
-                else:
+                elif selected_index == "Silver":
                     upper_bound, lower_bound = _compute_range_bounds_silver(df_full, lookback_days=90)
+                else:
+                    # Platinum
+                    upper_bound, lower_bound = _compute_range_bounds_platinum(df_full, lookback_days=90)
                 st.write(
                     f"Trading range (90d): Low {lower_bound:,.0f} – High {upper_bound:,.0f}"
                 )
@@ -1819,9 +1898,11 @@ def show_commodity_technical_analysis() -> None:
             pmode = st.session_state.get("price_mode", "Last Price")
             if selected_index == "Gold":
                 fig = make_gold_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
-            else:
-                # Use the Silver chart builder for Silver
+            elif selected_index == "Silver":
                 fig = make_silver_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+            else:
+                # Use the Platinum chart builder for Platinum
+                fig = make_platinum_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
         else:
             # Fallback: compute simple MA and regression channel on synthetic data
             from technical_analysis.equity.spx import _add_moving_averages, _build_fallback_figure  # type: ignore
@@ -1961,6 +2042,8 @@ def show_generate_presentation_page():
         gold_anchor_dt = st.session_state.get("gold_anchor")
         # Anchor for Silver regression channel (commodity)
         silver_anchor_dt = st.session_state.get("silver_anchor")
+        # Anchor for Platinum regression channel (commodity)
+        platinum_anchor_dt = st.session_state.get("platinum_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -2553,6 +2636,79 @@ def show_generate_presentation_page():
             )
         except Exception:
             # If Gold or Silver module is unavailable or insertion fails, continue without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Platinum technical analysis slide (commodity)
+        # ------------------------------------------------------------------
+        try:
+            # Insert the Platinum chart with call-out and regression channel anchored at platinum_anchor_dt
+            prs = insert_platinum_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                platinum_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Platinum technical and momentum scores
+            prs = insert_platinum_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_platinum_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Platinum subtitle from user input
+            prs = insert_platinum_subtitle(
+                prs,
+                st.session_state.get("platinum_subtitle", ""),
+            )
+            # Insert Platinum average gauge (last week's average DMAS)
+            platinum_last_week_avg = st.session_state.get("platinum_last_week_avg", 50.0)
+            prs = insert_platinum_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                platinum_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'platinum_view' textbox
+            manual_view_platinum = st.session_state.get("platinum_selected_view")
+            prs = insert_platinum_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_platinum,
+            )
+            # Compute used date for Platinum source footnote
+            try:
+                import pandas as pd
+                df_prices_platinum = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_platinum = df_prices_platinum.drop(index=0)
+                df_prices_platinum = df_prices_platinum[
+                    df_prices_platinum[df_prices_platinum.columns[0]] != "DATES"
+                ]
+                df_prices_platinum["Date"] = pd.to_datetime(
+                    df_prices_platinum[df_prices_platinum.columns[0]], errors="coerce"
+                )
+                # Use the XPT Comdty column for Platinum prices
+                df_prices_platinum["Price"] = pd.to_numeric(
+                    df_prices_platinum["XPT Comdty"], errors="coerce"
+                )
+                df_prices_platinum = df_prices_platinum.dropna(subset=["Date", "Price"]).sort_values(
+                    "Date"
+                ).reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_platinum, used_date_platinum = adjust_prices_for_mode(
+                    df_prices_platinum, pmode
+                )
+            except Exception:
+                used_date_platinum = None
+            prs = insert_platinum_source(
+                prs,
+                used_date_platinum,
+                pmode,
+            )
+        except Exception:
+            # If Platinum module is unavailable or insertion fails, continue without error
             pass
 
         # When CSI 300 is the selected index, the technical analysis slides
