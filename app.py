@@ -537,6 +537,68 @@ except Exception:
         def _compute_range_bounds_copper(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
+# in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
+# analogous to those for commodities.  If that package cannot be imported,
+# a fallback attempt is made to import from a top‑level ``bitcoin`` module.
+# When both imports fail, define no‑op stand‑ins to keep the app running.
+try:
+    from technical_analysis.crypto.bitcoin import (
+        make_bitcoin_figure,
+        insert_bitcoin_technical_chart_with_callout,
+        insert_bitcoin_technical_chart,
+        insert_bitcoin_technical_score_number,
+        insert_bitcoin_momentum_score_number,
+        insert_bitcoin_subtitle,
+        insert_bitcoin_average_gauge,
+        insert_bitcoin_technical_assessment,
+        insert_bitcoin_source,
+        _get_bitcoin_technical_score,
+        _get_bitcoin_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_bitcoin,
+    )
+except Exception:
+    try:
+        from bitcoin import (
+            make_bitcoin_figure,
+            insert_bitcoin_technical_chart_with_callout,
+            insert_bitcoin_technical_chart,
+            insert_bitcoin_technical_score_number,
+            insert_bitcoin_momentum_score_number,
+            insert_bitcoin_subtitle,
+            insert_bitcoin_average_gauge,
+            insert_bitcoin_technical_assessment,
+            insert_bitcoin_source,
+            _get_bitcoin_technical_score,
+            _get_bitcoin_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_bitcoin,
+        )
+    except Exception:
+        def make_bitcoin_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_bitcoin_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_bitcoin_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_bitcoin_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_bitcoin(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import CSI functions from the dedicated module.  The CSI module resides
 # in ``technical_analysis/equity/csi.py`` and provides helper functions
 # analogous to the SPX functions.  These allow technical analysis of the
@@ -1232,7 +1294,23 @@ def show_technical_analysis_page():
     # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
         # Remove stored anchors for all indices if present
-        for key in ["spx_anchor", "csi_anchor", "nikkei_anchor", "tasi_anchor", "sensex_anchor", "dax_anchor", "smi_anchor", "ibov_anchor"]:
+        for key in [
+            "spx_anchor",
+            "csi_anchor",
+            "nikkei_anchor",
+            "tasi_anchor",
+            "sensex_anchor",
+            "dax_anchor",
+            "smi_anchor",
+            "ibov_anchor",
+            # also clear anchors for commodity and crypto assets
+            "gold_anchor",
+            "silver_anchor",
+            "platinum_anchor",
+            "oil_anchor",
+            "copper_anchor",
+            "bitcoin_anchor",
+        ]:
             if key in st.session_state:
                 st.session_state.pop(key)
         st.experimental_rerun()
@@ -1715,8 +1793,11 @@ def show_technical_analysis_page():
     elif asset_class == "Commodity":
         # Delegate to the commodity technical analysis handler
         show_commodity_technical_analysis()
+    elif asset_class == "Crypto":
+        # Delegate to the crypto technical analysis handler
+        show_crypto_technical_analysis()
     else:
-        # Fallback for unsupported asset classes (e.g. Crypto)
+        # Fallback for unsupported asset classes
         with st.expander(f"{asset_class} technical charts", expanded=False):
             st.info(f"{asset_class} technical analysis not implemented yet.")
 
@@ -2074,6 +2155,278 @@ def show_commodity_technical_analysis() -> None:
         )
 
 
+def show_crypto_technical_analysis() -> None:
+    """Render the technical analysis interface for crypto assets such as Bitcoin.
+
+    This function closely mirrors the commodity technical analysis interface
+    but is tailored for crypto tickers.  At present only Bitcoin is
+    supported.  It handles data loading from the uploaded Excel, score
+    retrieval, DMAS computation, trading range estimation using the
+    Bitcoin volatility index (BVXS Index) with a realised volatility
+    fallback, regression channel controls, assessment selection, subtitle
+    input and interactive chart rendering.  State is persisted in
+    ``st.session_state`` so that the regression channel can be anchored
+    at a user‑selected date across reruns.
+    """
+    # Identify whether an Excel file has been uploaded
+    excel_available = "excel_file" in st.session_state
+
+    # Currently only one crypto asset is supported
+    index_options = ["Bitcoin"]
+    default_index = st.session_state.get("ta_crypto_index", "Bitcoin")
+    selected_index = st.sidebar.selectbox(
+        "Select crypto for technical analysis",
+        options=index_options,
+        index=index_options.index(default_index) if default_index in index_options else 0,
+        key="ta_crypto_index_select",
+    )
+    # Persist selection
+    st.session_state["ta_crypto_index"] = selected_index
+
+    # Set ticker and chart labels
+    ticker = "XBTUSD Curncy"
+    ticker_key = "bitcoin"
+    chart_title = "Bitcoin Technical Chart"
+
+    # Load price data
+    if excel_available:
+        # Save uploaded Excel to a temporary path
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            tmp.write(st.session_state["excel_file"].getbuffer())
+            tmp.flush()
+            temp_path = Path(tmp.name)
+        # Read data_prices and clean
+        df_prices = pd.read_excel(temp_path, sheet_name="data_prices")
+        df_prices = df_prices.drop(index=0)
+        df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
+        df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+        df_prices["Price"] = pd.to_numeric(df_prices[ticker], errors="coerce")
+        df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
+        # Adjust prices for selected price mode
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        used_date = None
+        if adjust_prices_for_mode is not None and price_mode:
+            try:
+                df_prices, used_date = adjust_prices_for_mode(df_prices, price_mode)
+            except Exception:
+                used_date = None
+        st.session_state[f"{ticker_key}_used_date"] = used_date
+        df_full = df_prices.copy()
+    else:
+        # Fallback: synthetic SPX series (not ideal but ensures a chart)
+        df_prices = _create_synthetic_spx_series()
+        df_full = df_prices.copy()
+        used_date = None
+
+    # Determine date range for channel controls
+    min_date = df_prices["Date"].min().date()
+    max_date = df_prices["Date"].max().date()
+
+    # Chart and controls
+    with st.expander(chart_title, expanded=True):
+        # Caption with used date
+        used_date = st.session_state.get(f"{ticker_key}_used_date")
+        price_mode = st.session_state.get("price_mode", "Last Price")
+        if used_date is not None:
+            if price_mode == "Last Close":
+                st.caption(f"Prices as of {used_date.strftime('%d/%m/%Y')} close")
+            else:
+                st.caption(f"Prices as of {used_date.strftime('%d/%m/%Y')}")
+        # -----------------------------------------------------------------
+        # Technical and momentum scores
+        # -----------------------------------------------------------------
+        st.subheader("Technical and momentum scores")
+        tech_score: Optional[float] = None
+        mom_score: Optional[float] = None
+        if excel_available:
+            try:
+                tech_score = _get_bitcoin_technical_score(temp_path)
+            except Exception:
+                tech_score = None
+            try:
+                mom_score = _get_bitcoin_momentum_score(temp_path)
+            except Exception:
+                mom_score = None
+        # Compute DMAS if available
+        dmas: Optional[float] = None
+        if tech_score is not None and mom_score is not None:
+            dmas = round((float(tech_score) + float(mom_score)) / 2.0, 1)
+            df_scores = pd.DataFrame(
+                {
+                    "Technical Score": [tech_score],
+                    "Momentum Score": [mom_score],
+                    "Average (DMAS)": [dmas],
+                }
+            )
+            st.table(df_scores)
+            # Last week's DMAS input
+            gauge_key = f"{ticker_key}_last_week_avg"
+            gauge_input_key = f"{ticker_key}_last_week_avg_input"
+            last_week_default = st.session_state.get(gauge_key, 50.0)
+            last_week_input = st.number_input(
+                "Last week's average (DMAS)",
+                min_value=0.0,
+                max_value=100.0,
+                value=last_week_default,
+                key=gauge_input_key,
+            )
+            st.session_state[gauge_key] = last_week_input
+        else:
+            st.info(
+                "Technical or momentum score not available in the uploaded Excel. "
+                "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
+            )
+        # -----------------------------------------------------------------
+        # Trading range estimation (90d)
+        # -----------------------------------------------------------------
+        try:
+            current_price = df_full["Price"].iloc[-1] if not df_full.empty else None
+            if current_price is not None and not np.isnan(current_price):
+                use_implied = False
+                vol_val: Optional[float] = None
+                vol_col_name = "BVXS Index"
+                # Attempt to load implied volatility from the Excel file
+                if excel_available:
+                    try:
+                        df_vol = pd.read_excel(temp_path, sheet_name="data_prices")
+                        df_vol = df_vol.drop(index=0)
+                        df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
+                        df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
+                        if vol_col_name in df_vol.columns:
+                            df_vol["Price"] = pd.to_numeric(df_vol[vol_col_name], errors="coerce")
+                            df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[[
+                                "Date",
+                                "Price",
+                            ]]
+                            pm = st.session_state.get("price_mode", "Last Price")
+                            if adjust_prices_for_mode is not None:
+                                try:
+                                    df_vol, _ = adjust_prices_for_mode(df_vol, pm)
+                                except Exception:
+                                    pass
+                            if not df_vol.empty:
+                                vol_val = float(df_vol["Price"].iloc[-1])
+                                use_implied = True
+                    except Exception:
+                        use_implied = False
+                if use_implied and vol_val is not None:
+                    expected_move = (current_price * (vol_val / 100.0)) / np.sqrt(52.0)
+                    lower_bound = current_price - expected_move
+                    upper_bound = current_price + expected_move
+                    min_span = 0.02 * current_price
+                    if (upper_bound - lower_bound) < min_span:
+                        half = min_span / 2.0
+                        lower_bound = current_price - half
+                        upper_bound = current_price + half
+                else:
+                    # Fallback to realised volatility
+                    upper_bound, lower_bound = _compute_range_bounds_bitcoin(df_full, lookback_days=90)
+                low_pct = (lower_bound - current_price) / current_price * 100.0
+                high_pct = (upper_bound - current_price) / current_price * 100.0
+                st.write(
+                    f"Trading range (90d): Low {lower_bound:,.0f} ({low_pct:+.1f}%), "
+                    f"High {upper_bound:,.0f} ({high_pct:+.1f}%)"
+                )
+            else:
+                upper_bound, lower_bound = _compute_range_bounds_bitcoin(df_full, lookback_days=90)
+                st.write(
+                    f"Trading range (90d): Low {lower_bound:,.0f} – High {upper_bound:,.0f}"
+                )
+        except Exception:
+            pass
+        # -----------------------------------------------------------------
+        # Regression channel controls
+        # -----------------------------------------------------------------
+        enable_channel = st.checkbox(
+            "Enable regression channel",
+            value=bool(st.session_state.get(f"{ticker_key}_anchor")),
+            key=f"{ticker_key}_enable_channel",
+        )
+        anchor_ts: Optional[pd.Timestamp] = None
+        if enable_channel:
+            default_anchor = st.session_state.get(
+                f"{ticker_key}_anchor",
+                (max_date - pd.Timedelta(days=180)),
+            )
+            anchor_input = st.date_input(
+                "Select anchor date",
+                value=default_anchor,
+                min_value=min_date,
+                max_value=max_date,
+                key=f"{ticker_key}_anchor_date_input",
+            )
+            anchor_ts = pd.to_datetime(anchor_input)
+            st.session_state[f"{ticker_key}_anchor"] = anchor_ts
+        else:
+            if f"{ticker_key}_anchor" in st.session_state:
+                st.session_state.pop(f"{ticker_key}_anchor")
+            anchor_ts = None
+        # -----------------------------------------------------------------
+        # Assessment selection
+        # -----------------------------------------------------------------
+        if tech_score is not None and mom_score is not None and dmas is not None:
+            options = [
+                "Strongly Bearish",
+                "Bearish",
+                "Slightly Bearish",
+                "Neutral",
+                "Slightly Bullish",
+                "Bullish",
+                "Strongly Bullish",
+            ]
+            def _default_index_from_dmas(val: float) -> int:
+                if val >= 80:
+                    return options.index("Strongly Bullish")
+                elif val >= 70:
+                    return options.index("Bullish")
+                elif val >= 60:
+                    return options.index("Slightly Bullish")
+                elif val >= 40:
+                    return options.index("Neutral")
+                elif val >= 30:
+                    return options.index("Slightly Bearish")
+                elif val >= 20:
+                    return options.index("Bearish")
+                else:
+                    return options.index("Strongly Bearish")
+            default_idx = _default_index_from_dmas(dmas)
+            user_view = st.selectbox(
+                "Select your assessment",
+                options,
+                index=default_idx,
+                key=f"{ticker_key}_view_select",
+            )
+            st.session_state[f"{ticker_key}_selected_view"] = user_view
+            st.caption(
+                "Your selection will override the automatically computed view in the presentation."
+            )
+        # -----------------------------------------------------------------
+        # Subtitle input
+        # -----------------------------------------------------------------
+        subtitle_value = st.text_input(
+            f"{ticker_key.upper()} subtitle",
+            value=st.session_state.get(f"{ticker_key}_subtitle", ""),
+            key=f"{ticker_key}_subtitle_input",
+        )
+        st.session_state[f"{ticker_key}_subtitle"] = subtitle_value
+        # -----------------------------------------------------------------
+        # Interactive chart
+        # -----------------------------------------------------------------
+        if excel_available:
+            pmode = st.session_state.get("price_mode", "Last Price")
+            fig = make_bitcoin_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+        else:
+            # Build fallback figure on synthetic data
+            from technical_analysis.equity.spx import _add_moving_averages, _build_fallback_figure  # type: ignore
+            df_ma = _add_moving_averages(df_full)
+            fig = _build_fallback_figure(df_ma, anchor_date=anchor_ts)
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(
+            "Use the controls above to enable and configure the regression channel. "
+            "Green shading indicates an uptrend; red shading indicates a downtrend."
+        )
+
+
 def show_generate_presentation_page():
     """Generate a customised PowerPoint presentation based on user selections."""
     st.sidebar.header("Generate Presentation")
@@ -2207,6 +2560,8 @@ def show_generate_presentation_page():
         oil_anchor_dt = st.session_state.get("oil_anchor")
         # Anchor for Copper regression channel (commodity)
         copper_anchor_dt = st.session_state.get("copper_anchor")
+        # Anchor for Bitcoin regression channel (crypto)
+        bitcoin_anchor_dt = st.session_state.get("bitcoin_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -3018,6 +3373,79 @@ def show_generate_presentation_page():
             )
         except Exception:
             # If Copper module is unavailable or insertion fails, continue without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Bitcoin technical analysis slide (crypto)
+        # ------------------------------------------------------------------
+        try:
+            # Insert the Bitcoin chart with call-out and regression channel anchored at bitcoin_anchor_dt
+            prs = insert_bitcoin_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                bitcoin_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Bitcoin technical and momentum scores
+            prs = insert_bitcoin_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_bitcoin_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Bitcoin subtitle from user input
+            prs = insert_bitcoin_subtitle(
+                prs,
+                st.session_state.get("bitcoin_subtitle", ""),
+            )
+            # Insert Bitcoin average gauge (last week's average DMAS)
+            bitcoin_last_week_avg = st.session_state.get("bitcoin_last_week_avg", 50.0)
+            prs = insert_bitcoin_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                bitcoin_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'bitcoin_view' textbox
+            manual_view_bitcoin = st.session_state.get("bitcoin_selected_view")
+            prs = insert_bitcoin_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_bitcoin,
+            )
+            # Compute used date for Bitcoin source footnote
+            try:
+                import pandas as pd
+                df_prices_bitcoin = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_bitcoin = df_prices_bitcoin.drop(index=0)
+                df_prices_bitcoin = df_prices_bitcoin[
+                    df_prices_bitcoin[df_prices_bitcoin.columns[0]] != "DATES"
+                ]
+                df_prices_bitcoin["Date"] = pd.to_datetime(
+                    df_prices_bitcoin[df_prices_bitcoin.columns[0]], errors="coerce"
+                )
+                # Use the XBTUSD Curncy column for Bitcoin prices
+                df_prices_bitcoin["Price"] = pd.to_numeric(
+                    df_prices_bitcoin["XBTUSD Curncy"], errors="coerce"
+                )
+                df_prices_bitcoin = df_prices_bitcoin.dropna(subset=["Date", "Price"]).sort_values(
+                    "Date"
+                ).reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_bitcoin, used_date_bitcoin = adjust_prices_for_mode(
+                    df_prices_bitcoin, pmode
+                )
+            except Exception:
+                used_date_bitcoin = None
+            prs = insert_bitcoin_source(
+                prs,
+                used_date_bitcoin,
+                pmode,
+            )
+        except Exception:
+            # If the Bitcoin module is unavailable or insertion fails, continue without error
             pass
 
         # When CSI 300 is the selected index, the technical analysis slides
