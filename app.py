@@ -721,6 +721,128 @@ except Exception:
         def _compute_range_bounds_ripple(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import Solana functions from the dedicated module.  The Solana module resides
+# in ``technical_analysis/crypto/solana.py`` and provides helper functions
+# analogous to the other crypto assets.  If unavailable, fall back to a
+# top‑level ``solana`` module or define no‑op stand‑ins.
+try:
+    from technical_analysis.crypto.solana import (
+        make_solana_figure,
+        insert_solana_technical_chart_with_callout,
+        insert_solana_technical_chart,
+        insert_solana_technical_score_number,
+        insert_solana_momentum_score_number,
+        insert_solana_subtitle,
+        insert_solana_average_gauge,
+        insert_solana_technical_assessment,
+        insert_solana_source,
+        _get_solana_technical_score,
+        _get_solana_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_solana,
+    )
+except Exception:
+    try:
+        from solana import (
+            make_solana_figure,
+            insert_solana_technical_chart_with_callout,
+            insert_solana_technical_chart,
+            insert_solana_technical_score_number,
+            insert_solana_momentum_score_number,
+            insert_solana_subtitle,
+            insert_solana_average_gauge,
+            insert_solana_technical_assessment,
+            insert_solana_source,
+            _get_solana_technical_score,
+            _get_solana_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_solana,
+        )
+    except Exception:
+        def make_solana_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_solana_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_solana_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_solana_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_solana(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Binance functions from the dedicated module.  The Binance module resides
+# in ``technical_analysis/crypto/binance.py`` and provides helper functions
+# analogous to the other crypto assets.  If unavailable, fall back to a
+# top‑level ``binance`` module or define no‑op stand‑ins.
+try:
+    from technical_analysis.crypto.binance import (
+        make_binance_figure,
+        insert_binance_technical_chart_with_callout,
+        insert_binance_technical_chart,
+        insert_binance_technical_score_number,
+        insert_binance_momentum_score_number,
+        insert_binance_subtitle,
+        insert_binance_average_gauge,
+        insert_binance_technical_assessment,
+        insert_binance_source,
+        _get_binance_technical_score,
+        _get_binance_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_binance,
+    )
+except Exception:
+    try:
+        from binance import (
+            make_binance_figure,
+            insert_binance_technical_chart_with_callout,
+            insert_binance_technical_chart,
+            insert_binance_technical_score_number,
+            insert_binance_momentum_score_number,
+            insert_binance_subtitle,
+            insert_binance_average_gauge,
+            insert_binance_technical_assessment,
+            insert_binance_source,
+            _get_binance_technical_score,
+            _get_binance_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_binance,
+        )
+    except Exception:
+        def make_binance_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_binance_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_binance_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_binance_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_binance(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import Ethereum functions from the dedicated module.  The Ethereum module resides
 # in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
 # analogous to the Bitcoin module.  If it cannot be imported, a fallback to a
@@ -1496,7 +1618,8 @@ def show_technical_analysis_page():
             "bitcoin_anchor",
             "ethereum_anchor",
             "ripple_anchor",
-            "ethereum_anchor",
+            "solana_anchor",
+            "binance_anchor",
         ]:
             if key in st.session_state:
                 st.session_state.pop(key)
@@ -2359,7 +2482,7 @@ def show_crypto_technical_analysis() -> None:
     excel_available = "excel_file" in st.session_state
 
     # Allow selection of supported crypto assets
-    index_options = ["Bitcoin", "Ethereum", "Ripple"]
+    index_options = ["Bitcoin", "Ethereum", "Ripple", "Solana", "Binance"]
     default_index = st.session_state.get("ta_crypto_index", "Bitcoin") if st.session_state.get("ta_crypto_index") in index_options else "Bitcoin"
     selected_index = st.sidebar.selectbox(
         "Select crypto for technical analysis",
@@ -2400,6 +2523,26 @@ def show_crypto_technical_analysis() -> None:
         get_mom_score = _get_ripple_momentum_score
         compute_range_fallback = _compute_range_bounds_ripple
         make_figure_func = make_ripple_figure
+    elif selected_index == "Solana":
+        ticker = "XSOUSD Curncy"
+        ticker_key = "solana"
+        chart_title = "Solana Technical Chart"
+        # Placeholder for implied volatility column; not yet available
+        vol_col_name = "XSOUSDV1M BGN Curncy"
+        get_tech_score = _get_solana_technical_score
+        get_mom_score = _get_solana_momentum_score
+        compute_range_fallback = _compute_range_bounds_solana
+        make_figure_func = make_solana_figure
+    elif selected_index == "Binance":
+        ticker = "XBIUSD Curncy"
+        ticker_key = "binance"
+        chart_title = "Binance Technical Chart"
+        # Placeholder for implied volatility column; not yet available
+        vol_col_name = "XBIUSDV1M BGN Curncy"
+        get_tech_score = _get_binance_technical_score
+        get_mom_score = _get_binance_momentum_score
+        compute_range_fallback = _compute_range_bounds_binance
+        make_figure_func = make_binance_figure
     else:
         # Default to Bitcoin if unknown selection
         ticker = "XBTUSD Curncy"
@@ -2791,6 +2934,10 @@ def show_generate_presentation_page():
         ethereum_anchor_dt = st.session_state.get("ethereum_anchor")
         # Anchor for Ripple regression channel (crypto)
         ripple_anchor_dt = st.session_state.get("ripple_anchor")
+        # Anchor for Solana regression channel (crypto)
+        solana_anchor_dt = st.session_state.get("solana_anchor")
+        # Anchor for Binance regression channel (crypto)
+        binance_anchor_dt = st.session_state.get("binance_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -3894,6 +4041,144 @@ def show_generate_presentation_page():
             )
         except Exception:
             # If the Ripple module is unavailable or insertion fails, continue without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Solana technical analysis slide (crypto)
+        # ------------------------------------------------------------------
+        try:
+            # Insert the Solana chart with call-out and regression channel anchored at solana_anchor_dt
+            prs = insert_solana_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                solana_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Solana technical and momentum scores
+            prs = insert_solana_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_solana_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Solana subtitle from user input
+            prs = insert_solana_subtitle(
+                prs,
+                st.session_state.get("solana_subtitle", ""),
+            )
+            # Insert Solana average gauge (last week's average DMAS)
+            solana_last_week_avg = st.session_state.get("solana_last_week_avg", 50.0)
+            prs = insert_solana_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                solana_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'solana_view' textbox
+            manual_view_solana = st.session_state.get("solana_selected_view")
+            prs = insert_solana_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_solana,
+            )
+            # Compute used date for Solana source footnote
+            try:
+                import pandas as pd
+                df_prices_solana = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_solana = df_prices_solana.drop(index=0)
+                df_prices_solana = df_prices_solana[df_prices_solana[df_prices_solana.columns[0]] != "DATES"]
+                df_prices_solana["Date"] = pd.to_datetime(
+                    df_prices_solana[df_prices_solana.columns[0]], errors="coerce"
+                )
+                # Use the XSOUSD Curncy column for Solana prices
+                df_prices_solana["Price"] = pd.to_numeric(
+                    df_prices_solana["XSOUSD Curncy"], errors="coerce"
+                )
+                df_prices_solana = df_prices_solana.dropna(subset=["Date", "Price"]).sort_values(
+                    "Date"
+                ).reset_index(drop=True)[["Date", "Price"]]
+                df_adj_solana, used_date_solana = adjust_prices_for_mode(
+                    df_prices_solana, pmode
+                )
+            except Exception:
+                used_date_solana = None
+            prs = insert_solana_source(
+                prs,
+                used_date_solana,
+                pmode,
+            )
+        except Exception:
+            # If the Solana module is unavailable or insertion fails, continue without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Binance technical analysis slide (crypto)
+        # ------------------------------------------------------------------
+        try:
+            # Insert the Binance chart with call-out and regression channel anchored at binance_anchor_dt
+            prs = insert_binance_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                binance_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Binance technical and momentum scores
+            prs = insert_binance_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_binance_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Binance subtitle from user input
+            prs = insert_binance_subtitle(
+                prs,
+                st.session_state.get("binance_subtitle", ""),
+            )
+            # Insert Binance average gauge (last week's average DMAS)
+            binance_last_week_avg = st.session_state.get("binance_last_week_avg", 50.0)
+            prs = insert_binance_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                binance_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'binance_view' textbox
+            manual_view_binance = st.session_state.get("binance_selected_view")
+            prs = insert_binance_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_binance,
+            )
+            # Compute used date for Binance source footnote
+            try:
+                import pandas as pd
+                df_prices_binance = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_binance = df_prices_binance.drop(index=0)
+                df_prices_binance = df_prices_binance[df_prices_binance[df_prices_binance.columns[0]] != "DATES"]
+                df_prices_binance["Date"] = pd.to_datetime(
+                    df_prices_binance[df_prices_binance.columns[0]], errors="coerce"
+                )
+                # Use the XBIUSD Curncy column for Binance prices
+                df_prices_binance["Price"] = pd.to_numeric(
+                    df_prices_binance["XBIUSD Curncy"], errors="coerce"
+                )
+                df_prices_binance = df_prices_binance.dropna(subset=["Date", "Price"]).sort_values(
+                    "Date"
+                ).reset_index(drop=True)[["Date", "Price"]]
+                df_adj_binance, used_date_binance = adjust_prices_for_mode(
+                    df_prices_binance, pmode
+                )
+            except Exception:
+                used_date_binance = None
+            prs = insert_binance_source(
+                prs,
+                used_date_binance,
+                pmode,
+            )
+        except Exception:
+            # If the Binance module is unavailable or insertion fails, continue without error
             pass
 
         # When CSI 300 is the selected index, the technical analysis slides
