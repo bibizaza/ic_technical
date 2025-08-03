@@ -660,6 +660,67 @@ except Exception:
         def _compute_range_bounds_ethereum(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import Ripple functions from the dedicated module.  The Ripple module resides
+# in ``technical_analysis/crypto/ripple.py`` and provides helper functions
+# analogous to the other crypto assets.  If unavailable, fall back to a
+# top‑level ``ripple`` module or define no‑op stand‑ins.
+try:
+    from technical_analysis.crypto.ripple import (
+        make_ripple_figure,
+        insert_ripple_technical_chart_with_callout,
+        insert_ripple_technical_chart,
+        insert_ripple_technical_score_number,
+        insert_ripple_momentum_score_number,
+        insert_ripple_subtitle,
+        insert_ripple_average_gauge,
+        insert_ripple_technical_assessment,
+        insert_ripple_source,
+        _get_ripple_technical_score,
+        _get_ripple_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_ripple,
+    )
+except Exception:
+    try:
+        from ripple import (
+            make_ripple_figure,
+            insert_ripple_technical_chart_with_callout,
+            insert_ripple_technical_chart,
+            insert_ripple_technical_score_number,
+            insert_ripple_momentum_score_number,
+            insert_ripple_subtitle,
+            insert_ripple_average_gauge,
+            insert_ripple_technical_assessment,
+            insert_ripple_source,
+            _get_ripple_technical_score,
+            _get_ripple_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_ripple,
+        )
+    except Exception:
+        def make_ripple_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_ripple_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_ripple_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_ripple_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_ripple(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import Ethereum functions from the dedicated module.  The Ethereum module resides
 # in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
 # analogous to the Bitcoin module.  If it cannot be imported, a fallback to a
@@ -1434,6 +1495,7 @@ def show_technical_analysis_page():
             "copper_anchor",
             "bitcoin_anchor",
             "ethereum_anchor",
+            "ripple_anchor",
             "ethereum_anchor",
         ]:
             if key in st.session_state:
@@ -2297,7 +2359,7 @@ def show_crypto_technical_analysis() -> None:
     excel_available = "excel_file" in st.session_state
 
     # Allow selection of supported crypto assets
-    index_options = ["Bitcoin", "Ethereum"]
+    index_options = ["Bitcoin", "Ethereum", "Ripple"]
     default_index = st.session_state.get("ta_crypto_index", "Bitcoin") if st.session_state.get("ta_crypto_index") in index_options else "Bitcoin"
     selected_index = st.sidebar.selectbox(
         "Select crypto for technical analysis",
@@ -2328,6 +2390,16 @@ def show_crypto_technical_analysis() -> None:
         get_mom_score = _get_ethereum_momentum_score
         compute_range_fallback = _compute_range_bounds_ethereum
         make_figure_func = make_ethereum_figure
+    elif selected_index == "Ripple":
+        ticker = "XRPUSD Curncy"
+        ticker_key = "ripple"
+        chart_title = "Ripple Technical Chart"
+        # Placeholder for implied volatility column; not yet available
+        vol_col_name = "XRPUSDV1M BGN Curncy"
+        get_tech_score = _get_ripple_technical_score
+        get_mom_score = _get_ripple_momentum_score
+        compute_range_fallback = _compute_range_bounds_ripple
+        make_figure_func = make_ripple_figure
     else:
         # Default to Bitcoin if unknown selection
         ticker = "XBTUSD Curncy"
@@ -2717,8 +2789,8 @@ def show_generate_presentation_page():
         bitcoin_anchor_dt = st.session_state.get("bitcoin_anchor")
         # Anchor for Ethereum regression channel (crypto)
         ethereum_anchor_dt = st.session_state.get("ethereum_anchor")
-        # Anchor for Ethereum regression channel (crypto)
-        ethereum_anchor_dt = st.session_state.get("ethereum_anchor")
+        # Anchor for Ripple regression channel (crypto)
+        ripple_anchor_dt = st.session_state.get("ripple_anchor")
 
         # Common price mode
         pmode = st.session_state.get("price_mode", "Last Price")
@@ -3749,6 +3821,79 @@ def show_generate_presentation_page():
             )
         except Exception:
             # If the Ethereum module is unavailable or insertion fails, continue without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Ripple technical analysis slide (crypto)
+        # ------------------------------------------------------------------
+        try:
+            # Insert the Ripple chart with call-out and regression channel anchored at ripple_anchor_dt
+            prs = insert_ripple_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                ripple_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Ripple technical and momentum scores
+            prs = insert_ripple_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_ripple_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Ripple subtitle from user input
+            prs = insert_ripple_subtitle(
+                prs,
+                st.session_state.get("ripple_subtitle", ""),
+            )
+            # Insert Ripple average gauge (last week's average DMAS)
+            ripple_last_week_avg = st.session_state.get("ripple_last_week_avg", 50.0)
+            prs = insert_ripple_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                ripple_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'ripple_view' textbox
+            manual_view_ripple = st.session_state.get("ripple_selected_view")
+            prs = insert_ripple_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_ripple,
+            )
+            # Compute used date for Ripple source footnote
+            try:
+                import pandas as pd
+                df_prices_ripple = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_ripple = df_prices_ripple.drop(index=0)
+                df_prices_ripple = df_prices_ripple[
+                    df_prices_ripple[df_prices_ripple.columns[0]] != "DATES"
+                ]
+                df_prices_ripple["Date"] = pd.to_datetime(
+                    df_prices_ripple[df_prices_ripple.columns[0]], errors="coerce"
+                )
+                # Use the XRPUSD Curncy column for Ripple prices
+                df_prices_ripple["Price"] = pd.to_numeric(
+                    df_prices_ripple["XRPUSD Curncy"], errors="coerce"
+                )
+                df_prices_ripple = df_prices_ripple.dropna(subset=["Date", "Price"]).sort_values(
+                    "Date"
+                ).reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_ripple, used_date_ripple = adjust_prices_for_mode(
+                    df_prices_ripple, pmode
+                )
+            except Exception:
+                used_date_ripple = None
+            prs = insert_ripple_source(
+                prs,
+                used_date_ripple,
+                pmode,
+            )
+        except Exception:
+            # If the Ripple module is unavailable or insertion fails, continue without error
             pass
 
         # When CSI 300 is the selected index, the technical analysis slides
