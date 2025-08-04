@@ -641,6 +641,7 @@ def generate_range_callout_chart_image(
     callout_width_cm: float = 3.5,
     *,
     vol_index_value: Optional[float] = None,
+    show_legend: bool = True,
 ) -> bytes:
     """
     Create a PNG image of the Gold price chart with a textual call‑out on the
@@ -667,6 +668,12 @@ def generate_range_callout_chart_image(
     callout_width_cm : float, default 3.5
         Width of the call‑out area on the right where the range summary
         appears.  The remaining width is used for the chart.
+
+    show_legend : bool, default True
+        Whether to draw the legend on the main chart.  When generating
+        images for insertion into a PowerPoint slide the legend should be
+        suppressed (set to ``False``) so that a manually positioned
+        legend on the slide remains visible.
 
     Returns
     -------
@@ -802,12 +809,17 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: place the legend just above the main chart, aligned to the
-    # left so that it does not overlap the call‑out panel.  Use a
-    # multi‑column layout to fit all entries on a single line.  The
-    # bounding box is anchored slightly above the axes (y=1.05).
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                    fontsize=8, frameon=False)
+    # Legend: when show_legend is True, place the legend just above the main
+    # chart, aligned to the left so that it does not overlap the call‑out
+    # panel.  Use a multi‑column layout to fit all entries on a single
+    # line.  The bounding box is anchored slightly above the axes
+    # (y=1.05).  When show_legend is False, the legend is omitted so
+    # that it can be added manually on the PowerPoint slide.
+    if show_legend:
+        ax_chart.legend(
+            loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
+            fontsize=8, frameon=False,
+        )
 
     # Configure call‑out axis: remove ticks and spines; set background white
     ax_callout.set_xlim(0, 1)
@@ -895,13 +907,22 @@ def insert_gold_technical_chart_with_callout(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the Gold technical analysis chart with the trading range call‑out
-    into the PowerPoint.  This function mirrors the behaviour of
-    ``insert_gold_technical_chart_with_range`` but uses the call‑out style to
-    display the high and low bounds instead of a vertical gauge.
+    Insert the Gold technical analysis chart with a trading‑range call‑out
+    into the PowerPoint presentation.
 
-    The image is placed at the fixed coordinates (0.93 cm left, 4.40 cm top)
-    with dimensions 21.41 cm wide by 7.53 cm high, matching the template.
+    This helper mirrors the updated behaviour used for Silver and Platinum,
+    inserting a wider chart with a call‑out panel and leaving space above
+    the figure for a manually positioned legend on the slide.  The call‑out
+    summarises the recent high and low bounds, while the full chart and
+    regression channel are drawn on the left.  A last‑price placeholder
+    (shape name ``last_price_gold`` or text ``[last_price_gold]``) is
+    replaced with the most recent price string.
+
+    The image is placed at fixed coordinates: 0.93 cm from the left and
+    5.46 cm from the top of the slide, with dimensions 24.2 cm wide and
+    6.52 cm high.  These values align with the Solana/BTC template and
+    provide additional vertical space for a separate legend above the
+    chart.
 
     Parameters
     ----------
@@ -917,33 +938,38 @@ def insert_gold_technical_chart_with_callout(
     Returns
     -------
     Presentation
-        The presentation with the updated slide.
+        The presentation with the updated Gold slide.
     """
-    # Load the price data from the Excel file
+    # Load the price data from the Excel file.  Fall back to the path‑based
+    # loader if reading from a file‑like object fails.
     try:
         df_full = _load_price_data_from_obj(excel_file, "GCA Comdty", price_mode=price_mode)
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "GCA Comdty", price_mode=price_mode)
 
-    # Determine the implied volatility index value (XAUUSDV1M BGN Curncy) from the Excel file
-    # so that the expected one‑week trading range can be estimated.  If the
-    # volatility index cannot be read, ``None`` is returned and the range
-    # will fall back to an ATR‑based estimate.
+    # Retrieve the implied volatility index (XAUUSDV1M BGN Curncy) to
+    # estimate the expected one‑week range; if unavailable, an ATR‑based
+    # estimate is used within ``generate_range_callout_chart_image``.
     vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="XAUUSDV1M BGN Curncy")
-    # Generate the image with the call‑out.  Use an extended width of
-    # 25.0 cm while keeping the height at 7.3 cm.  Pass the volatility index
-    # value to ``generate_range_callout_chart_image`` so that the range
-    # calculation can use the implied volatility if available.
+
+    # Generate a call‑out chart image.  Use the updated dimensions of
+    # 24.2 cm × 6.52 cm and suppress the legend (show_legend=False) so
+    # that a manually placed legend on the slide remains visible.  The
+    # volatility index value is passed through to allow implied‑volatility
+    # calculations.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
+        width_cm=24.2,
+        height_cm=6.52,
         vol_index_value=vol_val,
+        show_legend=False,
     )
 
-    # Locate the slide containing the 'gold' placeholder or text
+    # Locate the slide containing the Gold placeholder (shape named
+    # ``gold`` or text "[gold]").  If not found, default to slide 11 (or
+    # the last available slide if fewer exist).
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
@@ -960,66 +986,123 @@ def insert_gold_technical_chart_with_callout(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert the image at the requested coordinates.  The dimensions 25 cm
-    # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
-    # template.
+    # Insert the image into the slide at the updated coordinates.
     left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
+    top = Cm(5.46)
+    width = Cm(24.2)
+    height = Cm(6.52)
     stream = BytesIO(img_bytes)
-    # Add the picture and bring it to the front.  In some templates,
-    # additional shapes (e.g. a placeholder gauge) may overlap the chart.
-    # Removing and reinserting the picture element near the start of the
-    # shape tree ensures the chart remains visible above other content.
     picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     try:
         sp_tree = target_slide.shapes._spTree
-        # Remove the element and reinsert at position 1 (after background)
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
     except Exception:
-        # Fallback: leave the picture at the end of the shape list
+        # If rearrangement fails, leave the picture at the end.
         pass
+
+    # Replace the last‑price placeholder on the Gold slide.  Compute the
+    # most recent price and format it with two decimal places; fall back
+    # to 'N/A' if unavailable.  The placeholder may be a shape named
+    # ``last_price_gold`` or text containing ``[last_price_gold]`` or
+    # ``last_price_gold``.  Font attributes are preserved.
+    last_price = None
+    if df_full is not None and not df_full.empty:
+        try:
+            last_price = float(df_full["Price"].iloc[-1])
+        except Exception:
+            last_price = None
+    last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
+    placeholder_name = "last_price_gold"
+    placeholder_patterns = ["[last_price_gold]", "last_price_gold"]
+    replaced = False
+    for shp in target_slide.shapes:
+        # Match by shape name
+        if getattr(shp, "name", "").lower() == placeholder_name:
+            if shp.has_text_frame:
+                runs = shp.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shp.text_frame.clear()
+                p = shp.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = last_str
+                _apply_run_font_attributes(new_run, *attrs)
+            replaced = True
+            break
+        # Match placeholder patterns within the text
+        if shp.has_text_frame:
+            original_text = shp.text or ""
+            for pattern in placeholder_patterns:
+                if pattern in original_text:
+                    runs = shp.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = original_text.replace(pattern, last_str)
+                    shp.text_frame.clear()
+                    p = shp.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    replaced = True
+                    break
+        if replaced:
+            break
     return prs
 
 
 def _get_gold_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return Gold momentum score, mapping letter grades to numeric if needed."""
+    """
+    Return the numeric momentum score for Gold (ticker ``GCA COMDTY``).
+
+    The function attempts to extract a numeric score directly from the
+    ``data_trend_rating`` sheet (column index 3).  If the value is not
+    present or is NaN, it checks the ``parameters`` sheet for a custom
+    override in column ``Unnamed: 8``.  Finally, it maps the letter grade
+    from the 'Current' column to a numeric score via a fixed dictionary.
+
+    Parameters
+    ----------
+    excel_obj_or_path : file‑like or path
+        Excel workbook containing ``data_trend_rating`` and optionally
+        ``parameters`` sheets.
+
+    Returns
+    -------
+    float or None
+        The numeric momentum score for Gold, or ``None`` if it cannot be
+        determined.
+    """
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
     except Exception:
         return None
-    # find Gold row
+    # Identify the row for Gold based on the ticker column (first column)
     mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "GCA COMDTY"
     if not mask.any():
         return None
     row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
+    import numpy as _np  # used for NaN checking
+    # 1) Attempt to use the numeric rating in column 3 (Previous rating)
     try:
-        return float(row.iloc[3])
+        val = float(row.iloc[3])
+        if not _np.isnan(val):
+            return val
     except Exception:
         pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for customised mapping
+    # 2) Check for a custom override in the parameters sheet (column 'Unnamed: 8')
     try:
         params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
+        # Normalise column names
+        params.columns = [str(c).strip() for c in params.columns]
         gold_param = params[params["Tickers"].astype(str).str.upper() == "GCA COMDTY"]
-        if not gold_param.empty:
-            # Attempt to use the override column if present (some versions use column name 'Unnamed: 8')
-            override_col = None
-            for col in params.columns:
-                if str(col).strip().lower() in {"unnamed: 8", "override", "score_trend_override", "value"}:
-                    override_col = col
-                    break
-            if override_col is not None:
-                val = gold_param[override_col].dropna()
-                if not val.empty:
-                    return float(val.iloc[0])
+        if not gold_param.empty and "Unnamed: 8" in gold_param.columns:
+            custom_series = gold_param["Unnamed: 8"].dropna()
+            if not custom_series.empty:
+                return float(custom_series.iloc[0])
     except Exception:
         pass
+    # 3) Map the letter rating from the 'Current' column to a numeric value
+    rating = str(row.iloc[2]).strip().upper()
+    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
     return mapping.get(rating)
 
 
