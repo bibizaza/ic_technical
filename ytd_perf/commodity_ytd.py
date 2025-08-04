@@ -76,10 +76,10 @@ except Exception:
 COMMO_COLOURS = {
     "Gold": "#BF9000",
     "Silver": "#A6A6A6",
-    "Oil (WTI)": "#203864",
-    "Platinum": "#00B0F0",
+    "Oil (WTI)": "#3B3838",
+    "Platinum": "#7F7F7F",
     "Copper": "#C55A11",
-    "Uranium": "#A9D18E",
+    "Uranium": "#7F6000",
 }
 
 

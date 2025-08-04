@@ -71,12 +71,12 @@ except Exception:
 
 # Colour definitions for crypto (RGB → hex)
 CRYPTO_COLOURS = {
-    "Ripple": "#A9D18E",
-    "XRPUSD Curncy": "#A9D18E",
+    "Ripple": "#548235",
+    "XRPUSD Curncy": "#548235",
     "Bitcoin": "#203864",
     "XBTUSD Curncy": "#203864",
-    "Binance": "#BF9000",
-    "XBIUSD LUKK Curncy": "#BF9000",
+    "Binance Coin": "#FF0000",
+    "XBIUSD LUKK Curncy": "#FF0000",
     "Ethereum": "#00B0F0",
     "XETUSD Curncy": "#00B0F0",
     "Solana": "#FFC000",
