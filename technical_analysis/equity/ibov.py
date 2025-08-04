@@ -640,6 +640,7 @@ def generate_range_callout_chart_image(
     callout_width_cm: float = 3.5,
     *,
     vol_index_value: Optional[float] = None,
+    show_legend: bool = True,
 ) -> bytes:
     """
     Create a PNG image of the IBOV price chart with a textual call‑out on the
@@ -666,6 +667,11 @@ def generate_range_callout_chart_image(
     callout_width_cm : float, default 3.5
         Width of the call‑out area on the right where the range summary
         appears.  The remaining width is used for the chart.
+    show_legend : bool, default True
+        Whether to draw the legend on the main chart.  When generating
+        images for insertion into a PowerPoint slide the legend should be
+        suppressed (set to ``False``) so that a manually positioned
+        legend on the slide remains visible.
 
     Returns
     -------
@@ -801,12 +807,15 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: place the legend just above the main chart, aligned to the
-    # left so that it does not overlap the call‑out panel.  Use a
-    # multi‑column layout to fit all entries on a single line.  The
-    # bounding box is anchored slightly above the axes (y=1.05).
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                    fontsize=8, frameon=False)
+    # Legend: when show_legend is True, place the legend just above the main
+    # chart, aligned to the left so that it does not overlap the call‑out
+    # panel.  Use a multi‑column layout to fit all entries on a single
+    # line.  The bounding box is anchored slightly above the axes (y=1.05).
+    # When show_legend is False the legend is omitted so that a custom
+    # legend can be inserted separately on a slide.
+    if show_legend:
+        ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
+                        fontsize=8, frameon=False)
 
     # Configure call‑out axis: remove ticks and spines; set background white
     ax_callout.set_xlim(0, 1)
@@ -936,9 +945,12 @@ def insert_ibov_technical_chart_with_callout(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
+        width_cm=24.2,
+        height_cm=6.52,
         vol_index_value=vol_val,
+        # Suppress legend on the embedded image so that a manually positioned
+        # legend on the slide remains visible.
+        show_legend=False,
     )
 
     # Locate the slide containing the 'ibov' placeholder or text
@@ -962,9 +974,9 @@ def insert_ibov_technical_chart_with_callout(
     # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
     # template.
     left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
+    top = Cm(5.46)
+    width = Cm(24.2)
+    height = Cm(6.52)
     stream = BytesIO(img_bytes)
     # Add the picture and bring it to the front.  In some templates,
     # additional shapes (e.g. a placeholder gauge) may overlap the chart.
@@ -979,6 +991,52 @@ def insert_ibov_technical_chart_with_callout(
     except Exception:
         # Fallback: leave the picture at the end of the shape list
         pass
+
+    # Replace the last-price placeholder on the IBOV slide.  Compute the
+    # most recent price and format it with two decimal places; fall back
+    # to 'N/A' if unavailable.  The placeholder may be a shape named
+    # ``last_price_ibov`` or text containing ``[last_price_ibov]`` or
+    # ``last_price_ibov``.  Font attributes are preserved.
+    last_price = None
+    if df_full is not None and not df_full.empty:
+        try:
+            last_price = float(df_full["Price"].iloc[-1])
+        except Exception:
+            last_price = None
+    last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
+    placeholder_name = "last_price_ibov"
+    placeholder_patterns = ["[last_price_ibov]", "last_price_ibov"]
+    replaced = False
+    for shp in target_slide.shapes:
+        # Match by shape name
+        if getattr(shp, "name", "").lower() == placeholder_name:
+            if shp.has_text_frame:
+                runs = shp.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shp.text_frame.clear()
+                p = shp.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = last_str
+                _apply_run_font_attributes(new_run, *attrs)
+            replaced = True
+            break
+        # Match placeholder patterns within the text
+        if shp.has_text_frame:
+            original_text = shp.text or ""
+            for pattern in placeholder_patterns:
+                if pattern in original_text:
+                    runs = shp.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = original_text.replace(pattern, last_str)
+                    shp.text_frame.clear()
+                    p = shp.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    replaced = True
+                    break
+        if replaced:
+            break
     return prs
 
 
