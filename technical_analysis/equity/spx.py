@@ -640,6 +640,7 @@ def generate_range_callout_chart_image(
     callout_width_cm: float = 3.5,
     *,
     vol_index_value: Optional[float] = None,
+    show_legend: bool = True,
 ) -> bytes:
     """
     Create a PNG image of the SPX price chart with a textual call‑out on the
@@ -666,6 +667,12 @@ def generate_range_callout_chart_image(
     callout_width_cm : float, default 3.5
         Width of the call‑out area on the right where the range summary
         appears.  The remaining width is used for the chart.
+
+    show_legend : bool, default True
+        Whether to draw the legend on the main chart.  When generating
+        images for insertion into a PowerPoint slide the legend should be
+        suppressed (set to ``False``) so that a manually positioned
+        legend on the slide remains visible.
 
     Returns
     -------
@@ -801,12 +808,20 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: place the legend just above the main chart, aligned to the
-    # left so that it does not overlap the call‑out panel.  Use a
-    # multi‑column layout to fit all entries on a single line.  The
-    # bounding box is anchored slightly above the axes (y=1.05).
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                    fontsize=8, frameon=False)
+    # Legend: when ``show_legend`` is True, place the legend just above
+    # the main chart, aligned to the left so that it does not overlap the
+    # call‑out panel.  Use a multi‑column layout to fit all entries on a
+    # single line.  The bounding box is anchored slightly above the axes
+    # (y=1.05).  When ``show_legend`` is False the legend is omitted so
+    # that a custom legend can be inserted separately on a slide.
+    if show_legend:
+        ax_chart.legend(
+            loc="upper left",
+            bbox_to_anchor=(0.0, 1.05),
+            ncol=4,
+            fontsize=8,
+            frameon=False,
+        )
 
     # Configure call‑out axis: remove ticks and spines; set background white
     ax_callout.set_xlim(0, 1)
@@ -899,8 +914,11 @@ def insert_spx_technical_chart_with_callout(
     ``insert_spx_technical_chart_with_range`` but uses the call‑out style to
     display the high and low bounds instead of a vertical gauge.
 
-    The image is placed at the fixed coordinates (0.93 cm left, 4.40 cm top)
-    with dimensions 21.41 cm wide by 7.53 cm high, matching the template.
+    The image is placed at the fixed coordinates (0.93 cm left, 5.46 cm top)
+    with dimensions 24.2 cm wide by 6.52 cm high.  These values match those
+    used on the IBOV slide and leave room above for a separate legend on the
+    PowerPoint slide.  When inserting into the presentation the legend is
+    suppressed in the image itself so that it can be added manually.
 
     Parameters
     ----------
@@ -929,17 +947,20 @@ def insert_spx_technical_chart_with_callout(
     # volatility index cannot be read, ``None`` is returned and the range
     # will fall back to an ATR‑based estimate.
     vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
-    # Generate the image with the call‑out.  Use an extended width of
-    # 25.0 cm while keeping the height at 7.3 cm.  Pass the volatility index
-    # value to ``generate_range_callout_chart_image`` so that the range
-    # calculation can use the implied volatility if available.
+    # Generate the image with the call‑out.  Use a width of 24.2 cm and a
+    # height of 6.52 cm (matching the IBOV template) so that there is
+    # sufficient space above the chart for an external legend.  Pass
+    # ``show_legend=False`` to suppress the internal legend on the figure and
+    # provide the volatility index value so that the range calculation can
+    # use the implied volatility if available.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
+        width_cm=24.2,
+        height_cm=6.52,
         vol_index_value=vol_val,
+        show_legend=False,
     )
 
     # Locate the slide containing the 'spx' placeholder or text
@@ -959,27 +980,86 @@ def insert_spx_technical_chart_with_callout(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert the image at the requested coordinates.  The dimensions 25 cm
-    # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
-    # template.
+    # Insert the image at the requested coordinates.  The dimensions
+    # 24.2 cm wide and 6.52 cm high and position (0.93 cm, 5.46 cm)
+    # mirror those used on the IBOV slide.  These values leave room
+    # above for a separate legend, which can be added later.  Add the
+    # picture and bring it to the front so that it is not obscured by
+    # other shapes (e.g. a placeholder gauge).
     left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
+    top = Cm(5.46)
+    width = Cm(24.2)
+    height = Cm(6.52)
     stream = BytesIO(img_bytes)
-    # Add the picture and bring it to the front.  In some templates,
-    # additional shapes (e.g. a placeholder gauge) may overlap the chart.
-    # Removing and reinserting the picture element near the start of the
-    # shape tree ensures the chart remains visible above other content.
     picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     try:
         sp_tree = target_slide.shapes._spTree
-        # Remove the element and reinsert at position 1 (after background)
+        # Remove and reinsert near the front (after background)
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
     except Exception:
         # Fallback: leave the picture at the end of the shape list
         pass
+
+    # Replace the last‑price placeholder on the SPX slide.  Compute the
+    # most recent price and format it with two decimal places; fall back
+    # to 'N/A' if unavailable.  The placeholder may be a shape named
+    # ``last_price_spx`` or text containing ``[last_price_spx]`` or
+    # ``last_price_spx``.  Font attributes are preserved.
+    last_price = None
+    if df_full is not None and not df_full.empty:
+        try:
+            last_price = float(df_full["Price"].iloc[-1])
+        except Exception:
+            last_price = None
+    last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
+    placeholder_name = "last_price_spx"
+    placeholder_patterns = ["[last_price_spx]", "last_price_spx"]
+    replaced = False
+    for shp in target_slide.shapes:
+        # Match by shape name
+        if getattr(shp, "name", "").lower() == placeholder_name:
+            if shp.has_text_frame:
+                runs = shp.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                shp.text_frame.clear()
+                p = shp.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = last_str
+                _apply_run_font_attributes(new_run, *attrs)
+            replaced = True
+            break
+        # Match placeholder patterns within the text
+        if shp.has_text_frame:
+            original_text = shp.text or ""
+            for pattern in placeholder_patterns:
+                if pattern in original_text:
+                    runs = shp.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    )
+                    new_text = original_text.replace(pattern, last_str)
+                    shp.text_frame.clear()
+                    p = shp.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    replaced = True
+                    break
+        if replaced:
+            break
     return prs
 
 
