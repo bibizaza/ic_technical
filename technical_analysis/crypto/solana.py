@@ -975,11 +975,13 @@ def insert_solana_technical_chart_with_callout(
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Insert the image at the requested coordinates.  The updated
-    # dimensions and position (width 24.2 cm, height 6.52 cm, left
-    # 0.93 cm, top 5.31 cm) ensure that the chart leaves room for the
-    # manually inserted legend at the top of the slide.
+    # dimensions and position (width 24.2 cm, height 6.52 cm, left
+    # 0.93 cm, top 5.46 cm) ensure that the chart leaves room for the
+    # manually inserted legend at the top of the slide.  Note: the top
+    # position was increased slightly (from 5.31 cm to 5.46 cm) to
+    # fine‑tune the spacing beneath the legend.
     left = Cm(0.93)
-    top = Cm(5.31)
+    top = Cm(5.46)
     width = Cm(24.2)
     height = Cm(6.52)
     stream = BytesIO(img_bytes)
