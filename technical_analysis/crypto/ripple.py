@@ -984,32 +984,63 @@ def insert_ripple_technical_chart_with_callout(
 
 
 def _get_ripple_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return Ripple momentum score, mapping letter grades to numeric if needed."""
+    """Return Ripple momentum score, mapping letter grades to numeric if needed.
+
+    This routine follows the same pattern as the Bitcoin and Solana
+    momentum score retrieval.  It first examines the ``data_trend_rating``
+    sheet for a row corresponding to ``XRPUSD Curncy``.  The function
+    attempts to interpret the value in the fourth column (index 3) as a
+    float.  If the value exists and is a finite number, that number is
+    returned.  If the value is missing or ``NaN``, the function looks
+    up a customised mapping in the ``parameters`` sheet (column
+    ``Unnamed: 8``) for the same ticker.  If neither numeric nor
+    customised values are available, it falls back to mapping the
+    letter rating in the ``Current`` column to a numeric score based
+    on a fixed mapping (A→100, B→70, C→40, D→0).
+
+    Parameters
+    ----------
+    excel_obj_or_path : file‑like or str
+        Path to or open workbook containing the necessary sheets.
+
+    Returns
+    -------
+    Optional[float]
+        The momentum score as a numeric value (0–100) or ``None`` if
+        the required sheets or row cannot be found.
+    """
+    import numpy as _np
+    # Load the trend rating sheet
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
     except Exception:
         return None
-    # find Ripple row
+    # Identify the row corresponding to the Ripple ticker
     mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "XRPUSD CURNCY"
     if not mask.any():
         return None
     row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
+    # 1) Attempt to use the numeric rating in column index 3 (Previous rating).
     try:
-        return float(row.iloc[3])
+        val = float(row.iloc[3])
+        if not _np.isnan(val):
+            return val
     except Exception:
         pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for customised mapping
+    # 2) Attempt to obtain a customised value from the parameters sheet.
     try:
         params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
+        params.columns = [str(c).strip() for c in params.columns]
         ripple_param = params[params["Tickers"].astype(str).str.upper() == "XRPUSD CURNCY"]
-        if not ripple_param.empty and "Unnamed: 8" in ripple_param:
-            return float(ripple_param["Unnamed: 8"].dropna().iloc[0])
+        if not ripple_param.empty and "Unnamed: 8" in ripple_param.columns:
+            custom_series = ripple_param["Unnamed: 8"].dropna()
+            if not custom_series.empty:
+                return float(custom_series.iloc[0])
     except Exception:
         pass
+    # 3) Map the letter grade in the 'Current' column to a numeric score.
+    rating = str(row.iloc[2]).strip().upper()
+    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
     return mapping.get(rating)
 
 

@@ -640,6 +640,7 @@ def generate_range_callout_chart_image(
     callout_width_cm: float = 3.5,
     *,
     vol_index_value: Optional[float] = None,
+    show_legend: bool = True,
 ) -> bytes:
     """
     Create a PNG image of the Solana price chart with a textual call‑out on the
@@ -671,6 +672,10 @@ def generate_range_callout_chart_image(
     -------
     bytes
         PNG image bytes with transparency.
+
+    If ``show_legend`` is set to ``False``, the legend is suppressed in the
+    generated image.  This is useful when the legend is manually placed
+    on the PowerPoint slide rather than embedded in the image.
     """
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
@@ -801,12 +806,19 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: place the legend just above the main chart, aligned to the
-    # left so that it does not overlap the call‑out panel.  Use a
-    # multi‑column layout to fit all entries on a single line.  The
-    # bounding box is anchored slightly above the axes (y=1.05).
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                    fontsize=8, frameon=False)
+    # Legend: only draw the legend when ``show_legend`` is True.  This
+    # places the legend just above the main chart, aligned to the left so
+    # that it does not overlap the call‑out panel.  A multi‑column layout
+    # fits all entries on a single line.  The bounding box is anchored
+    # slightly above the axes (y=1.05).
+    if show_legend:
+        ax_chart.legend(
+            loc="upper left",
+            bbox_to_anchor=(0.0, 1.05),
+            ncol=4,
+            fontsize=8,
+            frameon=False,
+        )
 
     # Configure call‑out axis: remove ticks and spines; set background white
     ax_callout.set_xlim(0, 1)
@@ -929,17 +941,20 @@ def insert_solana_technical_chart_with_callout(
     # volatility index cannot be read, ``None`` is returned and the range
     # will fall back to an ATR‑based estimate.
     vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="XSOUSDV1M BGN Curncy")
-    # Generate the image with the call‑out.  Use an extended width of
-    # 25.0 cm while keeping the height at 7.3 cm.  Pass the volatility index
-    # value to ``generate_range_callout_chart_image`` so that the range
-    # calculation can use the implied volatility if available.
+    # Generate the image with the call‑out.  Use updated dimensions
+    # (24.2 cm wide and 6.52 cm high) so that the manually inserted legend
+    # above the chart is not obscured.  Pass the volatility index value
+    # to ``generate_range_callout_chart_image`` so that the range
+    # calculation can use the implied volatility if available.  The
+    # legend is suppressed because it will be manually added on the slide.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
+        width_cm=24.2,
+        height_cm=6.52,
         vol_index_value=vol_val,
+        show_legend=False,
     )
 
     # Locate the slide containing the 'solana' placeholder or text
@@ -959,57 +974,139 @@ def insert_solana_technical_chart_with_callout(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert the image at the requested coordinates.  The dimensions 25 cm
-    # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
-    # template.
+    # Insert the image at the requested coordinates.  The updated
+    # dimensions and position (width 24.2 cm, height 6.52 cm, left
+    # 0.93 cm, top 5.31 cm) ensure that the chart leaves room for the
+    # manually inserted legend at the top of the slide.
     left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
+    top = Cm(5.31)
+    width = Cm(24.2)
+    height = Cm(6.52)
     stream = BytesIO(img_bytes)
     # Add the picture and bring it to the front.  In some templates,
     # additional shapes (e.g. a placeholder gauge) may overlap the chart.
     # Removing and reinserting the picture element near the start of the
     # shape tree ensures the chart remains visible above other content.
-    picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
-    try:
-        sp_tree = target_slide.shapes._spTree
-        # Remove the element and reinsert at position 1 (after background)
-        sp_tree.remove(picture._element)
-        sp_tree.insert(1, picture._element)
-    except Exception:
-        # Fallback: leave the picture at the end of the shape list
-        pass
+    # Insert the picture.  We do not reorder the z‑index here so that
+    # manually added legends or other annotations on the slide remain
+    # visible above the chart.  If layering becomes an issue, reorder
+    # shapes in the template rather than programmatically.
+    target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    # ------------------------------------------------------------------
+    # Replace the last price placeholder on the Solana slide.  This
+    # avoids having to import a separate helper and ensures that the
+    # manually positioned legend can reference the most recent price.
+    # Compute the last price from df_full.  The price may be missing
+    # if the DataFrame is empty or contains invalid data; fall back to
+    # 'N/A' in that case.
+    last_price = None
+    if df_full is not None and not df_full.empty:
+        try:
+            last_price = float(df_full["Price"].iloc[-1])
+        except Exception:
+            last_price = None
+    last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
+    # Replace the text in a shape named 'last_price_solana' or any
+    # placeholder containing '[last_price_solana]' or 'last_price_solana'.
+    placeholder_name = "last_price_solana"
+    placeholder_patterns = ["[last_price_solana]", "last_price_solana"]
+    replaced = False
+    for shape in target_slide.shapes:
+        # Check by shape name
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = last_str
+                _apply_run_font_attributes(new_run, *attrs)
+                replaced = True
+                break
+        # Check for placeholder text within the shape's text
+        if shape.has_text_frame:
+            original_text = shape.text or ""
+            for pattern in placeholder_patterns:
+                if pattern in original_text:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = original_text.replace(pattern, last_str)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    replaced = True
+                    break
+        if replaced:
+            break
     return prs
 
 
 def _get_solana_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return Solana momentum score, mapping letter grades to numeric if needed."""
+    """Return Solana momentum score, mapping letter grades to numeric if needed.
+
+    This function mirrors the Bitcoin momentum score retrieval.  It first
+    attempts to interpret the fourth column (index 3) of the Solana row
+    in the ``data_trend_rating`` sheet as a numeric value.  If that
+    conversion results in a finite number, the value is returned.  If the
+    value is missing or ``NaN``, the function falls back to mapping the
+    letter grade in the ``Current`` column to a numeric score.  A
+    final override is available via the ``parameters`` sheet: if a
+    customised value is present in column ``Unnamed: 8`` for the
+    ``XSOUSD Curncy`` ticker, that value takes precedence over both the
+    numeric and letter‑grade interpretations.
+
+    Parameters
+    ----------
+    excel_obj_or_path : file‑like or str
+        Path to or open workbook containing the ``data_trend_rating`` and
+        ``parameters`` sheets.
+
+    Returns
+    -------
+    Optional[float]
+        The momentum score as a numeric value (0–100) or ``None`` if
+        neither the sheet nor the row exists.
+    """
+    import numpy as _np  # local import to avoid polluting global namespace
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
     except Exception:
         return None
-    # find Solana row
+    # find Solana row (case‑insensitive match on the first column)
     mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "XSOUSD CURNCY"
     if not mask.any():
         return None
     row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
+    # 1) Attempt to use the numeric value in column index 3 (Previous rating).
     try:
-        return float(row.iloc[3])
+        val = float(row.iloc[3])
+        # Treat NaN as missing; check using numpy.isnan
+        if not _np.isnan(val):
+            return val
     except Exception:
+        # ignore conversion errors and proceed to fallback
         pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for customised mapping
+    # 2) Attempt to read a customised value from the parameters sheet.
     try:
         params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
+        # Standardise column names to strings without whitespace
+        params.columns = [str(c).strip() for c in params.columns]
         solana_param = params[params["Tickers"].astype(str).str.upper() == "XSOUSD CURNCY"]
-        if not solana_param.empty and "Unnamed: 8" in solana_param:
-            return float(solana_param["Unnamed: 8"].dropna().iloc[0])
+        if not solana_param.empty and "Unnamed: 8" in solana_param.columns:
+            # Use the first non‑NaN value in column Unnamed: 8 if present
+            custom_series = solana_param["Unnamed: 8"].dropna()
+            if not custom_series.empty:
+                return float(custom_series.iloc[0])
     except Exception:
+        # If the parameters sheet is missing or malformed, ignore and fallback
         pass
+    # 3) Map letter grade (Current column) to numeric using fixed mapping
+    rating = str(row.iloc[2]).strip().upper()
+    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
     return mapping.get(rating)
 
 
@@ -1391,12 +1488,17 @@ def insert_solana_average_gauge(
     """
     tech_score = _get_solana_technical_score(excel_file)
     mom_score = _get_solana_momentum_score(excel_file)
+    # Mirror the Bitcoin implementation: if either score is missing
+    # return early without inserting a gauge.  Only when both scores
+    # are available will a DMAS gauge be generated.
     if tech_score is None or mom_score is None:
         return prs
+    tech_use = tech_score
+    mom_use = mom_score
     try:
         gauge_bytes = generate_average_gauge_image(
-            tech_score,
-            mom_score,
+            tech_use,
+            mom_use,
             last_week_avg,
             date_text="Last",
             last_label_text="Previous Week",
@@ -1469,9 +1571,20 @@ def insert_solana_technical_assessment(
     else:
         tech_score = _get_solana_technical_score(excel_file)
         mom_score = _get_solana_momentum_score(excel_file)
-        if tech_score is None or mom_score is None:
+        # If both scores are missing, do not update the view
+        if tech_score is None and mom_score is None:
             return prs
-        avg = (float(tech_score) + float(mom_score)) / 2.0
+        # Compute an average DMAS from the available scores.  If one of the
+        # scores is missing, fall back to using the other score alone.
+        if tech_score is not None and mom_score is not None:
+            avg = (float(tech_score) + float(mom_score)) / 2.0
+        elif tech_score is not None:
+            avg = float(tech_score)
+        else:
+            avg = float(mom_score)
+        # Map the average score to a qualitative view.  The thresholds mirror
+        # those used elsewhere in the application.  Higher scores correspond
+        # to more bullish assessments.
         if avg >= 80:
             desc = "Solana: Strongly Bullish"
         elif avg >= 70:
