@@ -936,16 +936,18 @@ def insert_binance_technical_chart_with_callout(
     # volatility index cannot be read, ``None`` is returned and the range
     # will fall back to an ATR‑based estimate.
     vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="XBIUSDV1M BGN Curncy")
-    # Generate the image with the call‑out.  Use an extended width of
-    # 25.0 cm while keeping the height at 7.3 cm.  Pass the volatility index
+    # Generate the image with the call‑out.  Use slightly narrower dimensions
+    # (24.2 cm wide by 6.52 cm high) to leave space for a manually
+    # positioned legend above the chart.  Pass the volatility index
     # value to ``generate_range_callout_chart_image`` so that the range
-    # calculation can use the implied volatility if available.
+    # calculation can use the implied volatility if available.  The
+    # legend is suppressed because it will be manually added on the slide.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
+        width_cm=24.2,
+        height_cm=6.52,
         vol_index_value=vol_val,
         show_legend=False,
     )
@@ -967,13 +969,15 @@ def insert_binance_technical_chart_with_callout(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert the image at the requested coordinates.  The dimensions 25 cm
-    # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
-    # template.
+    # Insert the image at the requested coordinates.  The updated
+    # dimensions (24.2 cm wide, 6.52 cm high) and position (left
+    # 0.93 cm, top 5.46 cm) align with the Solana slide template.  The
+    # slight increase in top margin provides additional space above the
+    # chart for the manually inserted legend.
     left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
+    top = Cm(5.46)
+    width = Cm(24.2)
+    height = Cm(6.52)
     stream = BytesIO(img_bytes)
     # Add the picture and bring it to the front.  In some templates,
     # additional shapes (e.g. a placeholder gauge) may overlap the chart.
