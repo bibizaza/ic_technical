@@ -640,6 +640,7 @@ def generate_range_callout_chart_image(
     callout_width_cm: float = 3.5,
     *,
     vol_index_value: Optional[float] = None,
+    show_legend: bool = True,
 ) -> bytes:
     """
     Create a PNG image of the Platinum price chart with a textual call‑out on the
@@ -666,6 +667,12 @@ def generate_range_callout_chart_image(
     callout_width_cm : float, default 3.5
         Width of the call‑out area on the right where the range summary
         appears.  The remaining width is used for the chart.
+
+    show_legend : bool, default True
+        Whether to draw the legend on the main chart.  When generating
+        images for insertion into a PowerPoint slide, the legend should
+        be suppressed (set to ``False``) so that a manually positioned
+        legend on the slide remains visible.
 
     Returns
     -------
@@ -801,12 +808,19 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: place the legend just above the main chart, aligned to the
-    # left so that it does not overlap the call‑out panel.  Use a
+    # Legend: place the legend just above the main chart only when
+    # show_legend is True.  When inserting into PowerPoint slides, the
+    # legend will be added manually on the slide itself.  Use a
     # multi‑column layout to fit all entries on a single line.  The
     # bounding box is anchored slightly above the axes (y=1.05).
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                    fontsize=8, frameon=False)
+    if show_legend:
+        ax_chart.legend(
+            loc="upper left",
+            bbox_to_anchor=(0.0, 1.05),
+            ncol=4,
+            fontsize=8,
+            frameon=False,
+        )
 
     # Configure call‑out axis: remove ticks and spines; set background white
     ax_callout.set_xlim(0, 1)
@@ -899,8 +913,11 @@ def insert_platinum_technical_chart_with_callout(
     ``insert_platinum_technical_chart_with_range`` but uses the call‑out style to
     display the high and low bounds instead of a vertical gauge.
 
-    The image is placed at the fixed coordinates (0.93 cm left, 4.40 cm top)
-    with dimensions 21.41 cm wide by 7.53 cm high, matching the template.
+    The image is placed at the fixed coordinates (0.93 cm left, 5.46 cm top)
+    with dimensions 24.2 cm wide by 6.52 cm high, matching the updated
+    template used for Solana, Bitcoin and other assets.  The larger
+    top margin leaves space above the chart for a manually inserted
+    legend.
 
     Parameters
     ----------
@@ -929,17 +946,21 @@ def insert_platinum_technical_chart_with_callout(
     # volatility index cannot be read, ``None`` is returned and the range
     # will fall back to an ATR‑based estimate.
     vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="XPTUSDV1M BGN Curncy")
-    # Generate the image with the call‑out.  Use an extended width of
-    # 25.0 cm while keeping the height at 7.3 cm.  Pass the volatility index
+    # Generate the image with the call‑out.  Use slightly narrower
+    # dimensions (24.2 cm wide by 6.52 cm high) to leave space for a
+    # manually positioned legend above the chart.  Suppress the legend
+    # within the generated image (show_legend=False) because the legend
+    # will be manually added on the slide.  Pass the volatility index
     # value to ``generate_range_callout_chart_image`` so that the range
     # calculation can use the implied volatility if available.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
+        width_cm=24.2,
+        height_cm=6.52,
         vol_index_value=vol_val,
+        show_legend=False,
     )
 
     # Locate the slide containing the 'platinum' placeholder or text
@@ -959,18 +980,17 @@ def insert_platinum_technical_chart_with_callout(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert the image at the requested coordinates.  The dimensions 25 cm
-    # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
-    # template.
+    # Insert the image at the requested coordinates.  The updated
+    # dimensions (24.2 cm wide, 6.52 cm high) and position (left 0.93 cm,
+    # top 5.46 cm) align with the Solana slide template and provide
+    # additional space for the manually added legend above the chart.
     left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
+    top = Cm(5.46)
+    width = Cm(24.2)
+    height = Cm(6.52)
     stream = BytesIO(img_bytes)
-    # Add the picture and bring it to the front.  In some templates,
-    # additional shapes (e.g. a placeholder gauge) may overlap the chart.
-    # Removing and reinserting the picture element near the start of the
-    # shape tree ensures the chart remains visible above other content.
+    # Add the picture and bring it to the front.  Removing and reinserting
+    # the element ensures the chart is visible above other content.
     picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     try:
         sp_tree = target_slide.shapes._spTree
@@ -978,8 +998,54 @@ def insert_platinum_technical_chart_with_callout(
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
     except Exception:
-        # Fallback: leave the picture at the end of the shape list
         pass
+    # ------------------------------------------------------------------
+    # Replace the last price placeholder on the Platinum slide.  Compute
+    # the most recent price from the full DataFrame; if the data is
+    # missing, fall back to 'N/A'.  The placeholder may appear as a
+    # shape named 'last_price_platinum' or within the text (e.g.
+    # '[last_price_platinum]' in a manually added legend).  Preserve the
+    # original font attributes when updating the text.
+    last_price = None
+    if df_full is not None and not df_full.empty:
+        try:
+            last_price = float(df_full["Price"].iloc[-1])
+        except Exception:
+            last_price = None
+    last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
+    placeholder_name = "last_price_platinum"
+    placeholder_patterns = ["[last_price_platinum]", "last_price_platinum"]
+    replaced = False
+    for shp in target_slide.shapes:
+        # Match by shape name
+        if getattr(shp, "name", "").lower() == placeholder_name:
+            if shp.has_text_frame:
+                runs = shp.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shp.text_frame.clear()
+                p = shp.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = last_str
+                _apply_run_font_attributes(new_run, *attrs)
+            replaced = True
+            break
+        # Match placeholder patterns within the text
+        if shp.has_text_frame:
+            original_text = shp.text or ""
+            for pattern in placeholder_patterns:
+                if pattern in original_text:
+                    runs = shp.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = original_text.replace(pattern, last_str)
+                    shp.text_frame.clear()
+                    p = shp.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    replaced = True
+                    break
+        if replaced:
+            break
     return prs
 
 
@@ -994,22 +1060,28 @@ def _get_platinum_momentum_score(excel_obj_or_path) -> Optional[float]:
     if not mask.any():
         return None
     row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
+    import numpy as _np
+    # 1) Attempt to use the numeric rating in column index 3 (Previous rating).
     try:
-        return float(row.iloc[3])
+        val = float(row.iloc[3])
+        if not _np.isnan(val):
+            return val
     except Exception:
         pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for customised mapping
+    # 2) Attempt to obtain a customised value from the parameters sheet.
     try:
         params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
+        params.columns = [str(c).strip() for c in params.columns]
         platinum_param = params[params["Tickers"].astype(str).str.upper() == "XPT COMDTY"]
-        if not platinum_param.empty and "Unnamed: 8" in platinum_param:
-            return float(platinum_param["Unnamed: 8"].dropna().iloc[0])
+        if not platinum_param.empty and "Unnamed: 8" in platinum_param.columns:
+            custom_series = platinum_param["Unnamed: 8"].dropna()
+            if not custom_series.empty:
+                return float(custom_series.iloc[0])
     except Exception:
         pass
+    # 3) Map the letter grade in the 'Current' column to a numeric score.
+    rating = str(row.iloc[2]).strip().upper()
+    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
     return mapping.get(rating)
 
 
