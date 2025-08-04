@@ -640,6 +640,7 @@ def generate_range_callout_chart_image(
     callout_width_cm: float = 3.5,
     *,
     vol_index_value: Optional[float] = None,
+    show_legend: bool = True,
 ) -> bytes:
     """
     Create a PNG image of the Binance price chart with a textual call‑out on the
@@ -666,6 +667,11 @@ def generate_range_callout_chart_image(
     callout_width_cm : float, default 3.5
         Width of the call‑out area on the right where the range summary
         appears.  The remaining width is used for the chart.
+
+    show_legend : bool, default True
+        If True, draw a legend for the price and moving average lines.  Set to
+        False when the legend will be added manually in a slide, e.g. to
+        prevent overlapping with other elements.
 
     Returns
     -------
@@ -805,8 +811,9 @@ def generate_range_callout_chart_image(
     # left so that it does not overlap the call‑out panel.  Use a
     # multi‑column layout to fit all entries on a single line.  The
     # bounding box is anchored slightly above the axes (y=1.05).
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                    fontsize=8, frameon=False)
+    if show_legend:
+        ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
+                        fontsize=8, frameon=False)
 
     # Configure call‑out axis: remove ticks and spines; set background white
     ax_callout.set_xlim(0, 1)
@@ -940,6 +947,7 @@ def insert_binance_technical_chart_with_callout(
         width_cm=25.0,
         height_cm=7.3,
         vol_index_value=vol_val,
+        show_legend=False,
     )
 
     # Locate the slide containing the 'binance' placeholder or text
@@ -980,36 +988,111 @@ def insert_binance_technical_chart_with_callout(
     except Exception:
         # Fallback: leave the picture at the end of the shape list
         pass
+    # ------------------------------------------------------------------
+    # Replace the last price placeholder on the Binance slide.  Compute
+    # the most recent price from the full DataFrame; if the data is
+    # missing, fall back to 'N/A'.  The placeholder may appear as a
+    # shape named 'last_price_binance' or within the text (e.g.
+    # '[last_price_binance]' in the manually added legend).  Preserve the
+    # original font attributes when updating the text.
+    last_price = None
+    if df_full is not None and not df_full.empty:
+        try:
+            last_price = float(df_full["Price"].iloc[-1])
+        except Exception:
+            last_price = None
+    last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
+    placeholder_name = "last_price_binance"
+    placeholder_patterns = ["[last_price_binance]", "last_price_binance"]
+    replaced = False
+    for shape in target_slide.shapes:
+        # Match by shape name
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = last_str
+                _apply_run_font_attributes(new_run, *attrs)
+            replaced = True
+            break
+        # Match placeholder patterns within the text
+        if shape.has_text_frame:
+            original_text = shape.text or ""
+            for pattern in placeholder_patterns:
+                if pattern in original_text:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = original_text.replace(pattern, last_str)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    replaced = True
+                    break
+        if replaced:
+            break
     return prs
 
 
 def _get_binance_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return Binance momentum score, mapping letter grades to numeric if needed."""
+    """
+    Return Binance momentum score, mapping letter grades to numeric if needed.
+
+    This function replicates the logic used for the Bitcoin and Solana
+    momentum score retrieval: it first attempts to read the numeric value
+    from the ``Previous rating`` column (index 3) of the ``data_trend_rating``
+    sheet.  If that value is missing or ``NaN``, it falls back to a
+    customised value in the ``parameters`` sheet (column ``Unnamed: 8``) for
+    the ticker ``XBIUSD Curncy``.  As a final fallback, the letter grade in
+    the ``Current`` column is mapped to a numeric score using a fixed
+    mapping (A→100, B→70, C→40, D→0).
+
+    Parameters
+    ----------
+    excel_obj_or_path : file‑like or str
+        The Excel workbook containing the ``data_trend_rating`` and
+        ``parameters`` sheets.
+
+    Returns
+    -------
+    Optional[float]
+        The momentum score (0–100) or ``None`` if the row or sheet is missing.
+    """
+    import numpy as _np  # local import to avoid polluting the module namespace
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
     except Exception:
         return None
-    # find Binance row
+    # find Binance row (case insensitive)
     mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "XBIUSD CURNCY"
     if not mask.any():
         return None
     row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
+    # 1) Attempt to use the numeric value in column index 3 (Previous rating).
     try:
-        return float(row.iloc[3])
+        val = float(row.iloc[3])
+        if not _np.isnan(val):
+            return val
     except Exception:
         pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for customised mapping
+    # 2) Attempt to read a customised value from the parameters sheet.
     try:
         params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
+        params.columns = [str(c).strip() for c in params.columns]
         binance_param = params[params["Tickers"].astype(str).str.upper() == "XBIUSD CURNCY"]
-        if not binance_param.empty and "Unnamed: 8" in binance_param:
-            return float(binance_param["Unnamed: 8"].dropna().iloc[0])
+        if not binance_param.empty and "Unnamed: 8" in binance_param.columns:
+            custom_series = binance_param["Unnamed: 8"].dropna()
+            if not custom_series.empty:
+                return float(custom_series.iloc[0])
     except Exception:
         pass
+    # 3) Map letter grade (Current column) to numeric using fixed mapping
+    rating = str(row.iloc[2]).strip().upper()
+    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
     return mapping.get(rating)
 
 
