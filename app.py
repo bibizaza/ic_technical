@@ -55,6 +55,18 @@ from technical_analysis.equity.spx import (
     _compute_range_bounds as _compute_range_bounds_spx,
 )
 
+from importlib import reload
+try:
+    import funda_breadth.breadth_page as _breadth
+except ModuleNotFoundError:
+    import funda_breadth.breadth_page as _breadth
+_breadth = reload(_breadth)
+
+_load_breadth_page_data = _breadth._load_and_prepare
+_style_breadth_page     = _breadth._apply_matrix_style
+_debug_breadth_rows     = _breadth.debug_first_rows
+
+
 # Import SMI functions from the dedicated module.  The SMI module resides
 # in ``technical_analysis/equity/smi.py`` and provides helper functions
 # analogous to the SPX, CSI, Nikkei, TASI, Sensex and DAX functions.  These
@@ -1408,7 +1420,13 @@ st.set_page_config(page_title="IC Technical", layout="wide")
 
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
-    "Select page", ["Upload", "YTD Update", "Technical Analysis", "Generate Presentation"]
+    "Select page", [
+        "Upload", 
+        "YTD Update", 
+        "Technical Analysis", 
+        "Market Breadth",
+        "Generate Presentation",
+    ]
 )
 
 
@@ -2793,6 +2811,33 @@ def show_crypto_technical_analysis() -> None:
             "Use the controls above to enable and configure the regression channel. "
             "Green shading indicates an uptrend; red shading indicates a downtrend."
         )
+
+
+def show_market_breadth_page() -> None:
+    st.header("Market Breadth")
+
+    if "excel_file" not in st.session_state:
+        st.error("Upload an Excel file first (Upload page).")
+        return
+
+    import tempfile, pathlib
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp.write(st.session_state["excel_file"].getbuffer())
+        xl_path = pathlib.Path(tmp.name)
+
+    df = _load_breadth_page_data(xl_path)
+    if df.empty:
+        st.warning("No breadth data found in **bql_formula** (columns AB–AE).")
+        return
+
+    st.dataframe(
+        _style_breadth_page(df),
+        use_container_width=True,
+        height=min(600, 50 + 25 * len(df)),
+    )
+
+    with st.expander("Debug – first parsed rows"):
+        st.write(_debug_breadth_rows(xl_path))
 
 
 def show_generate_presentation_page():
@@ -4401,6 +4446,15 @@ def show_generate_presentation_page():
             # If anything fails, continue without the performance slides
             pass
 
+        # ------------------------------------------------------------------
+        # Insert market breadth (funda breath) table
+        # ------------------------------------------------------------------
+        try:
+            prs = insert_funda_breath_table(prs, excel_path_for_ppt)
+        except Exception:
+            # Ignore errors to avoid breaking presentation generation
+            pass
+
         out_stream = BytesIO()
         prs.save(out_stream)
         out_stream.seek(0)
@@ -4434,5 +4488,7 @@ elif page == "YTD Update":
     show_ytd_update_page()
 elif page == "Technical Analysis":
     show_technical_analysis_page()
+elif page == "Market Breadth":
+    show_market_breadth_page()
 elif page == "Generate Presentation":
     show_generate_presentation_page()
