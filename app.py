@@ -4475,7 +4475,6 @@ def show_generate_presentation_page():
             mime=mime,
             key="download_ppt_button",
         )
-
     st.write("Click the button in the sidebar to generate your updated presentation.")
 
 
