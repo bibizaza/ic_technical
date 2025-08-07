@@ -66,6 +66,132 @@ _load_breadth_page_data = _breadth._load_and_prepare
 _style_breadth_page     = _breadth._apply_matrix_style
 _debug_breadth_rows     = _breadth.debug_first_rows
 
+# ─── Breadth‑picture helper (Excel → EMF → PPT) ───────────────────────
+from pathlib import Path
+import tempfile
+from importlib import reload
+
+try:
+    import win32com.client           # pywin32, needs Excel on Windows
+except ImportError:
+    win32com = None                  # fallback handled later
+
+# ── helper: table -> cropped high‑dpi PNG ────────────────────────────
+from pathlib import Path
+def _copy_breadth_test_range(xlsx_path: Path) -> Path:
+    """
+    Copy helper_breadth!E4:J13, paste as values+formats, export PDF,
+    rasterise with Ghostscript (bitmap ≤ 5 000 px wide), crop transparent
+    margins, return PNG path ready for slide.
+    """
+    import os, uuid, math, tempfile, shutil, subprocess, pythoncom, traceback
+    from win32com.client import DispatchEx
+    from PIL import Image   # pip install pillow
+
+    SRC_SHEET   = "helper_breadth"
+    SRC_RANGE   = "E4:J13"
+    SLIDE_W_CM  = 19.55
+    MAX_PX      = 5000
+
+    xlPasteValues       = -4163
+    xlPasteFormats      = -4122
+    xlPasteColumnWidths = 8
+
+    tmp_dir  = Path(tempfile.gettempdir())
+    pdf_path = tmp_dir / f"breadth_{uuid.uuid4().hex}.pdf"
+    png_path = pdf_path.with_suffix(".png")
+
+    # --- locate Ghostscript ------------------------------------------------
+    gs = (os.environ.get("GSWIN") or
+          shutil.which("gswin64c") or
+          shutil.which("gswin32c"))
+    if not gs:
+        default_gs = Path(r"C:\Program Files\gs")
+        for ver in sorted(default_gs.glob("gs*"), reverse=True):
+            cand = ver / "bin" / "gswin64c.exe"
+            if cand.exists():
+                gs = str(cand); break
+    if not gs:
+        raise RuntimeError("Ghostscript not found – add to PATH or set GSWIN.")
+
+    pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
+    excel = None
+    try:
+        excel = DispatchEx("Excel.Application")
+        excel.DisplayAlerts = False
+
+        src_wb = excel.Workbooks.Open(str(xlsx_path))
+        src_wb.Worksheets(SRC_SHEET).Range(SRC_RANGE).Copy()
+
+        tmp_wb = excel.Workbooks.Add()
+        ws     = tmp_wb.Worksheets(1)
+        ws.Range("A1").PasteSpecial(Paste=xlPasteValues)
+        ws.Range("A1").PasteSpecial(Paste=xlPasteFormats)
+        ws.Range("A1").PasteSpecial(Paste=xlPasteColumnWidths)
+        ws.PageSetup.Zoom = False
+        ws.PageSetup.FitToPagesWide = 1
+        ws.PageSetup.FitToPagesTall = False
+
+        tmp_wb.ExportAsFixedFormat(Type=0, Filename=str(pdf_path))
+        pdf_width_in = ws.UsedRange.Width / 72.0
+        tmp_wb.Close(False)
+        src_wb.Close(False)
+
+        target_px  = min(MAX_PX, (SLIDE_W_CM / 2.54) * 600)
+        dpi_needed = math.ceil(target_px / pdf_width_in)
+
+        subprocess.run(
+            [gs, "-dSAFER", "-dBATCH", "-dNOPAUSE",
+             "-sDEVICE=pngalpha",
+             f"-r{dpi_needed}",
+             f"-sOutputFile={png_path}",
+             str(pdf_path)],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        if not (png_path.exists() and png_path.stat().st_size):
+            raise RuntimeError("Ghostscript produced no PNG.")
+
+        # --- crop transparent margins ------------------------------------
+        im = Image.open(png_path)
+        bbox = im.getbbox()           # bounds of non‑transparent pixels
+        if bbox:
+            im_cropped = im.crop(bbox)
+            im_cropped.save(png_path)
+        im.close()
+
+        return png_path
+
+    except Exception:
+        traceback.print_exc()
+        raise
+    finally:
+        if excel: excel.Quit()
+        pythoncom.CoUninitialize()
+
+
+
+def _paste_breadth_picture(
+    prs, img_path: Path,
+    *, left_cm=1.7, top_cm=5.42, width_cm=21.1, height_cm=4.79
+):
+    """Replace textbox 'funda_breadth' with the EMF/PNG picture."""
+    from pptx.util import Cm
+
+    for slide in prs.slides:
+        target = next(
+            (sh for sh in slide.shapes
+             if (sh.has_text_frame and sh.text_frame.text.strip().lower() == "funda_breadth")
+             or sh.name.lower().startswith("funda_breadth")),
+            None,
+        )
+        if target:
+            target._element.getparent().remove(target._element)
+            slide.shapes.add_picture(
+                str(img_path), Cm(left_cm), Cm(top_cm), Cm(width_cm), Cm(height_cm)
+            )
+            break
+    return prs
+
 
 # Import SMI functions from the dedicated module.  The SMI module resides
 # in ``technical_analysis/equity/smi.py`` and provides helper functions
@@ -4449,6 +4575,27 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert market breadth (funda breath) table
         # ------------------------------------------------------------------
+        
+        from pptx.util import Cm
+        def _paste_breadth_test_picture(prs, img_path):
+            for slide in prs.slides:
+                ph = next(
+                    (s for s in slide.shapes
+                    if (s.has_text_frame and s.text_frame.text.strip().lower() == "funda_breadth")
+                    or s.name.lower().startswith("funda_breadth")),
+                    None,
+                )
+                if ph:
+                    pic = slide.shapes.add_picture(
+                        str(img_path),
+                        Cm(2.58), Cm(5.38),      # position
+                        Cm(19.55), Cm(4.25)      # size
+                    )
+                    pic.alt_text = "tcignore breadth image"
+                    break
+            return prs
+
+
         try:
             prs = insert_funda_breath_table(prs, excel_path_for_ppt)
         except Exception:
@@ -4456,6 +4603,11 @@ def show_generate_presentation_page():
             pass
 
         out_stream = BytesIO()
+        try:
+            img_path = _copy_breadth_test_range(Path(excel_path_for_ppt))
+            prs = _paste_breadth_test_picture(prs, img_path)
+        except Exception as e:
+            print("Breadth‑test step failed:", e)
         prs.save(out_stream)
         out_stream.seek(0)
         updated_bytes = out_stream.getvalue()
