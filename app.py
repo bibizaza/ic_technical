@@ -76,68 +76,107 @@ try:
 except ImportError:
     win32com = None                  # fallback handled later
 
-# ── helper: table -> cropped high‑dpi PNG ────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# Breadth helper  –  sort ▸ copy ▸ PDF ▸ Ghostscript ▸ crop ▸ PNG path
+# ─────────────────────────────────────────────────────────────────────
 from pathlib import Path
+
 def _copy_breadth_test_range(xlsx_path: Path) -> Path:
     """
-    Copy helper_breadth!E4:J13, paste as values+formats, export PDF,
-    rasterise with Ghostscript (bitmap ≤ 5 000 px wide), crop transparent
-    margins, return PNG path ready for slide.
+    1.  Sort helper_breadth!C5:J13 by column F ascending.
+    2.  Copy helper_breadth!E4:J13 (now sorted) as
+        VALUES + FORMATS + COLUMN WIDTHS into a one‑sheet temp workbook.
+    3.  Export that sheet to PDF, convert to PNG with Ghostscript,
+        cropping away transparent margins.  The bitmap width is capped
+        at 5 000 px so it displays ≈ 550–600 dpi when inserted at
+        19.55 cm on the slide.
+
+    Returns the PNG file path.
     """
     import os, uuid, math, tempfile, shutil, subprocess, pythoncom, traceback
     from win32com.client import DispatchEx
-    from PIL import Image   # pip install pillow
+    from PIL import Image
 
-    SRC_SHEET   = "helper_breadth"
-    SRC_RANGE   = "E4:J13"
-    SLIDE_W_CM  = 19.55
-    MAX_PX      = 5000
+    # ---------------- user‑tuneables ----------------------------------
+    SRC_SHEET      = "helper_breadth"
+    SORT_RANGE     = "C5:J13"
+    SORT_KEY       = "F5"           # first cell of the sort column
+    COPY_RANGE     = "E4:J13"
+    SLIDE_WIDTH_CM = 19.55
+    MAX_PX         = 5000
+    # ------------------------------------------------------------------
 
+    # Excel paste constants
     xlPasteValues       = -4163
     xlPasteFormats      = -4122
     xlPasteColumnWidths = 8
+    xlAscending         = 1
+    xlSortOnValues      = 0
+    xlNo                = 2
 
     tmp_dir  = Path(tempfile.gettempdir())
     pdf_path = tmp_dir / f"breadth_{uuid.uuid4().hex}.pdf"
     png_path = pdf_path.with_suffix(".png")
 
-    # --- locate Ghostscript ------------------------------------------------
-    gs = (os.environ.get("GSWIN") or
-          shutil.which("gswin64c") or
-          shutil.which("gswin32c"))
+    # ---- locate Ghostscript -----------------------------------------
+    gs = (os.environ.get("GSWIN")
+          or shutil.which("gswin64c")
+          or shutil.which("gswin32c"))
     if not gs:
-        default_gs = Path(r"C:\Program Files\gs")
-        for ver in sorted(default_gs.glob("gs*"), reverse=True):
-            cand = ver / "bin" / "gswin64c.exe"
-            if cand.exists():
-                gs = str(cand); break
+        default = Path(r"C:\Program Files\gs")
+        if default.exists():
+            for ver in sorted(default.glob("gs*"), reverse=True):
+                exe = ver / "bin" / "gswin64c.exe"
+                if exe.exists():
+                    gs = str(exe)
+                    break
     if not gs:
-        raise RuntimeError("Ghostscript not found – add to PATH or set GSWIN.")
+        raise RuntimeError("Ghostscript not found. "
+                           "Add its bin folder to PATH or set env var GSWIN.")
 
     pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
     excel = None
     try:
         excel = DispatchEx("Excel.Application")
+        excel.Visible = False
         excel.DisplayAlerts = False
 
+        # 1 · Open workbook and sort -----------------------------------
         src_wb = excel.Workbooks.Open(str(xlsx_path))
-        src_wb.Worksheets(SRC_SHEET).Range(SRC_RANGE).Copy()
+        ws     = src_wb.Worksheets(SRC_SHEET)
 
+        rng = ws.Range(SORT_RANGE)
+        ws.Sort.SortFields.Clear()
+        ws.Sort.SortFields.Add(
+            Key=ws.Range(SORT_KEY),
+            SortOn=xlSortOnValues,
+            Order=xlAscending,
+            DataOption=0
+        )
+        ws.Sort.SetRange(rng)
+        ws.Sort.Header = xlNo
+        ws.Sort.Apply()
+
+        # 2 · Copy sorted range as static table ------------------------
+        ws.Range(COPY_RANGE).Copy()
         tmp_wb = excel.Workbooks.Add()
-        ws     = tmp_wb.Worksheets(1)
-        ws.Range("A1").PasteSpecial(Paste=xlPasteValues)
-        ws.Range("A1").PasteSpecial(Paste=xlPasteFormats)
-        ws.Range("A1").PasteSpecial(Paste=xlPasteColumnWidths)
-        ws.PageSetup.Zoom = False
-        ws.PageSetup.FitToPagesWide = 1
-        ws.PageSetup.FitToPagesTall = False
+        tws    = tmp_wb.Worksheets(1)
+        tws.Range("A1").PasteSpecial(Paste=xlPasteValues)
+        tws.Range("A1").PasteSpecial(Paste=xlPasteFormats)
+        tws.Range("A1").PasteSpecial(Paste=xlPasteColumnWidths)
 
+        tws.PageSetup.Zoom = False
+        tws.PageSetup.FitToPagesWide = 1
+        tws.PageSetup.FitToPagesTall = False
+
+        # 3 · Export to PDF -------------------------------------------
         tmp_wb.ExportAsFixedFormat(Type=0, Filename=str(pdf_path))
-        pdf_width_in = ws.UsedRange.Width / 72.0
+        pdf_width_in = tws.UsedRange.Width / 72.0
         tmp_wb.Close(False)
         src_wb.Close(False)
 
-        target_px  = min(MAX_PX, (SLIDE_W_CM / 2.54) * 600)
+        # 4 · Rasterise with Ghostscript ------------------------------
+        target_px  = min(MAX_PX, (SLIDE_WIDTH_CM / 2.54) * 600)  # ~600 dpi cap
         dpi_needed = math.ceil(target_px / pdf_width_in)
 
         subprocess.run(
@@ -148,16 +187,14 @@ def _copy_breadth_test_range(xlsx_path: Path) -> Path:
              str(pdf_path)],
             check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
-        if not (png_path.exists() and png_path.stat().st_size):
-            raise RuntimeError("Ghostscript produced no PNG.")
+        if not png_path.exists() or png_path.stat().st_size == 0:
+            raise RuntimeError("Ghostscript succeeded but PNG is empty.")
 
-        # --- crop transparent margins ------------------------------------
-        im = Image.open(png_path)
-        bbox = im.getbbox()           # bounds of non‑transparent pixels
-        if bbox:
-            im_cropped = im.crop(bbox)
-            im_cropped.save(png_path)
-        im.close()
+        # 5 · Crop transparent margins --------------------------------
+        with Image.open(png_path) as im:
+            bbox = im.getbbox()
+            if bbox:
+                im.crop(bbox).save(png_path)
 
         return png_path
 
@@ -165,8 +202,10 @@ def _copy_breadth_test_range(xlsx_path: Path) -> Path:
         traceback.print_exc()
         raise
     finally:
-        if excel: excel.Quit()
+        if excel:
+            excel.Quit()
         pythoncom.CoUninitialize()
+
 
 
 
