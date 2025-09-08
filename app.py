@@ -2072,6 +2072,13 @@ def show_technical_analysis_page():
     except Exception:
         pass
 
+    try:
+        import technical_analysis.crypto.bitcoin as _bitcoin_module  # same package as your BITCOIN code
+        if hasattr(_bitcoin_module, "PLOT_LOOKBACK_DAYS"):
+            _bitcoin_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
+
     # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
         # Remove stored anchors for all indices if present
