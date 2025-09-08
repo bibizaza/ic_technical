@@ -252,24 +252,14 @@ def create_weekly_performance_chart(
     """
     default_mapping = {
         "SPX Index": "S&P 500",
-        "CCMP Index": "Nasdaq Composite",
-        "RTY Index": "Russell 2000",
         "IBOV Index": "Bovespa",
         "MEXBOL Index": "Mexican Bolsa",
-        "SX5E Index": "Eurostoxx 50",
-        "SXXP Index": "Stoxx 600",
-        "UKX Index": "FTSE 100",
-        "MXME Index": "MSCI EM Eastern Europe",
         "SMI Index": "Swiss Market Index",
-        "HSI Index": "Hang Seng",
         "SHSZ300 Index": "Shenzhen CSI 300",
         "NKY Index": "Nikkei 225",
-        "VNINDEX Index": "Vietnam Ho Chi Minh",
-        "SKMQAXJN Index": "Solactive Macquarie Asia ex JP",
         "SENSEX Index": "Sensex",
         "DAX Index": "DAX 30",
         "SASEIDX Index": "TASI (Saudi Index)",
-        "MXWO Index": "MSCI World",
     }
     mapping = ticker_mapping or default_mapping
     tickers = list(mapping.keys())
@@ -358,24 +348,14 @@ def create_historical_performance_table(
     """
     default_mapping = {
         "SPX Index": "S&P 500",
-        "CCMP Index": "Nasdaq Composite",
-        "RTY Index": "Russell 2000",
         "IBOV Index": "Bovespa",
         "MEXBOL Index": "Mexican Bolsa",
-        "SX5E Index": "Eurostoxx 50",
-        "SXXP Index": "Stoxx 600",
-        "UKX Index": "FTSE 100",
-        "MXME Index": "MSCI EM Eastern Europe",
         "SMI Index": "Swiss Market Index",
-        "HSI Index": "Hang Seng",
         "SHSZ300 Index": "Shenzhen CSI 300",
         "NKY Index": "Nikkei 225",
-        "VNINDEX Index": "Ho Chi Minh",
-        "SKMQAXJN Index": "Solactive Macquarie Asia ex JP",
         "SENSEX Index": "Sensex",
         "DAX Index": "DAX 30",
         "SASEIDX Index": "TASI (Saudi Index)",
-        "MXWO Index": "MSCI World",
     }
     mapping = ticker_mapping or default_mapping
     tickers = list(mapping.keys())
