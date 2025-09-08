@@ -774,6 +774,67 @@ except Exception:
         def _compute_range_bounds_copper(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import Palladium functions from the dedicated module.  Similar to other commodities,
+# these helpers reside in ``technical_analysis/commodity/palladium.py``.  If that
+# package is unavailable, a second attempt is made to import a top‑level
+# ``palladium`` module.  No‑op fallbacks are defined if both imports fail.
+try:
+    from technical_analysis.commodity.palladium import (
+        make_palladium_figure,
+        insert_palladium_technical_chart_with_callout,
+        insert_palladium_technical_chart,
+        insert_palladium_technical_score_number,
+        insert_palladium_momentum_score_number,
+        insert_palladium_subtitle,
+        insert_palladium_average_gauge,
+        insert_palladium_technical_assessment,
+        insert_palladium_source,
+        _get_palladium_technical_score,
+        _get_palladium_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_palladium,
+    )
+except Exception:
+    try:
+        from palladium import (
+            make_palladium_figure,
+            insert_palladium_technical_chart_with_callout,
+            insert_palladium_technical_chart,
+            insert_palladium_technical_score_number,
+            insert_palladium_momentum_score_number,
+            insert_palladium_subtitle,
+            insert_palladium_average_gauge,
+            insert_palladium_technical_assessment,
+            insert_palladium_source,
+            _get_palladium_technical_score,
+            _get_palladium_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_palladium,
+        )
+    except Exception:
+        def make_palladium_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_palladium_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_palladium_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_palladium_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_palladium_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_palladium_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_palladium_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_palladium_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_palladium_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_palladium_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_palladium_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_palladium(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
 # in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
 # analogous to those for commodities.  If that package cannot be imported,
@@ -2401,7 +2462,8 @@ def show_commodity_technical_analysis() -> None:
 
     # Commodity selection (Gold and Silver)
     # Include Gold, Silver, Platinum, Oil and Copper in the commodity options
-    index_options = ["Gold", "Silver", "Platinum", "Oil", "Copper"]
+    # Include Palladium in the list of supported commodities
+    index_options = ["Gold", "Silver", "Platinum", "Palladium", "Oil", "Copper"]
     default_index = st.session_state.get("ta_commodity_index", "Gold")
     selected_index = st.sidebar.selectbox(
         "Select commodity for technical analysis",
@@ -2425,6 +2487,10 @@ def show_commodity_technical_analysis() -> None:
         ticker = "XPT Comdty"
         ticker_key = "platinum"
         chart_title = "Platinum Technical Chart"
+    elif selected_index == "Palladium":
+        ticker = "XPD Curncy"
+        ticker_key = "palladium"
+        chart_title = "Palladium Technical Chart"
     elif selected_index == "Oil":
         ticker = "CL1 Comdty"
         ticker_key = "oil"
@@ -2496,6 +2562,8 @@ def show_commodity_technical_analysis() -> None:
                     tech_score = _get_silver_technical_score(temp_path)
                 elif selected_index == "Platinum":
                     tech_score = _get_platinum_technical_score(temp_path)
+                elif selected_index == "Palladium":
+                    tech_score = _get_palladium_technical_score(temp_path)
                 elif selected_index == "Oil":
                     tech_score = _get_oil_technical_score(temp_path)
                 elif selected_index == "Copper":
@@ -2509,6 +2577,8 @@ def show_commodity_technical_analysis() -> None:
                     mom_score = _get_silver_momentum_score(temp_path)
                 elif selected_index == "Platinum":
                     mom_score = _get_platinum_momentum_score(temp_path)
+                elif selected_index == "Palladium":
+                    mom_score = _get_palladium_momentum_score(temp_path)
                 elif selected_index == "Oil":
                     mom_score = _get_oil_momentum_score(temp_path)
                 elif selected_index == "Copper":
@@ -2560,6 +2630,8 @@ def show_commodity_technical_analysis() -> None:
                     vol_col_name = "XAGUSDV1M BGN Curncy"
                 elif selected_index == "Platinum":
                     vol_col_name = "XPTUSDV1M BGN Curncy"
+                elif selected_index == "Palladium":
+                    vol_col_name = "XPDUSDV1M BGN Curncy"
                 elif selected_index == "Oil":
                     # Oil implied volatility index column
                     vol_col_name = "WTI US 1M 50D VOL BVOL Equity"
@@ -2604,6 +2676,8 @@ def show_commodity_technical_analysis() -> None:
                         upper_bound, lower_bound = _compute_range_bounds_silver(df_full, lookback_days=90)
                     elif selected_index == "Platinum":
                         upper_bound, lower_bound = _compute_range_bounds_platinum(df_full, lookback_days=90)
+                    elif selected_index == "Palladium":
+                        upper_bound, lower_bound = _compute_range_bounds_palladium(df_full, lookback_days=90)
                     elif selected_index == "Oil":
                         upper_bound, lower_bound = _compute_range_bounds_oil(df_full, lookback_days=90)
                     else:
@@ -2622,6 +2696,8 @@ def show_commodity_technical_analysis() -> None:
                     upper_bound, lower_bound = _compute_range_bounds_silver(df_full, lookback_days=90)
                 elif selected_index == "Platinum":
                     upper_bound, lower_bound = _compute_range_bounds_platinum(df_full, lookback_days=90)
+                elif selected_index == "Palladium":
+                    upper_bound, lower_bound = _compute_range_bounds_palladium(df_full, lookback_days=90)
                 elif selected_index == "Oil":
                     upper_bound, lower_bound = _compute_range_bounds_oil(df_full, lookback_days=90)
                 else:
@@ -2718,6 +2794,8 @@ def show_commodity_technical_analysis() -> None:
                 fig = make_silver_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             elif selected_index == "Platinum":
                 fig = make_platinum_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+            elif selected_index == "Palladium":
+                fig = make_palladium_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             elif selected_index == "Oil":
                 fig = make_oil_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
             elif selected_index == "Copper":
@@ -3224,6 +3302,8 @@ def show_generate_presentation_page():
         silver_anchor_dt = st.session_state.get("silver_anchor")
         # Anchor for Platinum regression channel (commodity)
         platinum_anchor_dt = st.session_state.get("platinum_anchor")
+        # Anchor for Palladium regression channel (commodity)
+        palladium_anchor_dt = st.session_state.get("palladium_anchor")
         # Anchor for Oil regression channel (commodity)
         oil_anchor_dt = st.session_state.get("oil_anchor")
         # Anchor for Copper regression channel (commodity)
@@ -3962,6 +4042,79 @@ def show_generate_presentation_page():
             )
         except Exception:
             # If Platinum module is unavailable or insertion fails, continue without error
+            pass
+
+        # ------------------------------------------------------------------
+        # Insert Palladium technical analysis slide (commodity)
+        # ------------------------------------------------------------------
+        try:
+            # Insert the Palladium chart with call-out and regression channel anchored at palladium_anchor_dt
+            prs = insert_palladium_technical_chart_with_callout(
+                prs,
+                excel_path_for_ppt,
+                palladium_anchor_dt,
+                price_mode=pmode,
+            )
+            # Insert Palladium technical and momentum scores
+            prs = insert_palladium_technical_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            prs = insert_palladium_momentum_score_number(
+                prs,
+                excel_path_for_ppt,
+            )
+            # Insert Palladium subtitle from user input
+            prs = insert_palladium_subtitle(
+                prs,
+                st.session_state.get("palladium_subtitle", ""),
+            )
+            # Insert Palladium average gauge (last week's average DMAS)
+            palladium_last_week_avg = st.session_state.get("palladium_last_week_avg", 50.0)
+            prs = insert_palladium_average_gauge(
+                prs,
+                excel_path_for_ppt,
+                palladium_last_week_avg,
+            )
+            # Insert the technical assessment text into the 'palladium_view' textbox
+            manual_view_palladium = st.session_state.get("palladium_selected_view")
+            prs = insert_palladium_technical_assessment(
+                prs,
+                excel_path_for_ppt,
+                manual_desc=manual_view_palladium,
+            )
+            # Compute used date for Palladium source footnote
+            try:
+                import pandas as pd
+                df_prices_palladium = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_palladium = df_prices_palladium.drop(index=0)
+                df_prices_palladium = df_prices_palladium[
+                    df_prices_palladium[df_prices_palladium.columns[0]] != "DATES"
+                ]
+                df_prices_palladium["Date"] = pd.to_datetime(
+                    df_prices_palladium[df_prices_palladium.columns[0]], errors="coerce"
+                )
+                # Use the XPD Curncy column for Palladium prices
+                df_prices_palladium["Price"] = pd.to_numeric(
+                    df_prices_palladium["XPD Curncy"], errors="coerce"
+                )
+                df_prices_palladium = df_prices_palladium.dropna(subset=["Date", "Price"]).sort_values(
+                    "Date"
+                ).reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_palladium, used_date_palladium = adjust_prices_for_mode(
+                    df_prices_palladium, pmode
+                )
+            except Exception:
+                used_date_palladium = None
+            prs = insert_palladium_source(
+                prs,
+                used_date_palladium,
+                pmode,
+            )
+        except Exception:
+            # If Palladium module is unavailable or insertion fails, continue without error
             pass
 
         # ------------------------------------------------------------------
