@@ -1975,16 +1975,23 @@ def show_technical_analysis_page():
         pass
     
     try:
-        import technical_analysis.equity.dax as _dax_module  # same package as your CSI code
+        import technical_analysis.equity.dax as _dax_module  # same package as your DAX code
         if hasattr(_dax_module, "PLOT_LOOKBACK_DAYS"):
             _dax_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
     except Exception:
         pass
 
     try:
-        import technical_analysis.equity.ibov as _ibov_module  # same package as your CSI code
+        import technical_analysis.equity.ibov as _ibov_module  # same package as your IBOV code
         if hasattr(_ibov_module, "PLOT_LOOKBACK_DAYS"):
             _ibov_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
+
+    try:
+        import technical_analysis.equity.nikkei as _nikkei_module  # same package as your NIKKEI code
+        if hasattr(_nikkei_module, "PLOT_LOOKBACK_DAYS"):
+            _nikkei_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
     except Exception:
         pass
 
