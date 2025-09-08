@@ -74,6 +74,8 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
+PLOT_LOOKBACK_DAYS: int = 180
+
 ###############################################################################
 # Internal helpers
 ###############################################################################
@@ -309,7 +311,7 @@ def make_smi_figure(
         return go.Figure()
 
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
+    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     if df.empty:
@@ -440,7 +442,7 @@ def _generate_smi_image_from_df(
     Includes price, moving averages, Fibonacci lines and optional regression channel.
     """
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
+    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     df_ma = df.copy()
@@ -689,7 +691,7 @@ def generate_range_callout_chart_image(
 
     # Restrict to the last year of data for plotting
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
+    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Calculate moving averages on the 1‑year subset
@@ -1787,7 +1789,7 @@ def generate_range_gauge_chart_image(
 
     # Compute bounds for the last year of data
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
+    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
     df_ma = _add_mas(df)
 
