@@ -75,6 +75,21 @@ except Exception:
     adjust_prices_for_mode = None  # type: ignore
 
 ###############################################################################
+# Plot lookback configuration
+###############################################################################
+
+# The default lookback used when plotting price charts is six months
+# (≈180 days).  To display a full year of data instead, override this
+# constant at runtime (e.g. ``technical_analysis.equity.mexbol.PLOT_LOOKBACK_DAYS = 365``).
+# All functions that trim data for plotting refer to this value.
+PLOT_LOOKBACK_DAYS: int = 180
+
+# Import patches as mpatches for range callout charts.  While patches is
+# already imported as ``patches`` for gauge rendering, the callout chart
+# uses ``mpatches`` explicitly.
+import matplotlib.patches as mpatches
+
+###############################################################################
 # Internal helpers
 ###############################################################################
 
@@ -309,7 +324,11 @@ def make_mexbol_figure(
         return go.Figure()
 
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
+    # Restrict to the most recent portion of data.  Instead of always
+    # showing one year (365 days), honour the configurable
+    # ``PLOT_LOOKBACK_DAYS`` constant.  This allows the host application
+    # to override the default window (e.g. 180 days for six months).
+    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     if df.empty:
@@ -440,7 +459,10 @@ def _generate_mexbol_image_from_df(
     Includes price, moving averages, Fibonacci lines and optional regression channel.
     """
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
+    # Trim the DataFrame to the most recent portion defined by
+    # ``PLOT_LOOKBACK_DAYS`` instead of a fixed 365‑day window.  See
+    # ``PLOT_LOOKBACK_DAYS`` for details.
+    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     df_ma = df.copy()
@@ -685,12 +707,15 @@ def generate_range_callout_chart_image(
     if df_full.empty:
         return b""
 
-    # Restrict to the last year of data for plotting
+    # Restrict to the last portion of data for plotting.  The default
+    # window is ``PLOT_LOOKBACK_DAYS`` which can be overridden by the
+    # caller at runtime.  This replaces the previous hard‑coded
+    # 365‑day (one‑year) window.
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
+    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the 1‑year subset
+    # Calculate moving averages on the subset
     df_ma = _add_mas(df)
 
     # Optional regression channel
@@ -1800,9 +1825,12 @@ def generate_range_gauge_chart_image(
     if df_full.empty:
         return b""
 
-    # Compute bounds for the last year of data
+    # Compute bounds for the most recent portion of data as defined by
+    # ``PLOT_LOOKBACK_DAYS`` (default 365 days).  This replaces the
+    # previous fixed one‑year window and allows external callers to
+    # override the timeframe (e.g. to 180 days for six months).
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=365)
+    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
     df_ma = _add_mas(df)
 

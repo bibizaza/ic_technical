@@ -779,6 +779,7 @@ except Exception:
 # package is unavailable, a second attempt is made to import a top‑level
 # ``palladium`` module.  No‑op fallbacks are defined if both imports fail.
 try:
+    # Preferred: import from the standard technical_analysis package
     from technical_analysis.commodity.palladium import (
         make_palladium_figure,
         insert_palladium_technical_chart_with_callout,
@@ -795,7 +796,8 @@ try:
     )
 except Exception:
     try:
-        from palladium import (
+        # Secondary: import from our extended implementation if available
+        from palladium_full import (
             make_palladium_figure,
             insert_palladium_technical_chart_with_callout,
             insert_palladium_technical_chart,
@@ -810,30 +812,48 @@ except Exception:
             _compute_range_bounds as _compute_range_bounds_palladium,
         )
     except Exception:
-        def make_palladium_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_palladium_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_palladium_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_palladium_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_palladium_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_palladium_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_palladium_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_palladium_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_palladium_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_palladium_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_palladium_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_palladium(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
+        try:
+            # Fallback: import from the lean palladium module
+            from palladium import (
+                make_palladium_figure,
+                insert_palladium_technical_chart_with_callout,
+                insert_palladium_technical_chart,
+                insert_palladium_technical_score_number,
+                insert_palladium_momentum_score_number,
+                insert_palladium_subtitle,
+                insert_palladium_average_gauge,
+                insert_palladium_technical_assessment,
+                insert_palladium_source,
+                _get_palladium_technical_score,
+                _get_palladium_momentum_score,
+                _compute_range_bounds as _compute_range_bounds_palladium,
+            )
+        except Exception:
+            # No implementation found – define harmless stand‑ins
+            def make_palladium_figure(*args, **kwargs):  # type: ignore
+                return go.Figure()
+            def insert_palladium_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_technical_chart(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_technical_score_number(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_subtitle(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_average_gauge(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_technical_assessment(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_source(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def _get_palladium_technical_score(*args, **kwargs):  # type: ignore
+                return None
+            def _get_palladium_momentum_score(*args, **kwargs):  # type: ignore
+                return None
+            def _compute_range_bounds_palladium(*args, **kwargs):  # type: ignore
+                return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
 # in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
@@ -1597,7 +1617,17 @@ def _build_fallback_figure(
         return go.Figure()
 
     today = df_full["Date"].max().normalize()
-    start = today - pd.Timedelta(days=365)
+    # Determine the lookback window for the fallback chart based on the
+    # currently selected analysis timeframe.  When running under
+    # Streamlit the ``ta_timeframe_days`` key will be present in
+    # ``st.session_state``; otherwise it falls back to one year
+    # (365 days).  This ensures the synthetic fallback chart aligns
+    # with the timeframe used for real data.
+    try:
+        lookback_days = int(st.session_state.get("ta_timeframe_days", 365))  # type: ignore
+    except Exception:
+        lookback_days = 365
+    start = today - pd.Timedelta(days=lookback_days)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     fig = go.Figure()
@@ -1902,6 +1932,55 @@ def show_technical_analysis_page():
         "Asset class", ["Equity", "Commodity", "Crypto"], index=0
     )
 
+    # -------------------------------------------------------------------
+    # Analysis timeframe selection
+    # -------------------------------------------------------------------
+    # Allow the user to choose the lookback horizon for all technical charts.
+    # Providing both "6 months" and "1 year" lets users toggle between a
+    # shorter six‑month window (≈180 days) and a full year (365 days).
+    timeframe_options: dict[str, int] = {"6 months": 180, "1 year": 365}
+    # Determine the default based on any previously stored selection; fall
+    # back to six months if none is present.
+    default_tf_label = st.session_state.get("ta_timeframe_label", "6 months")
+    tf_labels = list(timeframe_options.keys())
+    if default_tf_label not in tf_labels:
+        default_tf_idx = 0
+    else:
+        default_tf_idx = tf_labels.index(default_tf_label)
+    selected_tf_label = st.sidebar.selectbox(
+        "Analysis timeframe",
+        options=tf_labels,
+        index=default_tf_idx,
+        key="ta_timeframe_select",
+    )
+    # Persist the selection and derive the numeric days value
+    st.session_state["ta_timeframe_label"] = selected_tf_label
+    st.session_state["ta_timeframe_days"] = timeframe_options[selected_tf_label]
+
+    # Propagate the chosen timeframe into technical analysis modules that
+    # support configurable lookback windows.  The Mexbol and Palladium
+    # modules define a ``PLOT_LOOKBACK_DAYS`` constant which can be
+    # overridden at runtime.  We attempt to set this attribute here.
+    try:
+        import technical_analysis.equity.mexbol as _mex_module  # type: ignore
+        _mex_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
+
+    try:
+        import technical_analysis.equity.csi as _csi_module  # same package as your CSI code
+        if hasattr(_csi_module, "PLOT_LOOKBACK_DAYS"):
+            _csi_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
+
+    # Also attempt to update the lean palladium module (if used)
+    try:
+        import palladium as _palladium_alt  # type: ignore
+        _palladium_alt.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
+
     # Provide a clear channel button to reset the regression channel for both indices
     if st.sidebar.button("Clear channel", key="ta_clear_global"):
         # Remove stored anchors for all indices if present
@@ -1928,7 +2007,7 @@ def show_technical_analysis_page():
         ]:
             if key in st.session_state:
                 st.session_state.pop(key)
-        st.experimental_rerun()
+        st.rerun()
 
     excel_available = "excel_file" in st.session_state
 
@@ -2328,9 +2407,14 @@ def show_technical_analysis_page():
 
             anchor_ts = None
             if enable_channel:
+                # When the regression channel is enabled, default the anchor to
+                # the start of the selected analysis timeframe unless a
+                # previous anchor has been stored in the session.  This
+                # replaces the fixed 180‑day default with the user‑chosen
+                # timeframe (e.g. 180 or 365 days).
                 default_anchor = st.session_state.get(
                     f"{ticker_key}_anchor",
-                    (max_date - pd.Timedelta(days=180)),
+                    (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 180))),
                 )
                 anchor_input = st.date_input(
                     "Select anchor date",
@@ -2718,9 +2802,12 @@ def show_commodity_technical_analysis() -> None:
         )
         anchor_ts: Optional[pd.Timestamp] = None
         if enable_channel:
+            # Default the anchor to the beginning of the selected
+            # timeframe when no previous anchor is stored.  Uses
+            # ``ta_timeframe_days`` instead of a fixed 180‑day window.
             default_anchor = st.session_state.get(
                 f"{ticker_key}_anchor",
-                (max_date - pd.Timedelta(days=180)),
+                (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 180))),
             )
             anchor_input = st.date_input(
                 "Select anchor date",
@@ -3062,9 +3149,11 @@ def show_crypto_technical_analysis() -> None:
         )
         anchor_ts: Optional[pd.Timestamp] = None
         if enable_channel:
+            # Default anchor uses the selected timeframe rather than a
+            # fixed 180‑day window when none is stored in session.
             default_anchor = st.session_state.get(
                 f"{ticker_key}_anchor",
-                (max_date - pd.Timedelta(days=180)),
+                (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 180))),
             )
             anchor_input = st.date_input(
                 "Select anchor date",
