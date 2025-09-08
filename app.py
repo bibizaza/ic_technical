@@ -1995,6 +1995,13 @@ def show_technical_analysis_page():
     except Exception:
         pass
 
+    try:
+        import technical_analysis.equity.sensex as _sensex_module  # same package as your SENSEX code
+        if hasattr(_sensex_module, "PLOT_LOOKBACK_DAYS"):
+            _sensex_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
+
     # Also attempt to update the lean palladium module (if used)
     try:
         import palladium as _palladium_alt  # type: ignore
