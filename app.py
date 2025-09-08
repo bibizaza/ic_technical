@@ -2009,6 +2009,13 @@ def show_technical_analysis_page():
     except Exception:
         pass
 
+    try:
+        import technical_analysis.equity.spx as _spx_module  # same package as your SPX code
+        if hasattr(_spx_module, "PLOT_LOOKBACK_DAYS"):
+            _spx_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
+
     # Also attempt to update the lean palladium module (if used)
     try:
         import palladium as _palladium_alt  # type: ignore
