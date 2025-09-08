@@ -108,6 +108,9 @@ EQUITY_COLOURS = {
     "NKY Index": "#FFC000",
     "SMI": "#C55A11",
     "SMI Index": "#C55A11",
+    "Mexbol":"#00DAB0",
+    "MEXBOL":"#00DAB0",
+    "MEXBOL INDEX":"#00DAB0",
 }
 
 

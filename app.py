@@ -1676,9 +1676,10 @@ def show_ytd_update_page():
             "S&P 500",
             "Sensex",
             "SMI",
-            "Shenzen CSI 300",
+            "CSI 300",
             "Nikkei 225",
             "TASI",
+            "Mexbol",
         ]
         if name in eq_names_available
     ]
