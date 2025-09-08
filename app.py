@@ -2080,9 +2080,16 @@ def show_technical_analysis_page():
         pass
 
     try:
-        import technical_analysis.crypto.ethereum as _ethereum_module  # same package as your BITCOIN code
+        import technical_analysis.crypto.ethereum as _ethereum_module  # same package as your ETHEREUM code
         if hasattr(_ethereum_module, "PLOT_LOOKBACK_DAYS"):
             _ethereum_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
+
+    try:
+        import technical_analysis.crypto.ripple as _ripple_module  # same package as your RIPPLE code
+        if hasattr(_ripple_module, "PLOT_LOOKBACK_DAYS"):
+            _ripple_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
     except Exception:
         pass
 
