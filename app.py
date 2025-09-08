@@ -2023,10 +2023,10 @@ def show_technical_analysis_page():
     except Exception:
         pass
 
-    # Also attempt to update the lean palladium module (if used)
     try:
-        import palladium as _palladium_alt  # type: ignore
-        _palladium_alt.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+        import technical_analysis.commodity.copper as _copper_module  # same package as your COPPER code
+        if hasattr(_copper_module, "PLOT_LOOKBACK_DAYS"):
+            _copper_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
     except Exception:
         pass
 
