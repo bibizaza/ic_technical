@@ -75,12 +75,14 @@ CRYPTO_COLOURS = {
     "XRPUSD Curncy": "#548235",
     "Bitcoin": "#203864",
     "XBTUSD Curncy": "#203864",
-    "Binance Coin": "#FF0000",
+    "Binance": "#FF0000",
     "XBIUSD LUKK Curncy": "#FF0000",
     "Ethereum": "#00B0F0",
     "XETUSD Curncy": "#00B0F0",
     "Solana": "#FFC000",
     "XSOUSD Curncy": "#FFC000",
+    "Ton": "#00DAB0",
+    "CCTON Curncy":"#00DAB0",
 }
 
 

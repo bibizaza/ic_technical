@@ -1703,7 +1703,7 @@ def show_ytd_update_page():
     co_names_available = co_params["Name"].tolist()
     default_co = [
         name
-        for name in ["Gold", "Silver", "Oil (WTI)", "Platinum", "Copper", "Uranium"]
+        for name in ["Gold", "Silver", "Oil (WTI)", "Platinum", "Copper", "Uranium","Palladium"]
         if name in co_names_available
     ]
     selected_co_names = st.sidebar.multiselect(
@@ -1726,7 +1726,7 @@ def show_ytd_update_page():
     cr_names_available = cr_params["Name"].tolist()
     default_cr = [
         name
-        for name in ["Ripple", "Bitcoin", "Binance", "Ethereum", "Solana"]
+        for name in ["Ripple", "Bitcoin", "Binance", "Ethereum", "Solana","Ton"]
         if name in cr_names_available
     ]
     selected_cr_names = st.sidebar.multiselect(

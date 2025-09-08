@@ -193,6 +193,7 @@ def create_weekly_performance_chart(
         "GCA Comdty": "Gold",
         "SIA Comdty": "Silver",
         "XPT Comdty": "Platinum",
+        "XPD Curncy": "Palladium",
     }
     mapping = ticker_mapping or default_mapping
     tickers = list(mapping.keys())
@@ -216,6 +217,7 @@ def create_weekly_performance_chart(
         "GCA Comdty": "Precious Metals",
         "SIA Comdty": "Precious Metals",
         "XPT Comdty": "Precious Metals",
+        "XPD Curncy": "Precious Metals",
     }
     categories = ["Energy", "Green Transition", "Precious Metals"]
     # Build a list of (category, human name, return) and sort within categories by return descending
@@ -304,6 +306,7 @@ def create_historical_performance_table(
         "GCA Comdty": "Gold",
         "SIA Comdty": "Silver",
         "XPT Comdty": "Platinum",
+        "XPD Curncy": "Palladium",
     }
     mapping = ticker_mapping or default_mapping
     tickers = list(mapping.keys())

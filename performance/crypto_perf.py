@@ -258,11 +258,11 @@ def create_weekly_performance_chart(
         "XETUSD Curncy": "Ethereum",
         "XRPUSD Curncy": "Ripple",
         "XSOUSD Curncy": "Solana",
-        "XBIUSD Curncy": "Binance Coin",
+        "XBIUSD Curncy": "Binance",
         "XDOUSD Curncy": "Polkadot",
         "XVV Curncy": "AAVE",
         "CHYPEE Index":"HyperLiquid",
-        "CCTON Curncy": "Ton Coin",
+        "CCTON Curncy": "Ton",
         "BGCI Index": "Bloomberg Galaxy Crypto",
     }
     mapping = ticker_mapping or default_mapping
@@ -355,11 +355,11 @@ def create_historical_performance_table(
         "XETUSD Curncy": "Ethereum",
         "XRPUSD Curncy": "Ripple",
         "XSOUSD Curncy": "Solana",
-        "XBIUSD Curncy": "Binance Coin",
+        "XBIUSD Curncy": "Binance",
         "XDOUSD Curncy": "Polkadot",
         "XVV Curncy": "AAVE",
         "CHYPEE Index":"HyperLiquid",
-        "CCTON Curncy": "Ton Coin",
+        "CCTON Curncy": "Ton",
         "BGCI Index": "Bloomberg Galaxy Crypto",
     }
     mapping = ticker_mapping or default_mapping
