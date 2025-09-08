@@ -1973,6 +1973,13 @@ def show_technical_analysis_page():
             _csi_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
     except Exception:
         pass
+    
+    try:
+        import technical_analysis.equity.dax as _dax_module  # same package as your CSI code
+        if hasattr(_dax_module, "PLOT_LOOKBACK_DAYS"):
+            _dax_module.PLOT_LOOKBACK_DAYS = st.session_state["ta_timeframe_days"]
+    except Exception:
+        pass
 
     # Also attempt to update the lean palladium module (if used)
     try:
