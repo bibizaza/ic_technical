@@ -354,6 +354,66 @@ except Exception:
     def _compute_range_bounds_ibov(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import Mexbol functions from the dedicated module.  The Mexbol module resides
+# in ``technical_analysis/equity/mexbol.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
+# These allow technical analysis of the Mexbol index.  If the module is not
+# available, define fallbacks to avoid errors and use the SPX range computation
+# as a last resort.
+try:
+    from technical_analysis.equity.mexbol import (
+        make_mexbol_figure,
+        insert_mexbol_technical_chart_with_callout,
+        insert_mexbol_technical_chart,
+        insert_mexbol_technical_score_number,
+        insert_mexbol_momentum_score_number,
+        insert_mexbol_subtitle,
+        insert_mexbol_average_gauge,
+        insert_mexbol_technical_assessment,
+        insert_mexbol_source,
+        _get_mexbol_technical_score,
+        _get_mexbol_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_mexbol,
+    )
+except Exception:
+    # Define no‑op stand‑ins if the Mexbol module is unavailable
+    def make_mexbol_figure(*args, **kwargs):  # type: ignore
+        return go.Figure()
+
+    def insert_mexbol_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_technical_chart(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_technical_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_subtitle(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_average_gauge(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_technical_assessment(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_source(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def _get_mexbol_technical_score(*args, **kwargs):  # type: ignore
+        return None
+
+    def _get_mexbol_momentum_score(*args, **kwargs):  # type: ignore
+        return None
+
+    # Fallback: if the Mexbol module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_mexbol(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import Gold functions from the dedicated module.  The Gold module resides
 # in ``technical_analysis/commodity/gold.py`` and provides helper functions
 # analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
@@ -1818,7 +1878,8 @@ def show_technical_analysis_page():
         # Provide index options.  Add Nikkei 225 alongside SPX and CSI.
         # Include SMI (Swiss Market Index) alongside existing indices
         # Include IBOV (Brazil Bovespa) alongside existing indices
-        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI", "Sensex", "Dax", "SMI", "Ibov"]
+        # Add Mexbol to the list of available equity indices
+        index_options = ["S&P 500", "CSI 300", "Nikkei 225", "TASI", "Sensex", "Dax", "SMI", "Ibov", "Mexbol"]
         default_index = st.session_state.get("ta_equity_index", "S&P 500")
         selected_index = st.sidebar.selectbox(
             "Select equity index for technical analysis",
@@ -1863,6 +1924,11 @@ def show_technical_analysis_page():
             ticker = "IBOV Index"
             ticker_key = "ibov"
             chart_title = "Ibov Technical Chart"
+        elif selected_index == "Mexbol":
+            # Mexbol index configuration
+            ticker = "MEXBOL Index"
+            ticker_key = "mexbol"
+            chart_title = "Mexbol Technical Chart"
         else:
             # Default fallback (should not occur)
             ticker = "SPX Index"
@@ -1935,6 +2001,8 @@ def show_technical_analysis_page():
                         tech_score = _get_smi_technical_score(temp_path)
                     elif selected_index == "Ibov":
                         tech_score = _get_ibov_technical_score(temp_path)
+                    elif selected_index == "Mexbol":
+                        tech_score = _get_mexbol_technical_score(temp_path)
                     else:
                         tech_score = None
                 except Exception:
@@ -1956,6 +2024,8 @@ def show_technical_analysis_page():
                         mom_score = _get_smi_momentum_score(temp_path)
                     elif selected_index == "Ibov":
                         mom_score = _get_ibov_momentum_score(temp_path)
+                    elif selected_index == "Mexbol":
+                        mom_score = _get_mexbol_momentum_score(temp_path)
                     else:
                         mom_score = None
                 except Exception:
@@ -2049,6 +2119,16 @@ def show_technical_analysis_page():
                         key="ibov_last_week_avg_input",
                     )
                     st.session_state["ibov_last_week_avg"] = ibov_last_week_input
+                elif selected_index == "Mexbol":
+                    # Capture last week's average DMAS for the Mexbol index
+                    mexbol_last_week_input = st.number_input(
+                        "Last week's average (DMAS)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=st.session_state.get("mexbol_last_week_avg", 50.0),
+                        key="mexbol_last_week_avg_input",
+                    )
+                    st.session_state["mexbol_last_week_avg"] = mexbol_last_week_input
             else:
                 st.info(
                     "Technical or momentum score not available in the uploaded Excel. "
@@ -2134,6 +2214,8 @@ def show_technical_analysis_page():
                             upper_bound, lower_bound = _compute_range_bounds_smi(df_full, lookback_days=90)
                         elif selected_index == "Ibov":
                             upper_bound, lower_bound = _compute_range_bounds_ibov(df_full, lookback_days=90)
+                        elif selected_index == "Mexbol":
+                            upper_bound, lower_bound = _compute_range_bounds_mexbol(df_full, lookback_days=90)
                         else:
                             upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     low_pct = (lower_bound - current_price) / current_price * 100.0
@@ -2158,10 +2240,14 @@ def show_technical_analysis_page():
                         upper_bound, lower_bound = _compute_range_bounds_dax(df_full, lookback_days=90)
                     elif selected_index == "Ibov":
                         upper_bound, lower_bound = _compute_range_bounds_ibov(df_full, lookback_days=90)
+                    elif selected_index == "Mexbol":
+                        upper_bound, lower_bound = _compute_range_bounds_mexbol(df_full, lookback_days=90)
                     elif selected_index == "SMI":
                         upper_bound, lower_bound = _compute_range_bounds_smi(df_full, lookback_days=90)
                     elif selected_index == "Ibov":
                         upper_bound, lower_bound = _compute_range_bounds_ibov(df_full, lookback_days=90)
+                    elif selected_index == "Mexbol":
+                        upper_bound, lower_bound = _compute_range_bounds_mexbol(df_full, lookback_days=90)
                     else:
                         upper_bound, lower_bound = _compute_range_bounds_spx(df_full, lookback_days=90)
                     st.write(
@@ -2271,6 +2357,8 @@ def show_technical_analysis_page():
                     fig = make_smi_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
                 elif selected_index == "Ibov":
                     fig = make_ibov_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
+                elif selected_index == "Mexbol":
+                    fig = make_mexbol_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
                 else:
                     # default fallback: use SPX figure
                     fig = make_spx_figure(temp_path, anchor_date=anchor_ts, price_mode=pmode)
@@ -3129,6 +3217,7 @@ def show_generate_presentation_page():
         dax_anchor_dt = st.session_state.get("dax_anchor")
         smi_anchor_dt = st.session_state.get("smi_anchor")
         ibov_anchor_dt = st.session_state.get("ibov_anchor")
+        mexbol_anchor_dt = st.session_state.get("mexbol_anchor")
         # Anchor for Gold regression channel (commodity)
         gold_anchor_dt = st.session_state.get("gold_anchor")
         # Anchor for Silver regression channel (commodity)
@@ -3620,6 +3709,65 @@ def show_generate_presentation_page():
         prs = insert_ibov_source(
             prs,
             used_date_ibov,
+            pmode,
+        )
+
+        # ------------------------------------------------------------------
+        # Insert Mexbol technical analysis slide (always)
+        # ------------------------------------------------------------------
+        prs = insert_mexbol_technical_chart_with_callout(
+            prs,
+            excel_path_for_ppt,
+            mexbol_anchor_dt,
+            price_mode=pmode,
+        )
+        # Insert Mexbol technical score number
+        prs = insert_mexbol_technical_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert Mexbol momentum score number
+        prs = insert_mexbol_momentum_score_number(
+            prs,
+            excel_path_for_ppt,
+        )
+        # Insert Mexbol subtitle from user input
+        prs = insert_mexbol_subtitle(
+            prs,
+            st.session_state.get("mexbol_subtitle", ""),
+        )
+        # Insert Mexbol average gauge (last week's average is 0–100)
+        mexbol_last_week_avg = st.session_state.get("mexbol_last_week_avg", 50.0)
+        prs = insert_mexbol_average_gauge(
+            prs,
+            excel_path_for_ppt,
+            mexbol_last_week_avg,
+        )
+        # Insert the technical assessment text into the 'mexbol_view' textbox.
+        manual_view_mexbol = st.session_state.get("mexbol_selected_view")
+        prs = insert_mexbol_technical_assessment(
+            prs,
+            excel_path_for_ppt,
+            manual_desc=manual_view_mexbol,
+        )
+        # Compute used date for Mexbol source footnote
+        try:
+            import pandas as pd
+            df_prices_mexbol = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices_mexbol = df_prices_mexbol.drop(index=0)
+            df_prices_mexbol = df_prices_mexbol[df_prices_mexbol[df_prices_mexbol.columns[0]] != "DATES"]
+            df_prices_mexbol["Date"] = pd.to_datetime(df_prices_mexbol[df_prices_mexbol.columns[0]], errors="coerce")
+            # Use the MEXBOL Index column for Mexbol prices
+            df_prices_mexbol["Price"] = pd.to_numeric(df_prices_mexbol["MEXBOL Index"], errors="coerce")
+            df_prices_mexbol = df_prices_mexbol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                ["Date", "Price"]
+            ]
+            df_adj_mexbol, used_date_mexbol = adjust_prices_for_mode(df_prices_mexbol, pmode)
+        except Exception:
+            used_date_mexbol = None
+        prs = insert_mexbol_source(
+            prs,
+            used_date_mexbol,
             pmode,
         )
 
