@@ -3469,6 +3469,67 @@ def show_generate_presentation_page():
             tmp_xls.flush()
             excel_path_for_ppt = Path(tmp_xls.name)
 
+        # ----------------------------------------------------------------------
+        # Automatically update the date on the first slide and prepare filename
+        #
+        # Compute the current date in Europe/Zurich, format it for the
+        # DataIC textbox and build a stamp for the output filename.  A
+        # helper function is defined to locate the "DataIC" shape on
+        # the first slide and replace its text while preserving
+        # existing styling (size, colour, bold/italic).  See user
+        # requirement: the first slide should show today's date in the
+        # form "September 10, 2025" automatically when generating
+        # presentations.  The filename will use the same date in
+        # DDMMYYYY format.
+
+        import pandas as pd  # local import to avoid polluting module scope
+
+        def _set_text_in_named_textbox(prs_obj, shape_name: str, text: str):
+            """Replace text in a named textbox while keeping the first run's style."""
+            for slide in prs_obj.slides:
+                for shape in slide.shapes:
+                    if getattr(shape, "name", "") == shape_name and getattr(shape, "has_text_frame", False):
+                        p = shape.text_frame.paragraphs[0]
+                        if p.runs:
+                            r0 = p.runs[0]
+                            size = r0.font.size
+                            color = r0.font.color
+                            rgb = getattr(color, "rgb", None)
+                            theme_color = getattr(color, "theme_color", None)
+                            brightness = getattr(color, "brightness", None)
+                            bold = r0.font.bold
+                            italic = r0.font.italic
+                            shape.text_frame.clear()
+                            pr = shape.text_frame.paragraphs[0]
+                            new_run = pr.add_run()
+                            new_run.text = text
+                            if size:
+                                new_run.font.size = size
+                            try:
+                                if rgb:
+                                    new_run.font.color.rgb = rgb
+                                elif theme_color:
+                                    new_run.font.color.theme_color = theme_color
+                                    if brightness is not None:
+                                        new_run.font.color.brightness = brightness
+                            except Exception:
+                                pass
+                            if bold is not None:
+                                new_run.font.bold = bold
+                            if italic is not None:
+                                new_run.font.italic = italic
+                        else:
+                            shape.text_frame.text = text
+                        return prs_obj
+            return prs_obj
+
+        # Determine today's date in Europe/Zurich timezone
+        ts = pd.Timestamp.now(tz="Europe/Zurich")
+        human_date = f"{ts.strftime('%B')} {ts.day}, {ts.year}"
+        stamp_ddmmyyyy = f"{ts.day:02d}{ts.month:02d}{ts.year}"
+        # Update the DataIC textbox on the first slide
+        prs = _set_text_in_named_textbox(prs, "DataIC", human_date)
+
         # Insert YTD charts
         prs = insert_equity_chart(
             prs,
@@ -5167,7 +5228,9 @@ def show_generate_presentation_page():
         # macro‑enabled template (.pptm) to .pptx removes any embedded VBA
         # projects and prevents runtime errors when opening the file.  The
         # MIME type for .pptx files is used for all downloads.
-        fname = "updated_presentation.pptx"
+        # Use the computed stamp_ddmmyyyy to construct the output filename.
+        # This yields names like "03092025_Herculis_Partners_Macro_Update.pptx".
+        fname = f"{stamp_ddmmyyyy}_Herculis_Partners_Macro_Update.pptx"
         mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
         st.sidebar.success("Updated presentation created successfully.")
