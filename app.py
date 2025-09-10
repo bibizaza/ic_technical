@@ -3527,8 +3527,57 @@ def show_generate_presentation_page():
         ts = pd.Timestamp.now(tz="Europe/Zurich")
         human_date = f"{ts.strftime('%B')} {ts.day}, {ts.year}"
         stamp_ddmmyyyy = f"{ts.day:02d}{ts.month:02d}{ts.year}"
-        # Update the DataIC textbox on the first slide
-        prs = _set_text_in_named_textbox(prs, "DataIC", human_date)
+        # Try to replace a placeholder [DataIC] within any text run on the first slide.
+        # The placeholder is replaced with the formatted date while preserving the
+        # run's font attributes (size, colour, bold and italic).  If no
+        # run with text exactly "[DataIC]" is found, fall back to replacing
+        # the entire shape named "DataIC" using the helper above.
+        _date_set = False
+        for slide in prs.slides:
+            if _date_set:
+                break
+            for shape in slide.shapes:
+                if not getattr(shape, "has_text_frame", False):
+                    continue
+                tf = shape.text_frame
+                for para in tf.paragraphs:
+                    for run in para.runs:
+                        if run.text.strip() == "[DataIC]":
+                            # Preserve the existing font styling
+                            size = run.font.size
+                            color = run.font.color
+                            rgb = getattr(color, "rgb", None) if color else None
+                            theme_color = getattr(color, "theme_color", None) if color else None
+                            brightness = getattr(color, "brightness", None) if color else None
+                            bold = run.font.bold
+                            italic = run.font.italic
+                            # Replace the text
+                            run.text = human_date
+                            # Reapply styling
+                            if size:
+                                run.font.size = size
+                            try:
+                                if rgb:
+                                    run.font.color.rgb = rgb
+                                elif theme_color:
+                                    run.font.color.theme_color = theme_color
+                                    if brightness is not None:
+                                        run.font.color.brightness = brightness
+                            except Exception:
+                                pass
+                            if bold is not None:
+                                run.font.bold = bold
+                            if italic is not None:
+                                run.font.italic = italic
+                            _date_set = True
+                            break
+                    if _date_set:
+                        break
+                if _date_set:
+                    break
+        # Fallback: if placeholder not found, replace shape named "DataIC"
+        if not _date_set:
+            prs = _set_text_in_named_textbox(prs, "DataIC", human_date)
 
         # Insert YTD charts
         prs = insert_equity_chart(
@@ -5230,7 +5279,7 @@ def show_generate_presentation_page():
         # MIME type for .pptx files is used for all downloads.
         # Use the computed stamp_ddmmyyyy to construct the output filename.
         # This yields names like "03092025_Herculis_Partners_Macro_Update.pptx".
-        fname = f"{stamp_ddmmyyyy}_Herculis_Partners_Macro_Update.pptx"
+        fname = f"{stamp_ddmmyyyy}_Herculis_Partners_Technical_Update.pptx"
         mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
         st.sidebar.success("Updated presentation created successfully.")
