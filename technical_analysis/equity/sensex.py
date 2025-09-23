@@ -1,8 +1,8 @@
 """
-Utility functions for Sensex technical analysis and high‑resolution export.
+Utility functions for SENSEX technical analysis and high‑resolution export.
 
 This module provides tools to build interactive and static charts for the
-Sensex index, calculate and insert technical and momentum scores into
+SENSEX index, calculate and insert technical and momentum scores into
 PowerPoint presentations, generate horizontal and vertical gauges that
 visualise the average of the technical and momentum scores, as well as
 contextual trading ranges (higher and lower range bounds).  Functions
@@ -11,10 +11,10 @@ fall back to sensible defaults when placeholders are not found.
 Key functions include:
 
 * ``make_sensex_figure`` – interactive Plotly chart for Streamlit.
-* ``insert_sensex_technical_chart`` – insert a static Sensex chart into a PPTX.
+* ``insert_sensex_technical_chart`` – insert a static SENSEX chart into a PPTX.
 * ``insert_sensex_technical_score_number`` – insert the technical score (integer).
 * ``insert_sensex_momentum_score_number`` – insert the momentum score (integer).
-* ``insert_sensex_subtitle`` – insert a user‑defined subtitle into the Sensex slide.
+* ``insert_sensex_subtitle`` – insert a user‑defined subtitle into the SENSEX slide.
 * ``generate_average_gauge_image`` – create a horizontal gauge image.
 * ``insert_sensex_average_gauge`` – insert the gauge into a PPT slide.
 * ``insert_sensex_technical_assessment`` – insert a descriptive “view” text.
@@ -22,14 +22,14 @@ Key functions include:
   a vertical range gauge on the right hand side, including a horizontal line
   connecting the last price to the gauge.  This function is used by
   ``insert_sensex_technical_chart_with_range``.
-* ``insert_sensex_technical_chart_with_range`` – insert the Sensex technical
+* ``insert_sensex_technical_chart_with_range`` – insert the SENSEX technical
   analysis chart with the higher/lower range gauge into the PPT.
 
-The range gauge illustrates the recent trading range for the Sensex 225.
+The range gauge illustrates the recent trading range for the SENSEX.
 Instead of using the absolute high and low closes of the last 90 days,
 the bounds are estimated from recent volatility.  Whenever possible the
-code looks up a forward‑looking volatility index (VNKY) and computes a
-1‑week expected move as ``(current_price × (VNKY / 100)) / sqrt(52)``.
+code looks up the forward‑looking volatility index (VIX) and computes a
+1‑week expected move as ``(current_price × (VIX / 100)) / sqrt(52)``.
 The upper and lower bounds are the current price plus and minus that
 expected move.  If the volatility index is unavailable, the code falls
 back to using realised volatility: it computes the standard deviation of
@@ -74,7 +74,13 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
-PLOT_LOOKBACK_DAYS: int = 180
+# Default lookback window (in days) for plotting.  The app can override
+# this value at runtime by setting the module-level ``PLOT_LOOKBACK_DAYS``
+# attribute.  We use 90 days (approximately 3 months) by default to
+# align with the updated requirement from management.  When the user
+# selects a different timeframe (e.g. 6 months), ``app.py`` will
+# temporarily override this constant to 180 days.
+PLOT_LOOKBACK_DAYS: int = 90
 
 ###############################################################################
 # Internal helpers
@@ -210,14 +216,13 @@ def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
         out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
     return out
 
-
 def _get_vol_index_value(
     excel_obj_or_path,
     price_mode: str = "Last Price",
-    vol_ticker: str = "INVIXN Index",
+    vol_ticker: str = "VIX Index",
 ) -> Optional[float]:
     """
-    Retrieve the most recent value of a volatility index (e.g. VNKY) from
+    Retrieve the most recent value of a volatility index (e.g. VIX) from
     the ``data_prices`` sheet.  If ``price_mode`` is ``"Last Close"``,
     the most recent date is dropped if it matches today's date.  The
     returned value is the last available entry after price‑mode adjustment.
@@ -230,7 +235,7 @@ def _get_vol_index_value(
         One of "Last Price" or "Last Close".  When set to "Last Close"
         rows corresponding to the most recent date (if equal to today's
         date) will be excluded before taking the last value.
-    vol_ticker : str, default "INVIXN Index"
+    vol_ticker : str, default "VIX Index"
         Column name in the ``data_prices`` sheet corresponding to the
         volatility index whose level should be used.
 
@@ -280,12 +285,12 @@ def make_sensex_figure(
     price_mode: str = "Last Price",
 ) -> go.Figure:
     """
-    Build an interactive Sensex chart for Streamlit.
+    Build an interactive SENSEX chart for Streamlit.
 
     Parameters
     ----------
     excel_path : str or pathlib.Path
-        Path to the Excel file containing Sensex price data.
+        Path to the Excel file containing SENSEX price data.
     anchor_date : pandas.Timestamp or None, optional
         If provided, a regression channel is drawn from ``anchor_date`` to the
         latest date.
@@ -327,7 +332,7 @@ def make_sensex_figure(
             x=df["Date"],
             y=df["Price"],
             mode="lines",
-            name=f"Sensex 30 Price (last: {last_price_str})",
+            name=f"SENSEX Price (last: {last_price_str})",
             line=dict(color="#153D64", width=2.5),
         )
     )
@@ -476,7 +481,7 @@ def _generate_sensex_image_from_df(
         df["Price"],
         color="#153D64",
         linewidth=2.5,
-        label=f"Sensex 30 Price (last: {last_price_str})",
+        label=f"SENSEX Price (last: {last_price_str})",
     )
     ax.plot(
         df_ma["Date"],
@@ -545,7 +550,7 @@ def _generate_sensex_image_from_df(
 
 def _get_sensex_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for Sensex from 'data_technical_score' (col A, B).
+    Retrieve the technical score for SENSEX from 'data_technical_score' (col A, B).
     Returns None if the sheet or score is unavailable.
     """
     try:
@@ -554,9 +559,10 @@ def _get_sensex_technical_score(excel_obj_or_path) -> Optional[float]:
         return None
     df = df.dropna(subset=[df.columns[0], df.columns[1]])
     for _, row in df.iterrows():
-        # Match the Sensex ticker row.  Use SENSEX INDEX (uppercase) to locate
-        # the Sensex entry in the data_technical_score sheet.  Some legacy
-        # templates may still contain 'SENSEX INDEX', which is handled here.
+        # Look for the Sensex ticker.  The technical score row is identified by
+        # the ticker column matching 'SENSEX INDEX'.  This ensures that the
+        # correct score is retrieved from the sheet.  The comparison is
+        # case‑insensitive and strips whitespace.
         if str(row[df.columns[0]]).strip().upper() == "SENSEX INDEX":
             try:
                 return float(row[df.columns[1]])
@@ -565,26 +571,33 @@ def _get_sensex_technical_score(excel_obj_or_path) -> Optional[float]:
     return None
 
 
+def _find_sensex_slide(prs: Presentation) -> Optional[int]:
+    """Locate the index of the slide that contains the SENSEX placeholder.
+
+    This helper searches for a slide containing a shape named ``sensex`` or
+    whose text is exactly ``[sensex]`` (case‑insensitive).  It returns the
+    zero‑based slide index or ``None`` if no such slide exists.
+    """
+    for idx, slide in enumerate(prs.slides):
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr == "sensex":
+                return idx
+            if shape.has_text_frame:
+                if (shape.text or "").strip().lower() == "[sensex]":
+                    return idx
+    return None
+
+
 def insert_sensex_technical_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the Sensex technical score (integer) into a shape named ``tech_score_sensex``
-    or into any shape containing the placeholder ``[XXX]`` or ``XXX``.  The
-    function preserves all formatting from the first run of the placeholder,
-    including font size, explicit RGB colour or theme colour with brightness,
-    and bold/italic attributes.  If no run exists, the inserted text uses
-    default formatting.
+    Insert the SENSEX technical score (integer) into the SENSEX slide.
 
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint presentation to modify.
-    excel_file : file‑like object or path
-        Excel workbook containing the Sensex technical score.
-
-    Returns
-    -------
-    Presentation
-        The modified presentation.
+    This function looks for a shape named ``tech_score_sensex`` on the slide
+    identified by the ``sensex`` placeholder.  If not found, it searches for
+    placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
+    the original placeholder run is preserved.  Other slides are not
+    modified, avoiding accidental replacement of SENSEX placeholders.
     """
     score = _get_sensex_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -592,27 +605,25 @@ def insert_sensex_technical_score_number(prs: Presentation, excel_file) -> Prese
     placeholder_name = "tech_score_sensex"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    # Only modify the slide containing the Sensex placeholder
     sensex_idx = _find_sensex_slide(prs)
     if sensex_idx is None:
+        # No SENSEX slide found; return unmodified
         return prs
     slide = prs.slides[sensex_idx]
+    # First search for a shape named exactly as the placeholder
     for shape in slide.shapes:
-        # Case 1: the shape is named exactly as the placeholder
         if getattr(shape, "name", "").lower() == placeholder_name:
             if shape.has_text_frame:
                 runs = shape.text_frame.paragraphs[0].runs
-                # Capture existing formatting from the first run
                 attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                # Clear and insert the new run
                 shape.text_frame.clear()
                 p = shape.text_frame.paragraphs[0]
                 new_run = p.add_run()
                 new_run.text = score_text
-                # Reapply captured formatting
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-        # Case 2: look for textual placeholders within the shape
+    # Otherwise, search for textual placeholders within shapes on the SENSEX slide
+    for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
                 if pattern in (shape.text or ""):
@@ -625,158 +636,6 @@ def insert_sensex_technical_score_number(prs: Presentation, excel_file) -> Prese
                     new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
                     return prs
-    # Fallback: search for any shape containing 'tech_score' in its name
-    for shape in slide.shapes:
-        name_attr = getattr(shape, "name", "").lower()
-        if "tech_score" in name_attr:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    return prs
-
-
-def _get_sensex_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return Sensex momentum score, mapping letter grades to numeric if needed."""
-    try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
-    except Exception:
-        return None
-    # Find the Sensex row: match the first column to 'SENSEX INDEX' (uppercase)
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SENSEX INDEX"
-    if not mask.any():
-        return None
-    row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
-    try:
-        return float(row.iloc[3])
-    except Exception:
-        pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for a customised mapping.  Some
-    # templates may store a numeric momentum score for Sensex in the parameters
-    # sheet.  We look up the row where the 'Tickers' column matches
-    # 'SENSEX INDEX' (uppercase) and use the value in the unnamed 8th column.
-    try:
-        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
-        sensex_param = params[params["Tickers"].astype(str).str.upper() == "SENSEX INDEX"]
-        if not sensex_param.empty and "Unnamed: 8" in sensex_param:
-            return float(sensex_param["Unnamed: 8"].dropna().iloc[0])
-    except Exception:
-        pass
-    return mapping.get(rating)
-
-
-def insert_sensex_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the Sensex momentum score (integer) into a shape named 'mom_score_sensex'
-    or into any shape containing '[XXX]' or 'XXX'.  Formatting is preserved.
-    """
-    score = _get_sensex_momentum_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "mom_score_sensex"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    # Only modify the slide containing the Sensex placeholder
-    sensex_idx = _find_sensex_slide(prs)
-    if sensex_idx is None:
-        return prs
-    slide = prs.slides[sensex_idx]
-    for shape in slide.shapes:
-        # Case 1: shape name matches the placeholder
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-        # Case 2: look for textual placeholders in the shape
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    # Fallback: search for a generic momentum placeholder if specific name/pattern not found.
-    # Some templates may use simplified names for the momentum score shape or omit explicit
-    # placeholders altogether.  We therefore search for any shape whose name contains
-    # common momentum-related tokens (e.g. 'mom_score', 'mom score', 'momentum').  If
-    # found, we insert the score into that shape, preserving the original formatting.
-    for shape in slide.shapes:
-        name_attr = getattr(shape, "name", "").lower()
-        if any(token in name_attr for token in ("mom_score", "mom score", "momentum")):
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # As a last resort, attempt to replace 'Momentum Score' text directly if present on the slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            text_lower = (shape.text or "").lower()
-            if "momentum score" in text_lower:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                # Replace only the numeric part following the label, preserving the label itself
-                # For simplicity, replace any instance of 'xxx' or placeholder patterns with the score
-                new_text = shape.text
-                for pat in ["xxx", "[xxx]", "xxx", "[XXX]", "XXX"]:
-                    if pat in new_text:
-                        new_text = new_text.replace(pat, score_text)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = new_text
-                _apply_run_font_attributes(new_run, *attrs)
-                return prs
-    # Final fallback: search inside table cells for placeholders.  Some templates place
-    # the momentum score within a table cell rather than a normal text box.  If a
-    # cell contains 'mom_score', 'mom score', 'momentum score' or the generic
-    # 'XXX' placeholder, replace it with the score.  Table cell formatting is
-    # preserved automatically by python-pptx when assigning to cell.text.
-    for shape in slide.shapes:
-        # Skip shapes without tables
-        has_table = getattr(shape, 'table', None)
-        if has_table:
-            tbl = shape.table
-            for row in tbl.rows:
-                for cell in row.cells:
-                    cell_text_lower = (cell.text or "").lower()
-                    # Identify possible momentum placeholders in the cell text
-                    if any(tok in cell_text_lower for tok in ("mom_score", "mom score", "momentum score")):
-                        # Replace any 'XXX' or bracket patterns with the score
-                        new_cell_text = cell.text
-                        for pat in ["[xxx]", "xxx", "[XXX]", "XXX"]:
-                            if pat in new_cell_text:
-                                new_cell_text = new_cell_text.replace(pat, score_text)
-                        cell.text = new_cell_text
-                        return prs
-                    # Alternatively, replace generic 'XXX' in an otherwise empty cell
-                    if cell_text_lower.strip() in ("xxx", "[xxx]"):
-                        cell.text = score_text
-                        return prs
     return prs
 
 
@@ -796,7 +655,7 @@ def generate_range_callout_chart_image(
     show_legend: bool = True,
 ) -> bytes:
     """
-    Create a PNG image of the Sensex price chart with a textual call‑out on the
+    Create a PNG image of the SENSEX price chart with a textual call‑out on the
     right summarising the recent trading range.  The call‑out lists the
     higher and lower range values (with ±% changes relative to the last
     price) and draws small coloured markers aligned with those levels on
@@ -806,7 +665,7 @@ def generate_range_callout_chart_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full Sensex price history with 'Date' and 'Price' columns.
+        Full SENSEX price history with 'Date' and 'Price' columns.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for a regression channel; if provided, the
         channel is drawn on the price chart.
@@ -820,11 +679,7 @@ def generate_range_callout_chart_image(
     callout_width_cm : float, default 3.5
         Width of the call‑out area on the right where the range summary
         appears.  The remaining width is used for the chart.
-    vol_index_value : float or None, optional
-        The most recent value of the volatility index.  If provided, the
-        bounds are computed using this value.  If ``None``, the function
-        falls back to realised volatility (standard deviation of 30‑day
-        daily returns) to estimate the bounds.
+
     show_legend : bool, default True
         Whether to draw the legend on the main chart.  When generating
         images for insertion into a PowerPoint slide the legend should be
@@ -847,8 +702,14 @@ def generate_range_callout_chart_image(
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the 1‑year subset
-    df_ma = _add_mas(df)
+    # Calculate moving averages on the full dataset and then slice to the
+    # plotting window.  Computing MAs on the truncated subset would
+    # shorten long-period averages (e.g. 200-day) and change their values.
+    # We therefore compute MAs on ``df_full`` and then filter to the
+    # desired date range.  See https://github.com/yourorg/ic/issues/1234
+    # for background on this change.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Optional regression channel
     uptrend = False
@@ -865,40 +726,37 @@ def generate_range_callout_chart_image(
             upper_channel = trend + resid.max()
             lower_channel = trend + resid.min()
 
-    # Compute high/low bounds and current price
-    # Use implied volatility if available, else realised volatility
+    # Compute high/low bounds and current price.  If an implied volatility
+    # value is provided (e.g. the VIX level), use it to estimate the
+    # expected one‑week move.  The expected move is computed as
+    # ``last_price × (vol_index_value/100) / sqrt(52)``.  Otherwise
+    # fall back to the realised‑volatility‑based bounds returned by
+    # ``_compute_range_bounds``.
     last_price = df["Price"].iloc[-1]
-    if vol_index_value is not None and vol_index_value > 0:
+    if vol_index_value is not None and last_price and not np.isnan(last_price):
         expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
         upper_bound = last_price + expected_move
         lower_bound = last_price - expected_move
     else:
-        # Realised vol: 30‑day standard deviation annualised
-        window = df_full.tail(lookback_days).copy()
-        window["Returns"] = window["Price"].pct_change()
-        realized_vol = window["Returns"].rolling(30).std().iloc[-1]
-        if pd.isna(realized_vol) or realized_vol <= 0:
-            # Fallback to ±2 % band if realised vol is not available
-            upper_bound = last_price * 1.02
-            lower_bound = last_price * 0.98
-        else:
-            # Convert realized vol (annualised) to weekly move
-            realized_vol_ann = realized_vol * np.sqrt(252.0) * 100.0
-            expected_move = (last_price * (realized_vol_ann / 100.0)) / np.sqrt(52.0)
-            upper_bound = last_price + expected_move
-            lower_bound = last_price - expected_move
-    # Enforce a minimum total range (±1 % band around the current price)
-    min_span = 0.02 * last_price
-    if (upper_bound - lower_bound) < min_span:
-        half = min_span / 2.0
-        lower_bound = last_price - half
-        upper_bound = last_price + half
-    # Format difference percentages (recompute after enforcing minimum range)
-    up_pct = (upper_bound - last_price) / last_price * 100 if last_price else 0.0
-    down_pct = (last_price - lower_bound) / last_price * 100 if last_price else 0.0
+        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
+    # Enforce a minimum total range (e.g. ±1 % of the current price) to avoid overlapping text.
+    min_range_pct = 0.02  # 2% total band → ±1% around the current price
+    if last_price and not np.isnan(last_price):
+        range_span_pct = (upper_bound - lower_bound) / last_price if last_price else 0.0
+        if range_span_pct < min_range_pct:
+            half_span = (min_range_pct * last_price) / 2.0
+            upper_bound = last_price + half_span
+            lower_bound = last_price - half_span
+        # Recompute percentage differences after adjusting range
+        up_pct = (upper_bound - last_price) / last_price * 100.0
+        down_pct = (last_price - lower_bound) / last_price * 100.0
+    else:
+        # Handle missing last_price gracefully
+        up_pct = 0.0
+        down_pct = 0.0
 
     # Determine y‑axis limits: ensure the axis includes the entire trading
-    # range and the observed price range.  Add a small margin so the
+    # range and the observed price range.  We add a small margin so the
     # labels and markers do not overlap the top or bottom edges.
     hi = df["Price"].max()
     lo = df["Price"].min()
@@ -939,7 +797,7 @@ def generate_range_callout_chart_image(
 
     # Plot price and moving averages on the main chart
     ax_chart.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5,
-                  label=f"Sensex 30 Price (last: {last_price:,.2f})")
+                  label=f"SENSEX Price (last: {last_price:,.2f})")
     ax_chart.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
@@ -968,12 +826,12 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: when ``show_legend`` is True, place the legend just above the
-    # main chart, aligned to the left so that it does not overlap the call‑out
-    # panel.  Use a multi‑column layout to fit all entries on a single
-    # line.  The bounding box is anchored slightly above the axes (y=1.05).
-    # When ``show_legend`` is False the legend is omitted so that a custom
-    # legend can be inserted separately on a slide.
+    # Legend: when ``show_legend`` is True, place the legend just above
+    # the main chart, aligned to the left so that it does not overlap the
+    # call‑out panel.  Use a multi‑column layout to fit all entries on a
+    # single line.  The bounding box is anchored slightly above the axes
+    # (y=1.05).  When ``show_legend`` is False the legend is omitted so
+    # that a custom legend can be inserted separately on a slide.
     if show_legend:
         ax_chart.legend(
             loc="upper left",
@@ -1041,7 +899,7 @@ def generate_range_callout_chart_image(
     # Add the text labels at the appropriate y positions.  Using
     # ``va='center'`` ensures that the middle line (index and percent)
     # aligns with the price level, because there is one line above and
-    # one line below.  We align the text to the left so that the plus
+    # one line below.  We align the text to the right so that the plus
     # and minus signs line up neatly.
     ax_callout.text(text_x, upper_bound, upper_text, color="#009951",
                     ha="left", va="center", fontsize=8, fontweight='bold',
@@ -1069,23 +927,23 @@ def insert_sensex_technical_chart_with_callout(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the Sensex technical analysis chart with the trading range call‑out
+    Insert the SENSEX technical analysis chart with the trading range call‑out
     into the PowerPoint.  This function mirrors the behaviour of
     ``insert_sensex_technical_chart_with_range`` but uses the call‑out style to
     display the high and low bounds instead of a vertical gauge.
 
     The image is placed at the fixed coordinates (0.93 cm left, 5.46 cm top)
-    with dimensions 24.2 cm wide by 6.52 cm high.  These values mirror
-    the IBOV slide layout, leaving room for a separate legend to be
-    positioned on the slide when the legend within the embedded chart
-    is suppressed.
+    with dimensions 24.2 cm wide by 6.52 cm high.  These values match those
+    used on the SENSEX slide and leave room above for a separate legend on the
+    PowerPoint slide.  When inserting into the presentation the legend is
+    suppressed in the image itself so that it can be added manually.
 
     Parameters
     ----------
     prs : Presentation
         The PowerPoint presentation to modify.
     excel_file : file‑like object or path
-        Excel workbook containing Sensex price data.
+        Excel workbook containing SENSEX price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for a regression channel.
     lookback_days : int, default 90
@@ -1102,12 +960,15 @@ def insert_sensex_technical_chart_with_callout(
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "SENSEX Index", price_mode=price_mode)
 
-    # Determine volatility index value using VNKY
-    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="INVIXN Index")
-
-    # Generate the image with the call‑out.  Use a slightly narrower width
-    # (24.2 cm) and reduced height (6.52 cm) so that the image leaves
-    # enough space for a custom legend to be added on the slide.  Pass
+    # For the SENSEX index there is no commonly used implied volatility index.
+    # Do not attempt to read a volatility index from the Excel file.  The
+    # range calculation in ``generate_range_callout_chart_image`` will
+    # automatically fall back to realised volatility when the
+    # ``vol_index_value`` is ``None``.
+    vol_val = None
+    # Generate the image with the call‑out.  Use a width of 24.2 cm and a
+    # height of 6.52 cm (matching the SENSEX template) so that there is
+    # sufficient space above the chart for an external legend.  Pass
     # ``show_legend=False`` to suppress the internal legend on the figure.
     img_bytes = generate_range_callout_chart_image(
         df_full,
@@ -1138,8 +999,10 @@ def insert_sensex_technical_chart_with_callout(
 
     # Insert the image at the requested coordinates.  The dimensions
     # 24.2 cm wide and 6.52 cm high and position (0.93 cm, 5.46 cm)
-    # leave space above for a separate legend.  These values mirror those
-    # used on the IBOV slide for consistency across indices.
+    # mirror those used on the SENSEX slide.  These values leave room
+    # above for a separate legend, which can be added later.  Add the
+    # picture and bring it to the front so that it is not obscured by
+    # other shapes (e.g. a placeholder gauge).
     left = Cm(0.93)
     top = Cm(5.46)
     width = Cm(24.2)
@@ -1148,14 +1011,14 @@ def insert_sensex_technical_chart_with_callout(
     picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     try:
         sp_tree = target_slide.shapes._spTree
-        # Remove the element and reinsert at position 1 (after background)
+        # Remove and reinsert near the front (after background)
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
     except Exception:
         # Fallback: leave the picture at the end of the shape list
         pass
 
-    # Replace the last-price placeholder on the Sensex slide.  Compute the
+    # Replace the last‑price placeholder on the SENSEX slide.  Compute the
     # most recent price and format it with two decimal places; fall back
     # to 'N/A' if unavailable.  The placeholder may be a shape named
     # ``last_price_sensex`` or text containing ``[last_price_sensex]`` or
@@ -1175,7 +1038,14 @@ def insert_sensex_technical_chart_with_callout(
         if getattr(shp, "name", "").lower() == placeholder_name:
             if shp.has_text_frame:
                 runs = shp.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                attrs = _get_run_font_attributes(runs[0]) if runs else (
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
                 shp.text_frame.clear()
                 p = shp.text_frame.paragraphs[0]
                 new_run = p.add_run()
@@ -1189,7 +1059,14 @@ def insert_sensex_technical_chart_with_callout(
             for pattern in placeholder_patterns:
                 if pattern in original_text:
                     runs = shp.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    )
                     new_text = original_text.replace(pattern, last_str)
                     shp.text_frame.clear()
                     p = shp.text_frame.paragraphs[0]
@@ -1203,10 +1080,88 @@ def insert_sensex_technical_chart_with_callout(
     return prs
 
 
-def _get_sensex_momentum_score_deprecated(excel_obj_or_path) -> Optional[float]:
-    """Deprecated alias for momentum; kept for backward compatibility."""
-    return _get_sensex_momentum_score(excel_obj_or_path)
+def _get_sensex_momentum_score(excel_obj_or_path) -> Optional[float]:
+    """Return SENSEX momentum score, mapping letter grades to numeric if needed."""
+    try:
+        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
+    except Exception:
+        return None
+    # find Sensex row
+    # Identify the Sensex row by matching the ticker column to 'SENSEX INDEX'.
+    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SENSEX INDEX"
+    if not mask.any():
+        return None
+    row = df.loc[mask].iloc[0]
+    # try to convert the existing value to float
+    try:
+        return float(row.iloc[3])
+    except Exception:
+        pass
+    # fall back to mapping letter rating to numeric using parameters sheet
+    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
+    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
+    # optionally lookup in 'parameters' sheet for customised mapping
+    try:
+        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
+        sensex_param = params[params["Tickers"].astype(str).str.upper() == "SENSEX INDEX"]
+        if not sensex_param.empty and "Unnamed: 8" in sensex_param:
+            return float(sensex_param["Unnamed: 8"].dropna().iloc[0])
+    except Exception:
+        pass
+    return mapping.get(rating)
 
+
+def insert_sensex_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
+    """
+    Insert the SENSEX momentum score (integer) into the SENSEX slide.
+
+    The momentum score is inserted into a shape named ``mom_score_sensex`` on
+    the SENSEX slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
+    placeholder within the SENSEX slide is replaced instead.  This avoids
+    inadvertently replacing placeholders on SENSEX or other slides.
+    """
+    score = _get_sensex_momentum_score(excel_file)
+    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
+
+    placeholder_name = "mom_score_sensex"
+    placeholder_patterns = ["[XXX]", "XXX"]
+
+    sensex_idx = _find_sensex_slide(prs)
+    if sensex_idx is None:
+        return prs
+    slide = prs.slides[sensex_idx]
+    # Attempt to replace the named placeholder first
+    for shape in slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = score_text
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Otherwise, replace placeholder patterns on the SENSEX slide only
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern in (shape.text or ""):
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = shape.text.replace(pattern, score_text)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    return prs
+    return prs
+
+
+###############################################################################
+# Chart insertion
+###############################################################################
 
 def insert_sensex_technical_chart(
     prs: Presentation,
@@ -1215,7 +1170,7 @@ def insert_sensex_technical_chart(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the Sensex technical‑analysis chart into the PPT.
+    Insert the SENSEX technical‑analysis chart into the PPT.
 
     We only use the textbox named ``sensex`` (or containing “[sensex]”) to locate
     the correct slide; the chart itself is always pasted at the fixed
@@ -1242,6 +1197,7 @@ def insert_sensex_technical_chart(
                     break
         if target_slide:
             break
+
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
@@ -1261,22 +1217,24 @@ def insert_sensex_technical_chart(
 
 def insert_sensex_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     """
-    Replace the placeholder ('XXX' or '[XXX]') in a textbox named 'sensex_text'
-    (or containing those patterns) with the provided subtitle, preserving
-    original formatting.
+    Replace the SENSEX subtitle placeholder with the provided text.
+
+    Only the slide identified by the ``sensex`` placeholder is modified.  A
+    shape named ``sensex_text`` takes precedence; if it does not exist
+    within the SENSEX slide, any occurrences of ``XXX`` or ``[XXX]`` on
+    that slide are replaced instead.  Formatting of the original run is
+    preserved.
     """
     placeholder_name = "sensex_text"
     placeholder_patterns = ["[XXX]", "XXX"]
-
     subtitle_text = subtitle or ""
 
     sensex_idx = _find_sensex_slide(prs)
     if sensex_idx is None:
         return prs
     slide = prs.slides[sensex_idx]
-
+    # Try to update the named subtitle shape first
     for shape in slide.shapes:
-        # Case 1: shape name matches
         if getattr(shape, "name", "").lower() == placeholder_name:
             if shape.has_text_frame:
                 runs = shape.text_frame.paragraphs[0].runs
@@ -1287,7 +1245,8 @@ def insert_sensex_subtitle(prs: Presentation, subtitle: str) -> Presentation:
                 new_run.text = subtitle_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-        # Case 2: textual placeholder in shape
+    # Otherwise, replace placeholder patterns within the SENSEX slide
+    for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
                 if pattern in (shape.text or ""):
@@ -1518,16 +1477,20 @@ def insert_sensex_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
 ) -> Presentation:
     """
-    Insert the average gauge into the Sensex slide.  Looks for a shape named
-    'gauge_sensex' or text containing '[GAUGE]', 'GAUGE', or 'gauge_sensex'.  If found,
-    the gauge uses that position; otherwise it is inserted below the chart at
-    the default coordinates (8.97 cm left, 12.13 cm top, 15.15 cm wide, 3.13 cm high).
+    Insert the SENSEX average gauge into the SENSEX slide.
+
+    The gauge shows the average of the technical and momentum scores and
+    last week's average.  It is inserted into a shape named
+    ``gauge_sensex`` within the SENSEX slide.  If such a shape is not found
+    within the SENSEX slide, placeholders ``[GAUGE]``, ``GAUGE`` or
+    ``gauge_sensex`` on the SENSEX slide are used instead.  If neither is
+    present, the gauge is placed at a default position below the chart
+    on the SENSEX slide.  Other slides remain untouched.
     """
     tech_score = _get_sensex_technical_score(excel_file)
     mom_score = _get_sensex_momentum_score(excel_file)
     if tech_score is None or mom_score is None:
         return prs
-
     try:
         gauge_bytes = generate_average_gauge_image(
             tech_score,
@@ -1540,14 +1503,13 @@ def insert_sensex_average_gauge(
         )
     except Exception:
         return prs
-
-    placeholder_name = "gauge_sensex"
-    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_sensex"]
-    # Identify Sensex slide
+    # Identify SENSEX slide
     sensex_idx = _find_sensex_slide(prs)
     if sensex_idx is None:
         return prs
     slide = prs.slides[sensex_idx]
+    placeholder_name = "gauge_sensex"
+    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_sensex"]
     # Search for named gauge placeholder first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1557,7 +1519,7 @@ def insert_sensex_average_gauge(
             stream = BytesIO(gauge_bytes)
             slide.shapes.add_picture(stream, left, top, width=width, height=height)
             return prs
-    # Then search for textual gauge placeholders on the Sensex slide
+    # Then search for textual gauge placeholders on the SENSEX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1567,18 +1529,7 @@ def insert_sensex_average_gauge(
                     stream = BytesIO(gauge_bytes)
                     slide.shapes.add_picture(stream, left, top, width=width, height=height)
                     return prs
-    # Next, fall back to any shape whose name contains 'gauge' on the Sensex slide
-    for shape in slide.shapes:
-        name_attr = getattr(shape, "name", "").lower()
-        if "gauge" in name_attr:
-            if shape.has_text_frame:
-                left, top, width, height = shape.left, shape.top, shape.width, shape.height
-                # Clear any text and insert the gauge
-                shape.text = ""
-                stream = BytesIO(gauge_bytes)
-                slide.shapes.add_picture(stream, left, top, width=width, height=height)
-                return prs
-    # Fallback: fixed coordinates below the chart on the Sensex slide
+    # Fallback: insert below the chart within the SENSEX slide using template coordinates
     left = Cm(8.97)
     top = Cm(12.13)
     width = Cm(15.15)
@@ -1598,77 +1549,52 @@ def insert_sensex_technical_assessment(
     manual_desc: Optional[str] = None,
 ) -> Presentation:
     """
-    Insert a descriptive assessment text into a shape named ``sensex_view``
-    (or containing ``[sensex_view]``) based on either a user‑provided
-    assessment or, if none is provided, the average of technical and
-    momentum scores.
+    Insert a descriptive assessment text into the SENSEX slide.
 
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint presentation to modify.
-    excel_file : file‑like object or path
-        Excel workbook containing Sensex technical and momentum scores.
-    manual_desc : str, optional
-        If provided, this string is used verbatim (prefixed with
-        ``"Sensex 225: "`` if not already present) as the assessment text.
-        When ``manual_desc`` is ``None``, the function computes the
-        assessment from the average of technical and momentum scores
-        according to the following rules:
+    The assessment is written into a shape named ``sensex_view`` on the SENSEX
+    slide.  If no such shape exists, the function replaces any
+    occurrences of ``[sensex_view]`` or ``sensex_view`` in text on that slide.
+    A manual description may be provided; if not, the function computes
+    the view from the average of the technical and momentum scores.
 
-          * ≥80: Strongly Bullish
-          * 70–79.99: Bullish
-          * 60–69.99: Slightly Bullish
-          * 40–59.99: Neutral
-          * 30–39.99: Slightly Bearish
-          * 20–29.99: Bearish
-          * <20: Strongly Bearish
-
-    Returns
-    -------
-    Presentation
-        The modified presentation.
+    Other slides remain unmodified.
     """
-    # If manual description is provided, normalise it: ensure it starts
-    # with 'Sensex 225:' and strip leading/trailing whitespace.
+    # Determine the description to insert
     if manual_desc is not None and isinstance(manual_desc, str):
         desc = manual_desc.strip()
-        if desc and not desc.lower().startswith("sensex 225"):
-            desc = f"Sensex 225: {desc}"
-        # Continue with insertion without computing scores
+        if desc and not desc.lower().startswith("s&p 500"):
+            desc = f"SENSEX: {desc}"
     else:
         tech_score = _get_sensex_technical_score(excel_file)
         mom_score = _get_sensex_momentum_score(excel_file)
         if tech_score is None or mom_score is None:
-            # If scores are unavailable, leave the existing text unchanged
             return prs
         avg = (float(tech_score) + float(mom_score)) / 2.0
         if avg >= 80:
-            desc = "Sensex 225: Strongly Bullish"
+            desc = "SENSEX: Strongly Bullish"
         elif avg >= 70:
-            desc = "Sensex 225: Bullish"
+            desc = "SENSEX: Bullish"
         elif avg >= 60:
-            desc = "Sensex 225: Slightly Bullish"
+            desc = "SENSEX: Slightly Bullish"
         elif avg >= 40:
-            desc = "Sensex 225: Neutral"
+            desc = "SENSEX: Neutral"
         elif avg >= 30:
-            desc = "Sensex 225: Slightly Bearish"
+            desc = "SENSEX: Slightly Bearish"
         elif avg >= 20:
-            desc = "Sensex 225: Bearish"
+            desc = "SENSEX: Bearish"
         else:
-            desc = "Sensex 225: Strongly Bearish"
+            desc = "SENSEX: Strongly Bearish"
 
     target_name = "sensex_view"
     placeholder_patterns = ["[sensex_view]", "sensex_view"]
 
-    # Insert the description into the first matching shape on the Sensex slide
     sensex_idx = _find_sensex_slide(prs)
     if sensex_idx is None:
         return prs
     slide = prs.slides[sensex_idx]
+    # Try to locate a shape by name on the SENSEX slide
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
-        # Case 1: the shape's name matches the target placeholder
         if name_attr and name_attr.lower() == target_name:
             if shape.has_text_frame:
                 runs = shape.text_frame.paragraphs[0].runs
@@ -1679,7 +1605,8 @@ def insert_sensex_technical_assessment(
                 new_run.text = desc
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-        # Case 2: look for placeholder patterns within the text
+    # Otherwise, replace placeholder patterns on the SENSEX slide
+    for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
                 if pattern.lower() in (shape.text or "").lower():
@@ -1741,15 +1668,15 @@ def insert_sensex_source(
     source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
     placeholder_name = "sensex_source"
     placeholder_patterns = ["[sensex_source]", "sensex_source"]
+    # Restrict insertion to the SENSEX slide only
     sensex_idx = _find_sensex_slide(prs)
     if sensex_idx is None:
         return prs
     slide = prs.slides[sensex_idx]
+    # Case 1: replace a shape named exactly as the placeholder
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
-        # Case 1: the shape's name matches the placeholder
         if name_attr and name_attr.lower() == placeholder_name:
-            # Replace text while preserving formatting
             if shape.has_text_frame:
                 runs = shape.text_frame.paragraphs[0].runs
                 attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
@@ -1759,15 +1686,15 @@ def insert_sensex_source(
                 new_run.text = source_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-        # Case 2: a textual placeholder appears within the shape
+    # Case 2: replace occurrences of the placeholder pattern in text on the SENSEX slide
+    for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
                 if pattern.lower() in (shape.text or "").lower():
                     runs = shape.text_frame.paragraphs[0].runs
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text
                     try:
-                        new_text = new_text.replace(pattern, source_text)
+                        new_text = (shape.text or "").replace(pattern, source_text)
                     except Exception:
                         new_text = source_text
                     shape.text_frame.clear()
@@ -1787,26 +1714,66 @@ def _compute_range_bounds(
     df_full: pd.DataFrame, lookback_days: int = 90
 ) -> Tuple[float, float]:
     """
-    Compute volatility‑based high and low range bounds for the Sensex 225.
+    Compute fallback high and low range bounds for the SENSEX using
+    realised volatility.
 
-    The bounds are estimated using realised volatility (30‑day rolling standard
-    deviation of returns).  If the realised volatility cannot be computed,
-    a ±2 % band around the current price is used.  This function returns
-    ``(upper_bound, lower_bound)``.
+    This helper is used when an implied volatility index (e.g. VIX) is
+    unavailable.  It computes the annualised realised volatility over a
+    30‑session window by taking the standard deviation of daily
+    percentage returns, multiplying by ``sqrt(252)`` and converting to
+    a percentage.  The resulting 1‑week expected move is
+    ``(current_price × (realised_vol / 100)) / sqrt(52)``.  The upper
+    and lower bounds are the current price plus and minus this
+    expected move.  If realised volatility cannot be computed or is
+    zero, the function falls back to a ±2 % band around the current
+    price.
+
+    Parameters
+    ----------
+    df_full : pandas.DataFrame
+        DataFrame containing at least 'Date' and 'Price' columns,
+        sorted by date ascending.
+    lookback_days : int, optional
+        Number of trading days used to compute the approximate true range
+        if realised volatility is unavailable.  Currently unused but
+        retained for API compatibility.
+
+    Returns
+    -------
+    Tuple[float, float]
+        A two‑tuple ``(upper_bound, lower_bound)`` representing the
+        current closing price plus and minus the realised volatility
+        based expected move, or ±2 % of the current price if no
+        volatility can be computed.
     """
     if df_full.empty:
         return (np.nan, np.nan)
     current_price = df_full["Price"].iloc[-1]
-    window = df_full.tail(lookback_days).copy()
-    window["Returns"] = window["Price"].pct_change()
-    realized_vol = window["Returns"].rolling(30).std().iloc[-1]
-    if pd.isna(realized_vol) or realized_vol <= 0:
-        return (float(current_price * 1.02), float(current_price * 0.98))
-    realized_vol_ann = realized_vol * np.sqrt(252.0) * 100.0
-    expected_move = (current_price * (realized_vol_ann / 100.0)) / np.sqrt(52.0)
-    upper_bound = current_price + expected_move
-    lower_bound = current_price - expected_move
-    return (float(upper_bound), float(lower_bound))
+    # Attempt to compute 30‑day realised volatility (annualised) as a fallback.  Use
+    # the last 30 trading days of closing prices to compute daily returns.
+    # If the realised volatility can be computed, convert it into a 1‑week
+    # expected move.  Otherwise fall back to a ±2 % band.
+    try:
+        # At least 2 data points are needed for pct_change; ensure there are
+        # enough rows (we use min to handle shorter histories gracefully).
+        lookback = 30
+        window_prices = df_full["Price"].tail(lookback)
+        # Compute daily percentage returns
+        rets = window_prices.pct_change().dropna()
+        # Standard deviation of daily returns
+        std_daily = rets.std()
+        if std_daily is not None and not np.isnan(std_daily) and std_daily > 0:
+            # Annualise the standard deviation (multiply by sqrt(252)) and convert to %
+            realised_vol = std_daily * np.sqrt(252.0) * 100.0
+            # Convert to 1‑week expected move by dividing by sqrt(52)
+            expected_move = (current_price * (realised_vol / 100.0)) / np.sqrt(52.0)
+            upper_bound = current_price + expected_move
+            lower_bound = current_price - expected_move
+            return (float(upper_bound), float(lower_bound))
+    except Exception:
+        pass
+    # Fallback: ±2 % of the current price
+    return (float(current_price * 1.02), float(current_price * 0.98))
 
 
 def generate_range_gauge_chart_image(
@@ -1817,10 +1784,11 @@ def generate_range_gauge_chart_image(
     height_cm: float = 7.53,
     chart_width_cm: float = None,
     gauge_width_cm: float = 4.0,
+    *,
     vol_index_value: Optional[float] = None,
 ) -> bytes:
     """
-    Create a PNG image of the Sensex price chart with a vertical range gauge
+    Create a PNG image of the SENSEX price chart with a vertical range gauge
     appended on the right.  The gauge shows a green–to–red gradient between
     recent high and support levels, with labels for the upper and lower
     bounds.  A horizontal line continues the last price into the gauge so
@@ -1830,7 +1798,7 @@ def generate_range_gauge_chart_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full Sensex price history as returned by ``_load_price_data``.
+        Full SENSEX price history as returned by ``_load_price_data``.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.  If ``None`` no
         channel will be drawn.
@@ -1854,7 +1822,12 @@ def generate_range_gauge_chart_image(
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    df_ma = _add_mas(df)
+    # Compute moving averages on the full dataset and then select
+    # the subset matching the plotting window.  This preserves the
+    # correct lookback for long-term averages when only a short
+    # window of data is displayed.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Regression channel (optional)
     uptrend = False
@@ -1871,21 +1844,15 @@ def generate_range_gauge_chart_image(
             upper_channel = trend + resid.max()
             lower_channel = trend + resid.min()
 
-    # Determine recent high and support levels
+    # Determine recent high and support levels.  Use the implied volatility
+    # if available to estimate a 1‑week range; otherwise fall back to ATR.
     last_price = df["Price"].iloc[-1]
-    if vol_index_value is not None and vol_index_value > 0:
+    if vol_index_value is not None and last_price and not np.isnan(last_price):
         expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
         upper_bound = last_price + expected_move
         lower_bound = last_price - expected_move
     else:
         upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
-    # Enforce minimum ±1 % band
-    min_span = 0.02 * last_price
-    if (upper_bound - lower_bound) < min_span:
-        half = min_span / 2.0
-        lower_bound = last_price - half
-        upper_bound = last_price + half
-
     last_price_str = f"{last_price:,.2f}"
 
     # Determine overall width.  If ``chart_width_cm`` is not provided,
@@ -1917,7 +1884,7 @@ def generate_range_gauge_chart_image(
 
     # Plot main price series and MAs
     ax.plot(
-        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"Sensex 30 Price (last: {last_price_str})"
+        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"SENSEX Price (last: {last_price_str})"
     )
     ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
@@ -2082,7 +2049,7 @@ def generate_range_gauge_only_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full Sensex price history as returned by ``_load_price_data``.
+        Full SENSEX price history as returned by ``_load_price_data``.
     lookback_days : int, default 90
         Number of trading days to look back when computing high/low range.
     width_cm : float, default 2.00
@@ -2189,7 +2156,7 @@ def insert_sensex_technical_chart_with_range(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the Sensex technical analysis chart with the vertical range gauge into the PPT.
+    Insert the SENSEX technical analysis chart with the vertical range gauge into the PPT.
 
     This function behaves similarly to ``insert_sensex_technical_chart`` but uses
     ``generate_range_gauge_chart_image`` to draw a combined chart and gauge.
@@ -2202,7 +2169,7 @@ def insert_sensex_technical_chart_with_range(
     prs : Presentation
         The PowerPoint presentation into which the chart should be inserted.
     excel_file : file‑like object or path
-        Excel workbook containing Sensex price data.
+        Excel workbook containing SENSEX price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.
     lookback_days : int, default 90
@@ -2218,10 +2185,16 @@ def insert_sensex_technical_chart_with_range(
         df_full = _load_price_data_from_obj(excel_file, "SENSEX Index", price_mode=price_mode)
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "SENSEX Index", price_mode=price_mode)
-    # Determine volatility index value (VNKY)
-    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="INVIXN Index")
+    # Determine the implied volatility index value (VIX) from the Excel file
+    # so that the expected one‑week trading range can be estimated.  If the
+    # volatility index cannot be read, ``None`` is returned and the range
+    # will fall back to an ATR‑based estimate.
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
     img_bytes = generate_range_gauge_chart_image(
-        df_full, anchor_date=anchor_date, lookback_days=lookback_days, vol_index_value=vol_val
+        df_full,
+        anchor_date=anchor_date,
+        lookback_days=lookback_days,
+        vol_index_value=vol_val,
     )
 
     # Locate target slide
@@ -2242,7 +2215,7 @@ def insert_sensex_technical_chart_with_range(
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Position and dimensions tailored to the original placeholder size.
-    # The Sensex slide in the template allocates ~21.41 cm for the chart area
+    # The SENSEX slide in the template allocates ~21.41 cm for the chart area
     # and reserves the remaining width for the chart title, subtitle and
     # margins.  We therefore insert the combined chart‑and‑gauge image
     # using the original dimensions (21.41 cm × 7.53 cm) and rely on the
@@ -2255,42 +2228,3 @@ def insert_sensex_technical_chart_with_range(
     stream = BytesIO(img_bytes)
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
-
-
-###############################################################################
-# Find Sensex slide helper
-###############################################################################
-
-def _find_sensex_slide(prs: Presentation) -> Optional[int]:
-    """
-    Search for the index of the slide that contains the 'sensex' placeholder or
-    `[sensex]` pattern.  This helper ensures that insertions only affect the
-    slide dedicated to Sensex technical analysis.
-
-    Parameters
-    ----------
-    prs : Presentation
-        The PowerPoint presentation to search through.
-
-    Returns
-    -------
-    int or None
-        The zero‑based index of the slide containing the Sensex placeholder, or
-        ``None`` if no such slide is found.
-    """
-    # Look for a slide containing a placeholder or shape that refers to Sensex.
-    # Some templates may use variations such as "sensex", "nky", or include
-    # bracketed placeholders like "[sensex]" or "[nky]".  We perform a
-    # case-insensitive search across all shapes on each slide.
-    for i, slide in enumerate(prs.slides):
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            # Match exact "sensex" or any name containing "sensex" or "nky"
-            if name_attr == "sensex" or "sensex" in name_attr or "nky" in name_attr:
-                return i
-            if shape.has_text_frame:
-                text_lower = (shape.text or "").strip().lower()
-                # Match bracketed placeholders or textual references
-                if text_lower in ("[sensex]", "sensex", "[nky]", "nky"):
-                    return i
-    return None
