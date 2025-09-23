@@ -63,6 +63,20 @@ import matplotlib.patches as patches
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
+# ---------------------------------------------------------------------------
+# Configuration
+#
+# ``PLOT_LOOKBACK_DAYS`` controls the default window of historical data used
+# when drawing charts.  It is expressed in trading days and set by default
+# to 90 (approximately 3 months) to match the desired timeframe.  The
+# Streamlit application may override this value at runtime by assigning
+# a new integer to this module-level constant before invoking any chart
+# functions.  When computing moving averages for the static charts, the
+# rolling windows are always computed on the full price history and then
+# cropped to the lookback window to avoid artificially shortening longer
+# moving averages when displaying a shorter slice of data.
+PLOT_LOOKBACK_DAYS: int = 90
+
 # Import helper for adjusting price data according to price mode.  The utils
 # module must reside at the project root.  It is deliberately not imported
 # from ``technical_analysis.utils`` so that this module can be reused when
@@ -73,8 +87,6 @@ except Exception:
     # If the utils module is not available, define a no-op fallback.  This
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
-
-PLOT_LOOKBACK_DAYS: int = 180
 
 ###############################################################################
 # Internal helpers
@@ -311,6 +323,8 @@ def make_spx_figure(
         return go.Figure()
 
     today = df_full["Date"].max().normalize()
+    # Restrict the chart to the configured lookback window (e.g. last 90 days).
+    # ``PLOT_LOOKBACK_DAYS`` defaults to 90 but may be overridden at runtime.
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -442,12 +456,16 @@ def _generate_spx_image_from_df(
     Includes price, moving averages, Fibonacci lines and optional regression channel.
     """
     today = df_full["Date"].max().normalize()
+    # Compute the lookback start based on the configurable window
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
+    # Slice the price history to the configured lookback window
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    df_ma = df.copy()
-    for w in (50, 100, 200):
-        df_ma[f"MA_{w}"] = df_ma["Price"].rolling(w, min_periods=1).mean()
+    # Compute moving averages on the full dataset once, then slice to the
+    # same window.  This prevents shorter lookback windows from truncating
+    # the rolling windows for the 50-, 100- and 200-day moving averages.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     uptrend = False
     upper = lower = None
@@ -687,13 +705,16 @@ def generate_range_callout_chart_image(
     if df_full.empty:
         return b""
 
-    # Restrict to the last year of data for plotting
+    # Restrict to the configured lookback window for plotting
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the 1‑year subset
-    df_ma = _add_mas(df)
+    # Compute moving averages on the full history and then slice to the
+    # lookback window.  This ensures that long moving averages (e.g. 200 days)
+    # are not recomputed on the truncated data window.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Optional regression channel
     uptrend = False
@@ -1802,11 +1823,13 @@ def generate_range_gauge_chart_image(
     if df_full.empty:
         return b""
 
-    # Compute bounds for the last year of data
+    # Compute bounds for the configured lookback window
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    df_ma = _add_mas(df)
+    # Compute moving averages on the full dataset and slice to the lookback window
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Regression channel (optional)
     uptrend = False
