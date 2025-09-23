@@ -82,7 +82,7 @@ except Exception:
 # (≈180 days).  To display a full year of data instead, override this
 # constant at runtime (e.g. ``technical_analysis.equity.mexbol.PLOT_LOOKBACK_DAYS = 365``).
 # All functions that trim data for plotting refer to this value.
-PLOT_LOOKBACK_DAYS: int = 180
+PLOT_LOOKBACK_DAYS: int = 90
 
 # Import patches as mpatches for range callout charts.  While patches is
 # already imported as ``patches`` for gauge rendering, the callout chart

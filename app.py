@@ -1620,13 +1620,13 @@ def _build_fallback_figure(
     # Determine the lookback window for the fallback chart based on the
     # currently selected analysis timeframe.  When running under
     # Streamlit the ``ta_timeframe_days`` key will be present in
-    # ``st.session_state``; otherwise it falls back to one year
-    # (365 days).  This ensures the synthetic fallback chart aligns
+    # ``st.session_state``; otherwise it falls back to three months
+    # (90 days).  This ensures the synthetic fallback chart aligns
     # with the timeframe used for real data.
     try:
-        lookback_days = int(st.session_state.get("ta_timeframe_days", 365))  # type: ignore
+        lookback_days = int(st.session_state.get("ta_timeframe_days", 90))  # type: ignore
     except Exception:
-        lookback_days = 365
+        lookback_days = 90
     start = today - pd.Timedelta(days=lookback_days)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -1936,12 +1936,13 @@ def show_technical_analysis_page():
     # Analysis timeframe selection
     # -------------------------------------------------------------------
     # Allow the user to choose the lookback horizon for all technical charts.
-    # Providing both "6 months" and "1 year" lets users toggle between a
-    # shorter six‑month window (≈180 days) and a full year (365 days).
-    timeframe_options: dict[str, int] = {"6 months": 180, "1 year": 365}
+    # Provide both "3 months" (≈90 days) and "6 months" (≈180 days) so users
+    # can toggle between a shorter three‑month window and a six‑month window.
+    # The default is three months.
+    timeframe_options: dict[str, int] = {"3 months": 90, "6 months": 180}
     # Determine the default based on any previously stored selection; fall
-    # back to six months if none is present.
-    default_tf_label = st.session_state.get("ta_timeframe_label", "6 months")
+    # back to three months if none is present.
+    default_tf_label = st.session_state.get("ta_timeframe_label", "3 months")
     tf_labels = list(timeframe_options.keys())
     if default_tf_label not in tf_labels:
         default_tf_idx = 0
@@ -2535,7 +2536,7 @@ def show_technical_analysis_page():
                 # timeframe (e.g. 180 or 365 days).
                 default_anchor = st.session_state.get(
                     f"{ticker_key}_anchor",
-                    (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 180))),
+                    (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
                 )
                 anchor_input = st.date_input(
                     "Select anchor date",
@@ -2925,10 +2926,12 @@ def show_commodity_technical_analysis() -> None:
         if enable_channel:
             # Default the anchor to the beginning of the selected
             # timeframe when no previous anchor is stored.  Uses
-            # ``ta_timeframe_days`` instead of a fixed 180‑day window.
+            # ``ta_timeframe_days`` instead of a fixed window.  When
+            # ``ta_timeframe_days`` is not present (e.g. outside Streamlit),
+            # a default of 90 days (three months) is used.
             default_anchor = st.session_state.get(
                 f"{ticker_key}_anchor",
-                (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 180))),
+                (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
             )
             anchor_input = st.date_input(
                 "Select anchor date",
@@ -3271,10 +3274,12 @@ def show_crypto_technical_analysis() -> None:
         anchor_ts: Optional[pd.Timestamp] = None
         if enable_channel:
             # Default anchor uses the selected timeframe rather than a
-            # fixed 180‑day window when none is stored in session.
+            # fixed window when none is stored in session.  When
+            # ``ta_timeframe_days`` is not available a default of 90 days
+            # (three months) is used.
             default_anchor = st.session_state.get(
                 f"{ticker_key}_anchor",
-                (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 180))),
+                (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
             )
             anchor_input = st.date_input(
                 "Select anchor date",
@@ -5262,6 +5267,57 @@ def show_generate_presentation_page():
         except Exception:
             # Ignore errors to avoid breaking presentation generation
             pass
+
+        # ------------------------------------------------------------------
+        # Enforce Calibri font on all table shapes
+        # ------------------------------------------------------------------
+        # The weekly performance tables and other tables inserted into the
+        # presentation are created by external helper functions.  Those functions
+        # may not explicitly set a font for each run in the table.  To ensure
+        # visual consistency with the template (which uses Calibri), iterate
+        # through all tables in the presentation and set every run's font name
+        # to "Calibri".  If Calibri is unavailable on the host system, the
+        # fallback fonts defined in the template will still apply.  The helper
+        # functions below are defined in-line so they have access to the
+        # surrounding scope.
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        from pptx.util import Pt
+
+        def _force_textframe_calibri(tf, size_pt: int = 11):
+            """Set all runs in a text frame to Calibri with the given size."""
+            if not tf:
+                return
+            for p in tf.paragraphs:
+                for r in p.runs:
+                    r.font.name = "Calibri"
+                    # Preserve the original size if not provided
+                    if size_pt is not None:
+                        r.font.size = Pt(size_pt)
+
+        def force_table_calibri(table, size_pt: int = 11):
+            """Set Calibri for every cell of a python‑pptx table."""
+            for row in table.rows:
+                for cell in row.cells:
+                    if hasattr(cell, "text_frame") and cell.text_frame is not None:
+                        _force_textframe_calibri(cell.text_frame, size_pt=size_pt)
+
+        def force_all_tables_calibri(prs, size_pt: int = 11):
+            """Iterate through all tables in the presentation and enforce Calibri."""
+            try:
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if shape.shape_type == MSO_SHAPE_TYPE.TABLE:
+                            # Table shapes have a .table property exposing row/col API
+                            try:
+                                force_table_calibri(shape.table, size_pt=size_pt)
+                            except Exception:
+                                pass
+            except Exception:
+                # Never break presentation generation if font enforcement fails
+                pass
+
+        # Apply the font correction to all tables after all slides have been added
+        force_all_tables_calibri(prs, size_pt=11)
 
         out_stream = BytesIO()
         try:
