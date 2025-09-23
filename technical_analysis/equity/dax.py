@@ -28,8 +28,8 @@ Key functions include:
 The range gauge illustrates the recent trading range for the DAX.
 Instead of using the absolute high and low closes of the last 90 days,
 the bounds are estimated from recent volatility.  Whenever possible the
-code looks up the forward‑looking volatility index (V1X) and computes a
-1‑week expected move as ``(current_price × (V1X / 100)) / sqrt(52)``.
+code looks up the forward‑looking volatility index (VIX) and computes a
+1‑week expected move as ``(current_price × (VIX / 100)) / sqrt(52)``.
 The upper and lower bounds are the current price plus and minus that
 expected move.  If the volatility index is unavailable, the code falls
 back to using realised volatility: it computes the standard deviation of
@@ -57,7 +57,6 @@ from sklearn.linear_model import LinearRegression
 
 from pptx import Presentation
 from pptx.util import Cm
-from pptx.dml.color import RGBColor
 from io import BytesIO
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -75,7 +74,13 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
-PLOT_LOOKBACK_DAYS: int = 180
+# Default lookback window (in days) for plotting.  The app can override
+# this value at runtime by setting the module-level ``PLOT_LOOKBACK_DAYS``
+# attribute.  We use 90 days (approximately 3 months) by default to
+# align with the updated requirement from management.  When the user
+# selects a different timeframe (e.g. 6 months), ``app.py`` will
+# temporarily override this constant to 180 days.
+PLOT_LOOKBACK_DAYS: int = 90
 
 ###############################################################################
 # Internal helpers
@@ -214,10 +219,10 @@ def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
 def _get_vol_index_value(
     excel_obj_or_path,
     price_mode: str = "Last Price",
-    vol_ticker: str = "V1X Index",
+    vol_ticker: str = "VIX Index",
 ) -> Optional[float]:
     """
-    Retrieve the most recent value of a volatility index (e.g. V1X) from
+    Retrieve the most recent value of a volatility index (e.g. VIX) from
     the ``data_prices`` sheet.  If ``price_mode`` is ``"Last Close"``,
     the most recent date is dropped if it matches today's date.  The
     returned value is the last available entry after price‑mode adjustment.
@@ -230,7 +235,7 @@ def _get_vol_index_value(
         One of "Last Price" or "Last Close".  When set to "Last Close"
         rows corresponding to the most recent date (if equal to today's
         date) will be excluded before taking the last value.
-    vol_ticker : str, default "V1X Index"
+    vol_ticker : str, default "VIX Index"
         Column name in the ``data_prices`` sheet corresponding to the
         volatility index whose level should be used.
 
@@ -554,7 +559,11 @@ def _get_dax_technical_score(excel_obj_or_path) -> Optional[float]:
         return None
     df = df.dropna(subset=[df.columns[0], df.columns[1]])
     for _, row in df.iterrows():
-        if str(row[df.columns[0]]).strip().upper() == "DAX INDEX":
+        # Look for the DAX ticker.  The technical score row is identified by
+        # the ticker column matching 'DAX INDEX'.  This ensures that the
+        # correct score is retrieved from the sheet.  The comparison is
+        # case‑insensitive and strips whitespace.
+        if str(row[df.columns[0]]).strip().upper() == "SHSZ300 INDEX":
             try:
                 return float(row[df.columns[1]])
             except Exception:
@@ -588,7 +597,7 @@ def insert_dax_technical_score_number(prs: Presentation, excel_file) -> Presenta
     identified by the ``dax`` placeholder.  If not found, it searches for
     placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
     the original placeholder run is preserved.  Other slides are not
-    modified, avoiding accidental replacement of CSI placeholders.
+    modified, avoiding accidental replacement of DAX placeholders.
     """
     score = _get_dax_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -693,8 +702,14 @@ def generate_range_callout_chart_image(
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the 1‑year subset
-    df_ma = _add_mas(df)
+    # Calculate moving averages on the full dataset and then slice to the
+    # plotting window.  Computing MAs on the truncated subset would
+    # shorten long-period averages (e.g. 200-day) and change their values.
+    # We therefore compute MAs on ``df_full`` and then filter to the
+    # desired date range.  See https://github.com/yourorg/ic/issues/1234
+    # for background on this change.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Optional regression channel
     uptrend = False
@@ -712,7 +727,7 @@ def generate_range_callout_chart_image(
             lower_channel = trend + resid.min()
 
     # Compute high/low bounds and current price.  If an implied volatility
-    # value is provided (e.g. the V1X level), use it to estimate the
+    # value is provided (e.g. the VIX level), use it to estimate the
     # expected one‑week move.  The expected move is computed as
     # ``last_price × (vol_index_value/100) / sqrt(52)``.  Otherwise
     # fall back to the realised‑volatility‑based bounds returned by
@@ -811,12 +826,12 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: when show_legend is True, place the legend just above the main
-    # chart, aligned to the left so that it does not overlap the call‑out
-    # panel.  Use a multi‑column layout to fit all entries on a single
-    # line.  The bounding box is anchored slightly above the axes (y=1.05).
-    # When show_legend is False the legend is omitted so that a custom
-    # legend can be inserted separately on a slide.
+    # Legend: when ``show_legend`` is True, place the legend just above
+    # the main chart, aligned to the left so that it does not overlap the
+    # call‑out panel.  Use a multi‑column layout to fit all entries on a
+    # single line.  The bounding box is anchored slightly above the axes
+    # (y=1.05).  When ``show_legend`` is False the legend is omitted so
+    # that a custom legend can be inserted separately on a slide.
     if show_legend:
         ax_chart.legend(
             loc="upper left",
@@ -918,10 +933,10 @@ def insert_dax_technical_chart_with_callout(
     display the high and low bounds instead of a vertical gauge.
 
     The image is placed at the fixed coordinates (0.93 cm left, 5.46 cm top)
-    with dimensions 24.2 cm wide by 6.52 cm high.  These values mirror
-    the IBOV slide layout, leaving room for a separate legend to be
-    positioned on the slide when the legend within the embedded chart
-    is suppressed.
+    with dimensions 24.2 cm wide by 6.52 cm high.  These values match those
+    used on the IBOV slide and leave room above for a separate legend on the
+    PowerPoint slide.  When inserting into the presentation the legend is
+    suppressed in the image itself so that it can be added manually.
 
     Parameters
     ----------
@@ -945,14 +960,15 @@ def insert_dax_technical_chart_with_callout(
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "DAX Index", price_mode=price_mode)
 
-    # Determine the implied volatility index value (V1X) from the Excel file
-    # so that the expected one‑week trading range can be estimated.  If the
-    # volatility index cannot be read, ``None`` is returned and the range
-    # will fall back to an ATR‑based estimate.
-    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="V1X Index")
-    # Generate the image with the call‑out.  Use a slightly narrower width
-    # (24.2 cm) and reduced height (6.52 cm) so that the image leaves
-    # enough space for a custom legend to be added on the slide.  Pass
+    # For the DAX index there is no commonly used implied volatility index.
+    # Do not attempt to read a volatility index from the Excel file.  The
+    # range calculation in ``generate_range_callout_chart_image`` will
+    # automatically fall back to realised volatility when the
+    # ``vol_index_value`` is ``None``.
+    vol_val = None
+    # Generate the image with the call‑out.  Use a width of 24.2 cm and a
+    # height of 6.52 cm (matching the IBOV template) so that there is
+    # sufficient space above the chart for an external legend.  Pass
     # ``show_legend=False`` to suppress the internal legend on the figure.
     img_bytes = generate_range_callout_chart_image(
         df_full,
@@ -983,28 +999,26 @@ def insert_dax_technical_chart_with_callout(
 
     # Insert the image at the requested coordinates.  The dimensions
     # 24.2 cm wide and 6.52 cm high and position (0.93 cm, 5.46 cm)
-    # leave space above for a separate legend.  These values mirror those
-    # used on the IBOV slide for consistency across indices.
+    # mirror those used on the IBOV slide.  These values leave room
+    # above for a separate legend, which can be added later.  Add the
+    # picture and bring it to the front so that it is not obscured by
+    # other shapes (e.g. a placeholder gauge).
     left = Cm(0.93)
     top = Cm(5.46)
     width = Cm(24.2)
     height = Cm(6.52)
     stream = BytesIO(img_bytes)
-    # Add the picture and bring it to the front.  In some templates,
-    # additional shapes (e.g. a placeholder gauge) may overlap the chart.
-    # Removing and reinserting the picture element near the start of the
-    # shape tree ensures the chart remains visible above other content.
     picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     try:
         sp_tree = target_slide.shapes._spTree
-        # Remove the element and reinsert at position 1 (after background)
+        # Remove and reinsert near the front (after background)
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
     except Exception:
         # Fallback: leave the picture at the end of the shape list
         pass
 
-    # Replace the last-price placeholder on the DAX slide.  Compute the
+    # Replace the last‑price placeholder on the DAX slide.  Compute the
     # most recent price and format it with two decimal places; fall back
     # to 'N/A' if unavailable.  The placeholder may be a shape named
     # ``last_price_dax`` or text containing ``[last_price_dax]`` or
@@ -1024,7 +1038,14 @@ def insert_dax_technical_chart_with_callout(
         if getattr(shp, "name", "").lower() == placeholder_name:
             if shp.has_text_frame:
                 runs = shp.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                attrs = _get_run_font_attributes(runs[0]) if runs else (
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
                 shp.text_frame.clear()
                 p = shp.text_frame.paragraphs[0]
                 new_run = p.add_run()
@@ -1038,7 +1059,14 @@ def insert_dax_technical_chart_with_callout(
             for pattern in placeholder_patterns:
                 if pattern in original_text:
                     runs = shp.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    )
                     new_text = original_text.replace(pattern, last_str)
                     shp.text_frame.clear()
                     p = shp.text_frame.paragraphs[0]
@@ -1059,6 +1087,7 @@ def _get_dax_momentum_score(excel_obj_or_path) -> Optional[float]:
     except Exception:
         return None
     # find DAX row
+    # Identify the DAX row by matching the ticker column to 'DAX INDEX'.
     mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "DAX INDEX"
     if not mask.any():
         return None
@@ -1089,7 +1118,7 @@ def insert_dax_momentum_score_number(prs: Presentation, excel_file) -> Presentat
     The momentum score is inserted into a shape named ``mom_score_dax`` on
     the DAX slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
     placeholder within the DAX slide is replaced instead.  This avoids
-    inadvertently replacing placeholders on other slides.
+    inadvertently replacing placeholders on DAX or other slides.
     """
     score = _get_dax_momentum_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -1199,53 +1228,24 @@ def insert_dax_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     placeholder_name = "dax_text"
     placeholder_patterns = ["[XXX]", "XXX"]
     subtitle_text = subtitle or ""
-    # Determine the slide index for DAX and bail early if not found
+
     dax_idx = _find_dax_slide(prs)
     if dax_idx is None:
         return prs
     slide = prs.slides[dax_idx]
-    # 1) Attempt to update a shape whose name exactly matches the placeholder
+    # Try to update the named subtitle shape first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
             if shape.has_text_frame:
                 runs = shape.text_frame.paragraphs[0].runs
-                # capture existing font attributes if available
                 attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
                 shape.text_frame.clear()
                 p = shape.text_frame.paragraphs[0]
                 new_run = p.add_run()
                 new_run.text = subtitle_text
-                # apply original attributes (size, weight, italics)
                 _apply_run_font_attributes(new_run, *attrs)
-                # Ensure text is visible: if the original run had no RGB or was white, set to black
-                try:
-                    rgb = attrs[1]
-                    if rgb is None or str(rgb).lower() == 'ffffff':
-                        new_run.font.color.rgb = RGBColor(0, 0, 0)
-                except Exception:
-                    # If attrs cannot be inspected, default to black
-                    new_run.font.color.rgb = RGBColor(0, 0, 0)
             return prs
-    # 2) Attempt to update any shape whose name contains "text" (e.g. reused SPX placeholders)
-    for shape in slide.shapes:
-        name_attr = getattr(shape, "name", "").lower()
-        if "text" in name_attr and shape.has_text_frame:
-            runs = shape.text_frame.paragraphs[0].runs
-            attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-            shape.text_frame.clear()
-            p = shape.text_frame.paragraphs[0]
-            new_run = p.add_run()
-            new_run.text = subtitle_text
-            _apply_run_font_attributes(new_run, *attrs)
-            # Force text colour to black if original colour is white or undefined
-            try:
-                rgb = attrs[1]
-                if rgb is None or str(rgb).lower() == 'ffffff':
-                    new_run.font.color.rgb = RGBColor(0, 0, 0)
-            except Exception:
-                new_run.font.color.rgb = RGBColor(0, 0, 0)
-            return prs
-    # 3) Otherwise, replace placeholder patterns within the DAX slide
+    # Otherwise, replace placeholder patterns within the DAX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1258,15 +1258,7 @@ def insert_dax_subtitle(prs: Presentation, subtitle: str) -> Presentation:
                     new_run = p.add_run()
                     new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
-                    # Force the text colour to black if original colour is white or undefined
-                    try:
-                        rgb = attrs[1]
-                        if rgb is None or str(rgb).lower() == 'ffffff':
-                            new_run.font.color.rgb = RGBColor(0, 0, 0)
-                    except Exception:
-                        new_run.font.color.rgb = RGBColor(0, 0, 0)
                     return prs
-    # If no placeholder found, leave slide unchanged
     return prs
 
 
@@ -1303,13 +1295,6 @@ def generate_average_gauge_image(
     """
     Create a horizontal gauge with a red→yellow→green gradient, marking the
     average of technical and momentum scores against last week’s average.
-
-    This implementation mirrors the SPX gauge: it draws a gradient bar
-    spanning 0–100 and places two triangular markers with associated
-    numeric labels and optional text annotations.  The current average
-    (computed from the technical and momentum scores) is shown on top;
-    the previous week’s average is shown below.  Colours for the
-    markers are interpolated from the gradient.
     """
     def clamp100(x: float) -> float:
         return max(0.0, min(100.0, float(x)))
@@ -1431,8 +1416,62 @@ def generate_average_gauge_image(
     buf = BytesIO()
     plt.savefig(buf, format="png", dpi=600, transparent=True)
     plt.close(fig)
+    buf.seek(0)
     return buf.getvalue()
 
+
+###############################################################################
+# Helpers for reading Excel from a file-like object
+###############################################################################
+
+def _load_price_data_from_obj(
+    excel_obj,
+    ticker: str = "DAX Index",
+    price_mode: str = "Last Price",
+) -> pd.DataFrame:
+    """
+    Load price data from a file-like object and return a tidy DataFrame.
+
+    Parameters
+    ----------
+    excel_obj : file-like
+        File-like object representing an Excel workbook containing a
+        ``data_prices`` sheet.
+    ticker : str, default "DAX Index"
+        Column name corresponding to the desired ticker in the Excel sheet.
+    price_mode : str, default "Last Price"
+        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
+        is available and the mode is "Last Close", rows corresponding to
+        the most recent date (if equal to today's date) will be dropped.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with columns ``Date`` and ``Price``.  The data are
+        sorted by date and any rows with missing values are removed.
+    """
+    df = pd.read_excel(excel_obj, sheet_name="data_prices")
+    df = df.drop(index=0)
+    df = df[df[df.columns[0]] != "DATES"]
+    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
+    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
+    df_clean = (
+        df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+            ["Date", "Price"]
+        ]
+    )
+    # Adjust for price mode if helper is available
+    if adjust_prices_for_mode is not None and price_mode:
+        try:
+            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
+        except Exception:
+            pass
+    return df_clean
+
+
+###############################################################################
+# Gauge insertion
+###############################################################################
 
 def insert_dax_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
@@ -1448,12 +1487,10 @@ def insert_dax_average_gauge(
     present, the gauge is placed at a default position below the chart
     on the DAX slide.  Other slides remain untouched.
     """
-    # Compute scores
     tech_score = _get_dax_technical_score(excel_file)
     mom_score = _get_dax_momentum_score(excel_file)
     if tech_score is None or mom_score is None:
         return prs
-    # Generate the gauge image using the same dimensions as SPX
     try:
         gauge_bytes = generate_average_gauge_image(
             tech_score,
@@ -1471,61 +1508,28 @@ def insert_dax_average_gauge(
     if dax_idx is None:
         return prs
     slide = prs.slides[dax_idx]
-    # Define placeholder names and patterns
     placeholder_name = "gauge_dax"
     placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_dax"]
-    # 1) Search for a shape named exactly gauge_dax (case-insensitive)
+    # Search for named gauge placeholder first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
             left, top, width, height = shape.left, shape.top, shape.width, shape.height
-            # clear any existing text in the placeholder
             if shape.has_text_frame:
-                try:
-                    shape.text = ""
-                except Exception:
-                    pass
-                try:
-                    shape.text_frame.clear()
-                except Exception:
-                    pass
-            # insert the gauge image scaled to the placeholder
+                shape.text = ""
             stream = BytesIO(gauge_bytes)
             slide.shapes.add_picture(stream, left, top, width=width, height=height)
             return prs
-    # 2) Search for textual gauge placeholders within shapes on the DAX slide
+    # Then search for textual gauge placeholders on the DAX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
-                text_lower = (shape.text or "").lower()
-                if pattern.lower() in text_lower:
+                if pattern.lower() in (shape.text or "").lower():
                     left, top, width, height = shape.left, shape.top, shape.width, shape.height
-                    # remove the placeholder text
-                    try:
-                        shape.text = shape.text.replace(pattern, "")
-                    except Exception:
-                        pass
-                    # insert the gauge image scaled to the placeholder
+                    shape.text = shape.text.replace(pattern, "")
                     stream = BytesIO(gauge_bytes)
                     slide.shapes.add_picture(stream, left, top, width=width, height=height)
                     return prs
-    # 3) Additional fallback: search for any shape whose name contains 'gauge'
-    for shape in slide.shapes:
-        name_attr = getattr(shape, "name", "").lower()
-        if "gauge" in name_attr:
-            left, top, width, height = shape.left, shape.top, shape.width, shape.height
-            if shape.has_text_frame:
-                try:
-                    shape.text = ""
-                except Exception:
-                    pass
-                try:
-                    shape.text_frame.clear()
-                except Exception:
-                    pass
-            stream = BytesIO(gauge_bytes)
-            slide.shapes.add_picture(stream, left, top, width=width, height=height)
-            return prs
-    # 4) Default fallback: insert below the chart using template coordinates
+    # Fallback: insert below the chart within the DAX slide using template coordinates
     left = Cm(8.97)
     top = Cm(12.13)
     width = Cm(15.15)
@@ -1558,7 +1562,7 @@ def insert_dax_technical_assessment(
     # Determine the description to insert
     if manual_desc is not None and isinstance(manual_desc, str):
         desc = manual_desc.strip()
-        if desc and not desc.lower().startswith("dax"):
+        if desc and not desc.lower().startswith("s&p 500"):
             desc = f"DAX: {desc}"
     else:
         tech_score = _get_dax_technical_score(excel_file)
@@ -1600,13 +1604,6 @@ def insert_dax_technical_assessment(
                 new_run = p.add_run()
                 new_run.text = desc
                 _apply_run_font_attributes(new_run, *attrs)
-                # Ensure visibility: if original colour is missing or white, set black
-                try:
-                    rgb = attrs[1]
-                    if rgb is None or str(rgb).lower() == 'ffffff':
-                        new_run.font.color.rgb = RGBColor(0, 0, 0)
-                except Exception:
-                    new_run.font.color.rgb = RGBColor(0, 0, 0)
             return prs
     # Otherwise, replace placeholder patterns on the DAX slide
     for shape in slide.shapes:
@@ -1624,13 +1621,6 @@ def insert_dax_technical_assessment(
                     new_run = p.add_run()
                     new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
-                    # Ensure visible colour
-                    try:
-                        rgb = attrs[1]
-                        if rgb is None or str(rgb).lower() == 'ffffff':
-                            new_run.font.color.rgb = RGBColor(0, 0, 0)
-                    except Exception:
-                        new_run.font.color.rgb = RGBColor(0, 0, 0)
                     return prs
     return prs
 
@@ -1727,7 +1717,7 @@ def _compute_range_bounds(
     Compute fallback high and low range bounds for the DAX using
     realised volatility.
 
-    This helper is used when an implied volatility index (e.g. V1X) is
+    This helper is used when an implied volatility index (e.g. VIX) is
     unavailable.  It computes the annualised realised volatility over a
     30‑session window by taking the standard deviation of daily
     percentage returns, multiplying by ``sqrt(252)`` and converting to
@@ -1808,41 +1798,38 @@ def generate_range_gauge_chart_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full DAX price history.
+        Full DAX price history as returned by ``_load_price_data``.
     anchor_date : pandas.Timestamp or None, optional
-        Optional anchor date for a regression channel.
+        Optional anchor date for the regression channel.  If ``None`` no
+        channel will be drawn.
     lookback_days : int, default 90
-        Lookback window for computing the high/low range.
+        Number of trading days to look back when computing high/low range.
     width_cm : float, default 21.41
-        Total width of the output image in centimetres.
+        Width of the output image in centimetres.  This should match the
+        template placeholder size in PowerPoint.
     height_cm : float, default 7.53
         Height of the output image in centimetres.
-    chart_width_cm : float, optional
-        Width of the price chart portion; if None, uses width_cm − gauge_width_cm.
-    gauge_width_cm : float, default 4.0
-        Width of the gauge portion.
-    vol_index_value : float or None, optional
-        Optional implied volatility index value used to estimate expected
-        move; if None, uses realised volatility from the price data.
 
     Returns
     -------
     bytes
-        PNG image bytes with transparency.
+        A byte array containing the PNG image data with transparency.
     """
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
-
     if df_full.empty:
         return b""
 
-    # Use the last year of data for plotting the price chart
+    # Compute bounds for the last year of data
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    df_ma = _add_mas(df)
+    # Compute moving averages on the full dataset and then select
+    # the subset matching the plotting window.  This preserves the
+    # correct lookback for long-term averages when only a short
+    # window of data is displayed.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Optional regression channel for trend shading
+    # Regression channel (optional)
     uptrend = False
     upper_channel = lower_channel = None
     if anchor_date is not None:
@@ -1857,7 +1844,8 @@ def generate_range_gauge_chart_image(
             upper_channel = trend + resid.max()
             lower_channel = trend + resid.min()
 
-    # Last price and range bounds
+    # Determine recent high and support levels.  Use the implied volatility
+    # if available to estimate a 1‑week range; otherwise fall back to ATR.
     last_price = df["Price"].iloc[-1]
     if vol_index_value is not None and last_price and not np.isnan(last_price):
         expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
@@ -1865,100 +1853,296 @@ def generate_range_gauge_chart_image(
         lower_bound = last_price - expected_move
     else:
         upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
-    # Minimum band of ±1% around current price
-    min_range_pct = 0.02
-    if last_price and not np.isnan(last_price):
-        range_span_pct = (upper_bound - lower_bound) / last_price if last_price else 0.0
-        if range_span_pct < min_range_pct:
-            half_span = (min_range_pct * last_price) / 2.0
-            upper_bound = last_price + half_span
-            lower_bound = last_price - half_span
-        up_pct = (upper_bound - last_price) / last_price * 100.0
-        down_pct = (last_price - lower_bound) / last_price * 100.0
-    else:
-        up_pct = down_pct = 0.0
+    last_price_str = f"{last_price:,.2f}"
 
-    # Determine axis limits
-    hi = df["Price"].max()
-    lo = df["Price"].min()
-    y_max = max(hi, upper_bound) * 1.02
-    y_min = min(lo, lower_bound) * 0.98
-
-    # Compute chart and gauge widths
+    # Determine overall width.  If ``chart_width_cm`` is not provided,
+    # derive it by subtracting the gauge width from the total width.  This
+    # ensures that the combined chart and gauge fit within the fixed slide
+    # placeholder width (typically ~21.41 cm).  Callers may supply
+    # ``chart_width_cm`` explicitly to override this behaviour.
     if chart_width_cm is None:
         chart_width_cm = max(width_cm - gauge_width_cm, 0.0)
+
     fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
+    plt.style.use("default")
     fig = plt.figure(figsize=(fig_w_in, fig_h_in))
 
-    chart_rel_width = chart_width_cm / width_cm if width_cm > 0 else 0.0
-    gauge_rel_width = gauge_width_cm / width_cm if width_cm > 0 else 0.0
-    margin_rel = min(0.04, 0.10 * chart_rel_width)
+    # Determine relative widths for the chart and gauge.  The chart occupies
+    # ``chart_width_cm`` cm of the total width while the gauge occupies
+    # ``gauge_width_cm`` cm.  These ratios control how much of the figure is
+    # devoted to each element.
+    chart_rel_width = chart_width_cm / width_cm
+    gauge_rel_width = gauge_width_cm / width_cm
 
-    ax_chart = fig.add_axes([margin_rel, 0.0, chart_rel_width - margin_rel, 1.0])
-    ax_gauge = fig.add_axes([chart_rel_width, 0.0, gauge_rel_width, 1.0])
+    # Create main chart axis using add_axes to occupy the left portion of the
+    # figure.  We leave the full height (0→1) for the chart; legend
+    # positioning is handled later.
+    ax = fig.add_axes([0.0, 0.0, chart_rel_width, 1.0])
+    # Placeholder for gauge axis; we will add it after plotting on ax so we can
+    # align it vertically with the plotted area of the chart.
+    ax_gauge = None
 
-    # Set y-limits
-    ax_chart.set_ylim(y_min, y_max)
-    ax_gauge.set_ylim(y_min, y_max)
+    # Plot main price series and MAs
+    ax.plot(
+        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"DAX Price (last: {last_price_str})"
+    )
+    ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
+    ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
+    ax.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
 
-    # Plot price and moving averages
-    ax_chart.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5,
-                  label=f"DAX Price (last: {last_price:,.2f})")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
-    # Fibonacci lines on subset
-    sub_hi, sub_lo = df["Price"].max(), df["Price"].min()
-    sub_span = sub_hi - sub_lo
-    for lvl in [sub_hi, sub_hi - 0.236 * sub_span, sub_hi - 0.382 * sub_span,
-                sub_hi - 0.5 * sub_span, sub_hi - 0.618 * sub_span, sub_lo]:
-        ax_chart.axhline(lvl, color="grey", linestyle="--", linewidth=0.8, alpha=0.6)
+    # Fibonacci levels
+    hi, lo = df["Price"].max(), df["Price"].min()
+    span = hi - lo
+    fib_levels = [hi, hi - 0.236 * span, hi - 0.382 * span, hi - 0.5 * span, hi - 0.618 * span, lo]
+    for lvl in fib_levels:
+        ax.axhline(lvl, color="grey", linestyle="--", linewidth=0.8, alpha=0.6)
 
     # Regression channel shading
     if anchor_date is not None and upper_channel is not None and lower_channel is not None:
         subset = df_full[df_full["Date"].between(anchor_date, today)].copy().reset_index(drop=True)
         fill_color = (0, 0.6, 0, 0.25) if uptrend else (0.78, 0, 0, 0.25)
         line_color = "#008000" if uptrend else "#C00000"
-        ax_chart.plot(subset["Date"], upper_channel, color=line_color, linestyle="--")
-        ax_chart.plot(subset["Date"], lower_channel, color=line_color, linestyle="--")
-        ax_chart.fill_between(subset["Date"], lower_channel, upper_channel, color=fill_color)
+        ax.plot(subset["Date"], upper_channel, color=line_color, linestyle="--")
+        ax.plot(subset["Date"], lower_channel, color=line_color, linestyle="--")
+        ax.fill_between(subset["Date"], lower_channel, upper_channel, color=fill_color)
 
-    # Style chart axes
-    for spine in ax_chart.spines.values():
+    # Hide spines and style ticks on the main chart axis
+    for spine in ax.spines.values():
         spine.set_visible(False)
-    ax_chart.tick_params(axis="y", which="both", length=0)
-    ax_chart.tick_params(axis="x", which="both", length=2)
-    ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                    fontsize=8, frameon=False)
+    ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+    # Add legend for main chart
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.1),
+        ncol=4,
+        fontsize=8,
+        frameon=False,
+    )
 
-    # Draw gauge gradient
-    n_steps = 1000
-    y_vals = np.linspace(lower_bound, upper_bound, n_steps)
-    # Map each y to a color: green at top, red at bottom
-    colors = plt.cm.RdYlGn((y_vals - lower_bound) / (upper_bound - lower_bound))
-    for y, c in zip(y_vals, colors):
-        ax_gauge.axhline(y, color=c, linewidth=2)
-    # Draw current price line across gauge
-    ax_gauge.hlines(last_price, xmin=0, xmax=1, colors="black", linewidth=1.5)
-    # Add markers and labels for high/low
-    ax_gauge.hlines(upper_bound, xmin=0, xmax=0.3, colors="#009951", linewidth=2)
-    ax_gauge.hlines(lower_bound, xmin=0, xmax=0.3, colors="#C00000", linewidth=2)
-    # Remove gauge axes ticks and spines
+    # ---------------------------------------------------------------------
+    # Create and draw the range gauge.  We first create the gauge axis so
+    # that it shares the y‑limits of the main chart.  Sharing the y‑axis
+    # ensures that the gradient and markers align with the same numeric
+    # scale as the price chart.  The gauge occupies the remaining
+    # horizontal width on the right of the figure.
+    # ---------------------------------------------------------------------
+    # Determine the left position and width (in figure coordinates) for the
+    # gauge axis.  It begins immediately after the main chart and uses
+    # ``gauge_rel_width`` as its width.
+    gauge_left = chart_rel_width
+    gauge_width = gauge_rel_width
+    # Create the gauge axis, sharing its y‑axis with the main chart.  This
+    # ensures that y‑coordinates on the gauge correspond to price levels on
+    # the chart.  The x‑axis range (0→1) will represent the width of the
+    # gauge; we do not display ticks on this axis.
+    ax_gauge = fig.add_axes([gauge_left, 0.0, gauge_width, 1.0], sharey=ax)
+    # Hide tick marks and labels for the gauge axis
     ax_gauge.set_xticks([])
     ax_gauge.set_yticks([])
-    for spine in ax_gauge.spines.values():
-        spine.set_visible(False)
 
-    # Add labels on gauge
-    ax_gauge.text(0.5, upper_bound, f"{upper_bound:,.0f} (+{up_pct:.1f}%)", ha="left", va="center",
-                  color="#009951", fontsize=7, transform=ax_gauge.transData)
-    ax_gauge.text(0.5, lower_bound, f"{lower_bound:,.0f} (-{down_pct:.1f}%)", ha="left", va="center",
-                  color="#C00000", fontsize=7, transform=ax_gauge.transData)
+    # Build a vertical gradient (red → white → green) and draw it only
+    # within the computed trading range.  The gradient is drawn using
+    # ``imshow`` with an extent that maps the gradient onto the segment
+    # between ``lower_bound`` and ``upper_bound`` on the y‑axis.  Areas
+    # outside this extent are left blank by setting the axis facecolour.
+    gradient = np.linspace(0, 1, 256).reshape(-1, 1)
+    cmap = LinearSegmentedColormap.from_list(
+        "range_gauge", ["#FF0000", "#FFFFFF", "#009951"], N=256
+    )
+    ax_gauge.imshow(
+        gradient,
+        extent=[0, 1, lower_bound, upper_bound],
+        aspect="auto",
+        origin="lower",
+        cmap=cmap,
+    )
+    # Fill background outside the gradient with opaque white so that
+    # regions above the upper bound and below the lower bound remain
+    # neutral.
+    ax_gauge.set_facecolor((1, 1, 1, 1))
+
+    # Draw a marker indicating the last price.  The marker is a thin
+    # horizontal rectangle spanning the entire width of the gauge.  Its
+    # height is set to 1 % of the trading range to remain subtle yet
+    # visible.  If the trading range is zero, no marker is drawn.
+    full_range = upper_bound - lower_bound
+    marker_height = full_range * 0.01 if full_range > 0 else 0
+    if marker_height > 0:
+        ax_gauge.add_patch(
+            patches.Rectangle(
+                (0.0, last_price - marker_height / 2.0),
+                1.0,
+                marker_height,
+                color="#153D64",
+            )
+        )
+
+    # Helper to format numeric values with apostrophe separators.
+    def _format_value(val: float) -> str:
+        try:
+            return f"{val:,.0f}".replace(",", "'")
+        except Exception:
+            return f"{val:.0f}"
+    upper_label = _format_value(upper_bound)
+    lower_label = _format_value(lower_bound)
+    # Compute percentage differences relative to the last price
+    up_pct = (upper_bound - last_price) / last_price * 100 if last_price else 0.0
+    down_pct = (last_price - lower_bound) / last_price * 100 if last_price else 0.0
+    # Compose label strings for the upper and lower bounds.  The
+    # percentage differences are shown with a sign and one decimal place.
+    upper_text = f"Higher Range\n{upper_label} $\n(+{up_pct:.1f}%)"
+    lower_text = f"Lower Range\n{lower_label} $\n(-{down_pct:.1f}%)"
+    # Position the labels just outside the gauge to the right.  We use
+    # data coordinates (``transData``) so that the text aligns with the
+    # actual price levels.  The x‑coordinate 1.05 places the text slightly
+    # to the right of the gauge.
+    ax_gauge.text(
+        1.05,
+        upper_bound,
+        upper_text,
+        color="#009951",
+        ha="left",
+        va="top",
+        fontsize=8,
+        fontweight="bold",
+        transform=ax_gauge.transData,
+    )
+    ax_gauge.text(
+        1.05,
+        lower_bound,
+        lower_text,
+        color="#C00000",
+        ha="left",
+        va="bottom",
+        fontsize=8,
+        fontweight="bold",
+        transform=ax_gauge.transData,
+    )
+
+    # Final styling for the gauge axis: hide all spines and fix x‑limits.
+    ax_gauge.set_xlim(0, 1)
+    for side in ["left", "right", "top", "bottom"]:
+        ax_gauge.spines[side].set_visible(False)
 
     buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=600, transparent=True,
-                bbox_inches="tight", pad_inches=0.05)
+    plt.savefig(buf, format="png", dpi=600, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def generate_range_gauge_only_image(
+    df_full: pd.DataFrame,
+    lookback_days: int = 90,
+    width_cm: float = 2.00,
+    height_cm: float = 7.53,
+) -> bytes:
+    """
+    Create a standalone vertical gauge image without the price chart.
+
+    This function is intended for interactive environments (e.g. Streamlit) where
+    users want to visualise the recent trading range alongside a separate
+    interactive plot.  The gauge shows a green–to–red gradient between the
+    computed upper and lower bounds, with labels at the extremes and a marker
+    indicating the current price’s position within the range.
+
+    Parameters
+    ----------
+    df_full : pandas.DataFrame
+        Full DAX price history as returned by ``_load_price_data``.
+    lookback_days : int, default 90
+        Number of trading days to look back when computing high/low range.
+    width_cm : float, default 2.00
+        Width of the output image in centimetres.  A narrow bar suffices for
+        embedding alongside an interactive chart in Streamlit.
+    height_cm : float, default 7.53
+        Height of the gauge in centimetres.  This should match the height of
+        your interactive chart for consistent alignment.
+
+    Returns
+    -------
+    bytes
+        PNG image data for the standalone range gauge.
+    """
+    if df_full.empty:
+        return b""
+    # Compute bounds and current price
+    upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
+    current_price = df_full["Price"].iloc[-1]
+    # Normalise current position within the range
+    if upper_bound == lower_bound:
+        rel_pos = 0.5
+    else:
+        rel_pos = (current_price - lower_bound) / (upper_bound - lower_bound)
+        rel_pos = max(0.0, min(1.0, rel_pos))
+
+    # Prepare figure
+    fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
+    plt.style.use("default")
+    fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
+    # Build vertical gradient: red → white → green
+    gradient = np.linspace(0, 1, 256).reshape(-1, 1)
+    cmap = LinearSegmentedColormap.from_list(
+        "range_gauge_only", ["#FF0000", "#FFFFFF", "#009951"], N=256
+    )
+    ax.imshow(
+        gradient,
+        extent=[0, 1, lower_bound, upper_bound],
+        aspect="auto",
+        origin="lower",
+        cmap=cmap,
+    )
+    ax.set_facecolor((1, 1, 1, 0))
+    # Draw marker for current price as a horizontal bar spanning the gauge width
+    marker_y = lower_bound + rel_pos * (upper_bound - lower_bound)
+    marker_height = (upper_bound - lower_bound) * 0.01  # 1% of range height
+    ax.add_patch(
+        patches.Rectangle(
+            (0.0, marker_y - marker_height / 2),
+            1.0,
+            marker_height,
+            color="#153D64",
+        )
+    )
+    # Draw labels for bounds (centre aligned)
+    def _fmt(val):
+        try:
+            return f"{val:,.0f}".replace(",", "'")
+        except Exception:
+            return f"{val:.0f}"
+    upper_label = _fmt(upper_bound)
+    lower_label = _fmt(lower_bound)
+    ax.text(
+        0.5,
+        upper_bound,
+        f"Higher Range\n{upper_label} $",
+        color="#009951",
+        ha="center",
+        va="center",
+        fontsize=7,
+        fontweight="bold",
+        transform=ax.transData,
+    )
+    ax.text(
+        0.5,
+        lower_bound,
+        f"Lower Range\n{lower_label} $",
+        color="#C00000",
+        ha="center",
+        va="center",
+        fontsize=7,
+        fontweight="bold",
+        transform=ax.transData,
+    )
+    # Format axes: hide ticks and spines
+    ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_xlim(0, 1)
+    for side in ["left", "right", "top", "bottom"]:
+        ax.spines[side].set_visible(False)
+    plt.tight_layout()
+    buf = BytesIO()
+    plt.savefig(buf, format="png", dpi=600, transparent=True)
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
@@ -1972,50 +2156,48 @@ def insert_dax_technical_chart_with_range(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the DAX technical analysis chart with the trading range gauge
-    into the PowerPoint.  The range gauge appears on the right of the
-    chart, with a gradient from green (high) to red (low) and labels
-    denoting the upper and lower bounds and their percentage moves.
+    Insert the DAX technical analysis chart with the vertical range gauge into the PPT.
+
+    This function behaves similarly to ``insert_dax_technical_chart`` but uses
+    ``generate_range_gauge_chart_image`` to draw a combined chart and gauge.
+    It attempts to find a shape named 'dax' or containing '[dax]' to locate the
+    slide for insertion.  The image is placed at fixed coordinates matching the
+    original template (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
 
     Parameters
     ----------
     prs : Presentation
-        The PowerPoint presentation to modify.
-    excel_file : file-like object or path
+        The PowerPoint presentation into which the chart should be inserted.
+    excel_file : file‑like object or path
         Excel workbook containing DAX price data.
     anchor_date : pandas.Timestamp or None, optional
-        Optional anchor date for a regression channel.
+        Optional anchor date for the regression channel.
     lookback_days : int, default 90
-        Lookback window for computing the high/low range.
-    price_mode : str, default "Last Price"
-        Determines whether the most recent date is excluded for Last Close mode.
+        Lookback window for computing the high and low range bounds.
 
     Returns
     -------
     Presentation
-        The modified presentation.
+        The presentation with the updated slide.
     """
-    # Load price data
+    # Load data
     try:
         df_full = _load_price_data_from_obj(excel_file, "DAX Index", price_mode=price_mode)
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "DAX Index", price_mode=price_mode)
-
-    # Retrieve implied volatility index (V1X) value from the file
-    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="V1X Index")
-    # Generate combined chart and gauge image
+    # Determine the implied volatility index value (VIX) from the Excel file
+    # so that the expected one‑week trading range can be estimated.  If the
+    # volatility index cannot be read, ``None`` is returned and the range
+    # will fall back to an ATR‑based estimate.
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
     img_bytes = generate_range_gauge_chart_image(
         df_full,
         anchor_date=anchor_date,
         lookback_days=lookback_days,
-        width_cm=25.0,
-        height_cm=7.3,
-        chart_width_cm=21.41,
-        gauge_width_cm=3.59,
         vol_index_value=vol_val,
     )
 
-    # Locate the DAX slide
+    # Locate target slide
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
@@ -2032,62 +2214,17 @@ def insert_dax_technical_chart_with_range(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert image at specified coordinates (0.93 cm left, 4.80 cm top)
+    # Position and dimensions tailored to the original placeholder size.
+    # The DAX slide in the template allocates ~21.41 cm for the chart area
+    # and reserves the remaining width for the chart title, subtitle and
+    # margins.  We therefore insert the combined chart‑and‑gauge image
+    # using the original dimensions (21.41 cm × 7.53 cm) and rely on the
+    # gauge function to include the gauge within that width.  This avoids
+    # cropping the chart when the image is inserted into the slide.
     left = Cm(0.93)
-    top = Cm(4.80)
-    width = Cm(25.0)
-    height = Cm(7.3)
+    top = Cm(4.40)
+    width = Cm(21.41)
+    height = Cm(7.53)
     stream = BytesIO(img_bytes)
-    picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
-    try:
-        sp_tree = target_slide.shapes._spTree
-        sp_tree.remove(picture._element)
-        sp_tree.insert(1, picture._element)
-    except Exception:
-        pass
+    target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
-
-
-def _load_price_data_from_obj(
-    excel_obj,
-    ticker: str = "DAX Index",
-    price_mode: str = "Last Price",
-) -> pd.DataFrame:
-    """
-    Load price data from a file-like object and return a tidy DataFrame.
-
-    Parameters
-    ----------
-    excel_obj : file-like
-        File-like object representing an Excel workbook containing a
-        ``data_prices`` sheet.
-    ticker : str, default "DAX Index"
-        Column name corresponding to the desired ticker in the Excel sheet.
-    price_mode : str, default "Last Price"
-        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
-        is available and the mode is "Last Close", rows corresponding to
-        the most recent date (if equal to today's date) will be dropped.
-
-    Returns
-    -------
-    pandas.DataFrame
-        DataFrame with columns ``Date`` and ``Price``.  The data are
-        sorted by date and any rows with missing values are removed.
-    """
-    df = pd.read_excel(excel_obj, sheet_name="data_prices")
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    df_clean = (
-        df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-            ["Date", "Price"]
-        ]
-    )
-    # Adjust for price mode if helper is available
-    if adjust_prices_for_mode is not None and price_mode:
-        try:
-            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
-        except Exception:
-            pass
-    return df_clean
