@@ -19,7 +19,7 @@ Key functions include:
 * ``insert_tasi_average_gauge`` – insert the gauge into a PPT slide.
 * ``insert_tasi_technical_assessment`` – insert a descriptive “view” text.
 * ``generate_range_gauge_chart_image`` – create a combined price chart with
-  a vertical range gauge on the right-hand side, including a horizontal line
+  a vertical range gauge on the right hand side, including a horizontal line
   connecting the last price to the gauge.  This function is used by
   ``insert_tasi_technical_chart_with_range``.
 * ``insert_tasi_technical_chart_with_range`` – insert the TASI technical
@@ -27,19 +27,22 @@ Key functions include:
 
 The range gauge illustrates the recent trading range for the TASI.
 Instead of using the absolute high and low closes of the last 90 days,
-the bounds are estimated from recent volatility.  Because there is no
-published volatility index for the TASI, the code always falls back to
-using realised volatility: it computes the standard deviation of 30‑day
-daily returns, annualises it and converts it to a 1‑week move using
-``(current_price × (realised_vol / 100)) / sqrt(52)``.  As a last
-resort when volatility cannot be computed the bounds default to ±2 % of
-the current price.  A minimum ±1 % band is enforced to avoid
-overlapping annotations when volatility is extremely low.  A horizontal
-line continues the last price through to the gauge so that viewers can
-quickly assess how far the index lies from its typical volatility
-band.  This method provides context on potential upside and downside
-moves based on recent price variability rather than simply the most
-recent highs and lows.
+the bounds are estimated from recent volatility.  Whenever possible the
+code looks up the forward‑looking volatility index (VIX) and computes a
+1‑week expected move as ``(current_price × (VIX / 100)) / sqrt(52)``.
+The upper and lower bounds are the current price plus and minus that
+expected move.  If the volatility index is unavailable, the code falls
+back to using realised volatility: it computes the standard deviation of
+30‑day daily returns, annualises it and converts it to a 1‑week move
+using the same formula.  As a last resort when neither volatility
+measure can be computed the bounds default to ±2 % of the current price.
+A minimum ±1 % band is enforced to avoid overlapping annotations when
+volatility is extremely low.  A horizontal line continues the last
+price through to the gauge so that viewers can quickly assess how far
+the index lies from its typical volatility band.  This method
+provides context on potential upside and downside moves based on
+recent price variability rather than simply the most recent highs and
+lows.
 """
 
 from __future__ import annotations
@@ -71,7 +74,13 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
-PLOT_LOOKBACK_DAYS: int = 180
+# Default lookback window (in days) for plotting.  The app can override
+# this value at runtime by setting the module-level ``PLOT_LOOKBACK_DAYS``
+# attribute.  We use 90 days (approximately 3 months) by default to
+# align with the updated requirement from management.  When the user
+# selects a different timeframe (e.g. 6 months), ``app.py`` will
+# temporarily override this constant to 180 days.
+PLOT_LOOKBACK_DAYS: int = 90
 
 ###############################################################################
 # Internal helpers
@@ -210,7 +219,7 @@ def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
 def _get_vol_index_value(
     excel_obj_or_path,
     price_mode: str = "Last Price",
-    vol_ticker: str = "TASI Index",
+    vol_ticker: str = "VIX Index",
 ) -> Optional[float]:
     """
     Retrieve the most recent value of a volatility index (e.g. VIX) from
@@ -226,7 +235,7 @@ def _get_vol_index_value(
         One of "Last Price" or "Last Close".  When set to "Last Close"
         rows corresponding to the most recent date (if equal to today's
         date) will be excluded before taking the last value.
-    vol_ticker : str, default "TASI Index"
+    vol_ticker : str, default "VIX Index"
         Column name in the ``data_prices`` sheet corresponding to the
         volatility index whose level should be used.
 
@@ -442,9 +451,11 @@ def _generate_tasi_image_from_df(
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    df_ma = df.copy()
-    for w in (50, 100, 200):
-        df_ma[f"MA_{w}"] = df_ma["Price"].rolling(w, min_periods=1).mean()
+    # Compute moving averages on the full dataset and then slice to the
+    # plotting window.  Computing MAs on the truncated subset would
+    # shorten long-period averages (e.g. 200-day) and change their values.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     uptrend = False
     upper = lower = None
@@ -550,8 +561,11 @@ def _get_tasi_technical_score(excel_obj_or_path) -> Optional[float]:
         return None
     df = df.dropna(subset=[df.columns[0], df.columns[1]])
     for _, row in df.iterrows():
-        # Match the SASEIDX Index ticker for TASI (uppercase) rather than 'TASI INDEX'
-        if str(row[df.columns[0]]).strip().upper() in ("SASEIDX INDEX", "TASI INDEX"):
+        # Look for the TASI ticker.  The technical score row is identified by
+        # the ticker column matching 'SASEIDX INDEX'.  This ensures that the
+        # correct score is retrieved from the sheet.  The comparison is
+        # case‑insensitive and strips whitespace.
+        if str(row[df.columns[0]]).strip().upper() == "SASEIDX INDEX":
             try:
                 return float(row[df.columns[1]])
             except Exception:
@@ -560,11 +574,14 @@ def _get_tasi_technical_score(excel_obj_or_path) -> Optional[float]:
 
 
 def _find_tasi_slide(prs: Presentation) -> Optional[int]:
-    """Locate the index of the slide that contains the TASI placeholder.
+    """
+    Locate the index of the slide that contains the TASI placeholder.
 
-    This helper searches for a slide containing a shape named ``tasi`` or
-    whose text is exactly ``[tasi]`` (case‑insensitive).  It returns the
-    zero‑based slide index or ``None`` if no such slide exists.
+    This helper scans each slide for a shape named ``tasi`` or a text
+    frame whose entire text is exactly ``[tasi]`` (case-insensitive).
+    It returns the zero-based slide index or ``None`` if no such slide
+    exists.  Using a dedicated helper prevents accidental replacement
+    of placeholders on other slides.
     """
     for idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
@@ -581,11 +598,11 @@ def insert_tasi_technical_score_number(prs: Presentation, excel_file) -> Present
     """
     Insert the TASI technical score (integer) into the TASI slide.
 
-    This function looks for a shape named ``tech_score_tasi`` on the slide
-    identified by the ``tasi`` placeholder.  If not found, it searches for
-    placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
-    the original placeholder run is preserved.  Other slides are not
-    modified, avoiding accidental replacement of CSI placeholders.
+    This function locates the slide identified by the ``tasi`` placeholder
+    and replaces a shape named ``tech_score_tasi`` (or equivalent text
+    placeholder) with the rounded technical score.  If the score is
+    unavailable, ``N/A`` is displayed.  The formatting of the original
+    placeholder run is preserved.  Other slides remain untouched.
     """
     score = _get_tasi_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
@@ -593,11 +610,11 @@ def insert_tasi_technical_score_number(prs: Presentation, excel_file) -> Present
     placeholder_name = "tech_score_tasi"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    tasi_idx = _find_tasi_slide(prs)
-    if tasi_idx is None:
+    slide_idx = _find_tasi_slide(prs)
+    if slide_idx is None:
         # No TASI slide found; return unmodified
         return prs
-    slide = prs.slides[tasi_idx]
+    slide = prs.slides[slide_idx]
     # First search for a shape named exactly as the placeholder
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -690,8 +707,14 @@ def generate_range_callout_chart_image(
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the 1‑year subset
-    df_ma = _add_mas(df)
+    # Calculate moving averages on the full dataset and then slice to the
+    # plotting window.  Computing MAs on the truncated subset would
+    # shorten long-period averages (e.g. 200-day) and change their values.
+    # We therefore compute MAs on ``df_full`` and then filter to the
+    # desired date range.  See https://github.com/yourorg/ic/issues/1234
+    # for background on this change.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Optional regression channel
     uptrend = False
@@ -777,9 +800,17 @@ def generate_range_callout_chart_image(
     ax_chart.set_ylim(y_min, y_max)
     ax_callout.set_ylim(y_min, y_max)
 
-    # Plot price and moving averages on the main chart
-    ax_chart.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5,
-                  label=f"TASI Price (last: {last_price:,.2f})")
+    # Plot price and moving averages on the main chart.  Note that the price
+    # label refers to the TASI index rather than the DAX (a leftover from
+    # the template).  The `last_price` is formatted with comma
+    # separators and two decimal places.
+    ax_chart.plot(
+        df["Date"],
+        df["Price"],
+        color="#153D64",
+        linewidth=2.5,
+        label=f"TASI Price (last: {last_price:,.2f})",
+    )
     ax_chart.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
@@ -942,15 +973,16 @@ def insert_tasi_technical_chart_with_callout(
     except Exception:
         df_full = _load_price_data(pathlib.Path(excel_file), "SASEIDX Index", price_mode=price_mode)
 
-    # Determine the implied volatility index value (VIX) from the Excel file
-    # so that the expected one‑week trading range can be estimated.  If the
-    # volatility index cannot be read, ``None`` is returned and the range
-    # will fall back to an ATR‑based estimate.
-    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="TASI Index")
-    # Generate the image with the call‑out.  Use an extended width of
-    # 25.0 cm while keeping the height at 7.3 cm.  Pass the volatility index
-    # value to ``generate_range_callout_chart_image`` so that the range
-    # calculation can use the implied volatility if available.
+    # For the TASI index there is no commonly used implied volatility index.
+    # Do not attempt to read a volatility index from the Excel file.  The
+    # range calculation in ``generate_range_callout_chart_image`` will
+    # automatically fall back to realised volatility when the
+    # ``vol_index_value`` is ``None``.
+    vol_val = None
+    # Generate the image with the call‑out.  Use a width of 24.2 cm and a
+    # height of 6.52 cm (matching the IBOV template) so that there is
+    # sufficient space above the chart for an external legend.  Pass
+    # ``show_legend=False`` to suppress the internal legend on the figure.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
@@ -978,9 +1010,11 @@ def insert_tasi_technical_chart_with_callout(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert the image at the requested coordinates.  The dimensions 25 cm
-    # wide and 7.3 cm high and position (0.93 cm, 4.80 cm) come from the
-    # template.
+    # Insert the image at the requested coordinates.  The dimensions
+    # 24.2 cm wide and 6.52 cm high and position (0.93 cm, 5.46 cm)
+    # mirror those used on the IBOV slide.  These values leave room
+    # above for a separate legend.  Add the picture and bring it to
+    # the front so that it is not obscured by other shapes (e.g. a placeholder gauge).
     left = Cm(0.93)
     top = Cm(5.46)
     width = Cm(24.2)
@@ -989,9 +1023,11 @@ def insert_tasi_technical_chart_with_callout(
     picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     try:
         sp_tree = target_slide.shapes._spTree
+        # Remove and reinsert near the front (after background)
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
     except Exception:
+        # Fallback: leave the picture at the end of the shape list
         pass
 
     # Replace the last‑price placeholder on the TASI slide.  Compute the
@@ -1010,6 +1046,7 @@ def insert_tasi_technical_chart_with_callout(
     placeholder_patterns = ["[last_price_tasi]", "last_price_tasi"]
     replaced = False
     for shp in target_slide.shapes:
+        # Match by shape name
         if getattr(shp, "name", "").lower() == placeholder_name:
             if shp.has_text_frame:
                 runs = shp.text_frame.paragraphs[0].runs
@@ -1028,6 +1065,7 @@ def insert_tasi_technical_chart_with_callout(
                 _apply_run_font_attributes(new_run, *attrs)
             replaced = True
             break
+        # Match placeholder patterns within the text
         if shp.has_text_frame:
             original_text = shp.text or ""
             for pattern in placeholder_patterns:
@@ -1055,29 +1093,37 @@ def insert_tasi_technical_chart_with_callout(
 
 
 def _get_tasi_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return TASI momentum score, mapping letter grades to numeric if needed."""
+    """
+    Return the TASI momentum score from the ``data_trend_rating`` sheet.
+
+    This function attempts to extract a numeric momentum score for the
+    TASI (``SASEIDX INDEX``).  If the cell contains a numeric value it
+    is returned directly.  Otherwise, the function maps letter grades
+    (A/B/C/D) to default numeric values and allows custom overrides
+    via the ``parameters`` sheet.  The mapping and override logic is
+    identical to other equity modules.
+    """
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
     except Exception:
         return None
-    # find TASI row (SASEIDX Index)
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper().isin(["SASEIDX INDEX", "TASI INDEX"])
+    # Identify the TASI row by matching the ticker column to 'SASEIDX INDEX'.
+    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SASEIDX INDEX"
     if not mask.any():
         return None
     row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
+    # Try to convert the existing value to float (numeric score in column 4)
     try:
         return float(row.iloc[3])
     except Exception:
         pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
+    # Map letter ratings in column 3 to default numeric values
+    rating = str(row.iloc[2]).strip().upper()
     mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for customised mapping
+    # Optionally look up a customised numeric value in the 'parameters' sheet
     try:
         params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
-        # Look for SASEIDX Index (the TASI ticker) or fallback to TASI INDEX
-        tasi_param = params[params["Tickers"].astype(str).str.upper().isin(["SASEIDX INDEX", "TASI INDEX"])]
+        tasi_param = params[params["Tickers"].astype(str).str.upper() == "SASEIDX INDEX"]
         if not tasi_param.empty and "Unnamed: 8" in tasi_param:
             return float(tasi_param["Unnamed: 8"].dropna().iloc[0])
     except Exception:
@@ -1092,20 +1138,19 @@ def insert_tasi_momentum_score_number(prs: Presentation, excel_file) -> Presenta
     The momentum score is inserted into a shape named ``mom_score_tasi`` on
     the TASI slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
     placeholder within the TASI slide is replaced instead.  This avoids
-    inadvertently replacing placeholders on CSI or other slides.
+    inadvertently replacing placeholders on other slides.
     """
-    # Retrieve the TASI momentum score and format it for insertion
     score = _get_tasi_momentum_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
 
     placeholder_name = "mom_score_tasi"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    tasi_idx = _find_tasi_slide(prs)
-    if tasi_idx is None:
+    slide_idx = _find_tasi_slide(prs)
+    if slide_idx is None:
         return prs
-    slide = prs.slides[tasi_idx]
-    # 1. Attempt to replace the specifically named placeholder
+    slide = prs.slides[slide_idx]
+    # Attempt to replace the named placeholder first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
             if shape.has_text_frame:
@@ -1117,7 +1162,7 @@ def insert_tasi_momentum_score_number(prs: Presentation, excel_file) -> Presenta
                 new_run.text = score_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # 2. Replace textual placeholder patterns '[XXX]' or 'XXX' within the TASI slide
+    # Otherwise, replace placeholder patterns on the TASI slide only
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1131,36 +1176,6 @@ def insert_tasi_momentum_score_number(prs: Presentation, excel_file) -> Presenta
                     new_run.text = new_text
                     _apply_run_font_attributes(new_run, *attrs)
                     return prs
-    # 3. Fallback: search for shapes with momentum-related tokens in their name
-    for shape in slide.shapes:
-        name_attr = getattr(shape, "name", "").lower()
-        if any(token in name_attr for token in ("mom_score", "mom score", "momentum")):
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # 4. Inspect table cells on the slide for momentum placeholders
-    for shape in slide.shapes:
-        tbl = getattr(shape, 'table', None)
-        if tbl:
-            for row in tbl.rows:
-                for cell in row.cells:
-                    cell_text_lower = (cell.text or "").lower()
-                    if any(tok in cell_text_lower for tok in ("mom_score", "mom score", "momentum score")):
-                        new_cell_text = cell.text
-                        for pat in ["[xxx]", "xxx", "[XXX]", "XXX"]:
-                            if pat in new_cell_text:
-                                new_cell_text = new_cell_text.replace(pat, score_text)
-                        cell.text = new_cell_text
-                        return prs
-                    if cell_text_lower.strip() in ("xxx", "[xxx]"):
-                        cell.text = score_text
-                        return prs
     return prs
 
 
@@ -1175,13 +1190,16 @@ def insert_tasi_technical_chart(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the TASI technical‑analysis chart into the PPT.
+    Insert the TASI technical‑analysis chart into the PowerPoint.
 
-    We only use the textbox named ``tasi`` (or containing “[tasi]”) to locate
-    the correct slide; the chart itself is always pasted at the fixed
-    coordinates (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
+    The function locates the slide containing the ``tasi`` placeholder (shape
+    name or text ``[tasi]``) and inserts the TASI price chart at a
+    fixed position.  If no TASI slide is found, the chart is inserted
+    on a default slide near the end of the deck.  The chart reflects
+    the selected lookback period and includes moving averages, Fibonacci
+    levels and an optional regression channel.
     """
-    # Load data and generate image
+    # Load data and generate image using the TASI ticker
     try:
         df_full = _load_price_data_from_obj(excel_file, "SASEIDX Index", price_mode=price_mode)
     except Exception:
@@ -1204,9 +1222,10 @@ def insert_tasi_technical_chart(
             break
 
     if target_slide is None:
+        # Default to a slide near the end (avoid messing up earlier slides)
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Always paste the chart at fixed coordinates
+    # Paste the chart at fixed coordinates matching other equity slides
     left = Cm(0.93)
     top = Cm(4.39)
     width = Cm(21.41)
@@ -1234,10 +1253,10 @@ def insert_tasi_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     placeholder_patterns = ["[XXX]", "XXX"]
     subtitle_text = subtitle or ""
 
-    tasi_idx = _find_tasi_slide(prs)
-    if tasi_idx is None:
+    slide_idx = _find_tasi_slide(prs)
+    if slide_idx is None:
         return prs
-    slide = prs.slides[tasi_idx]
+    slide = prs.slides[slide_idx]
     # Try to update the named subtitle shape first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1509,10 +1528,10 @@ def insert_tasi_average_gauge(
     except Exception:
         return prs
     # Identify TASI slide
-    tasi_idx = _find_tasi_slide(prs)
-    if tasi_idx is None:
+    slide_idx = _find_tasi_slide(prs)
+    if slide_idx is None:
         return prs
-    slide = prs.slides[tasi_idx]
+    slide = prs.slides[slide_idx]
     placeholder_name = "gauge_tasi"
     placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_tasi"]
     # Search for named gauge placeholder first
@@ -1534,17 +1553,6 @@ def insert_tasi_average_gauge(
                     stream = BytesIO(gauge_bytes)
                     slide.shapes.add_picture(stream, left, top, width=width, height=height)
                     return prs
-    #  Additional fallback: search for any shape whose name contains 'gauge' (case-insensitive)
-    for shape in slide.shapes:
-        name_attr = getattr(shape, "name", "").lower()
-        if "gauge" in name_attr:
-            left, top, width, height = shape.left, shape.top, shape.width, shape.height
-            if shape.has_text_frame:
-                # Clear any existing text
-                shape.text_frame.clear()
-            stream = BytesIO(gauge_bytes)
-            slide.shapes.add_picture(stream, left, top, width=width, height=height)
-            return prs
     # Fallback: insert below the chart within the TASI slide using template coordinates
     left = Cm(8.97)
     top = Cm(12.13)
@@ -1578,7 +1586,8 @@ def insert_tasi_technical_assessment(
     # Determine the description to insert
     if manual_desc is not None and isinstance(manual_desc, str):
         desc = manual_desc.strip()
-        if desc and not desc.lower().startswith("s&p 500"):
+        # Prefix the description with the index name if not already
+        if desc and not desc.lower().startswith("tasi"):
             desc = f"TASI: {desc}"
     else:
         tech_score = _get_tasi_technical_score(excel_file)
@@ -1604,10 +1613,10 @@ def insert_tasi_technical_assessment(
     target_name = "tasi_view"
     placeholder_patterns = ["[tasi_view]", "tasi_view"]
 
-    tasi_idx = _find_tasi_slide(prs)
-    if tasi_idx is None:
+    slide_idx = _find_tasi_slide(prs)
+    if slide_idx is None:
         return prs
-    slide = prs.slides[tasi_idx]
+    slide = prs.slides[slide_idx]
     # Try to locate a shape by name on the TASI slide
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
@@ -1651,8 +1660,8 @@ def insert_tasi_source(
     price_mode: str,
 ) -> Presentation:
     """
-    Insert the source footnote into a shape named 'tasi_source' (or
-    containing '[tasi_source]').  The footnote text depends on the selected
+    Insert the source footnote into a shape named ``tasi_source`` (or
+    containing ``[tasi_source]``).  The footnote text depends on the selected
     price mode.  For example:
 
       * Last Close  → "Source: Bloomberg, Herculis Group, Data as of 29/07/2025 Close"
@@ -1685,10 +1694,10 @@ def insert_tasi_source(
     placeholder_name = "tasi_source"
     placeholder_patterns = ["[tasi_source]", "tasi_source"]
     # Restrict insertion to the TASI slide only
-    tasi_idx = _find_tasi_slide(prs)
-    if tasi_idx is None:
+    slide_idx = _find_tasi_slide(prs)
+    if slide_idx is None:
         return prs
-    slide = prs.slides[tasi_idx]
+    slide = prs.slides[slide_idx]
     # Case 1: replace a shape named exactly as the placeholder
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
@@ -1838,7 +1847,12 @@ def generate_range_gauge_chart_image(
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    df_ma = _add_mas(df)
+    # Compute moving averages on the full dataset and then select
+    # the subset matching the plotting window.  This preserves the
+    # correct lookback for long-term averages when only a short
+    # window of data is displayed.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Regression channel (optional)
     uptrend = False
@@ -2200,7 +2214,7 @@ def insert_tasi_technical_chart_with_range(
     # so that the expected one‑week trading range can be estimated.  If the
     # volatility index cannot be read, ``None`` is returned and the range
     # will fall back to an ATR‑based estimate.
-    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="TASI Index")
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
     img_bytes = generate_range_gauge_chart_image(
         df_full,
         anchor_date=anchor_date,
