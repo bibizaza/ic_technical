@@ -715,8 +715,13 @@ def generate_range_callout_chart_image(
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the subset
-    df_ma = _add_mas(df)
+    # Calculate moving averages on the **full** dataset then filter to the
+    # same subset.  This preserves the full history in the MA calculation
+    # rather than recomputing on the truncated window, which would
+    # incorrectly shorten the moving average period (e.g. a 200‑day MA
+    # computed on only 180 days).
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Optional regression channel
     uptrend = False
@@ -1832,7 +1837,12 @@ def generate_range_gauge_chart_image(
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    df_ma = _add_mas(df)
+    # Compute moving averages on the full dataset and then filter to the same
+    # subset.  Without this step the moving averages would be recomputed on
+    # the truncated window, leading to artefacts (e.g. a 200‑day MA
+    # starting only 180 days ago when ``PLOT_LOOKBACK_DAYS`` is 180).
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Regression channel (optional)
     uptrend = False
