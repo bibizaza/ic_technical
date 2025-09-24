@@ -748,8 +748,12 @@ def generate_range_callout_chart_image(
     # Determine y‑axis limits: ensure the axis includes the entire trading
     # range and the observed price range.  We add a small margin so the
     # labels and markers do not overlap the top or bottom edges.
-    hi = df["Price"].max()
-    lo = df["Price"].min()
+    price_hi = df["Price"].max()
+    price_lo = df["Price"].min()
+    ma_hi = df_ma[["MA_50", "MA_100", "MA_200"]].max().max()
+    ma_lo = df_ma[["MA_50", "MA_100", "MA_200"]].min().min()
+    hi = max(price_hi, ma_hi)
+    lo = min(price_lo, ma_lo)
     y_max = max(hi, upper_bound) * 1.02
     y_min = min(lo, lower_bound) * 0.98
 
