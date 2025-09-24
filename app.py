@@ -5254,7 +5254,7 @@ def show_generate_presentation_page():
                 if ph:
                     pic = slide.shapes.add_picture(
                         str(img_path),
-                        Cm(2.58), Cm(5.38),      # position
+                        Cm(1.64), Cm(5.81),      # position
                         Cm(19.55), Cm(4.25)      # size
                     )
                     pic.alt_text = "tcignore breadth image"
