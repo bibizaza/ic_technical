@@ -1477,7 +1477,7 @@ def insert_oil_average_gauge(
             tech_score,
             mom_score,
             last_week_avg,
-            date_text="Last",
+            date_text="Current Week",
             last_label_text="Previous Week",
             width_cm=15.15,
             height_cm=3.13,
