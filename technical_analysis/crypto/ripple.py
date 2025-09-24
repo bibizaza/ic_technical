@@ -74,7 +74,11 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
-PLOT_LOOKBACK_DAYS: int = 180
+# Default number of days to display in interactive and static charts.
+# Set to 90 days (approximately three months) to focus on the recent trend.
+# The Streamlit app can override this value (e.g. to 180 days for six months)
+# by assigning to this module attribute at runtime.
+PLOT_LOOKBACK_DAYS: int = 90
 
 ###############################################################################
 # Internal helpers
@@ -681,13 +685,16 @@ def generate_range_callout_chart_image(
     if df_full.empty:
         return b""
 
-    # Restrict to the last year of data for plotting
+    # Restrict to the most recent ``PLOT_LOOKBACK_DAYS`` of data for plotting.
+    # Compute moving averages on the full dataset and then slice to the
+    # plotting window.  Computing MAs on the truncated subset would
+    # shorten long‑period averages (e.g. 200‑day) and change their values.
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the 1‑year subset
-    df_ma = _add_mas(df)
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Optional regression channel
     uptrend = False
@@ -1818,11 +1825,13 @@ def generate_range_gauge_chart_image(
     if df_full.empty:
         return b""
 
-    # Compute bounds for the last year of data
+    # Compute bounds for the selected lookback window (``PLOT_LOOKBACK_DAYS`` days)
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    df_ma = _add_mas(df)
+    # Compute moving averages on the full dataset, then slice to the plotting window.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Regression channel (optional)
     uptrend = False
