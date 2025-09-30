@@ -258,13 +258,8 @@ def create_weekly_performance_chart(
         "DXY Curncy": "Dollar Index",
         "EURUSD Curncy": "EUR/USD",
         "EURCHF Curncy": "EUR/CHF",
-        "EURGBP Curncy": "EUR/GBP",
         "EURJPY Curncy": "EUR/JPY",
-        "EURAUD Curncy": "EUR/AUD",
-        "EURCAD Curncy": "EUR/CAD",
         "EURBRL Curncy": "EUR/BRL",
-        "EURRUB Curncy": "EUR/RUB",
-        "EURZAR Curncy": "EUR/ZAR",
         "EURMXN Curncy": "EUR/MXN",
     }
     mapping = ticker_mapping or default_mapping
@@ -356,13 +351,8 @@ def create_historical_performance_table(
         "DXY Curncy": "Dollar Index",
         "EURUSD Curncy": "EUR/USD",
         "EURCHF Curncy": "EUR/CHF",
-        "EURGBP Curncy": "EUR/GBP",
         "EURJPY Curncy": "EUR/JPY",
-        "EURAUD Curncy": "EUR/AUD",
-        "EURCAD Curncy": "EUR/CAD",
         "EURBRL Curncy": "EUR/BRL",
-        "EURRUB Curncy": "EUR/RUB",
-        "EURZAR Curncy": "EUR/ZAR",
         "EURMXN Curncy": "EUR/MXN",
     }
     mapping = ticker_mapping or default_mapping
