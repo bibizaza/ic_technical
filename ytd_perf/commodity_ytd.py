@@ -80,7 +80,7 @@ COMMO_COLOURS = {
     "Platinum": "#7F7F7F",
     "Copper": "#C55A11",
     "Uranium": "#7F6000",
-    "Palladium": "#D9D9E3",
+    "Palladium": "#F25516",
 }
 
 
