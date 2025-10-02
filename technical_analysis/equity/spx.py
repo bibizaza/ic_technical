@@ -64,6 +64,50 @@ from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
 # ---------------------------------------------------------------------------
+# MARS momentum engine integration
+#
+# Import the lightweight MARS scoring engine used to compute the S&P 500
+# momentum score.  If the module is unavailable (for example during
+# documentation builds) a stub function is provided to prevent import
+# errors.  The PEER_GROUP defines the benchmark assets against which
+# the S&P 500 is ranked for the relative momentum component.
+try:
+    # Prefer the namespaced import when the mars_engine package is available
+    from mars_engine.mars_lite_scorer import generate_spx_score_history  # type: ignore
+except Exception:
+    try:
+        # Fallback to local module in the same directory
+        from mars_lite_scorer import generate_spx_score_history  # type: ignore
+    except Exception:
+        # Stub implementation used when the scorer cannot be imported
+        def generate_spx_score_history(prices_df: pd.DataFrame) -> pd.Series:  # type: ignore
+            return pd.Series(dtype=float)
+
+# Peer group tickers used for relative momentum ranking.  These match the
+# assets used in the full momentum engine.  Missing tickers are ignored
+# when constructing the input DataFrame.
+PEER_GROUP = [
+    "CCMP Index",
+    "IBOV Index",
+    "MEXBOL Index",
+    "SXXP Index",
+    "UKX Index",
+    "SMI Index",
+    "HSI Index",
+    "SHSZ300 Index",
+    "NKY Index",
+    "SENSEX Index",
+    "DAX Index",
+    "MXWO Index",
+    "USGG10YR Index",
+    "GECU10YR Index",
+    "CL1 Comdty",
+    "GCA Comdty",
+    "DXY Curncy",
+    "XBTUSD Curncy",
+]
+
+# ---------------------------------------------------------------------------
 # Configuration
 #
 # ``PLOT_LOOKBACK_DAYS`` controls the default window of historical data used
@@ -255,6 +299,157 @@ def _get_vol_index_value(
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
     except Exception:
         return None
+
+# ---------------------------------------------------------------------------
+# Momentum score helpers
+#
+def _load_spx_momentum_data(excel_obj_or_path) -> Optional[pd.DataFrame]:
+    """
+    Load price data for the S&P 500 and its peer group for momentum scoring.
+
+    The input Excel workbook may provide price data either in a tidy format
+    with columns ``Date``, ``Name``, ``Price`` (and optionally ``High`` and
+    ``Low``) or in a wide format where the first column contains dates and
+    subsequent columns correspond to tickers.  This helper constructs a
+    DataFrame indexed by date with columns for the S&P 500 closing price
+    (``SPX``), its high and low prices (``SPX_high`` and ``SPX_low``), and
+    the closing prices of each peer in ``PEER_GROUP``.  If high and low
+    prices are not available they are approximated by taking ±1 % around the
+    close.  Missing peer columns are silently ignored.
+
+    Parameters
+    ----------
+    excel_obj_or_path : file-like or path
+        The Excel workbook containing the ``data_prices`` sheet.
+
+    Returns
+    -------
+    pandas.DataFrame or None
+        DataFrame with columns suitable for ``generate_spx_score_history``
+        (``SPX``, ``SPX_high``, ``SPX_low`` and peer columns) or ``None``
+        if the data could not be read.
+    """
+    try:
+        df_prices = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
+    except Exception:
+        return None
+    # Attempt to drop any metadata row (often row 0) and rows labelled "DATES"
+    df_prices = df_prices.drop(index=0, errors="ignore")
+    if df_prices.empty:
+        return None
+    # Detect tidy format by checking for 'Name' and 'Price' columns (case-insensitive)
+    cols_lower = [str(c).strip().lower() for c in df_prices.columns]
+    if "name" in cols_lower and "price" in cols_lower:
+        # Normalise column names
+        df_prices.columns = [str(c).strip() for c in df_prices.columns]
+        # Ensure Date column exists
+        if "Date" not in df_prices.columns:
+            # Find a column that likely contains dates (first column)
+            df_prices.rename(columns={df_prices.columns[0]: "Date"}, inplace=True)
+        df_prices["Date"] = pd.to_datetime(df_prices["Date"], errors="coerce")
+        # Filter for SPX and peers
+        tickers_needed = ["SPX Index"] + PEER_GROUP
+        df_filtered = df_prices[df_prices["Name"].isin(tickers_needed)].copy()
+        if df_filtered.empty:
+            return None
+        # Pivot to wide format with price, high and low values
+        value_cols = ["Price"]
+        has_high_low = set([c.lower() for c in df_filtered.columns]) >= {"high", "low"}
+        if has_high_low:
+            value_cols += ["High", "Low"]
+        df_wide = df_filtered.pivot_table(index="Date", columns="Name", values=value_cols, aggfunc="first")
+        # Flatten multi-index columns if present
+        if isinstance(df_wide.columns, pd.MultiIndex):
+            df_wide.columns = [f"{ticker}_{val.lower()}" for val, ticker in df_wide.columns]
+        # Extract SPX close, high and low
+        spx_close_col = "SPX Index_price"
+        spx_high_col = "SPX Index_high"
+        spx_low_col = "SPX Index_low"
+        if spx_close_col not in df_wide.columns:
+            return None
+        close = pd.to_numeric(df_wide[spx_close_col], errors="coerce")
+        # Approximate high/low when missing
+        high = pd.to_numeric(df_wide.get(spx_high_col), errors="coerce")
+        low = pd.to_numeric(df_wide.get(spx_low_col), errors="coerce")
+        if high is None or high.isna().all():
+            high = close * 1.01
+        if low is None or low.isna().all():
+            low = close * 0.99
+        out = pd.DataFrame(index=df_wide.index)
+        out["SPX"] = close
+        out["SPX_high"] = high
+        out["SPX_low"] = low
+        # Add peer prices
+        for peer in PEER_GROUP:
+            peer_col = f"{peer}_price"
+            if peer_col in df_wide.columns:
+                out[peer] = pd.to_numeric(df_wide[peer_col], errors="coerce")
+        # Remove rows where the SPX price is missing
+        out = out.dropna(subset=["SPX"])
+        # Forward-fill and back-fill missing values to avoid NaNs during momentum calculations
+        out = out.ffill().bfill()
+        # As a final fallback, fill any remaining NaNs with the SPX closing price
+        for col in out.columns:
+            out[col] = out[col].fillna(out["SPX"])
+        # Duplicate the second row into the first row to avoid an initial NaN when computing returns
+        if len(out) > 1:
+            out.iloc[0] = out.iloc[1]
+        return out
+    else:
+        # Assume wide format: first column is dates, others are tickers
+        df_prices.columns = [str(c).strip() for c in df_prices.columns]
+        date_col = df_prices.columns[0]
+        df_prices["Date"] = pd.to_datetime(df_prices[date_col], errors="coerce")
+        df_prices = df_prices.dropna(subset=["Date"])
+        out = pd.DataFrame(index=df_prices["Date"])
+        # Retrieve SPX close price
+        # Identify the primary close, high and low columns for SPX.  Allow variations
+        # such as 'SPX Index High', 'SPX Index Low' if provided.
+        spx_close_col = None
+        spx_high_col = None
+        spx_low_col = None
+        for col in df_prices.columns:
+            cname = str(col).strip().lower().replace(" ", "")
+            # Use flexible matching: match any column containing "spxindex"; if it also contains
+            # "high" or "low" then treat accordingly; otherwise treat as the close price.
+            if "spxindex" in cname:
+                if "high" in cname:
+                    spx_high_col = col
+                elif "low" in cname:
+                    spx_low_col = col
+                else:
+                    spx_close_col = col
+        if spx_close_col is None:
+            return None
+        close = pd.to_numeric(df_prices[spx_close_col], errors="coerce")
+        # Use actual high/low columns if present, otherwise approximate ±1%
+        if spx_high_col is not None:
+            high = pd.to_numeric(df_prices[spx_high_col], errors="coerce")
+        else:
+            high = close * 1.01
+        if spx_low_col is not None:
+            low = pd.to_numeric(df_prices[spx_low_col], errors="coerce")
+        else:
+            low = close * 0.99
+        # Assign as pandas Series to preserve index and rolling capabilities
+        out["SPX"] = pd.Series(close.values, index=out.index)
+        out["SPX_high"] = pd.Series(high.values, index=out.index)
+        out["SPX_low"] = pd.Series(low.values, index=out.index)
+        # Populate peer columns if available
+        for peer in PEER_GROUP:
+            if peer in df_prices.columns:
+                out[peer] = pd.Series(pd.to_numeric(df_prices[peer], errors="coerce").values, index=out.index)
+        # Remove rows where the SPX price is missing
+        out = out.dropna(subset=["SPX"])
+        # Forward-fill and back-fill missing values
+        out = out.ffill().bfill()
+        # Fill any remaining NaNs with the SPX price
+        for col in out.columns:
+            out[col] = out[col].fillna(out["SPX"])
+        # Duplicate the second row into the first row to avoid initial NaNs when computing returns
+        if len(out) > 1:
+            out.iloc[0] = out.iloc[1]
+        return out
     # Drop first row and metadata rows
     df = df.drop(index=0)
     df = df[df[df.columns[0]] != "DATES"]
@@ -1091,33 +1286,29 @@ def insert_spx_technical_chart_with_callout(
 
 
 def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return SPX momentum score, mapping letter grades to numeric if needed."""
+    """
+    Compute the S&P 500 momentum score using the lightweight MARS engine.
+
+    This function constructs a price DataFrame for the S&P 500 and a peer
+    group of assets from the ``data_prices`` sheet in the provided Excel
+    workbook.  It then calls ``generate_spx_score_history`` to obtain the
+    hybrid momentum score series and returns the most recent value.  If
+    price data cannot be loaded or the series is empty ``None`` is
+    returned.
+    """
     try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
+        prices_df = _load_spx_momentum_data(excel_obj_or_path)
     except Exception:
         return None
-    # find SPX row
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SPX INDEX"
-    if not mask.any():
+    if prices_df is None or prices_df.empty:
         return None
-    row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
     try:
-        return float(row.iloc[3])
+        score_series = generate_spx_score_history(prices_df)
+        if score_series.empty:
+            return None
+        return float(score_series.iloc[-1])
     except Exception:
-        pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for customised mapping
-    try:
-        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
-        spx_param = params[params["Tickers"].astype(str).str.upper() == "SPX INDEX"]
-        if not spx_param.empty and "Unnamed: 8" in spx_param:
-            return float(spx_param["Unnamed: 8"].dropna().iloc[0])
-    except Exception:
-        pass
-    return mapping.get(rating)
+        return None
 
 
 def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:

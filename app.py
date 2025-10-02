@@ -1,3 +1,5 @@
+from technical_analysis.equity.spx import _load_spx_momentum_data
+from mars_engine.mars_lite_scorer import generate_spx_score_history
 """
 Streamlit application for technical dashboard and presentation generation.
 
@@ -39,6 +41,16 @@ from pathlib import Path
 # computing scores.  Note that ``insert_spx_technical_assessment``
 # accepts a manual description and ``insert_spx_source`` inserts the
 # source footnote based on the selected price mode.
+
+# --- FIX: Force reload of the spx module to ensure changes are always applied ---
+from importlib import reload
+try:
+    import technical_analysis.equity.spx as _spx_module
+    _spx_module = reload(_spx_module)
+except ImportError:
+    pass  # Let the next import handle the error if the module doesn't exist
+# --- END FIX ---
+
 from technical_analysis.equity.spx import (
     make_spx_figure,
     insert_spx_technical_chart_with_callout,
@@ -1732,7 +1744,6 @@ def _build_fallback_figure(
 # Streamlit configuration
 ###############################################################################
 
-st.set_page_config(page_title="IC Technical", layout="wide")
 
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
@@ -2271,7 +2282,21 @@ def show_technical_analysis_page():
                     tech_score = None
                 try:
                     if selected_index == "S&P 500":
-                        mom_score = _get_spx_momentum_score(temp_path)
+                        try:
+                            prices_df = _load_spx_momentum_data(temp_path)
+                            if prices_df is not None and not prices_df.empty:
+                                progress_bar = st.progress(0)
+                                with st.spinner("Calculating SPX momentum score…"):
+                                    srs = generate_spx_score_history(prices_df)
+                                progress_bar.progress(100)
+                                if not srs.empty:
+                                    mom_score = float(srs.iloc[-1])
+                                else:
+                                    mom_score = None
+                            else:
+                                mom_score = None
+                        except Exception:
+                            mom_score = None
                     elif selected_index == "CSI 300":
                         mom_score = _get_csi_momentum_score(temp_path)
                     elif selected_index == "Nikkei 225":
@@ -2295,106 +2320,49 @@ def show_technical_analysis_page():
 
             # Prepare DMAS and table if both scores are available
             dmas = None
-            if tech_score is not None and mom_score is not None:
-                dmas = round((float(tech_score) + float(mom_score)) / 2.0, 1)
-                df_scores = pd.DataFrame(
-                    {
-                        "Technical Score": [tech_score],
-                        "Momentum Score": [mom_score],
-                        "Average (DMAS)": [dmas],
-                    }
-                )
-                st.table(df_scores)
+            if tech_score is not None or mom_score is not None:
+                scores_data = {}
+                if tech_score is not None:
+                    scores_data["Technical Score"] = [float(tech_score)]
+                if mom_score is not None:
+                    scores_data["Momentum Score"] = [float(mom_score)]
+                if tech_score is not None and mom_score is not None:
+                    dmas = round((float(tech_score) + float(mom_score)) / 2.0, 1)
+                    scores_data["Average (DMAS)"] = [dmas]
+                st.table(pd.DataFrame(scores_data))
                 # Provide an input for last week's average DMAS to be used in the gauge
-                # Only applicable to SPX and CSI indices.  The value is stored in
-                # session state and used when generating the presentation.
                 if selected_index == "S&P 500":
-                    # Provide a number input with sensible defaults and bounds
-                    spx_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("spx_last_week_avg", 50.0),
-                        key="spx_last_week_avg_input",
-                    )
+                    spx_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("spx_last_week_avg", 50.0), key="spx_last_week_avg_input")
                     st.session_state["spx_last_week_avg"] = spx_last_week_input
                 elif selected_index == "CSI 300":
-                    csi_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("csi_last_week_avg", 50.0),
-                        key="csi_last_week_avg_input",
-                    )
+                    csi_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("csi_last_week_avg", 50.0), key="csi_last_week_avg_input")
                     st.session_state["csi_last_week_avg"] = csi_last_week_input
                 elif selected_index == "Nikkei 225":
-                    nikkei_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("nikkei_last_week_avg", 50.0),
-                        key="nikkei_last_week_avg_input",
-                    )
+                    nikkei_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("nikkei_last_week_avg", 50.0), key="nikkei_last_week_avg_input")
                     st.session_state["nikkei_last_week_avg"] = nikkei_last_week_input
                 elif selected_index == "TASI":
-                    tasi_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("tasi_last_week_avg", 50.0),
-                        key="tasi_last_week_avg_input",
-                    )
+                    tasi_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("tasi_last_week_avg", 50.0), key="tasi_last_week_avg_input")
                     st.session_state["tasi_last_week_avg"] = tasi_last_week_input
                 elif selected_index == "Sensex":
-                    sensex_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("sensex_last_week_avg", 50.0),
-                        key="sensex_last_week_avg_input",
-                    )
+                    sensex_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("sensex_last_week_avg", 50.0), key="sensex_last_week_avg_input")
                     st.session_state["sensex_last_week_avg"] = sensex_last_week_input
                 elif selected_index == "Dax":
-                    dax_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("dax_last_week_avg", 50.0),
-                        key="dax_last_week_avg_input",
-                    )
+                    dax_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("dax_last_week_avg", 50.0), key="dax_last_week_avg_input")
                     st.session_state["dax_last_week_avg"] = dax_last_week_input
                 elif selected_index == "SMI":
-                    smi_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("smi_last_week_avg", 50.0),
-                        key="smi_last_week_avg_input",
-                    )
+                    smi_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("smi_last_week_avg", 50.0), key="smi_last_week_avg_input")
                     st.session_state["smi_last_week_avg"] = smi_last_week_input
                 elif selected_index == "Ibov":
-                    ibov_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("ibov_last_week_avg", 50.0),
-                        key="ibov_last_week_avg_input",
-                    )
+                    ibov_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("ibov_last_week_avg", 50.0), key="ibov_last_week_avg_input")
                     st.session_state["ibov_last_week_avg"] = ibov_last_week_input
                 elif selected_index == "Mexbol":
-                    # Capture last week's average DMAS for the Mexbol index
-                    mexbol_last_week_input = st.number_input(
-                        "Last week's average (DMAS)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=st.session_state.get("mexbol_last_week_avg", 50.0),
-                        key="mexbol_last_week_avg_input",
-                    )
+                    mexbol_last_week_input = st.number_input("Last week's average (DMAS)", min_value=0.0, max_value=100.0, value=st.session_state.get("mexbol_last_week_avg", 50.0), key="mexbol_last_week_avg_input")
                     st.session_state["mexbol_last_week_avg"] = mexbol_last_week_input
             else:
+                st.info("Neither Technical nor Momentum score could be calculated. Please check the Excel file.")
                 st.info(
                     "Technical or momentum score not available in the uploaded Excel. "
-                    "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
+                    "Please ensure sufficient price history and technical score data exist."
                 )
             # -------------------------------------------------------------------
             # Show recent trading range (high/low) beneath the score table
@@ -2818,7 +2786,7 @@ def show_commodity_technical_analysis() -> None:
         else:
             st.info(
                 "Technical or momentum score not available in the uploaded Excel. "
-                "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
+                "Please ensure sufficient price history and technical score data exist."
             )
         # -----------------------------------------------------------------
         # Trading range (90d) estimation
@@ -3201,7 +3169,7 @@ def show_crypto_technical_analysis() -> None:
         else:
             st.info(
                 "Technical or momentum score not available in the uploaded Excel. "
-                "Please ensure sheets 'data_technical_score' and 'data_trend_rating' exist."
+                "Please ensure sufficient price history and technical score data exist."
             )
         # -----------------------------------------------------------------
         # Trading range estimation (90d)
