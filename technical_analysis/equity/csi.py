@@ -2232,3 +2232,160 @@ def insert_csi_technical_chart_with_range(
     stream = BytesIO(img_bytes)
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
+
+
+# === MARS momentum integration for CSI (app-compatible) =====================
+# We compute the CSI (SHSZ300) daily score with the lightweight MARS engine.
+# The peer basket equals the SPX peer basket but with "SHSZ300 Index"
+# replaced by "SPX Index" for the relative component.
+
+from typing import Optional
+import pandas as pd
+
+# Import the scorer; if the package import fails, fall back to local path.
+try:
+    from mars_engine.mars_lite_scorer import (
+        generate_csi_score_history,
+        PEER_GROUP_CSI as _PEER_GROUP_CSI,  # exported for reference
+    )
+except Exception:
+    # Local fallback (rare; mainly for dev environments)
+    from mars_lite_scorer import (
+        generate_csi_score_history,
+        PEER_GROUP_CSI as _PEER_GROUP_CSI,  # type: ignore
+    )
+
+
+def _load_csi_momentum_data(excel_obj_or_path) -> Optional[pd.DataFrame]:
+    """
+    Build the price DataFrame required by generate_csi_score_history.
+
+    Accepts either a tidy sheet with columns [Date, Name, Price, High, Low]
+    (sheet 'data_prices'), or a wide sheet with Date as first column and
+    subsequent columns as tickers.
+    Output columns:
+        'CSI' (close), 'CSI_high', 'CSI_low', and peer columns in _PEER_GROUP_CSI.
+    """
+    try:
+        df_prices = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
+    except Exception:
+        return None
+
+    # Drop potential metadata row and 'DATES' labels
+    df_prices = df_prices.drop(index=0, errors="ignore")
+    if df_prices.empty:
+        return None
+
+    cols_lower = [str(c).strip().lower() for c in df_prices.columns]
+    # Tidy format?
+    if "name" in cols_lower and "price" in cols_lower:
+        df_prices.columns = [str(c).strip() for c in df_prices.columns]
+        if "Date" not in df_prices.columns:
+            df_prices.rename(columns={df_prices.columns[0]: "Date"}, inplace=True)
+        df_prices["Date"] = pd.to_datetime(df_prices["Date"], errors="coerce")
+
+        tickers_needed = ["SHSZ300 Index"] + _PEER_GROUP_CSI
+        df_filtered = df_prices[df_prices["Name"].isin(tickers_needed)].copy()
+        if df_filtered.empty:
+            return None
+
+        value_cols = ["Price"]
+        has_high_low = {"high", "low"}.issubset({c.lower() for c in df_filtered.columns})
+        if has_high_low:
+            value_cols += ["High", "Low"]
+
+        wide = df_filtered.pivot_table(index="Date", columns="Name", values=value_cols, aggfunc="first")
+        if isinstance(wide.columns, pd.MultiIndex):
+            wide.columns = [f"{ticker}_{val.lower()}" for val, ticker in wide.columns]
+
+        close_col = "SHSZ300 Index_price"
+        high_col  = "SHSZ300 Index_high"
+        low_col   = "SHSZ300 Index_low"
+        if close_col not in wide.columns:
+            return None
+
+        close = pd.to_numeric(wide[close_col], errors="coerce")
+        high  = pd.to_numeric(wide.get(high_col), errors="coerce")
+        low   = pd.to_numeric(wide.get(low_col), errors="coerce")
+        if high is None or high.isna().all():
+            high = close * 1.01
+        if low is None or low.isna().all():
+            low = close * 0.99
+
+        out = pd.DataFrame(index=wide.index)
+        # Normalise to engine's target column name
+        out["CSI"] = close
+        out["CSI_high"] = high
+        out["CSI_low"]  = low
+
+        # Add peers if present
+        for peer in _PEER_GROUP_CSI:
+            peer_col = f"{peer}_price"
+            if peer_col in wide.columns:
+                out[peer] = pd.to_numeric(wide[peer_col], errors="coerce")
+
+        out = out.dropna(subset=["CSI"]).ffill().bfill()
+        # Duplicate 2nd row into 1st to avoid initial return NaNs
+        if len(out) > 1:
+            out.iloc[0] = out.iloc[1]
+        return out
+
+    # Wide format fallback
+    df_prices.columns = [str(c).strip() for c in df_prices.columns]
+    date_col = df_prices.columns[0]
+    df_prices["Date"] = pd.to_datetime(df_prices[date_col], errors="coerce")
+    df_prices = df_prices.dropna(subset=["Date"])
+    out = pd.DataFrame(index=df_prices["Date"])
+
+    # Flexible match for SHSZ300 columns
+    c_close = None; c_high = None; c_low = None
+    for col in df_prices.columns:
+        cname = str(col).lower().replace(" ", "")
+        if "shsz300index" in cname:
+            if "high" in cname:
+                c_high = col
+            elif "low" in cname:
+                c_low = col
+            else:
+                c_close = col
+    if c_close is None:
+        # Also try exact "SHSZ300 Index"
+        if "SHSZ300 Index" in df_prices.columns:
+            c_close = "SHSZ300 Index"
+        else:
+            return None
+
+    close = pd.to_numeric(df_prices[c_close], errors="coerce")
+    high  = pd.to_numeric(df_prices[c_high], errors="coerce") if c_high is not None else close * 1.01
+    low   = pd.to_numeric(df_prices[c_low], errors="coerce")  if c_low  is not None else close * 0.99
+
+    out["CSI"]       = pd.Series(close.values, index=out.index)
+    out["CSI_high"]  = pd.Series(high.values, index=out.index)
+    out["CSI_low"]   = pd.Series(low.values, index=out.index)
+
+    for peer in _PEER_GROUP_CSI:
+        if peer in df_prices.columns:
+            out[peer] = pd.Series(pd.to_numeric(df_prices[peer], errors="coerce").values, index=out.index)
+
+    out = out.dropna(subset=["CSI"]).ffill().bfill()
+    if len(out) > 1:
+        out.iloc[0] = out.iloc[1]
+    return out
+
+
+def _get_csi_momentum_score(excel_obj_or_path) -> Optional[float]:
+    """
+    Compute the latest CSI momentum score using the lightweight MARS scorer.
+    Returns a float in [0,100] or None when data cannot be loaded.
+    """
+    df = _load_csi_momentum_data(excel_obj_or_path)
+    if df is None or df.empty:
+        return None
+    try:
+        series = generate_csi_score_history(df)
+        if series is None or series.empty:
+            return None
+        return float(series.iloc[-1])
+    except Exception:
+        return None
+# === End of MARS integration for CSI ========================================
