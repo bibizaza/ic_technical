@@ -26,6 +26,74 @@ Key modifications relative to the original application:
 """
 
 import streamlit as st
+
+# === STREAMLIT CACHING WRAPPERS (added) =====================================
+import tempfile
+from pathlib import Path as _Path
+try:
+    import streamlit as st  # ensure st is in scope
+except Exception:
+    pass
+
+@st.cache_data(show_spinner=False)
+def get_cached_technical_score(excel_bytes: bytes, selected_index: str):
+    """Cached technical score keyed by uploaded Excel bytes + selected index."""
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            tmp.write(excel_bytes)
+            temp_path = _Path(tmp.name)
+    except Exception:
+        return None
+    # SPX
+    try:
+        if selected_index in ("S&P 500", "SPX", "SPX Index"):
+            return _get_spx_technical_score(temp_path)
+    except Exception:
+        pass
+    # CSI (best-effort)
+    try:
+        if selected_index in ("CSI 300", "SHSZ300", "SHSZ300 Index", "CSI"):
+            from technical_analysis.equity.csi import _get_csi_technical_score as __get_csi_tech  # type: ignore
+            return __get_csi_tech(temp_path)
+    except Exception:
+        pass
+    return None
+
+@st.cache_data(show_spinner=False)
+def get_cached_momentum_score(excel_bytes: bytes, selected_index: str):
+    """Cached momentum (MARS-lite). Returns latest daily score or None."""
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            tmp.write(excel_bytes)
+            temp_path = _Path(tmp.name)
+    except Exception:
+        return None
+    # SPX
+    try:
+        if selected_index in ("S&P 500", "SPX", "SPX Index"):
+            prices_df = _load_spx_momentum_data(temp_path)
+            if prices_df is not None and not prices_df.empty:
+                series = generate_spx_score_history(prices_df)
+                if series is not None and not series.empty:
+                    return float(series.iloc[-1])
+    except Exception:
+        pass
+    # CSI (best-effort)
+    try:
+        if selected_index in ("CSI 300", "SHSZ300", "SHSZ300 Index", "CSI"):
+            from technical_analysis.equity.csi import _load_csi_momentum_data as __load_csi_mom  # type: ignore
+            from technical_analysis.equity.csi import generate_csi_score_history as __gen_csi  # type: ignore
+            prices_df = __load_csi_mom(temp_path)
+            if prices_df is not None and not prices_df.empty:
+                series = __gen_csi(prices_df)
+                if series is not None and not series.empty:
+                    return float(series.iloc[-1])
+    except Exception:
+        pass
+    return None
+# ===========================================================================
+
+
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -2254,69 +2322,11 @@ def show_technical_analysis_page():
             st.subheader("Technical and momentum scores")
             tech_score = None
             mom_score = None
-            if excel_available:
-                try:
-                    # Use the temporary file path for reading scores so that
-                    # pandas can access the Excel multiple times reliably.
-                    if selected_index == "S&P 500":
-                        tech_score = _get_spx_technical_score(temp_path)
-                    elif selected_index == "CSI 300":
-                        tech_score = _get_csi_technical_score(temp_path)
-                    elif selected_index == "Nikkei 225":
-                        tech_score = _get_nikkei_technical_score(temp_path)
-                    elif selected_index == "TASI":
-                        tech_score = _get_tasi_technical_score(temp_path)
-                    elif selected_index == "Sensex":
-                        tech_score = _get_sensex_technical_score(temp_path)
-                    elif selected_index == "Dax":
-                        tech_score = _get_dax_technical_score(temp_path)
-                    elif selected_index == "SMI":
-                        tech_score = _get_smi_technical_score(temp_path)
-                    elif selected_index == "Ibov":
-                        tech_score = _get_ibov_technical_score(temp_path)
-                    elif selected_index == "Mexbol":
-                        tech_score = _get_mexbol_technical_score(temp_path)
-                    else:
-                        tech_score = None
-                except Exception:
-                    tech_score = None
-                try:
-                    if selected_index == "S&P 500":
-                        try:
-                            prices_df = _load_spx_momentum_data(temp_path)
-                            if prices_df is not None and not prices_df.empty:
-                                progress_bar = st.progress(0)
-                                with st.spinner("Calculating SPX momentum score…"):
-                                    srs = generate_spx_score_history(prices_df)
-                                progress_bar.progress(100)
-                                if not srs.empty:
-                                    mom_score = float(srs.iloc[-1])
-                                else:
-                                    mom_score = None
-                            else:
-                                mom_score = None
-                        except Exception:
-                            mom_score = None
-                    elif selected_index == "CSI 300":
-                        mom_score = _get_csi_momentum_score(temp_path)
-                    elif selected_index == "Nikkei 225":
-                        mom_score = _get_nikkei_momentum_score(temp_path)
-                    elif selected_index == "TASI":
-                        mom_score = _get_tasi_momentum_score(temp_path)
-                    elif selected_index == "Sensex":
-                        mom_score = _get_sensex_momentum_score(temp_path)
-                    elif selected_index == "Dax":
-                        mom_score = _get_dax_momentum_score(temp_path)
-                    elif selected_index == "SMI":
-                        mom_score = _get_smi_momentum_score(temp_path)
-                    elif selected_index == "Ibov":
-                        mom_score = _get_ibov_momentum_score(temp_path)
-                    elif selected_index == "Mexbol":
-                        mom_score = _get_mexbol_momentum_score(temp_path)
-                    else:
-                        mom_score = None
-                except Exception:
-                    mom_score = None
+            if excel_available and "excel_file" in st.session_state:
+                excel_bytes = st.session_state["excel_file"].getvalue()
+                with st.spinner("Calculating scores... (fast after the first run)"):
+                    tech_score = get_cached_technical_score(excel_bytes, selected_index)
+                    mom_score  = get_cached_momentum_score(excel_bytes, selected_index)
 
             # Prepare DMAS and table if both scores are available
             dmas = None
@@ -2726,42 +2736,13 @@ def show_commodity_technical_analysis() -> None:
         # Technical and momentum scores
         # -----------------------------------------------------------------
         st.subheader("Technical and momentum scores")
-        tech_score: Optional[float] = None
-        mom_score: Optional[float] = None
-        if excel_available:
-            try:
-                if selected_index == "Gold":
-                    tech_score = _get_gold_technical_score(temp_path)
-                elif selected_index == "Silver":
-                    tech_score = _get_silver_technical_score(temp_path)
-                elif selected_index == "Platinum":
-                    tech_score = _get_platinum_technical_score(temp_path)
-                elif selected_index == "Palladium":
-                    tech_score = _get_palladium_technical_score(temp_path)
-                elif selected_index == "Oil":
-                    tech_score = _get_oil_technical_score(temp_path)
-                elif selected_index == "Copper":
-                    tech_score = _get_copper_technical_score(temp_path)
-            except Exception:
-                tech_score = None
-            try:
-                if selected_index == "Gold":
-                    mom_score = _get_gold_momentum_score(temp_path)
-                elif selected_index == "Silver":
-                    mom_score = _get_silver_momentum_score(temp_path)
-                elif selected_index == "Platinum":
-                    mom_score = _get_platinum_momentum_score(temp_path)
-                elif selected_index == "Palladium":
-                    mom_score = _get_palladium_momentum_score(temp_path)
-                elif selected_index == "Oil":
-                    mom_score = _get_oil_momentum_score(temp_path)
-                elif selected_index == "Copper":
-                    mom_score = _get_copper_momentum_score(temp_path)
-            except Exception:
-                mom_score = None
-        # Compute DMAS if scores are available
-        dmas: Optional[float] = None
-        if tech_score is not None and mom_score is not None:
+        tech_score = None
+        mom_score = None
+        if excel_available and "excel_file" in st.session_state:
+            excel_bytes = st.session_state["excel_file"].getvalue()
+            with st.spinner("Calculating scores... (fast after the first run)"):
+                tech_score = get_cached_technical_score(excel_bytes, selected_index)
+                mom_score  = get_cached_momentum_score(excel_bytes, selected_index)
             dmas = round((float(tech_score) + float(mom_score)) / 2.0, 1)
             df_scores = pd.DataFrame(
                 {
@@ -3131,20 +3112,13 @@ def show_crypto_technical_analysis() -> None:
         # Technical and momentum scores
         # -----------------------------------------------------------------
         st.subheader("Technical and momentum scores")
-        tech_score: Optional[float] = None
-        mom_score: Optional[float] = None
-        if excel_available:
-            try:
-                tech_score = get_tech_score(temp_path)
-            except Exception:
-                tech_score = None
-            try:
-                mom_score = get_mom_score(temp_path)
-            except Exception:
-                mom_score = None
-        # Compute DMAS if available
-        dmas: Optional[float] = None
-        if tech_score is not None and mom_score is not None:
+        tech_score = None
+        mom_score = None
+        if excel_available and "excel_file" in st.session_state:
+            excel_bytes = st.session_state["excel_file"].getvalue()
+            with st.spinner("Calculating scores... (fast after the first run)"):
+                tech_score = get_cached_technical_score(excel_bytes, selected_index)
+                mom_score  = get_cached_momentum_score(excel_bytes, selected_index)
             dmas = round((float(tech_score) + float(mom_score)) / 2.0, 1)
             df_scores = pd.DataFrame(
                 {
