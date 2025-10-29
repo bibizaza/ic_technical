@@ -54,6 +54,7 @@ from typing import Optional, Tuple
 import pandas as pd
 import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
+import streamlit as st
 
 from pptx import Presentation
 
@@ -85,6 +86,12 @@ except Exception:
     # If the utils module is not available, define a no-op fallback.  This
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
+
+# Import MARS momentum scoring engine
+from mars_engine import (
+    generate_csi_score_history,
+    load_prices_for_mars,
+)
 
 # Default lookback window (in days) for plotting.  The app can override
 # this value at runtime by setting the module-level ``PLOT_LOOKBACK_DAYS``
@@ -669,12 +676,73 @@ def insert_csi_technical_chart_with_callout(
     return prs
 
 
+@st.cache_data(show_spinner=False)
+def _compute_csi_mars_score_cached(excel_path: str) -> Optional[float]:
+    """
+    Compute MARS momentum score for CSI 300 using the lightweight MARS engine.
+
+    This function is cached to avoid recomputation on every call.
+    Uses the same MARS scoring algorithm as the standalone MARS app:
+    - 5 absolute factors (pure momentum, smoothness, Sharpe, idio, ADX)
+    - Rolling 5-year percentile of last value (winsorized 2-98%)
+    - Average of top 2 component percentiles = absolute score
+    - Relative score = 6-month return rank vs peer group (SPX peers with CSI → SPX swap)
+    - Hybrid = 80% absolute + 20% relative
+    - 5-day EMA smoothing
+    - Output clipped to [0, 100]
+
+    Parameters
+    ----------
+    excel_path : str
+        Path to Excel file (must be string for caching)
+
+    Returns
+    -------
+    float or None
+        Latest MARS momentum score (0-100), or None if computation fails
+    """
+    try:
+        # Load all prices in MARS format
+        prices_df = load_prices_for_mars(excel_path)
+
+        # Generate MARS score history for CSI
+        score_series = generate_csi_score_history(prices_df)
+
+        # Return the latest score
+        if score_series is not None and not score_series.empty:
+            return float(score_series.iloc[-1])
+        return None
+    except Exception as e:
+        print(f"Warning: Could not compute MARS score for CSI: {e}")
+        return None
+
+
 def _get_csi_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the momentum score for CSI.
-    Uses common helper with instrument-specific ticker.
+    Retrieve the momentum score for CSI 300 using MARS calculation.
+
+    This replaces the old Excel lookup with the custom MARS momentum scoring
+    system, providing more sophisticated multi-factor momentum analysis.
     """
-    return _get_momentum_score_generic(excel_obj_or_path, "SHSZ300 INDEX")
+    # Convert to string path for caching
+    if isinstance(excel_obj_or_path, pathlib.Path):
+        excel_path = str(excel_obj_or_path)
+    elif isinstance(excel_obj_or_path, str):
+        excel_path = excel_obj_or_path
+    else:
+        # It's a pd.ExcelFile or BytesIO - can't cache, compute directly
+        try:
+            prices_df = load_prices_for_mars(excel_obj_or_path)
+            score_series = generate_csi_score_history(prices_df)
+            if score_series is not None and not score_series.empty:
+                return float(score_series.iloc[-1])
+            return None
+        except Exception as e:
+            print(f"Warning: Could not compute MARS score for CSI: {e}")
+            return None
+
+    # Use cached version for file paths
+    return _compute_csi_mars_score_cached(excel_path)
 
 
 
