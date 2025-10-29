@@ -2778,16 +2778,16 @@ def show_commodity_technical_analysis() -> None:
                 mom_score = None
         # Compute DMAS if scores are available
         dmas: Optional[float] = None
-        if tech_score is not None and mom_score is not None:
-            dmas = _safe_avg_two(tech_score, mom_score, rounding=1)
-            df_scores = pd.DataFrame(
-                {
-                    "Technical Score": [_fmt_score_cell(tech_score)],
-                    "Momentum Score": [_fmt_score_cell(mom_score)],
-                    "Average (DMAS)": [_fmt_dmas_cell(dmas)],
-                }
-            )
-            st.table(df_scores)
+        if tech_score is not None or mom_score is not None:
+            scores_data = {}
+            if tech_score is not None:
+                scores_data["Technical Score"] = [_fmt_score_cell(tech_score)]
+            if mom_score is not None:
+                scores_data["Momentum Score"] = [_fmt_score_cell(mom_score)]
+            if tech_score is not None and mom_score is not None:
+                dmas = _safe_avg_two(tech_score, mom_score, rounding=1)
+                scores_data["Average (DMAS)"] = [_fmt_dmas_cell(dmas)]
+            st.table(pd.DataFrame(scores_data))
             # Allow user to input last week's DMAS for the gauge. Use a key based on the commodity
             gauge_key = f"{ticker_key}_last_week_avg"
             gauge_input_key = f"{ticker_key}_last_week_avg_input"
@@ -3161,16 +3161,16 @@ def show_crypto_technical_analysis() -> None:
                 mom_score = None
         # Compute DMAS if available
         dmas: Optional[float] = None
-        if tech_score is not None and mom_score is not None:
-            dmas = _safe_avg_two(tech_score, mom_score, rounding=1)
-            df_scores = pd.DataFrame(
-                {
-                    "Technical Score": [_fmt_score_cell(tech_score)],
-                    "Momentum Score": [_fmt_score_cell(mom_score)],
-                    "Average (DMAS)": [_fmt_dmas_cell(dmas)],
-                }
-            )
-            st.table(df_scores)
+        if tech_score is not None or mom_score is not None:
+            scores_data = {}
+            if tech_score is not None:
+                scores_data["Technical Score"] = [_fmt_score_cell(tech_score)]
+            if mom_score is not None:
+                scores_data["Momentum Score"] = [_fmt_score_cell(mom_score)]
+            if tech_score is not None and mom_score is not None:
+                dmas = _safe_avg_two(tech_score, mom_score, rounding=1)
+                scores_data["Average (DMAS)"] = [_fmt_dmas_cell(dmas)]
+            st.table(pd.DataFrame(scores_data))
             # Last week's DMAS input
             gauge_key = f"{ticker_key}_last_week_avg"
             gauge_input_key = f"{ticker_key}_last_week_avg_input"
