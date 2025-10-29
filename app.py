@@ -1795,6 +1795,27 @@ def show_upload_page():
     )
     if excel_file is not None:
         st.session_state["excel_file"] = excel_file
+
+        # Load transition sheet to pre-populate fields
+        try:
+            import tempfile
+            from pathlib import Path
+            from transition_loader import read_transition_sheet, apply_transition_data_to_session_state
+
+            # Save to temp file to read transition sheet
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+                tmp.write(excel_file.getbuffer())
+                tmp.flush()
+                temp_path = Path(tmp.name)
+
+            # Read transition data and apply to session state
+            transition_data = read_transition_sheet(temp_path)
+            apply_transition_data_to_session_state(transition_data, st.session_state)
+
+            # Clean up temp file
+            temp_path.unlink()
+        except Exception as e:
+            print(f"Warning: Could not load transition data: {e}")
     pptx_file = st.sidebar.file_uploader(
         "Upload PowerPoint template", type=["pptx", "pptm"], key="ppt_upload"
     )
