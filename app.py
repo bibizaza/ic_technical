@@ -1,5 +1,7 @@
-from technical_analysis.equity.spx import _load_spx_momentum_data
-from mars_engine.mars_lite_scorer import generate_spx_score_history
+# Custom momentum loading (commented out - using standard approach for all instruments)
+# from technical_analysis.equity.spx import _load_spx_momentum_data
+# from mars_engine.mars_lite_scorer import generate_spx_score_history
+_load_spx_momentum_data = None  # Disabled - using standard Excel-based momentum for all
 """
 Streamlit application for technical dashboard and presentation generation.
 
@@ -2313,21 +2315,8 @@ def show_technical_analysis_page():
                     tech_score = None
                 try:
                     if selected_index == "S&P 500":
-                        try:
-                            prices_df = _load_spx_momentum_data(temp_path)
-                            if prices_df is not None and not prices_df.empty:
-                                progress_bar = st.progress(0)
-                                with st.spinner("Calculating SPX momentum score…"):
-                                    srs = generate_spx_score_history(prices_df)
-                                progress_bar.progress(100)
-                                if not srs.empty:
-                                    mom_score = float(srs.iloc[-1])
-                                else:
-                                    mom_score = None
-                            else:
-                                mom_score = None
-                        except Exception:
-                            mom_score = None
+                        # Use standard Excel-based momentum (same as all other instruments)
+                        mom_score = _get_spx_momentum_score(temp_path)
                     elif selected_index == "CSI 300":
                         mom_score = _get_csi_momentum_score(temp_path)
                     elif selected_index == "Nikkei 225":

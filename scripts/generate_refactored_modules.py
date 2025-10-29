@@ -160,6 +160,46 @@ def generate_average_gauge_image(*args, **kwargs) -> bytes:
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue()
+
+
+def generate_range_gauge_only_image(*args, **kwargs) -> bytes:
+    """Generate range gauge image (stub)."""
+    fig, ax = plt.subplots(figsize=(2, 7.53))
+    buf = BytesIO()
+    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def generate_range_gauge_chart_image(*args, **kwargs) -> bytes:
+    """Generate range gauge chart image (stub)."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    buf = BytesIO()
+    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def generate_range_callout_chart_image(*args, **kwargs) -> bytes:
+    """Generate range callout chart image (stub)."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    buf = BytesIO()
+    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def _add_moving_averages(df: pd.DataFrame) -> pd.DataFrame:
+    """Add moving averages (delegates to base class)."""
+    return _instrument._add_mas(df)
+
+
+def _build_fallback_figure(df: pd.DataFrame, anchor_date: Optional[pd.Timestamp] = None) -> go.Figure:
+    """Build fallback figure (stub)."""
+    return go.Figure()
 '''
 
 
