@@ -72,8 +72,41 @@ from technical_analysis.common_helpers import (
     _get_momentum_score_generic,
     _interpolate_color,
     _load_price_data_from_obj,
+    _load_price_data_generic,
     _compute_range_bounds,
 )
+
+
+def _load_price_data(
+    excel_path: pathlib.Path,
+    ticker: str = "SPX Index",
+    price_mode: str = "Last Price",
+) -> pd.DataFrame:
+    """
+    Read the raw price sheet and return a tidy Date‑Price DataFrame.
+
+    This is a wrapper around _load_price_data_generic with the instrument-specific
+    default ticker.
+
+    Parameters
+    ----------
+    excel_path : pathlib.Path
+        Path to the Excel workbook containing price data.
+    ticker : str, default "SPX Index"
+        Column name corresponding to the desired ticker in the Excel sheet.
+    price_mode : str, default "Last Price"
+        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
+        is available and the mode is "Last Close", rows with the last
+        recorded date (if equal to today's date) will be dropped.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with columns ``Date`` and ``Price``.  The data are
+        sorted by date and any rows with missing values are removed.
+    """
+    return _load_price_data_generic(excel_path, ticker, price_mode)
+
 
 # ---------------------------------------------------------------------------
 
