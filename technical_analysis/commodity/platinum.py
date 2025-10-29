@@ -64,6 +64,9 @@ from technical_analysis.common_helpers import (
     _add_mas,
     _get_technical_score_generic,
     _get_momentum_score_generic,
+    _interpolate_color,
+    _load_price_data_from_obj,
+    _compute_range_bounds,
 )
 from pptx.util import Cm
 from io import BytesIO
@@ -1148,21 +1151,6 @@ def insert_platinum_subtitle(prs: Presentation, subtitle: str) -> Presentation:
 # Colour interpolation for gauge
 ###############################################################################
 
-def _interpolate_color(value: float) -> Tuple[float, float, float]:
-    """
-    Interpolate from red→yellow→green for a 0–100 value.  Pure red at 0,
-    bright yellow at 40 and rich green at 70.
-    """
-    red = (1.0, 0.0, 0.0)
-    yellow = (1.0, 204 / 255, 0.0)
-    green = (0.0, 153 / 255, 81 / 255)
-    if value <= 40:
-        t = value / 40.0
-        return tuple(red[i] + t * (yellow[i] - red[i]) for i in range(3))
-    elif value <= 70:
-        t = (value - 40) / 30.0
-        return tuple(yellow[i] + t * (green[i] - yellow[i]) for i in range(3))
-    return green
 
 
 def generate_average_gauge_image(
@@ -1305,50 +1293,6 @@ def generate_average_gauge_image(
 ###############################################################################
 # Helpers for reading Excel from a file-like object
 ###############################################################################
-
-def _load_price_data_from_obj(
-    excel_obj,
-    ticker: str = "XPT Comdty",
-    price_mode: str = "Last Price",
-) -> pd.DataFrame:
-    """
-    Load price data from a file-like object and return a tidy DataFrame.
-
-    Parameters
-    ----------
-    excel_obj : file-like
-        File-like object representing an Excel workbook containing a
-        ``data_prices`` sheet.
-    ticker : str, default "XPT Comdty"
-        Column name corresponding to the desired ticker in the Excel sheet.
-    price_mode : str, default "Last Price"
-        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
-        is available and the mode is "Last Close", rows corresponding to
-        the most recent date (if equal to today's date) will be dropped.
-
-    Returns
-    -------
-    pandas.DataFrame
-        DataFrame with columns ``Date`` and ``Price``.  The data are
-        sorted by date and any rows with missing values are removed.
-    """
-    df = pd.read_excel(excel_obj, sheet_name="data_prices")
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    df_clean = (
-        df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-            ["Date", "Price"]
-        ]
-    )
-    # Adjust for price mode if helper is available
-    if adjust_prices_for_mode is not None and price_mode:
-        try:
-            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
-        except Exception:
-            pass
-    return df_clean
 
 
 ###############################################################################
@@ -1592,70 +1536,6 @@ def insert_platinum_source(
 # Range gauge helpers and insertion
 ###############################################################################
 
-def _compute_range_bounds(
-    df_full: pd.DataFrame, lookback_days: int = 90
-) -> Tuple[float, float]:
-    """
-    Compute fallback high and low range bounds for the Platinum using
-    realised volatility.
-
-    This helper is used when an implied volatility index (e.g. XPTUSDV1M BGN Curncy) is
-    unavailable.  It computes the annualised realised volatility over a
-    30‑session window by taking the standard deviation of daily
-    percentage returns, multiplying by ``sqrt(252)`` and converting to
-    a percentage.  The resulting 1‑week expected move is
-    ``(current_price × (realised_vol / 100)) / sqrt(52)``.  The upper
-    and lower bounds are the current price plus and minus this
-    expected move.  If realised volatility cannot be computed or is
-    zero, the function falls back to a ±2 % band around the current
-    price.
-
-    Parameters
-    ----------
-    df_full : pandas.DataFrame
-        DataFrame containing at least 'Date' and 'Price' columns,
-        sorted by date ascending.
-    lookback_days : int, optional
-        Number of trading days used to compute the approximate true range
-        if realised volatility is unavailable.  Currently unused but
-        retained for API compatibility.
-
-    Returns
-    -------
-    Tuple[float, float]
-        A two‑tuple ``(upper_bound, lower_bound)`` representing the
-        current closing price plus and minus the realised volatility
-        based expected move, or ±2 % of the current price if no
-        volatility can be computed.
-    """
-    if df_full.empty:
-        return (np.nan, np.nan)
-    current_price = df_full["Price"].iloc[-1]
-    # Attempt to compute 30‑day realised volatility (annualised) as a fallback.  Use
-    # the last 30 trading days of closing prices to compute daily returns.
-    # If the realised volatility can be computed, convert it into a 1‑week
-    # expected move.  Otherwise fall back to a ±2 % band.
-    try:
-        # At least 2 data points are needed for pct_change; ensure there are
-        # enough rows (we use min to handle shorter histories gracefully).
-        lookback = 30
-        window_prices = df_full["Price"].tail(lookback)
-        # Compute daily percentage returns
-        rets = window_prices.pct_change().dropna()
-        # Standard deviation of daily returns
-        std_daily = rets.std()
-        if std_daily is not None and not np.isnan(std_daily) and std_daily > 0:
-            # Annualise the standard deviation (multiply by sqrt(252)) and convert to %
-            realised_vol = std_daily * np.sqrt(252.0) * 100.0
-            # Convert to 1‑week expected move by dividing by sqrt(52)
-            expected_move = (current_price * (realised_vol / 100.0)) / np.sqrt(52.0)
-            upper_bound = current_price + expected_move
-            lower_bound = current_price - expected_move
-            return (float(upper_bound), float(lower_bound))
-    except Exception:
-        pass
-    # Fallback: ±2 % of the current price
-    return (float(current_price * 1.02), float(current_price * 0.98))
 
 
 def generate_range_gauge_chart_image(

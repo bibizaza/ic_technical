@@ -1,8 +1,8 @@
 """
-Utility functions for SENSEX technical analysis and high‑resolution export.
+Utility functions for S&P 500 technical analysis and high‑resolution export.
 
 This module provides tools to build interactive and static charts for the
-SENSEX index, calculate and insert technical and momentum scores into
+S&P 500 index, calculate and insert technical and momentum scores into
 PowerPoint presentations, generate horizontal and vertical gauges that
 visualise the average of the technical and momentum scores, as well as
 contextual trading ranges (higher and lower range bounds).  Functions
@@ -10,22 +10,22 @@ fall back to sensible defaults when placeholders are not found.
 
 Key functions include:
 
-* ``make_sensex_figure`` – interactive Plotly chart for Streamlit.
-* ``insert_sensex_technical_chart`` – insert a static SENSEX chart into a PPTX.
-* ``insert_sensex_technical_score_number`` – insert the technical score (integer).
-* ``insert_sensex_momentum_score_number`` – insert the momentum score (integer).
-* ``insert_sensex_subtitle`` – insert a user‑defined subtitle into the SENSEX slide.
+* ``make_spx_figure`` – interactive Plotly chart for Streamlit.
+* ``insert_spx_technical_chart`` – insert a static SPX chart into a PPTX.
+* ``insert_spx_technical_score_number`` – insert the technical score (integer).
+* ``insert_spx_momentum_score_number`` – insert the momentum score (integer).
+* ``insert_spx_subtitle`` – insert a user‑defined subtitle into the SPX slide.
 * ``generate_average_gauge_image`` – create a horizontal gauge image.
-* ``insert_sensex_average_gauge`` – insert the gauge into a PPT slide.
-* ``insert_sensex_technical_assessment`` – insert a descriptive “view” text.
+* ``insert_spx_average_gauge`` – insert the gauge into a PPT slide.
+* ``insert_spx_technical_assessment`` – insert a descriptive “view” text.
 * ``generate_range_gauge_chart_image`` – create a combined price chart with
   a vertical range gauge on the right hand side, including a horizontal line
   connecting the last price to the gauge.  This function is used by
-  ``insert_sensex_technical_chart_with_range``.
-* ``insert_sensex_technical_chart_with_range`` – insert the SENSEX technical
+  ``insert_spx_technical_chart_with_range``.
+* ``insert_spx_technical_chart_with_range`` – insert the SPX technical
   analysis chart with the higher/lower range gauge into the PPT.
 
-The range gauge illustrates the recent trading range for the SENSEX.
+The range gauge illustrates the recent trading range for the S&P 500.
 Instead of using the absolute high and low closes of the last 90 days,
 the bounds are estimated from recent volatility.  Whenever possible the
 code looks up the forward‑looking volatility index (VIX) and computes a
@@ -56,6 +56,12 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 
 from pptx import Presentation
+from pptx.util import Cm
+from io import BytesIO
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.colors import LinearSegmentedColormap
+import numpy as np
 
 # Import common helpers (eliminates code duplication)
 from technical_analysis.common_helpers import (
@@ -64,16 +70,24 @@ from technical_analysis.common_helpers import (
     _add_mas,
     _get_technical_score_generic,
     _get_momentum_score_generic,
-    _interpolate_color,
-    _load_price_data_from_obj,
-    _compute_range_bounds,
 )
-from pptx.util import Cm
-from io import BytesIO
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.colors import LinearSegmentedColormap
-import numpy as np
+
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Configuration
+#
+# ``PLOT_LOOKBACK_DAYS`` controls the default window of historical data used
+# when drawing charts.  It is expressed in trading days and set by default
+# to 90 (approximately 3 months) to match the desired timeframe.  The
+# Streamlit application may override this value at runtime by assigning
+# a new integer to this module-level constant before invoking any chart
+# functions.  When computing moving averages for the static charts, the
+# rolling windows are always computed on the full price history and then
+# cropped to the lookback window to avoid artificially shortening longer
+# moving averages when displaying a shorter slice of data.
+PLOT_LOOKBACK_DAYS: int = 90
 
 # Import helper for adjusting price data according to price mode.  The utils
 # module must reside at the project root.  It is deliberately not imported
@@ -86,68 +100,9 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
-# Default lookback window (in days) for plotting.  The app can override
-# this value at runtime by setting the module-level ``PLOT_LOOKBACK_DAYS``
-# attribute.  We use 90 days (approximately 3 months) by default to
-# align with the updated requirement from management.  When the user
-# selects a different timeframe (e.g. 6 months), ``app.py`` will
-# temporarily override this constant to 180 days.
-PLOT_LOOKBACK_DAYS: int = 90
-
 ###############################################################################
 # Internal helpers
 ###############################################################################
-
-
-
-
-
-def _load_price_data(
-    excel_path: pathlib.Path,
-    ticker: str = "SENSEX Index",
-    price_mode: str = "Last Price",
-) -> pd.DataFrame:
-    """
-    Read the raw price sheet and return a tidy Date‑Price DataFrame.
-
-    Parameters
-    ----------
-    excel_path : pathlib.Path
-        Path to the Excel workbook containing price data.
-    ticker : str, default "SENSEX Index"
-        Column name corresponding to the desired ticker in the Excel sheet.
-    price_mode : str, default "Last Price"
-        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
-        is available and the mode is "Last Close", rows with the last
-        recorded date (if equal to today's date) will be dropped.
-
-    Returns
-    -------
-    pandas.DataFrame
-        DataFrame with columns ``Date`` and ``Price``.  The data are
-        sorted by date and any rows with missing values are removed.
-    """
-    df = pd.read_excel(excel_path, sheet_name="data_prices")
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    df_clean = (
-        df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-            ["Date", "Price"]
-        ]
-    )
-    # Adjust for price mode if helper is available
-    if adjust_prices_for_mode is not None and price_mode:
-        try:
-            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
-        except Exception:
-            # If adjustment fails, silently fall back to unadjusted data
-            pass
-    return df_clean
-
-
-
 
 def _get_vol_index_value(
     excel_obj_or_path,
@@ -182,48 +137,22 @@ def _get_vol_index_value(
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
     except Exception:
         return None
-    # Drop first row and metadata rows
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    # Parse dates and the volatility index column
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    # Ensure the volatility index column exists
-    if vol_ticker not in df.columns:
-        return None
-    df["Price"] = pd.to_numeric(df[vol_ticker], errors="coerce")
-    df_clean = df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-        ["Date", "Price"]
-    ]
-    # Apply price mode adjustment if possible
-    if adjust_prices_for_mode is not None and price_mode:
-        try:
-            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
-        except Exception:
-            pass
-    if df_clean.empty:
-        return None
-    try:
-        return float(df_clean["Price"].iloc[-1])
-    except Exception:
-        return None
 
-
-###############################################################################
-# Plotly interactive chart for Streamlit
-###############################################################################
-
-def make_sensex_figure(
+# ---------------------------------------------------------------------------
+# Momentum score helpers
+#
+def make_spx_figure(
     excel_path: str | pathlib.Path,
     anchor_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
 ) -> go.Figure:
     """
-    Build an interactive SENSEX chart for Streamlit.
+    Build an interactive SPX chart for Streamlit.
 
     Parameters
     ----------
     excel_path : str or pathlib.Path
-        Path to the Excel file containing SENSEX price data.
+        Path to the Excel file containing SPX price data.
     anchor_date : pandas.Timestamp or None, optional
         If provided, a regression channel is drawn from ``anchor_date`` to the
         latest date.
@@ -243,13 +172,15 @@ def make_sensex_figure(
     """
     excel_path = pathlib.Path(excel_path)
     # Load data and adjust according to the price mode
-    df_raw = _load_price_data(excel_path, "SENSEX Index", price_mode=price_mode)
+    df_raw = _load_price_data(excel_path, "SPX Index", price_mode=price_mode)
     df_full = _add_mas(df_raw)
 
     if df_full.empty:
         return go.Figure()
 
     today = df_full["Date"].max().normalize()
+    # Restrict the chart to the configured lookback window (e.g. last 90 days).
+    # ``PLOT_LOOKBACK_DAYS`` defaults to 90 but may be overridden at runtime.
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -265,7 +196,7 @@ def make_sensex_figure(
             x=df["Date"],
             y=df["Price"],
             mode="lines",
-            name=f"SENSEX Price (last: {last_price_str})",
+            name=f"S&P 500 Price (last: {last_price_str})",
             line=dict(color="#153D64", width=2.5),
         )
     )
@@ -370,7 +301,7 @@ def make_sensex_figure(
 # High‑resolution chart export (PNG)
 ###############################################################################
 
-def _generate_sensex_image_from_df(
+def _generate_spx_image_from_df(
     df_full: pd.DataFrame,
     anchor_date: Optional[pd.Timestamp],
     width_cm: float = 21.41,
@@ -381,12 +312,16 @@ def _generate_sensex_image_from_df(
     Includes price, moving averages, Fibonacci lines and optional regression channel.
     """
     today = df_full["Date"].max().normalize()
+    # Compute the lookback start based on the configurable window
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
+    # Slice the price history to the configured lookback window
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    df_ma = df.copy()
-    for w in (50, 100, 200):
-        df_ma[f"MA_{w}"] = df_ma["Price"].rolling(w, min_periods=1).mean()
+    # Compute moving averages on the full dataset once, then slice to the
+    # same window.  This prevents shorter lookback windows from truncating
+    # the rolling windows for the 50-, 100- and 200-day moving averages.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     uptrend = False
     upper = lower = None
@@ -414,7 +349,7 @@ def _generate_sensex_image_from_df(
         df["Price"],
         color="#153D64",
         linewidth=2.5,
-        label=f"SENSEX Price (last: {last_price_str})",
+        label=f"S&P 500 Price (last: {last_price_str})",
     )
     ax.plot(
         df_ma["Date"],
@@ -481,54 +416,53 @@ def _generate_sensex_image_from_df(
 # Score helpers
 ###############################################################################
 
-def _get_sensex_technical_score(excel_obj_or_path) -> Optional[float]:
+
+def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for SENSEX.
-    Uses common helper with instrument-specific ticker.
+    Retrieve the technical score for S&P 500.
+    Uses common helper with SPX-specific ticker.
     """
-    return _get_technical_score_generic(excel_obj_or_path, "SENSEX INDEX")
+    return _get_technical_score_generic(excel_obj_or_path, "SPX INDEX")
 
+def _find_spx_slide(prs: Presentation) -> Optional[int]:
+    """Locate the index of the slide that contains the SPX placeholder.
 
-
-def _find_sensex_slide(prs: Presentation) -> Optional[int]:
-    """Locate the index of the slide that contains the SENSEX placeholder.
-
-    This helper searches for a slide containing a shape named ``sensex`` or
-    whose text is exactly ``[sensex]`` (case‑insensitive).  It returns the
+    This helper searches for a slide containing a shape named ``spx`` or
+    whose text is exactly ``[spx]`` (case‑insensitive).  It returns the
     zero‑based slide index or ``None`` if no such slide exists.
     """
     for idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "sensex":
+            if name_attr == "spx":
                 return idx
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[sensex]":
+                if (shape.text or "").strip().lower() == "[spx]":
                     return idx
     return None
 
 
-def insert_sensex_technical_score_number(prs: Presentation, excel_file) -> Presentation:
+def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the SENSEX technical score (integer) into the SENSEX slide.
+    Insert the SPX technical score (integer) into the SPX slide.
 
-    This function looks for a shape named ``tech_score_sensex`` on the slide
-    identified by the ``sensex`` placeholder.  If not found, it searches for
+    This function looks for a shape named ``tech_score_spx`` on the slide
+    identified by the ``spx`` placeholder.  If not found, it searches for
     placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
     the original placeholder run is preserved.  Other slides are not
-    modified, avoiding accidental replacement of SENSEX placeholders.
+    modified, avoiding accidental replacement of CSI placeholders.
     """
-    score = _get_sensex_technical_score(excel_file)
+    score = _get_spx_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
 
-    placeholder_name = "tech_score_sensex"
+    placeholder_name = "tech_score_spx"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    sensex_idx = _find_sensex_slide(prs)
-    if sensex_idx is None:
-        # No SENSEX slide found; return unmodified
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
+        # No SPX slide found; return unmodified
         return prs
-    slide = prs.slides[sensex_idx]
+    slide = prs.slides[spx_idx]
     # First search for a shape named exactly as the placeholder
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -541,7 +475,7 @@ def insert_sensex_technical_score_number(prs: Presentation, excel_file) -> Prese
                 new_run.text = score_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, search for textual placeholders within shapes on the SENSEX slide
+    # Otherwise, search for textual placeholders within shapes on the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -574,7 +508,7 @@ def generate_range_callout_chart_image(
     show_legend: bool = True,
 ) -> bytes:
     """
-    Create a PNG image of the SENSEX price chart with a textual call‑out on the
+    Create a PNG image of the SPX price chart with a textual call‑out on the
     right summarising the recent trading range.  The call‑out lists the
     higher and lower range values (with ±% changes relative to the last
     price) and draws small coloured markers aligned with those levels on
@@ -584,7 +518,7 @@ def generate_range_callout_chart_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full SENSEX price history with 'Date' and 'Price' columns.
+        Full SPX price history with 'Date' and 'Price' columns.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for a regression channel; if provided, the
         channel is drawn on the price chart.
@@ -616,17 +550,14 @@ def generate_range_callout_chart_image(
     if df_full.empty:
         return b""
 
-    # Restrict to the last year of data for plotting
+    # Restrict to the configured lookback window for plotting
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the full dataset and then slice to the
-    # plotting window.  Computing MAs on the truncated subset would
-    # shorten long-period averages (e.g. 200-day) and change their values.
-    # We therefore compute MAs on ``df_full`` and then filter to the
-    # desired date range.  See https://github.com/yourorg/ic/issues/1234
-    # for background on this change.
+    # Compute moving averages on the full history and then slice to the
+    # lookback window.  This ensures that long moving averages (e.g. 200 days)
+    # are not recomputed on the truncated data window.
     df_ma_full = _add_mas(df_full)
     df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -720,7 +651,7 @@ def generate_range_callout_chart_image(
 
     # Plot price and moving averages on the main chart
     ax_chart.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5,
-                  label=f"SENSEX Price (last: {last_price:,.2f})")
+                  label=f"S&P 500 Price (last: {last_price:,.2f})")
     ax_chart.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
@@ -842,7 +773,7 @@ def generate_range_callout_chart_image(
     return buf.getvalue()
 
 
-def insert_sensex_technical_chart_with_callout(
+def insert_spx_technical_chart_with_callout(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -850,14 +781,14 @@ def insert_sensex_technical_chart_with_callout(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the SENSEX technical analysis chart with the trading range call‑out
+    Insert the SPX technical analysis chart with the trading range call‑out
     into the PowerPoint.  This function mirrors the behaviour of
-    ``insert_sensex_technical_chart_with_range`` but uses the call‑out style to
+    ``insert_spx_technical_chart_with_range`` but uses the call‑out style to
     display the high and low bounds instead of a vertical gauge.
 
     The image is placed at the fixed coordinates (0.93 cm left, 5.46 cm top)
     with dimensions 24.2 cm wide by 6.52 cm high.  These values match those
-    used on the SENSEX slide and leave room above for a separate legend on the
+    used on the IBOV slide and leave room above for a separate legend on the
     PowerPoint slide.  When inserting into the presentation the legend is
     suppressed in the image itself so that it can be added manually.
 
@@ -866,7 +797,7 @@ def insert_sensex_technical_chart_with_callout(
     prs : Presentation
         The PowerPoint presentation to modify.
     excel_file : file‑like object or path
-        Excel workbook containing SENSEX price data.
+        Excel workbook containing SPX price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for a regression channel.
     lookback_days : int, default 90
@@ -879,20 +810,21 @@ def insert_sensex_technical_chart_with_callout(
     """
     # Load the price data from the Excel file
     try:
-        df_full = _load_price_data_from_obj(excel_file, "SENSEX Index", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SENSEX Index", price_mode=price_mode)
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
 
-    # For the SENSEX index there is no commonly used implied volatility index.
-    # Do not attempt to read a volatility index from the Excel file.  The
-    # range calculation in ``generate_range_callout_chart_image`` will
-    # automatically fall back to realised volatility when the
-    # ``vol_index_value`` is ``None``.
-    vol_val = None
+    # Determine the implied volatility index value (VIX) from the Excel file
+    # so that the expected one‑week trading range can be estimated.  If the
+    # volatility index cannot be read, ``None`` is returned and the range
+    # will fall back to an ATR‑based estimate.
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
     # Generate the image with the call‑out.  Use a width of 24.2 cm and a
-    # height of 6.52 cm (matching the SENSEX template) so that there is
+    # height of 6.52 cm (matching the IBOV template) so that there is
     # sufficient space above the chart for an external legend.  Pass
-    # ``show_legend=False`` to suppress the internal legend on the figure.
+    # ``show_legend=False`` to suppress the internal legend on the figure and
+    # provide the volatility index value so that the range calculation can
+    # use the implied volatility if available.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
@@ -903,16 +835,16 @@ def insert_sensex_technical_chart_with_callout(
         show_legend=False,
     )
 
-    # Locate the slide containing the 'sensex' placeholder or text
+    # Locate the slide containing the 'spx' placeholder or text
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "sensex":
+            if name_attr == "spx":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[sensex]":
+                if (shape.text or "").strip().lower() == "[spx]":
                     target_slide = slide
                     break
         if target_slide:
@@ -922,7 +854,7 @@ def insert_sensex_technical_chart_with_callout(
 
     # Insert the image at the requested coordinates.  The dimensions
     # 24.2 cm wide and 6.52 cm high and position (0.93 cm, 5.46 cm)
-    # mirror those used on the SENSEX slide.  These values leave room
+    # mirror those used on the IBOV slide.  These values leave room
     # above for a separate legend, which can be added later.  Add the
     # picture and bring it to the front so that it is not obscured by
     # other shapes (e.g. a placeholder gauge).
@@ -941,11 +873,11 @@ def insert_sensex_technical_chart_with_callout(
         # Fallback: leave the picture at the end of the shape list
         pass
 
-    # Replace the last‑price placeholder on the SENSEX slide.  Compute the
+    # Replace the last‑price placeholder on the SPX slide.  Compute the
     # most recent price and format it with two decimal places; fall back
     # to 'N/A' if unavailable.  The placeholder may be a shape named
-    # ``last_price_sensex`` or text containing ``[last_price_sensex]`` or
-    # ``last_price_sensex``.  Font attributes are preserved.
+    # ``last_price_spx`` or text containing ``[last_price_spx]`` or
+    # ``last_price_spx``.  Font attributes are preserved.
     last_price = None
     if df_full is not None and not df_full.empty:
         try:
@@ -953,8 +885,8 @@ def insert_sensex_technical_chart_with_callout(
         except Exception:
             last_price = None
     last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
-    placeholder_name = "last_price_sensex"
-    placeholder_patterns = ["[last_price_sensex]", "last_price_sensex"]
+    placeholder_name = "last_price_spx"
+    placeholder_patterns = ["[last_price_spx]", "last_price_spx"]
     replaced = False
     for shp in target_slide.shapes:
         # Match by shape name
@@ -1003,34 +935,33 @@ def insert_sensex_technical_chart_with_callout(
     return prs
 
 
-def _get_sensex_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """
-    Retrieve the momentum score for SENSEX.
-    Uses common helper with instrument-specific ticker.
-    """
-    return _get_momentum_score_generic(excel_obj_or_path, "SENSEX INDEX")
 
-
-
-def insert_sensex_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
+def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Insert the SENSEX momentum score (integer) into the SENSEX slide.
-
-    The momentum score is inserted into a shape named ``mom_score_sensex`` on
-    the SENSEX slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
-    placeholder within the SENSEX slide is replaced instead.  This avoids
-    inadvertently replacing placeholders on SENSEX or other slides.
+    Retrieve the momentum score for S&P 500.
+    Uses common helper with SPX-specific ticker.
     """
-    score = _get_sensex_momentum_score(excel_file)
+    return _get_momentum_score_generic(excel_obj_or_path, "SPX INDEX")
+
+def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
+    """
+    Insert the SPX momentum score (integer) into the SPX slide.
+
+    The momentum score is inserted into a shape named ``mom_score_spx`` on
+    the SPX slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
+    placeholder within the SPX slide is replaced instead.  This avoids
+    inadvertently replacing placeholders on CSI or other slides.
+    """
+    score = _get_spx_momentum_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
 
-    placeholder_name = "mom_score_sensex"
+    placeholder_name = "mom_score_spx"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    sensex_idx = _find_sensex_slide(prs)
-    if sensex_idx is None:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[sensex_idx]
+    slide = prs.slides[spx_idx]
     # Attempt to replace the named placeholder first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1043,7 +974,7 @@ def insert_sensex_momentum_score_number(prs: Presentation, excel_file) -> Presen
                 new_run.text = score_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, replace placeholder patterns on the SENSEX slide only
+    # Otherwise, replace placeholder patterns on the SPX slide only
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1064,36 +995,36 @@ def insert_sensex_momentum_score_number(prs: Presentation, excel_file) -> Presen
 # Chart insertion
 ###############################################################################
 
-def insert_sensex_technical_chart(
+def insert_spx_technical_chart(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the SENSEX technical‑analysis chart into the PPT.
+    Insert the SPX technical‑analysis chart into the PPT.
 
-    We only use the textbox named ``sensex`` (or containing “[sensex]”) to locate
+    We only use the textbox named ``spx`` (or containing “[spx]”) to locate
     the correct slide; the chart itself is always pasted at the fixed
     coordinates (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
     """
     # Load data and generate image
     try:
-        df_full = _load_price_data_from_obj(excel_file, "SENSEX Index", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SENSEX Index", price_mode=price_mode)
-    img_bytes = _generate_sensex_image_from_df(df_full, anchor_date)
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
+    img_bytes = _generate_spx_image_from_df(df_full, anchor_date)
 
-    # Find the slide containing the 'sensex' placeholder
+    # Find the slide containing the 'spx' placeholder
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "sensex":
+            if name_attr == "spx":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[sensex]":
+                if (shape.text or "").strip().lower() == "[spx]":
                     target_slide = slide
                     break
         if target_slide:
@@ -1116,24 +1047,24 @@ def insert_sensex_technical_chart(
 # Subtitle insertion
 ###############################################################################
 
-def insert_sensex_subtitle(prs: Presentation, subtitle: str) -> Presentation:
+def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     """
-    Replace the SENSEX subtitle placeholder with the provided text.
+    Replace the SPX subtitle placeholder with the provided text.
 
-    Only the slide identified by the ``sensex`` placeholder is modified.  A
-    shape named ``sensex_text`` takes precedence; if it does not exist
-    within the SENSEX slide, any occurrences of ``XXX`` or ``[XXX]`` on
+    Only the slide identified by the ``spx`` placeholder is modified.  A
+    shape named ``spx_text`` takes precedence; if it does not exist
+    within the SPX slide, any occurrences of ``XXX`` or ``[XXX]`` on
     that slide are replaced instead.  Formatting of the original run is
     preserved.
     """
-    placeholder_name = "sensex_text"
+    placeholder_name = "spx_text"
     placeholder_patterns = ["[XXX]", "XXX"]
     subtitle_text = subtitle or ""
 
-    sensex_idx = _find_sensex_slide(prs)
-    if sensex_idx is None:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[sensex_idx]
+    slide = prs.slides[spx_idx]
     # Try to update the named subtitle shape first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1146,7 +1077,7 @@ def insert_sensex_subtitle(prs: Presentation, subtitle: str) -> Presentation:
                 new_run.text = subtitle_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, replace placeholder patterns within the SENSEX slide
+    # Otherwise, replace placeholder patterns within the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1167,6 +1098,21 @@ def insert_sensex_subtitle(prs: Presentation, subtitle: str) -> Presentation:
 # Colour interpolation for gauge
 ###############################################################################
 
+def _interpolate_color(value: float) -> Tuple[float, float, float]:
+    """
+    Interpolate from red→yellow→green for a 0–100 value.  Pure red at 0,
+    bright yellow at 40 and rich green at 70.
+    """
+    red = (1.0, 0.0, 0.0)
+    yellow = (1.0, 204 / 255, 0.0)
+    green = (0.0, 153 / 255, 81 / 255)
+    if value <= 40:
+        t = value / 40.0
+        return tuple(red[i] + t * (yellow[i] - red[i]) for i in range(3))
+    elif value <= 70:
+        t = (value - 40) / 30.0
+        return tuple(yellow[i] + t * (green[i] - yellow[i]) for i in range(3))
+    return green
 
 
 def generate_average_gauge_image(
@@ -1310,27 +1256,71 @@ def generate_average_gauge_image(
 # Helpers for reading Excel from a file-like object
 ###############################################################################
 
+def _load_price_data_from_obj(
+    excel_obj,
+    ticker: str = "SPX Index",
+    price_mode: str = "Last Price",
+) -> pd.DataFrame:
+    """
+    Load price data from a file-like object and return a tidy DataFrame.
+
+    Parameters
+    ----------
+    excel_obj : file-like
+        File-like object representing an Excel workbook containing a
+        ``data_prices`` sheet.
+    ticker : str, default "SPX Index"
+        Column name corresponding to the desired ticker in the Excel sheet.
+    price_mode : str, default "Last Price"
+        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
+        is available and the mode is "Last Close", rows corresponding to
+        the most recent date (if equal to today's date) will be dropped.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with columns ``Date`` and ``Price``.  The data are
+        sorted by date and any rows with missing values are removed.
+    """
+    df = pd.read_excel(excel_obj, sheet_name="data_prices")
+    df = df.drop(index=0)
+    df = df[df[df.columns[0]] != "DATES"]
+    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
+    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
+    df_clean = (
+        df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+            ["Date", "Price"]
+        ]
+    )
+    # Adjust for price mode if helper is available
+    if adjust_prices_for_mode is not None and price_mode:
+        try:
+            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
+        except Exception:
+            pass
+    return df_clean
+
 
 ###############################################################################
 # Gauge insertion
 ###############################################################################
 
-def insert_sensex_average_gauge(
+def insert_spx_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
 ) -> Presentation:
     """
-    Insert the SENSEX average gauge into the SENSEX slide.
+    Insert the SPX average gauge into the SPX slide.
 
     The gauge shows the average of the technical and momentum scores and
     last week's average.  It is inserted into a shape named
-    ``gauge_sensex`` within the SENSEX slide.  If such a shape is not found
-    within the SENSEX slide, placeholders ``[GAUGE]``, ``GAUGE`` or
-    ``gauge_sensex`` on the SENSEX slide are used instead.  If neither is
+    ``gauge_spx`` within the SPX slide.  If such a shape is not found
+    within the SPX slide, placeholders ``[GAUGE]``, ``GAUGE`` or
+    ``gauge_spx`` on the SPX slide are used instead.  If neither is
     present, the gauge is placed at a default position below the chart
-    on the SENSEX slide.  Other slides remain untouched.
+    on the SPX slide.  Other slides remain untouched.
     """
-    tech_score = _get_sensex_technical_score(excel_file)
-    mom_score = _get_sensex_momentum_score(excel_file)
+    tech_score = _get_spx_technical_score(excel_file)
+    mom_score = _get_spx_momentum_score(excel_file)
     if tech_score is None or mom_score is None:
         return prs
     try:
@@ -1345,13 +1335,13 @@ def insert_sensex_average_gauge(
         )
     except Exception:
         return prs
-    # Identify SENSEX slide
-    sensex_idx = _find_sensex_slide(prs)
-    if sensex_idx is None:
+    # Identify SPX slide
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[sensex_idx]
-    placeholder_name = "gauge_sensex"
-    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_sensex"]
+    slide = prs.slides[spx_idx]
+    placeholder_name = "gauge_spx"
+    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_spx"]
     # Search for named gauge placeholder first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1361,7 +1351,7 @@ def insert_sensex_average_gauge(
             stream = BytesIO(gauge_bytes)
             slide.shapes.add_picture(stream, left, top, width=width, height=height)
             return prs
-    # Then search for textual gauge placeholders on the SENSEX slide
+    # Then search for textual gauge placeholders on the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1371,7 +1361,7 @@ def insert_sensex_average_gauge(
                     stream = BytesIO(gauge_bytes)
                     slide.shapes.add_picture(stream, left, top, width=width, height=height)
                     return prs
-    # Fallback: insert below the chart within the SENSEX slide using template coordinates
+    # Fallback: insert below the chart within the SPX slide using template coordinates
     left = Cm(8.97)
     top = Cm(12.13)
     width = Cm(15.15)
@@ -1385,17 +1375,17 @@ def insert_sensex_average_gauge(
 # Technical assessment insertion
 ###############################################################################
 
-def insert_sensex_technical_assessment(
+def insert_spx_technical_assessment(
     prs: Presentation,
     excel_file,
     manual_desc: Optional[str] = None,
 ) -> Presentation:
     """
-    Insert a descriptive assessment text into the SENSEX slide.
+    Insert a descriptive assessment text into the SPX slide.
 
-    The assessment is written into a shape named ``sensex_view`` on the SENSEX
+    The assessment is written into a shape named ``spx_view`` on the SPX
     slide.  If no such shape exists, the function replaces any
-    occurrences of ``[sensex_view]`` or ``sensex_view`` in text on that slide.
+    occurrences of ``[spx_view]`` or ``spx_view`` in text on that slide.
     A manual description may be provided; if not, the function computes
     the view from the average of the technical and momentum scores.
 
@@ -1405,36 +1395,36 @@ def insert_sensex_technical_assessment(
     if manual_desc is not None and isinstance(manual_desc, str):
         desc = manual_desc.strip()
         if desc and not desc.lower().startswith("s&p 500"):
-            desc = f"SENSEX: {desc}"
+            desc = f"S&P 500: {desc}"
     else:
-        tech_score = _get_sensex_technical_score(excel_file)
-        mom_score = _get_sensex_momentum_score(excel_file)
+        tech_score = _get_spx_technical_score(excel_file)
+        mom_score = _get_spx_momentum_score(excel_file)
         if tech_score is None or mom_score is None:
             return prs
         avg = (float(tech_score) + float(mom_score)) / 2.0
         if avg >= 80:
-            desc = "SENSEX: Strongly Bullish"
+            desc = "S&P 500: Strongly Bullish"
         elif avg >= 70:
-            desc = "SENSEX: Bullish"
+            desc = "S&P 500: Bullish"
         elif avg >= 60:
-            desc = "SENSEX: Slightly Bullish"
+            desc = "S&P 500: Slightly Bullish"
         elif avg >= 40:
-            desc = "SENSEX: Neutral"
+            desc = "S&P 500: Neutral"
         elif avg >= 30:
-            desc = "SENSEX: Slightly Bearish"
+            desc = "S&P 500: Slightly Bearish"
         elif avg >= 20:
-            desc = "SENSEX: Bearish"
+            desc = "S&P 500: Bearish"
         else:
-            desc = "SENSEX: Strongly Bearish"
+            desc = "S&P 500: Strongly Bearish"
 
-    target_name = "sensex_view"
-    placeholder_patterns = ["[sensex_view]", "sensex_view"]
+    target_name = "spx_view"
+    placeholder_patterns = ["[spx_view]", "spx_view"]
 
-    sensex_idx = _find_sensex_slide(prs)
-    if sensex_idx is None:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[sensex_idx]
-    # Try to locate a shape by name on the SENSEX slide
+    slide = prs.slides[spx_idx]
+    # Try to locate a shape by name on the SPX slide
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
         if name_attr and name_attr.lower() == target_name:
@@ -1447,7 +1437,7 @@ def insert_sensex_technical_assessment(
                 new_run.text = desc
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, replace placeholder patterns on the SENSEX slide
+    # Otherwise, replace placeholder patterns on the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1471,14 +1461,14 @@ def insert_sensex_technical_assessment(
 # Source footnote insertion
 ###############################################################################
 
-def insert_sensex_source(
+def insert_spx_source(
     prs: Presentation,
     used_date: Optional[pd.Timestamp],
     price_mode: str,
 ) -> Presentation:
     """
-    Insert the source footnote into a shape named 'sensex_source' (or
-    containing '[sensex_source]').  The footnote text depends on the selected
+    Insert the source footnote into a shape named 'spx_source' (or
+    containing '[spx_source]').  The footnote text depends on the selected
     price mode.  For example:
 
       * Last Close  → "Source: Bloomberg, Herculis Group, Data as of 29/07/2025 Close"
@@ -1508,13 +1498,13 @@ def insert_sensex_source(
         return prs
     suffix = " Close" if str(price_mode).lower() == "last close" else ""
     source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
-    placeholder_name = "sensex_source"
-    placeholder_patterns = ["[sensex_source]", "sensex_source"]
-    # Restrict insertion to the SENSEX slide only
-    sensex_idx = _find_sensex_slide(prs)
-    if sensex_idx is None:
+    placeholder_name = "spx_source"
+    placeholder_patterns = ["[spx_source]", "spx_source"]
+    # Restrict insertion to the SPX slide only
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[sensex_idx]
+    slide = prs.slides[spx_idx]
     # Case 1: replace a shape named exactly as the placeholder
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
@@ -1528,7 +1518,7 @@ def insert_sensex_source(
                 new_run.text = source_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Case 2: replace occurrences of the placeholder pattern in text on the SENSEX slide
+    # Case 2: replace occurrences of the placeholder pattern in text on the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1552,6 +1542,70 @@ def insert_sensex_source(
 # Range gauge helpers and insertion
 ###############################################################################
 
+def _compute_range_bounds(
+    df_full: pd.DataFrame, lookback_days: int = 90
+) -> Tuple[float, float]:
+    """
+    Compute fallback high and low range bounds for the S&P 500 using
+    realised volatility.
+
+    This helper is used when an implied volatility index (e.g. VIX) is
+    unavailable.  It computes the annualised realised volatility over a
+    30‑session window by taking the standard deviation of daily
+    percentage returns, multiplying by ``sqrt(252)`` and converting to
+    a percentage.  The resulting 1‑week expected move is
+    ``(current_price × (realised_vol / 100)) / sqrt(52)``.  The upper
+    and lower bounds are the current price plus and minus this
+    expected move.  If realised volatility cannot be computed or is
+    zero, the function falls back to a ±2 % band around the current
+    price.
+
+    Parameters
+    ----------
+    df_full : pandas.DataFrame
+        DataFrame containing at least 'Date' and 'Price' columns,
+        sorted by date ascending.
+    lookback_days : int, optional
+        Number of trading days used to compute the approximate true range
+        if realised volatility is unavailable.  Currently unused but
+        retained for API compatibility.
+
+    Returns
+    -------
+    Tuple[float, float]
+        A two‑tuple ``(upper_bound, lower_bound)`` representing the
+        current closing price plus and minus the realised volatility
+        based expected move, or ±2 % of the current price if no
+        volatility can be computed.
+    """
+    if df_full.empty:
+        return (np.nan, np.nan)
+    current_price = df_full["Price"].iloc[-1]
+    # Attempt to compute 30‑day realised volatility (annualised) as a fallback.  Use
+    # the last 30 trading days of closing prices to compute daily returns.
+    # If the realised volatility can be computed, convert it into a 1‑week
+    # expected move.  Otherwise fall back to a ±2 % band.
+    try:
+        # At least 2 data points are needed for pct_change; ensure there are
+        # enough rows (we use min to handle shorter histories gracefully).
+        lookback = 30
+        window_prices = df_full["Price"].tail(lookback)
+        # Compute daily percentage returns
+        rets = window_prices.pct_change().dropna()
+        # Standard deviation of daily returns
+        std_daily = rets.std()
+        if std_daily is not None and not np.isnan(std_daily) and std_daily > 0:
+            # Annualise the standard deviation (multiply by sqrt(252)) and convert to %
+            realised_vol = std_daily * np.sqrt(252.0) * 100.0
+            # Convert to 1‑week expected move by dividing by sqrt(52)
+            expected_move = (current_price * (realised_vol / 100.0)) / np.sqrt(52.0)
+            upper_bound = current_price + expected_move
+            lower_bound = current_price - expected_move
+            return (float(upper_bound), float(lower_bound))
+    except Exception:
+        pass
+    # Fallback: ±2 % of the current price
+    return (float(current_price * 1.02), float(current_price * 0.98))
 
 
 def generate_range_gauge_chart_image(
@@ -1566,17 +1620,17 @@ def generate_range_gauge_chart_image(
     vol_index_value: Optional[float] = None,
 ) -> bytes:
     """
-    Create a PNG image of the SENSEX price chart with a vertical range gauge
+    Create a PNG image of the SPX price chart with a vertical range gauge
     appended on the right.  The gauge shows a green–to–red gradient between
     recent high and support levels, with labels for the upper and lower
     bounds.  A horizontal line continues the last price into the gauge so
     that viewers can assess relative positioning.  This function is used by
-    ``insert_sensex_technical_chart_with_range``.
+    ``insert_spx_technical_chart_with_range``.
 
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full SENSEX price history as returned by ``_load_price_data``.
+        Full SPX price history as returned by ``_load_price_data``.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.  If ``None`` no
         channel will be drawn.
@@ -1596,14 +1650,11 @@ def generate_range_gauge_chart_image(
     if df_full.empty:
         return b""
 
-    # Compute bounds for the last year of data
+    # Compute bounds for the configured lookback window
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    # Compute moving averages on the full dataset and then select
-    # the subset matching the plotting window.  This preserves the
-    # correct lookback for long-term averages when only a short
-    # window of data is displayed.
+    # Compute moving averages on the full dataset and slice to the lookback window
     df_ma_full = _add_mas(df_full)
     df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -1662,7 +1713,7 @@ def generate_range_gauge_chart_image(
 
     # Plot main price series and MAs
     ax.plot(
-        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"SENSEX Price (last: {last_price_str})"
+        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"S&P 500 Price (last: {last_price_str})"
     )
     ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
@@ -1827,7 +1878,7 @@ def generate_range_gauge_only_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full SENSEX price history as returned by ``_load_price_data``.
+        Full SPX price history as returned by ``_load_price_data``.
     lookback_days : int, default 90
         Number of trading days to look back when computing high/low range.
     width_cm : float, default 2.00
@@ -1926,7 +1977,7 @@ def generate_range_gauge_only_image(
     return buf.getvalue()
 
 
-def insert_sensex_technical_chart_with_range(
+def insert_spx_technical_chart_with_range(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -1934,11 +1985,11 @@ def insert_sensex_technical_chart_with_range(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the SENSEX technical analysis chart with the vertical range gauge into the PPT.
+    Insert the SPX technical analysis chart with the vertical range gauge into the PPT.
 
-    This function behaves similarly to ``insert_sensex_technical_chart`` but uses
+    This function behaves similarly to ``insert_spx_technical_chart`` but uses
     ``generate_range_gauge_chart_image`` to draw a combined chart and gauge.
-    It attempts to find a shape named 'sensex' or containing '[sensex]' to locate the
+    It attempts to find a shape named 'spx' or containing '[spx]' to locate the
     slide for insertion.  The image is placed at fixed coordinates matching the
     original template (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
 
@@ -1947,7 +1998,7 @@ def insert_sensex_technical_chart_with_range(
     prs : Presentation
         The PowerPoint presentation into which the chart should be inserted.
     excel_file : file‑like object or path
-        Excel workbook containing SENSEX price data.
+        Excel workbook containing SPX price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.
     lookback_days : int, default 90
@@ -1960,9 +2011,9 @@ def insert_sensex_technical_chart_with_range(
     """
     # Load data
     try:
-        df_full = _load_price_data_from_obj(excel_file, "SENSEX Index", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "SENSEX Index", price_mode=price_mode)
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
     # Determine the implied volatility index value (VIX) from the Excel file
     # so that the expected one‑week trading range can be estimated.  If the
     # volatility index cannot be read, ``None`` is returned and the range
@@ -1980,11 +2031,11 @@ def insert_sensex_technical_chart_with_range(
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "sensex":
+            if name_attr == "spx":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[sensex]":
+                if (shape.text or "").strip().lower() == "[spx]":
                     target_slide = slide
                     break
         if target_slide:
@@ -1993,7 +2044,7 @@ def insert_sensex_technical_chart_with_range(
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Position and dimensions tailored to the original placeholder size.
-    # The SENSEX slide in the template allocates ~21.41 cm for the chart area
+    # The SPX slide in the template allocates ~21.41 cm for the chart area
     # and reserves the remaining width for the chart title, subtitle and
     # margins.  We therefore insert the combined chart‑and‑gauge image
     # using the original dimensions (21.41 cm × 7.53 cm) and rely on the
