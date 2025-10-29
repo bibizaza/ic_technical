@@ -95,3 +95,6 @@ node_modules/
 
 # Custom: ignore any secret notebooks
 secret_*.ipynb
+# Backup files created during refactoring
+app_backup.py
+app_old_with_repetitive_imports.py
