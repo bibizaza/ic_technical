@@ -489,71 +489,15 @@ def _get_bitcoin_technical_score(excel_obj_or_path) -> Optional[float]:
 
 
 def _find_bitcoin_slide(prs: Presentation) -> Optional[int]:
-    """Locate the index of the slide that contains the Bitcoin placeholder.
+    """Find the Bitcoin slide by placeholder."""
+    return find_slide_by_placeholder(prs, "bitcoin")
 
-    This helper searches for a slide containing a shape named ``bitcoin`` or
-    whose text is exactly ``[bitcoin]`` (case‑insensitive).  It returns the
-    zero‑based slide index or ``None`` if no such slide exists.
-    """
-    for idx, slide in enumerate(prs.slides):
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "bitcoin":
-                return idx
-            if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[bitcoin]":
-                    return idx
-    return None
 
 
 def insert_bitcoin_technical_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the Bitcoin technical score (integer) into the Bitcoin slide.
-
-    This function looks for a shape named ``tech_score_bitcoin`` on the slide
-    identified by the ``bitcoin`` placeholder.  If not found, it searches for
-    placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
-    the original placeholder run is preserved.  Other slides are not
-    modified, avoiding accidental replacement of CSI placeholders.
-    """
+    """Insert the Bitcoin technical score into the slide."""
     score = _get_bitcoin_technical_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "tech_score_bitcoin"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    bitcoin_idx = _find_bitcoin_slide(prs)
-    if bitcoin_idx is None:
-        # No Bitcoin slide found; return unmodified
-        return prs
-    slide = prs.slides[bitcoin_idx]
-    # First search for a shape named exactly as the placeholder
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, search for textual placeholders within shapes on the Bitcoin slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    return insert_score_number(prs, score, "bitcoin", "tech_score")
 
 
 ###############################################################################
@@ -987,51 +931,9 @@ def _get_bitcoin_momentum_score(excel_obj_or_path) -> Optional[float]:
 
 
 def insert_bitcoin_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the Bitcoin momentum score (integer) into the Bitcoin slide.
-
-    The momentum score is inserted into a shape named ``mom_score_bitcoin`` on
-    the Bitcoin slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
-    placeholder within the Bitcoin slide is replaced instead.  This avoids
-    inadvertently replacing placeholders on CSI or other slides.
-    """
+    """Insert the Bitcoin momentum score into the slide."""
     score = _get_bitcoin_momentum_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "mom_score_bitcoin"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    bitcoin_idx = _find_bitcoin_slide(prs)
-    if bitcoin_idx is None:
-        return prs
-    slide = prs.slides[bitcoin_idx]
-    # Attempt to replace the named placeholder first
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, replace placeholder patterns on the Bitcoin slide only
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    return insert_score_number(prs, score, "bitcoin", "momentum_score")
 
 
 ###############################################################################
@@ -1091,50 +993,8 @@ def insert_bitcoin_technical_chart(
 ###############################################################################
 
 def insert_bitcoin_subtitle(prs: Presentation, subtitle: str) -> Presentation:
-    """
-    Replace the Bitcoin subtitle placeholder with the provided text.
-
-    Only the slide identified by the ``bitcoin`` placeholder is modified.  A
-    shape named ``bitcoin_text`` takes precedence; if it does not exist
-    within the Bitcoin slide, any occurrences of ``XXX`` or ``[XXX]`` on
-    that slide are replaced instead.  Formatting of the original run is
-    preserved.
-    """
-    placeholder_name = "bitcoin_text"
-    placeholder_patterns = ["[XXX]", "XXX"]
-    subtitle_text = subtitle or ""
-
-    bitcoin_idx = _find_bitcoin_slide(prs)
-    if bitcoin_idx is None:
-        return prs
-    slide = prs.slides[bitcoin_idx]
-    # Try to update the named subtitle shape first
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = subtitle_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, replace placeholder patterns within the Bitcoin slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, subtitle_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    """Insert subtitle into the Bitcoin slide."""
+    return insert_subtitle(prs, subtitle, "bitcoin")
 
 
 ###############################################################################

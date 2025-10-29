@@ -493,74 +493,15 @@ def _get_tasi_technical_score(excel_obj_or_path) -> Optional[float]:
 
 
 def _find_tasi_slide(prs: Presentation) -> Optional[int]:
-    """
-    Locate the index of the slide that contains the TASI placeholder.
+    """Find the TASI slide by placeholder."""
+    return find_slide_by_placeholder(prs, "tasi")
 
-    This helper scans each slide for a shape named ``tasi`` or a text
-    frame whose entire text is exactly ``[tasi]`` (case-insensitive).
-    It returns the zero-based slide index or ``None`` if no such slide
-    exists.  Using a dedicated helper prevents accidental replacement
-    of placeholders on other slides.
-    """
-    for idx, slide in enumerate(prs.slides):
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "tasi":
-                return idx
-            if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[tasi]":
-                    return idx
-    return None
 
 
 def insert_tasi_technical_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the TASI technical score (integer) into the TASI slide.
-
-    This function locates the slide identified by the ``tasi`` placeholder
-    and replaces a shape named ``tech_score_tasi`` (or equivalent text
-    placeholder) with the rounded technical score.  If the score is
-    unavailable, ``N/A`` is displayed.  The formatting of the original
-    placeholder run is preserved.  Other slides remain untouched.
-    """
+    """Insert the TASI technical score into the slide."""
     score = _get_tasi_technical_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "tech_score_tasi"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    slide_idx = _find_tasi_slide(prs)
-    if slide_idx is None:
-        # No TASI slide found; return unmodified
-        return prs
-    slide = prs.slides[slide_idx]
-    # First search for a shape named exactly as the placeholder
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, search for textual placeholders within shapes on the TASI slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    return insert_score_number(prs, score, "tasi", "tech_score")
 
 
 ###############################################################################
@@ -1025,51 +966,9 @@ def _get_tasi_momentum_score(excel_obj_or_path) -> Optional[float]:
 
 
 def insert_tasi_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the TASI momentum score (integer) into the TASI slide.
-
-    The momentum score is inserted into a shape named ``mom_score_tasi`` on
-    the TASI slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
-    placeholder within the TASI slide is replaced instead.  This avoids
-    inadvertently replacing placeholders on other slides.
-    """
+    """Insert the TASI momentum score into the slide."""
     score = _get_tasi_momentum_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "mom_score_tasi"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    slide_idx = _find_tasi_slide(prs)
-    if slide_idx is None:
-        return prs
-    slide = prs.slides[slide_idx]
-    # Attempt to replace the named placeholder first
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, replace placeholder patterns on the TASI slide only
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    return insert_score_number(prs, score, "tasi", "momentum_score")
 
 
 ###############################################################################
@@ -1133,50 +1032,8 @@ def insert_tasi_technical_chart(
 ###############################################################################
 
 def insert_tasi_subtitle(prs: Presentation, subtitle: str) -> Presentation:
-    """
-    Replace the TASI subtitle placeholder with the provided text.
-
-    Only the slide identified by the ``tasi`` placeholder is modified.  A
-    shape named ``tasi_text`` takes precedence; if it does not exist
-    within the TASI slide, any occurrences of ``XXX`` or ``[XXX]`` on
-    that slide are replaced instead.  Formatting of the original run is
-    preserved.
-    """
-    placeholder_name = "tasi_text"
-    placeholder_patterns = ["[XXX]", "XXX"]
-    subtitle_text = subtitle or ""
-
-    slide_idx = _find_tasi_slide(prs)
-    if slide_idx is None:
-        return prs
-    slide = prs.slides[slide_idx]
-    # Try to update the named subtitle shape first
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = subtitle_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, replace placeholder patterns within the TASI slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, subtitle_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    """Insert subtitle into the TASI slide."""
+    return insert_subtitle(prs, subtitle, "tasi")
 
 
 ###############################################################################

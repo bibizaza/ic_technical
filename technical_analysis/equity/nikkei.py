@@ -491,71 +491,15 @@ def _get_nikkei_technical_score(excel_obj_or_path) -> Optional[float]:
 
 
 def _find_nikkei_slide(prs: Presentation) -> Optional[int]:
-    """Locate the index of the slide that contains the NIKKEI placeholder.
+    """Find the NIKKEI slide by placeholder."""
+    return find_slide_by_placeholder(prs, "nikkei")
 
-    This helper searches for a slide containing a shape named ``nikkei`` or
-    whose text is exactly ``[nikkei]`` (case‑insensitive).  It returns the
-    zero‑based slide index or ``None`` if no such slide exists.
-    """
-    for idx, slide in enumerate(prs.slides):
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "nikkei":
-                return idx
-            if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[nikkei]":
-                    return idx
-    return None
 
 
 def insert_nikkei_technical_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the NIKKEI technical score (integer) into the NIKKEI slide.
-
-    This function looks for a shape named ``tech_score_nikkei`` on the slide
-    identified by the ``nikkei`` placeholder.  If not found, it searches for
-    placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
-    the original placeholder run is preserved.  Other slides are not
-    modified, avoiding accidental replacement of NIKKEI placeholders.
-    """
+    """Insert the NIKKEI technical score into the slide."""
     score = _get_nikkei_technical_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "tech_score_nikkei"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
-        # No NIKKEI slide found; return unmodified
-        return prs
-    slide = prs.slides[nikkei_idx]
-    # First search for a shape named exactly as the placeholder
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, search for textual placeholders within shapes on the NIKKEI slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    return insert_score_number(prs, score, "nikkei", "tech_score")
 
 
 ###############################################################################
@@ -1013,51 +957,9 @@ def _get_nikkei_momentum_score(excel_obj_or_path) -> Optional[float]:
 
 
 def insert_nikkei_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the NIKKEI momentum score (integer) into the NIKKEI slide.
-
-    The momentum score is inserted into a shape named ``mom_score_nikkei`` on
-    the NIKKEI slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
-    placeholder within the NIKKEI slide is replaced instead.  This avoids
-    inadvertently replacing placeholders on NIKKEI or other slides.
-    """
+    """Insert the NIKKEI momentum score into the slide."""
     score = _get_nikkei_momentum_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "mom_score_nikkei"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
-        return prs
-    slide = prs.slides[nikkei_idx]
-    # Attempt to replace the named placeholder first
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, replace placeholder patterns on the NIKKEI slide only
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    return insert_score_number(prs, score, "nikkei", "momentum_score")
 
 
 ###############################################################################
@@ -1117,50 +1019,8 @@ def insert_nikkei_technical_chart(
 ###############################################################################
 
 def insert_nikkei_subtitle(prs: Presentation, subtitle: str) -> Presentation:
-    """
-    Replace the NIKKEI subtitle placeholder with the provided text.
-
-    Only the slide identified by the ``nikkei`` placeholder is modified.  A
-    shape named ``nikkei_text`` takes precedence; if it does not exist
-    within the NIKKEI slide, any occurrences of ``XXX`` or ``[XXX]`` on
-    that slide are replaced instead.  Formatting of the original run is
-    preserved.
-    """
-    placeholder_name = "nikkei_text"
-    placeholder_patterns = ["[XXX]", "XXX"]
-    subtitle_text = subtitle or ""
-
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
-        return prs
-    slide = prs.slides[nikkei_idx]
-    # Try to update the named subtitle shape first
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = subtitle_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, replace placeholder patterns within the NIKKEI slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, subtitle_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
+    """Insert subtitle into the NIKKEI slide."""
+    return insert_subtitle(prs, subtitle, "nikkei")
 
 
 ###############################################################################

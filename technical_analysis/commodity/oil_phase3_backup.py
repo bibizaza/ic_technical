@@ -491,15 +491,71 @@ def _get_oil_technical_score(excel_obj_or_path) -> Optional[float]:
 
 
 def _find_oil_slide(prs: Presentation) -> Optional[int]:
-    """Find the Oil slide by placeholder."""
-    return find_slide_by_placeholder(prs, "oil")
+    """Locate the index of the slide that contains the Oil placeholder.
 
+    This helper searches for a slide containing a shape named ``oil`` or
+    whose text is exactly ``[oil]`` (case‑insensitive).  It returns the
+    zero‑based slide index or ``None`` if no such slide exists.
+    """
+    for idx, slide in enumerate(prs.slides):
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr == "oil":
+                return idx
+            if shape.has_text_frame:
+                if (shape.text or "").strip().lower() == "[oil]":
+                    return idx
+    return None
 
 
 def insert_oil_technical_score_number(prs: Presentation, excel_file) -> Presentation:
-    """Insert the Oil technical score into the slide."""
+    """
+    Insert the Oil technical score (integer) into the Oil slide.
+
+    This function looks for a shape named ``tech_score_oil`` on the slide
+    identified by the ``oil`` placeholder.  If not found, it searches for
+    placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
+    the original placeholder run is preserved.  Other slides are not
+    modified, avoiding accidental replacement of CSI placeholders.
+    """
     score = _get_oil_technical_score(excel_file)
-    return insert_score_number(prs, score, "oil", "tech_score")
+    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
+
+    placeholder_name = "tech_score_oil"
+    placeholder_patterns = ["[XXX]", "XXX"]
+
+    oil_idx = _find_oil_slide(prs)
+    if oil_idx is None:
+        # No Oil slide found; return unmodified
+        return prs
+    slide = prs.slides[oil_idx]
+    # First search for a shape named exactly as the placeholder
+    for shape in slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = score_text
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Otherwise, search for textual placeholders within shapes on the Oil slide
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern in (shape.text or ""):
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = shape.text.replace(pattern, score_text)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    return prs
+    return prs
 
 
 ###############################################################################
@@ -933,9 +989,51 @@ def _get_oil_momentum_score(excel_obj_or_path) -> Optional[float]:
 
 
 def insert_oil_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
-    """Insert the Oil momentum score into the slide."""
+    """
+    Insert the Oil momentum score (integer) into the Oil slide.
+
+    The momentum score is inserted into a shape named ``mom_score_oil`` on
+    the Oil slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
+    placeholder within the Oil slide is replaced instead.  This avoids
+    inadvertently replacing placeholders on CSI or other slides.
+    """
     score = _get_oil_momentum_score(excel_file)
-    return insert_score_number(prs, score, "oil", "momentum_score")
+    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
+
+    placeholder_name = "mom_score_oil"
+    placeholder_patterns = ["[XXX]", "XXX"]
+
+    oil_idx = _find_oil_slide(prs)
+    if oil_idx is None:
+        return prs
+    slide = prs.slides[oil_idx]
+    # Attempt to replace the named placeholder first
+    for shape in slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = score_text
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Otherwise, replace placeholder patterns on the Oil slide only
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern in (shape.text or ""):
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = shape.text.replace(pattern, score_text)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    return prs
+    return prs
 
 
 ###############################################################################
@@ -995,8 +1093,50 @@ def insert_oil_technical_chart(
 ###############################################################################
 
 def insert_oil_subtitle(prs: Presentation, subtitle: str) -> Presentation:
-    """Insert subtitle into the Oil slide."""
-    return insert_subtitle(prs, subtitle, "oil")
+    """
+    Replace the Oil subtitle placeholder with the provided text.
+
+    Only the slide identified by the ``oil`` placeholder is modified.  A
+    shape named ``oil_text`` takes precedence; if it does not exist
+    within the Oil slide, any occurrences of ``XXX`` or ``[XXX]`` on
+    that slide are replaced instead.  Formatting of the original run is
+    preserved.
+    """
+    placeholder_name = "oil_text"
+    placeholder_patterns = ["[XXX]", "XXX"]
+    subtitle_text = subtitle or ""
+
+    oil_idx = _find_oil_slide(prs)
+    if oil_idx is None:
+        return prs
+    slide = prs.slides[oil_idx]
+    # Try to update the named subtitle shape first
+    for shape in slide.shapes:
+        if getattr(shape, "name", "").lower() == placeholder_name:
+            if shape.has_text_frame:
+                runs = shape.text_frame.paragraphs[0].runs
+                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                shape.text_frame.clear()
+                p = shape.text_frame.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = subtitle_text
+                _apply_run_font_attributes(new_run, *attrs)
+            return prs
+    # Otherwise, replace placeholder patterns within the Oil slide
+    for shape in slide.shapes:
+        if shape.has_text_frame:
+            for pattern in placeholder_patterns:
+                if pattern in (shape.text or ""):
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = shape.text.replace(pattern, subtitle_text)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    return prs
+    return prs
 
 
 ###############################################################################
