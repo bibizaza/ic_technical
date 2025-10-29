@@ -2587,7 +2587,14 @@ def show_technical_analysis_page():
                     else:
                         return options.index("Strongly Bearish")
 
-                default_idx = _default_index_from_dmas(dmas)
+                # Check if assessment was pre-set from transition sheet
+                preset_assessment = st.session_state.get(f"{ticker_key}_assessment")
+                if preset_assessment and preset_assessment in options:
+                    default_idx = options.index(preset_assessment)
+                else:
+                    # Use automatic computation from DMAS
+                    default_idx = _default_index_from_dmas(dmas)
+
                 user_view = st.selectbox(
                     "Select your assessment",
                     options,
@@ -2980,7 +2987,15 @@ def show_commodity_technical_analysis() -> None:
                     return options.index("Bearish")
                 else:
                     return options.index("Strongly Bearish")
-            default_idx = _default_index_from_dmas(dmas)
+
+            # Check if assessment was pre-set from transition sheet
+            preset_assessment = st.session_state.get(f"{ticker_key}_assessment")
+            if preset_assessment and preset_assessment in options:
+                default_idx = options.index(preset_assessment)
+            else:
+                # Use automatic computation from DMAS
+                default_idx = _default_index_from_dmas(dmas)
+
             user_view = st.selectbox(
                 "Select your assessment",
                 options,
@@ -3328,7 +3343,15 @@ def show_crypto_technical_analysis() -> None:
                     return options.index("Bearish")
                 else:
                     return options.index("Strongly Bearish")
-            default_idx = _default_index_from_dmas(dmas)
+
+            # Check if assessment was pre-set from transition sheet
+            preset_assessment = st.session_state.get(f"{ticker_key}_assessment")
+            if preset_assessment and preset_assessment in options:
+                default_idx = options.index(preset_assessment)
+            else:
+                # Use automatic computation from DMAS
+                default_idx = _default_index_from_dmas(dmas)
+
             user_view = st.selectbox(
                 "Select your assessment",
                 options,
