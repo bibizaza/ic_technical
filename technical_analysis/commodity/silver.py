@@ -486,7 +486,7 @@ def _get_silver_technical_score(excel_obj_or_path) -> Optional[float]:
     Retrieve the technical score for SILVER.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_technical_score_generic(excel_obj_or_path, "SI1 COMDTY")
+    return _get_technical_score_generic(excel_obj_or_path, "SIA COMDTY")
 
 
 
@@ -665,7 +665,7 @@ def _get_silver_momentum_score(excel_obj_or_path) -> Optional[float]:
     Retrieve the momentum score for SILVER.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_momentum_score_generic(excel_obj_or_path, "SI1 COMDTY")
+    return _get_momentum_score_generic(excel_obj_or_path, "SIA COMDTY")
 
 
 

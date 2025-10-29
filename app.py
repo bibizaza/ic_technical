@@ -2759,8 +2759,7 @@ def show_commodity_technical_analysis() -> None:
                     tech_score = _get_oil_technical_score(temp_path)
                 elif selected_index == "Copper":
                     tech_score = _get_copper_technical_score(temp_path)
-            except Exception as e:
-                st.warning(f"DEBUG: Technical score error: {str(e)}")
+            except Exception:
                 tech_score = None
             try:
                 if selected_index == "Gold":
@@ -2775,12 +2774,8 @@ def show_commodity_technical_analysis() -> None:
                     mom_score = _get_oil_momentum_score(temp_path)
                 elif selected_index == "Copper":
                     mom_score = _get_copper_momentum_score(temp_path)
-            except Exception as e:
-                st.warning(f"DEBUG: Momentum score error: {str(e)}")
+            except Exception:
                 mom_score = None
-
-        # DEBUG: Show retrieved scores
-        st.write(f"DEBUG: tech_score = {tech_score}, mom_score = {mom_score}")
         # Compute DMAS if scores are available
         dmas: Optional[float] = None
         if tech_score is not None or mom_score is not None:

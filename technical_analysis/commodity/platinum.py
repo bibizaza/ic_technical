@@ -486,7 +486,7 @@ def _get_platinum_technical_score(excel_obj_or_path) -> Optional[float]:
     Retrieve the technical score for PLATINUM.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_technical_score_generic(excel_obj_or_path, "PL1 COMDTY")
+    return _get_technical_score_generic(excel_obj_or_path, "XPT COMDTY")
 
 
 
@@ -662,7 +662,7 @@ def _get_platinum_momentum_score(excel_obj_or_path) -> Optional[float]:
     Retrieve the momentum score for PLATINUM.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_momentum_score_generic(excel_obj_or_path, "PL1 COMDTY")
+    return _get_momentum_score_generic(excel_obj_or_path, "XPT COMDTY")
 
 
 
