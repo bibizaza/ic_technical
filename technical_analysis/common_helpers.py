@@ -208,7 +208,8 @@ def _get_technical_score_generic(
     """
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_technical_score")
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: Failed to read data_technical_score: {e}")
         return None
 
     df = df.dropna(subset=[df.columns[0], df.columns[1]])
@@ -217,8 +218,13 @@ def _get_technical_score_generic(
     df[df.columns[0]] = df[df.columns[0]].astype(str).str.strip().str.upper()
     target_ticker = ticker.upper()
 
+    # DEBUG: Show what we're searching for and what's available
+    print(f"DEBUG: Searching for ticker='{target_ticker}'")
+    print(f"DEBUG: First 20 tickers in Excel: {df[df.columns[0]].tolist()[:20]}")
+
     matches = df[df[df.columns[0]] == target_ticker]
     if matches.empty:
+        print(f"DEBUG: No match found for '{target_ticker}'")
         return None
 
     try:
@@ -250,12 +256,20 @@ def _get_momentum_score_generic(
     """
     try:
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: Failed to read data_trend_rating: {e}")
         return None
 
     # Identify the row by ticker
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == ticker.upper()
+    target_ticker = ticker.upper()
+    print(f"DEBUG MOMENTUM: Searching for ticker='{target_ticker}'")
+
+    df_tickers = df.iloc[:, 0].astype(str).str.strip().str.upper()
+    print(f"DEBUG MOMENTUM: First 20 tickers in Excel: {df_tickers.tolist()[:20]}")
+
+    mask = df_tickers == target_ticker
     if not mask.any():
+        print(f"DEBUG MOMENTUM: No match found for '{target_ticker}'")
         return None
 
     row = df.loc[mask].iloc[0]
