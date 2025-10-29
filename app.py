@@ -1,8 +1,4 @@
 # Custom momentum loading (commented out - using standard approach for all instruments)
-from utils import adjust_prices_for_mode
-# from technical_analysis.equity.spx import _load_spx_momentum_data
-# from mars_engine.mars_lite_scorer import generate_spx_score_history
-_load_spx_momentum_data = None  # Disabled - using standard Excel-based momentum for all
 """
 Streamlit application for technical dashboard and presentation generation.
 
