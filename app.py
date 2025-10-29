@@ -2508,7 +2508,7 @@ def show_technical_analysis_page():
             # -------------------------------------------------------------------
             enable_channel = st.checkbox(
                 "Enable regression channel",
-                value=bool(st.session_state.get(f"{ticker_key}_anchor")),
+                value=st.session_state.get(f"{ticker_key}_enable_channel", True),
                 key=f"{ticker_key}_enable_channel",
             )
 
@@ -2904,7 +2904,7 @@ def show_commodity_technical_analysis() -> None:
         # -----------------------------------------------------------------
         enable_channel = st.checkbox(
             "Enable regression channel",
-            value=bool(st.session_state.get(f"{ticker_key}_anchor")),
+            value=st.session_state.get(f"{ticker_key}_enable_channel", True),
             key=f"{ticker_key}_enable_channel",
         )
         anchor_ts: Optional[pd.Timestamp] = None
@@ -3253,7 +3253,7 @@ def show_crypto_technical_analysis() -> None:
         # -----------------------------------------------------------------
         enable_channel = st.checkbox(
             "Enable regression channel",
-            value=bool(st.session_state.get(f"{ticker_key}_anchor")),
+            value=st.session_state.get(f"{ticker_key}_enable_channel", True),
             key=f"{ticker_key}_enable_channel",
         )
         anchor_ts: Optional[pd.Timestamp] = None
