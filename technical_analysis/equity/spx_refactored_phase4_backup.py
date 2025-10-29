@@ -271,6 +271,14 @@ def _compute_range_bounds(*args, **kwargs) -> Tuple[Optional[float], Optional[fl
     return None, None, None
 
 
+def generate_average_gauge_image(*args, **kwargs) -> bytes:
+    """Generate average gauge image. (Stub - returns empty image)"""
+    fig, ax = plt.subplots(figsize=(5, 1))
+    buf = BytesIO()
+    plt.savefig(buf, format="png", dpi=300, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
 
 
 def generate_range_gauge_chart_image(*args, **kwargs) -> bytes:

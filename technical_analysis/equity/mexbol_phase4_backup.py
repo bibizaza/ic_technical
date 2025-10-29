@@ -1,8 +1,8 @@
 """
-Utility functions for Bitcoin technical analysis and high‑resolution export.
+Utility functions for Mexbol technical analysis and high‑resolution export.
 
 This module provides tools to build interactive and static charts for the
-Bitcoin index, calculate and insert technical and momentum scores into
+Mexbol index, calculate and insert technical and momentum scores into
 PowerPoint presentations, generate horizontal and vertical gauges that
 visualise the average of the technical and momentum scores, as well as
 contextual trading ranges (higher and lower range bounds).  Functions
@@ -10,26 +10,26 @@ fall back to sensible defaults when placeholders are not found.
 
 Key functions include:
 
-* ``make_bitcoin_figure`` – interactive Plotly chart for Streamlit.
-* ``insert_bitcoin_technical_chart`` – insert a static Bitcoin chart into a PPTX.
-* ``insert_bitcoin_technical_score_number`` – insert the technical score (integer).
-* ``insert_bitcoin_momentum_score_number`` – insert the momentum score (integer).
-* ``insert_bitcoin_subtitle`` – insert a user‑defined subtitle into the Bitcoin slide.
+* ``make_mexbol_figure`` – interactive Plotly chart for Streamlit.
+* ``insert_mexbol_technical_chart`` – insert a static MEXBOL chart into a PPTX.
+* ``insert_mexbol_technical_score_number`` – insert the technical score (integer).
+* ``insert_mexbol_momentum_score_number`` – insert the momentum score (integer).
+* ``insert_mexbol_subtitle`` – insert a user‑defined subtitle into the MEXBOL slide.
 * ``generate_average_gauge_image`` – create a horizontal gauge image.
-* ``insert_bitcoin_average_gauge`` – insert the gauge into a PPT slide.
-* ``insert_bitcoin_technical_assessment`` – insert a descriptive “view” text.
+* ``insert_mexbol_average_gauge`` – insert the gauge into a PPT slide.
+* ``insert_mexbol_technical_assessment`` – insert a descriptive “view” text.
 * ``generate_range_gauge_chart_image`` – create a combined price chart with
   a vertical range gauge on the right hand side, including a horizontal line
   connecting the last price to the gauge.  This function is used by
-  ``insert_bitcoin_technical_chart_with_range``.
-* ``insert_bitcoin_technical_chart_with_range`` – insert the Bitcoin technical
+  ``insert_mexbol_technical_chart_with_range``.
+* ``insert_mexbol_technical_chart_with_range`` – insert the MEXBOL technical
   analysis chart with the higher/lower range gauge into the PPT.
 
-The range gauge illustrates the recent trading range for the Bitcoin.
+The range gauge illustrates the recent trading range for the Mexbol.
 Instead of using the absolute high and low closes of the last 90 days,
 the bounds are estimated from recent volatility.  Whenever possible the
-code looks up the forward‑looking volatility index (BVXS Index) and computes a
-1‑week expected move as ``(current_price × (BVXS Index / 100)) / sqrt(52)``.
+code looks up the forward‑looking volatility index (VIX) and computes a
+1‑week expected move as ``(current_price × (VIX / 100)) / sqrt(52)``.
 The upper and lower bounds are the current price plus and minus that
 expected move.  If the volatility index is unavailable, the code falls
 back to using realised volatility: it computes the standard deviation of
@@ -86,11 +86,20 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
-# Default number of days to display in interactive and static charts.
-# Set to 90 days (approximately three months) to focus on the recent trend.
-# The Streamlit app can override this value (e.g. to 180 days for six months)
-# by assigning to this module attribute at runtime.
+###############################################################################
+# Plot lookback configuration
+###############################################################################
+
+# The default lookback used when plotting price charts is six months
+# (≈180 days).  To display a full year of data instead, override this
+# constant at runtime (e.g. ``technical_analysis.equity.mexbol.PLOT_LOOKBACK_DAYS = 365``).
+# All functions that trim data for plotting refer to this value.
 PLOT_LOOKBACK_DAYS: int = 90
+
+# Import patches as mpatches for range callout charts.  While patches is
+# already imported as ``patches`` for gauge rendering, the callout chart
+# uses ``mpatches`` explicitly.
+import matplotlib.patches as mpatches
 
 ###############################################################################
 # Internal helpers
@@ -102,7 +111,7 @@ PLOT_LOOKBACK_DAYS: int = 90
 
 def _load_price_data(
     excel_path: pathlib.Path,
-    ticker: str = "XBTUSD Curncy",
+    ticker: str = "MEXBOL Index",
     price_mode: str = "Last Price",
 ) -> pd.DataFrame:
     """
@@ -112,7 +121,7 @@ def _load_price_data(
     ----------
     excel_path : pathlib.Path
         Path to the Excel workbook containing price data.
-    ticker : str, default "XBTUSD Curncy"
+    ticker : str, default "MEXBOL Index"
         Column name corresponding to the desired ticker in the Excel sheet.
     price_mode : str, default "Last Price"
         One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
@@ -150,10 +159,10 @@ def _load_price_data(
 def _get_vol_index_value(
     excel_obj_or_path,
     price_mode: str = "Last Price",
-    vol_ticker: str = "BVXS Index",
+    vol_ticker: str = "VIX Index",
 ) -> Optional[float]:
     """
-    Retrieve the most recent value of a volatility index (e.g. BVXS Index) from
+    Retrieve the most recent value of a volatility index (e.g. VIX) from
     the ``data_prices`` sheet.  If ``price_mode`` is ``"Last Close"``,
     the most recent date is dropped if it matches today's date.  The
     returned value is the last available entry after price‑mode adjustment.
@@ -166,7 +175,7 @@ def _get_vol_index_value(
         One of "Last Price" or "Last Close".  When set to "Last Close"
         rows corresponding to the most recent date (if equal to today's
         date) will be excluded before taking the last value.
-    vol_ticker : str, default "BVXS Index"
+    vol_ticker : str, default "VIX Index"
         Column name in the ``data_prices`` sheet corresponding to the
         volatility index whose level should be used.
 
@@ -210,18 +219,18 @@ def _get_vol_index_value(
 # Plotly interactive chart for Streamlit
 ###############################################################################
 
-def make_bitcoin_figure(
+def make_mexbol_figure(
     excel_path: str | pathlib.Path,
     anchor_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
 ) -> go.Figure:
     """
-    Build an interactive Bitcoin chart for Streamlit.
+    Build an interactive MEXBOL chart for Streamlit.
 
     Parameters
     ----------
     excel_path : str or pathlib.Path
-        Path to the Excel file containing Bitcoin price data.
+        Path to the Excel file containing MEXBOL price data.
     anchor_date : pandas.Timestamp or None, optional
         If provided, a regression channel is drawn from ``anchor_date`` to the
         latest date.
@@ -241,13 +250,17 @@ def make_bitcoin_figure(
     """
     excel_path = pathlib.Path(excel_path)
     # Load data and adjust according to the price mode
-    df_raw = _load_price_data(excel_path, "XBTUSD Curncy", price_mode=price_mode)
+    df_raw = _load_price_data(excel_path, "MEXBOL Index", price_mode=price_mode)
     df_full = _add_mas(df_raw)
 
     if df_full.empty:
         return go.Figure()
 
     today = df_full["Date"].max().normalize()
+    # Restrict to the most recent portion of data.  Instead of always
+    # showing one year (365 days), honour the configurable
+    # ``PLOT_LOOKBACK_DAYS`` constant.  This allows the host application
+    # to override the default window (e.g. 180 days for six months).
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -263,7 +276,7 @@ def make_bitcoin_figure(
             x=df["Date"],
             y=df["Price"],
             mode="lines",
-            name=f"Bitcoin Price (last: {last_price_str})",
+            name=f"Mexbol Price (last: {last_price_str})",
             line=dict(color="#153D64", width=2.5),
         )
     )
@@ -368,7 +381,7 @@ def make_bitcoin_figure(
 # High‑resolution chart export (PNG)
 ###############################################################################
 
-def _generate_bitcoin_image_from_df(
+def _generate_mexbol_image_from_df(
     df_full: pd.DataFrame,
     anchor_date: Optional[pd.Timestamp],
     width_cm: float = 21.41,
@@ -379,6 +392,9 @@ def _generate_bitcoin_image_from_df(
     Includes price, moving averages, Fibonacci lines and optional regression channel.
     """
     today = df_full["Date"].max().normalize()
+    # Trim the DataFrame to the most recent portion defined by
+    # ``PLOT_LOOKBACK_DAYS`` instead of a fixed 365‑day window.  See
+    # ``PLOT_LOOKBACK_DAYS`` for details.
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -412,7 +428,7 @@ def _generate_bitcoin_image_from_df(
         df["Price"],
         color="#153D64",
         linewidth=2.5,
-        label=f"Bitcoin Price (last: {last_price_str})",
+        label=f"Mexbol Price (last: {last_price_str})",
     )
     ax.plot(
         df_ma["Date"],
@@ -479,25 +495,25 @@ def _generate_bitcoin_image_from_df(
 # Score helpers
 ###############################################################################
 
-def _get_bitcoin_technical_score(excel_obj_or_path) -> Optional[float]:
+def _get_mexbol_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for BITCOIN.
+    Retrieve the technical score for MEXBOL.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_technical_score_generic(excel_obj_or_path, "XBTUSD CURNCY")
+    return _get_technical_score_generic(excel_obj_or_path, "MEXBOL INDEX")
 
 
 
-def _find_bitcoin_slide(prs: Presentation) -> Optional[int]:
-    """Find the Bitcoin slide by placeholder."""
-    return find_slide_by_placeholder(prs, "bitcoin")
+def _find_mexbol_slide(prs: Presentation) -> Optional[int]:
+    """Find the MEXBOL slide by placeholder."""
+    return find_slide_by_placeholder(prs, "mexbol")
 
 
 
-def insert_bitcoin_technical_score_number(prs: Presentation, excel_file) -> Presentation:
-    """Insert the Bitcoin technical score into the slide."""
-    score = _get_bitcoin_technical_score(excel_file)
-    return insert_score_number(prs, score, "bitcoin", "tech_score")
+def insert_mexbol_technical_score_number(prs: Presentation, excel_file) -> Presentation:
+    """Insert the MEXBOL technical score into the slide."""
+    score = _get_mexbol_technical_score(excel_file)
+    return insert_score_number(prs, score, "mexbol", "tech_score")
 
 
 ###############################################################################
@@ -516,7 +532,7 @@ def generate_range_callout_chart_image(
     show_legend: bool = True,
 ) -> bytes:
     """
-    Create a PNG image of the Bitcoin price chart with a textual call‑out on the
+    Create a PNG image of the MEXBOL price chart with a textual call‑out on the
     right summarising the recent trading range.  The call‑out lists the
     higher and lower range values (with ±% changes relative to the last
     price) and draws small coloured markers aligned with those levels on
@@ -526,7 +542,7 @@ def generate_range_callout_chart_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full Bitcoin price history with 'Date' and 'Price' columns.
+        Full MEXBOL price history with 'Date' and 'Price' columns.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for a regression channel; if provided, the
         channel is drawn on the price chart.
@@ -541,6 +557,12 @@ def generate_range_callout_chart_image(
         Width of the call‑out area on the right where the range summary
         appears.  The remaining width is used for the chart.
 
+    show_legend : bool, default True
+        Whether to draw the legend on the main chart.  When generating
+        images for insertion into a PowerPoint slide the legend should be
+        suppressed (set to ``False``) so that a manually positioned
+        legend on the slide remains visible.
+
     Returns
     -------
     bytes
@@ -552,14 +574,19 @@ def generate_range_callout_chart_image(
     if df_full.empty:
         return b""
 
-    # Restrict to the most recent ``PLOT_LOOKBACK_DAYS`` of data for plotting.
-    # Compute moving averages on the full dataset and then slice to the
-    # plotting window.  Computing MAs on the truncated subset would
-    # shorten long‑period averages (e.g. 200‑day) and change their values.
+    # Restrict to the last portion of data for plotting.  The default
+    # window is ``PLOT_LOOKBACK_DAYS`` which can be overridden by the
+    # caller at runtime.  This replaces the previous hard‑coded
+    # 365‑day (one‑year) window.
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
+    # Calculate moving averages on the **full** dataset then filter to the
+    # same subset.  This preserves the full history in the MA calculation
+    # rather than recomputing on the truncated window, which would
+    # incorrectly shorten the moving average period (e.g. a 200‑day MA
+    # computed on only 180 days).
     df_ma_full = _add_mas(df_full)
     df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -579,7 +606,7 @@ def generate_range_callout_chart_image(
             lower_channel = trend + resid.min()
 
     # Compute high/low bounds and current price.  If an implied volatility
-    # value is provided (e.g. the BVXS Index level), use it to estimate the
+    # value is provided (e.g. the VIX level), use it to estimate the
     # expected one‑week move.  The expected move is computed as
     # ``last_price × (vol_index_value/100) / sqrt(52)``.  Otherwise
     # fall back to the realised‑volatility‑based bounds returned by
@@ -653,7 +680,7 @@ def generate_range_callout_chart_image(
 
     # Plot price and moving averages on the main chart
     ax_chart.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5,
-                  label=f"Bitcoin Price (last: {last_price:,.2f})")
+                  label=f"Mexbol Price (last: {last_price:,.2f})")
     ax_chart.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
@@ -682,16 +709,20 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: place the legend just above the main chart, aligned to the
-    # left so that it does not overlap the call‑out panel.  Use a
-    # multi‑column layout to fit all entries on a single line.  The
-    # bounding box is anchored slightly above the axes (y=1.05).
-    # Only draw the legend if requested; disabling the legend is useful
-    # when generating static images for PowerPoint where a manually
-    # positioned legend is used instead.
+    # Legend: when ``show_legend`` is True, place the legend just above
+    # the main chart, aligned to the left so that it does not overlap the
+    # call‑out panel.  Use a multi‑column layout to fit all entries on a
+    # single line.  The bounding box is anchored slightly above the axes
+    # (y=1.05).  When ``show_legend`` is False the legend is omitted so
+    # that a custom legend can be inserted separately on a slide.
     if show_legend:
-        ax_chart.legend(loc="upper left", bbox_to_anchor=(0.0, 1.05), ncol=4,
-                        fontsize=8, frameon=False)
+        ax_chart.legend(
+            loc="upper left",
+            bbox_to_anchor=(0.0, 1.05),
+            ncol=4,
+            fontsize=8,
+            frameon=False,
+        )
 
     # Configure call‑out axis: remove ticks and spines; set background white
     ax_callout.set_xlim(0, 1)
@@ -771,7 +802,7 @@ def generate_range_callout_chart_image(
     return buf.getvalue()
 
 
-def insert_bitcoin_technical_chart_with_callout(
+def insert_mexbol_technical_chart_with_callout(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -779,20 +810,23 @@ def insert_bitcoin_technical_chart_with_callout(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the Bitcoin technical analysis chart with the trading range call‑out
+    Insert the MEXBOL technical analysis chart with the trading range call‑out
     into the PowerPoint.  This function mirrors the behaviour of
-    ``insert_bitcoin_technical_chart_with_range`` but uses the call‑out style to
+    ``insert_mexbol_technical_chart_with_range`` but uses the call‑out style to
     display the high and low bounds instead of a vertical gauge.
 
-    The image is placed at the fixed coordinates (0.93 cm left, 4.40 cm top)
-    with dimensions 21.41 cm wide by 7.53 cm high, matching the template.
+    The image is placed at the fixed coordinates (0.93 cm left, 5.46 cm top)
+    with dimensions 24.2 cm wide by 6.52 cm high.  These values match those
+    used on the IBOV slide and leave room above for a separate legend on the
+    PowerPoint slide.  When inserting into the presentation the legend is
+    suppressed in the image itself so that it can be added manually.
 
     Parameters
     ----------
     prs : Presentation
         The PowerPoint presentation to modify.
     excel_file : file‑like object or path
-        Excel workbook containing Bitcoin price data.
+        Excel workbook containing MEXBOL price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for a regression channel.
     lookback_days : int, default 90
@@ -805,22 +839,21 @@ def insert_bitcoin_technical_chart_with_callout(
     """
     # Load the price data from the Excel file
     try:
-        df_full = _load_price_data_from_obj(excel_file, "XBTUSD Curncy", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "MEXBOL Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "XBTUSD Curncy", price_mode=price_mode)
+        df_full = _load_price_data(pathlib.Path(excel_file), "MEXBOL Index", price_mode=price_mode)
 
-    # Determine the implied volatility index value (BVXS Index) from the Excel file
+    # Determine the implied volatility index value (VIX) from the Excel file
     # so that the expected one‑week trading range can be estimated.  If the
     # volatility index cannot be read, ``None`` is returned and the range
     # will fall back to an ATR‑based estimate.
-    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="BVXS Index")
-    # Generate the image with the call‑out.  Use slightly narrower dimensions
-    # (24.2 cm wide by 6.52 cm high) to leave space for a manually
-    # positioned legend above the chart.  Pass the volatility index
-    # value to ``generate_range_callout_chart_image`` so that the range
-    # calculation can use the implied volatility if available.  Suppress the
-    # legend in the generated image because the legend will be manually
-    # inserted on the slide.
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
+    # Generate the image with the call‑out.  Use a width of 24.2 cm and a
+    # height of 6.52 cm (matching the IBOV template) so that there is
+    # sufficient space above the chart for an external legend.  Pass
+    # ``show_legend=False`` to suppress the internal legend on the figure and
+    # provide the volatility index value so that the range calculation can
+    # use the implied volatility if available.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
@@ -831,16 +864,16 @@ def insert_bitcoin_technical_chart_with_callout(
         show_legend=False,
     )
 
-    # Locate the slide containing the 'bitcoin' placeholder or text
+    # Locate the slide containing the 'mexbol' placeholder or text
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "bitcoin":
+            if name_attr == "mexbol":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[bitcoin]":
+                if (shape.text or "").strip().lower() == "[mexbol]":
                     target_slide = slide
                     break
         if target_slide:
@@ -848,36 +881,32 @@ def insert_bitcoin_technical_chart_with_callout(
     if target_slide is None:
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
-    # Insert the image at the requested coordinates.  The updated
-    # dimensions (24.2 cm wide, 6.52 cm high) and position (left
-    # 0.93 cm, top 5.46 cm) align with the Solana slide template.  The
-    # slight increase in top margin provides additional space above the
-    # chart for a manually inserted legend.
+    # Insert the image at the requested coordinates.  The dimensions
+    # 24.2 cm wide and 6.52 cm high and position (0.93 cm, 5.46 cm)
+    # mirror those used on the IBOV slide.  These values leave room
+    # above for a separate legend, which can be added later.  Add the
+    # picture and bring it to the front so that it is not obscured by
+    # other shapes (e.g. a placeholder gauge).
     left = Cm(0.93)
     top = Cm(5.46)
     width = Cm(24.2)
     height = Cm(6.52)
     stream = BytesIO(img_bytes)
-    # Add the picture and bring it to the front.  In some templates,
-    # additional shapes (e.g. a placeholder gauge) may overlap the chart.
-    # Removing and reinserting the picture element near the start of the
-    # shape tree ensures the chart remains visible above other content.
     picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     try:
         sp_tree = target_slide.shapes._spTree
-        # Remove the element and reinsert at position 1 (after background)
+        # Remove and reinsert near the front (after background)
         sp_tree.remove(picture._element)
         sp_tree.insert(1, picture._element)
     except Exception:
         # Fallback: leave the picture at the end of the shape list
         pass
-    # ------------------------------------------------------------------
-    # Replace the last price placeholder on the Bitcoin slide.  Compute
-    # the most recent price from the full DataFrame; if the data is
-    # missing, fall back to 'N/A'.  The placeholder may appear as a
-    # shape named 'last_price_bitcoin' or within the text (e.g.
-    # '[last_price_bitcoin]' in the manually added legend).  Preserve the
-    # original font attributes when updating the text.
+
+    # Replace the last‑price placeholder on the MEXBOL slide.  Compute the
+    # most recent price and format it with two decimal places; fall back
+    # to 'N/A' if unavailable.  The placeholder may be a shape named
+    # ``last_price_mexbol`` or text containing ``[last_price_mexbol]`` or
+    # ``last_price_mexbol``.  Font attributes are preserved.
     last_price = None
     if df_full is not None and not df_full.empty:
         try:
@@ -885,15 +914,22 @@ def insert_bitcoin_technical_chart_with_callout(
         except Exception:
             last_price = None
     last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
-    placeholder_name = "last_price_bitcoin"
-    placeholder_patterns = ["[last_price_bitcoin]", "last_price_bitcoin"]
+    placeholder_name = "last_price_mexbol"
+    placeholder_patterns = ["[last_price_mexbol]", "last_price_mexbol"]
     replaced = False
     for shp in target_slide.shapes:
         # Match by shape name
         if getattr(shp, "name", "").lower() == placeholder_name:
             if shp.has_text_frame:
                 runs = shp.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                attrs = _get_run_font_attributes(runs[0]) if runs else (
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
                 shp.text_frame.clear()
                 p = shp.text_frame.paragraphs[0]
                 new_run = p.add_run()
@@ -907,7 +943,14 @@ def insert_bitcoin_technical_chart_with_callout(
             for pattern in placeholder_patterns:
                 if pattern in original_text:
                     runs = shp.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    )
                     new_text = original_text.replace(pattern, last_str)
                     shp.text_frame.clear()
                     p = shp.text_frame.paragraphs[0]
@@ -921,55 +964,55 @@ def insert_bitcoin_technical_chart_with_callout(
     return prs
 
 
-def _get_bitcoin_momentum_score(excel_obj_or_path) -> Optional[float]:
+def _get_mexbol_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the momentum score for BITCOIN.
+    Retrieve the momentum score for MEXBOL.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_momentum_score_generic(excel_obj_or_path, "XBTUSD CURNCY")
+    return _get_momentum_score_generic(excel_obj_or_path, "MEXBOL INDEX")
 
 
 
-def insert_bitcoin_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
-    """Insert the Bitcoin momentum score into the slide."""
-    score = _get_bitcoin_momentum_score(excel_file)
-    return insert_score_number(prs, score, "bitcoin", "momentum_score")
+def insert_mexbol_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
+    """Insert the MEXBOL momentum score into the slide."""
+    score = _get_mexbol_momentum_score(excel_file)
+    return insert_score_number(prs, score, "mexbol", "momentum_score")
 
 
 ###############################################################################
 # Chart insertion
 ###############################################################################
 
-def insert_bitcoin_technical_chart(
+def insert_mexbol_technical_chart(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the Bitcoin technical‑analysis chart into the PPT.
+    Insert the MEXBOL technical‑analysis chart into the PPT.
 
-    We only use the textbox named ``bitcoin`` (or containing “[bitcoin]”) to locate
+    We only use the textbox named ``mexbol`` (or containing “[mexbol]”) to locate
     the correct slide; the chart itself is always pasted at the fixed
     coordinates (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
     """
     # Load data and generate image
     try:
-        df_full = _load_price_data_from_obj(excel_file, "XBTUSD Curncy", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "MEXBOL Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "XBTUSD Curncy", price_mode=price_mode)
-    img_bytes = _generate_bitcoin_image_from_df(df_full, anchor_date)
+        df_full = _load_price_data(pathlib.Path(excel_file), "MEXBOL Index", price_mode=price_mode)
+    img_bytes = _generate_mexbol_image_from_df(df_full, anchor_date)
 
-    # Find the slide containing the 'bitcoin' placeholder
+    # Find the slide containing the 'mexbol' placeholder
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "bitcoin":
+            if name_attr == "mexbol":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[bitcoin]":
+                if (shape.text or "").strip().lower() == "[mexbol]":
                     target_slide = slide
                     break
         if target_slide:
@@ -992,9 +1035,9 @@ def insert_bitcoin_technical_chart(
 # Subtitle insertion
 ###############################################################################
 
-def insert_bitcoin_subtitle(prs: Presentation, subtitle: str) -> Presentation:
-    """Insert subtitle into the Bitcoin slide."""
-    return insert_subtitle(prs, subtitle, "bitcoin")
+def insert_mexbol_subtitle(prs: Presentation, subtitle: str) -> Presentation:
+    """Insert subtitle into the MEXBOL slide."""
+    return insert_subtitle(prs, subtitle, "mexbol")
 
 
 ###############################################################################
@@ -1003,24 +1046,168 @@ def insert_bitcoin_subtitle(prs: Presentation, subtitle: str) -> Presentation:
 
 
 
+def generate_average_gauge_image(
+    tech_score: float,
+    mom_score: float,
+    last_week_avg: float,
+    date_text: str | None = None,
+    last_label_text: str = "Last Week",
+    width_cm: float = 15.15,
+    height_cm: float = 3.13,
+) -> bytes:
+    """
+    Create a horizontal gauge with a red→yellow→green gradient, marking the
+    average of technical and momentum scores against last week’s average.
+    """
+    def clamp100(x: float) -> float:
+        return max(0.0, min(100.0, float(x)))
+
+    curr = (clamp100(tech_score) + clamp100(mom_score)) / 2.0
+    prev = clamp100(last_week_avg)
+
+    cmap = LinearSegmentedColormap.from_list(
+        "gauge_gradient", ["#FF0000", "#FFCC00", "#009951"], N=256
+    )
+
+    fig_w, fig_h = width_cm / 2.54, height_cm / 2.54
+    plt.style.use("default")
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+
+    gradient = np.linspace(0, 1, 500).reshape(1, -1)
+    bar_thickness = 0.4
+    bar_bottom_y = -bar_thickness / 2.0
+    bar_top_y = bar_thickness / 2.0
+    ax.imshow(
+        gradient,
+        extent=[0, 100, bar_bottom_y, bar_top_y],
+        aspect="auto",
+        cmap=cmap,
+        origin="lower",
+    )
+
+    # Marker dimensions and spacing
+    marker_width = 3.0
+    marker_height = 0.15
+    gap = 0.10
+    number_space = 0.25
+    top_label_offset = 0.40
+    bottom_label_offset = 0.40
+
+    # Y positions for current (top) marker and labels
+    top_apex_y = bar_top_y + gap
+    top_base_y = top_apex_y + marker_height
+    top_number_y = top_base_y + number_space
+    top_label_y = top_number_y + top_label_offset
+
+    # Y positions for previous (bottom) marker and labels
+    bottom_apex_y = bar_bottom_y - gap
+    bottom_base_y = bottom_apex_y - marker_height
+    bottom_number_y = bottom_base_y - number_space
+    bottom_label_y = bottom_number_y - bottom_label_offset
+
+    curr_colour = _interpolate_color(curr)
+    prev_colour = _interpolate_color(prev)
+
+    # Draw triangles and numbers
+    ax.add_patch(
+        patches.Polygon(
+            [
+                (curr - marker_width / 2, top_base_y),
+                (curr + marker_width / 2, top_base_y),
+                (curr, top_apex_y),
+            ],
+            color=curr_colour,
+        )
+    )
+    ax.add_patch(
+        patches.Polygon(
+            [
+                (prev - marker_width / 2, bottom_base_y),
+                (prev + marker_width / 2, bottom_base_y),
+                (prev, bottom_apex_y),
+            ],
+            color=prev_colour,
+        )
+    )
+    ax.text(
+        curr,
+        top_number_y,
+        f"{curr:.0f}",
+        color=curr_colour,
+        ha="center",
+        va="center",
+        fontsize=8,
+        fontweight="bold",
+    )
+    ax.text(
+        prev,
+        bottom_number_y,
+        f"{prev:.0f}",
+        color=prev_colour,
+        ha="center",
+        va="center",
+        fontsize=8,
+        fontweight="bold",
+    )
+
+    if date_text:
+        ax.text(
+            curr,
+            top_label_y,
+            date_text,
+            color="#0063B0",
+            ha="center",
+            va="center",
+            fontsize=7,
+            fontweight="bold",
+        )
+    ax.text(
+        prev,
+        bottom_label_y,
+        last_label_text,
+        color="#133C74",
+        ha="center",
+        va="center",
+        fontsize=7,
+        fontweight="bold",
+    )
+
+    ax.set_xlim(0, 100)
+    ax.set_ylim(bottom_label_y - 0.35, top_label_y + 0.35)
+    ax.axis("off")
+
+    buf = BytesIO()
+    plt.savefig(buf, format="png", dpi=600, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
 
 
-def insert_bitcoin_average_gauge(
+###############################################################################
+# Helpers for reading Excel from a file-like object
+###############################################################################
+
+
+###############################################################################
+# Gauge insertion
+###############################################################################
+
+def insert_mexbol_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
 ) -> Presentation:
     """
-    Insert the Bitcoin average gauge into the Bitcoin slide.
+    Insert the MEXBOL average gauge into the MEXBOL slide.
 
     The gauge shows the average of the technical and momentum scores and
     last week's average.  It is inserted into a shape named
-    ``gauge_bitcoin`` within the Bitcoin slide.  If such a shape is not found
-    within the Bitcoin slide, placeholders ``[GAUGE]``, ``GAUGE`` or
-    ``gauge_bitcoin`` on the Bitcoin slide are used instead.  If neither is
+    ``gauge_mexbol`` within the MEXBOL slide.  If such a shape is not found
+    within the MEXBOL slide, placeholders ``[GAUGE]``, ``GAUGE`` or
+    ``gauge_mexbol`` on the MEXBOL slide are used instead.  If neither is
     present, the gauge is placed at a default position below the chart
-    on the Bitcoin slide.  Other slides remain untouched.
+    on the MEXBOL slide.  Other slides remain untouched.
     """
-    tech_score = _get_bitcoin_technical_score(excel_file)
-    mom_score = _get_bitcoin_momentum_score(excel_file)
+    tech_score = _get_mexbol_technical_score(excel_file)
+    mom_score = _get_mexbol_momentum_score(excel_file)
     if tech_score is None or mom_score is None:
         return prs
     try:
@@ -1035,13 +1222,13 @@ def insert_bitcoin_average_gauge(
         )
     except Exception:
         return prs
-    # Identify Bitcoin slide
-    bitcoin_idx = _find_bitcoin_slide(prs)
-    if bitcoin_idx is None:
+    # Identify MEXBOL slide
+    mexbol_idx = _find_mexbol_slide(prs)
+    if mexbol_idx is None:
         return prs
-    slide = prs.slides[bitcoin_idx]
-    placeholder_name = "gauge_bitcoin"
-    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_bitcoin"]
+    slide = prs.slides[mexbol_idx]
+    placeholder_name = "gauge_mexbol"
+    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_mexbol"]
     # Search for named gauge placeholder first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1051,7 +1238,7 @@ def insert_bitcoin_average_gauge(
             stream = BytesIO(gauge_bytes)
             slide.shapes.add_picture(stream, left, top, width=width, height=height)
             return prs
-    # Then search for textual gauge placeholders on the Bitcoin slide
+    # Then search for textual gauge placeholders on the MEXBOL slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1061,7 +1248,7 @@ def insert_bitcoin_average_gauge(
                     stream = BytesIO(gauge_bytes)
                     slide.shapes.add_picture(stream, left, top, width=width, height=height)
                     return prs
-    # Fallback: insert below the chart within the Bitcoin slide using template coordinates
+    # Fallback: insert below the chart within the MEXBOL slide using template coordinates
     left = Cm(8.97)
     top = Cm(12.13)
     width = Cm(15.15)
@@ -1075,17 +1262,17 @@ def insert_bitcoin_average_gauge(
 # Technical assessment insertion
 ###############################################################################
 
-def insert_bitcoin_technical_assessment(
+def insert_mexbol_technical_assessment(
     prs: Presentation,
     excel_file,
     manual_desc: Optional[str] = None,
 ) -> Presentation:
     """
-    Insert a descriptive assessment text into the Bitcoin slide.
+    Insert a descriptive assessment text into the MEXBOL slide.
 
-    The assessment is written into a shape named ``bitcoin_view`` on the Bitcoin
+    The assessment is written into a shape named ``mexbol_view`` on the MEXBOL
     slide.  If no such shape exists, the function replaces any
-    occurrences of ``[bitcoin_view]`` or ``bitcoin_view`` in text on that slide.
+    occurrences of ``[mexbol_view]`` or ``mexbol_view`` in text on that slide.
     A manual description may be provided; if not, the function computes
     the view from the average of the technical and momentum scores.
 
@@ -1095,36 +1282,36 @@ def insert_bitcoin_technical_assessment(
     if manual_desc is not None and isinstance(manual_desc, str):
         desc = manual_desc.strip()
         if desc and not desc.lower().startswith("s&p 500"):
-            desc = f"Bitcoin: {desc}"
+            desc = f"Mexbol: {desc}"
     else:
-        tech_score = _get_bitcoin_technical_score(excel_file)
-        mom_score = _get_bitcoin_momentum_score(excel_file)
+        tech_score = _get_mexbol_technical_score(excel_file)
+        mom_score = _get_mexbol_momentum_score(excel_file)
         if tech_score is None or mom_score is None:
             return prs
         avg = (float(tech_score) + float(mom_score)) / 2.0
         if avg >= 80:
-            desc = "Bitcoin: Strongly Bullish"
+            desc = "Mexbol: Strongly Bullish"
         elif avg >= 70:
-            desc = "Bitcoin: Bullish"
+            desc = "Mexbol: Bullish"
         elif avg >= 60:
-            desc = "Bitcoin: Slightly Bullish"
+            desc = "Mexbol: Slightly Bullish"
         elif avg >= 40:
-            desc = "Bitcoin: Neutral"
+            desc = "Mexbol: Neutral"
         elif avg >= 30:
-            desc = "Bitcoin: Slightly Bearish"
+            desc = "Mexbol: Slightly Bearish"
         elif avg >= 20:
-            desc = "Bitcoin: Bearish"
+            desc = "Mexbol: Bearish"
         else:
-            desc = "Bitcoin: Strongly Bearish"
+            desc = "Mexbol: Strongly Bearish"
 
-    target_name = "bitcoin_view"
-    placeholder_patterns = ["[bitcoin_view]", "bitcoin_view"]
+    target_name = "mexbol_view"
+    placeholder_patterns = ["[mexbol_view]", "mexbol_view"]
 
-    bitcoin_idx = _find_bitcoin_slide(prs)
-    if bitcoin_idx is None:
+    mexbol_idx = _find_mexbol_slide(prs)
+    if mexbol_idx is None:
         return prs
-    slide = prs.slides[bitcoin_idx]
-    # Try to locate a shape by name on the Bitcoin slide
+    slide = prs.slides[mexbol_idx]
+    # Try to locate a shape by name on the MEXBOL slide
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
         if name_attr and name_attr.lower() == target_name:
@@ -1137,7 +1324,7 @@ def insert_bitcoin_technical_assessment(
                 new_run.text = desc
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, replace placeholder patterns on the Bitcoin slide
+    # Otherwise, replace placeholder patterns on the MEXBOL slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1161,14 +1348,14 @@ def insert_bitcoin_technical_assessment(
 # Source footnote insertion
 ###############################################################################
 
-def insert_bitcoin_source(
+def insert_mexbol_source(
     prs: Presentation,
     used_date: Optional[pd.Timestamp],
     price_mode: str,
 ) -> Presentation:
     """
-    Insert the source footnote into a shape named 'bitcoin_source' (or
-    containing '[bitcoin_source]').  The footnote text depends on the selected
+    Insert the source footnote into a shape named 'mexbol_source' (or
+    containing '[mexbol_source]').  The footnote text depends on the selected
     price mode.  For example:
 
       * Last Close  → "Source: Bloomberg, Herculis Group, Data as of 29/07/2025 Close"
@@ -1198,13 +1385,13 @@ def insert_bitcoin_source(
         return prs
     suffix = " Close" if str(price_mode).lower() == "last close" else ""
     source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
-    placeholder_name = "bitcoin_source"
-    placeholder_patterns = ["[bitcoin_source]", "bitcoin_source"]
-    # Restrict insertion to the Bitcoin slide only
-    bitcoin_idx = _find_bitcoin_slide(prs)
-    if bitcoin_idx is None:
+    placeholder_name = "mexbol_source"
+    placeholder_patterns = ["[mexbol_source]", "mexbol_source"]
+    # Restrict insertion to the MEXBOL slide only
+    mexbol_idx = _find_mexbol_slide(prs)
+    if mexbol_idx is None:
         return prs
-    slide = prs.slides[bitcoin_idx]
+    slide = prs.slides[mexbol_idx]
     # Case 1: replace a shape named exactly as the placeholder
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
@@ -1218,7 +1405,7 @@ def insert_bitcoin_source(
                 new_run.text = source_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Case 2: replace occurrences of the placeholder pattern in text on the Bitcoin slide
+    # Case 2: replace occurrences of the placeholder pattern in text on the MEXBOL slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1256,17 +1443,17 @@ def generate_range_gauge_chart_image(
     vol_index_value: Optional[float] = None,
 ) -> bytes:
     """
-    Create a PNG image of the Bitcoin price chart with a vertical range gauge
+    Create a PNG image of the MEXBOL price chart with a vertical range gauge
     appended on the right.  The gauge shows a green–to–red gradient between
     recent high and support levels, with labels for the upper and lower
     bounds.  A horizontal line continues the last price into the gauge so
     that viewers can assess relative positioning.  This function is used by
-    ``insert_bitcoin_technical_chart_with_range``.
+    ``insert_mexbol_technical_chart_with_range``.
 
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full Bitcoin price history as returned by ``_load_price_data``.
+        Full MEXBOL price history as returned by ``_load_price_data``.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.  If ``None`` no
         channel will be drawn.
@@ -1286,11 +1473,17 @@ def generate_range_gauge_chart_image(
     if df_full.empty:
         return b""
 
-    # Compute bounds for the selected lookback window (``PLOT_LOOKBACK_DAYS`` days)
+    # Compute bounds for the most recent portion of data as defined by
+    # ``PLOT_LOOKBACK_DAYS`` (default 365 days).  This replaces the
+    # previous fixed one‑year window and allows external callers to
+    # override the timeframe (e.g. to 180 days for six months).
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    # Compute moving averages on the full dataset, then slice to the plotting window.
+    # Compute moving averages on the full dataset and then filter to the same
+    # subset.  Without this step the moving averages would be recomputed on
+    # the truncated window, leading to artefacts (e.g. a 200‑day MA
+    # starting only 180 days ago when ``PLOT_LOOKBACK_DAYS`` is 180).
     df_ma_full = _add_mas(df_full)
     df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -1349,7 +1542,7 @@ def generate_range_gauge_chart_image(
 
     # Plot main price series and MAs
     ax.plot(
-        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"Bitcoin Price (last: {last_price_str})"
+        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"Mexbol Price (last: {last_price_str})"
     )
     ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
@@ -1514,7 +1707,7 @@ def generate_range_gauge_only_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full Bitcoin price history as returned by ``_load_price_data``.
+        Full MEXBOL price history as returned by ``_load_price_data``.
     lookback_days : int, default 90
         Number of trading days to look back when computing high/low range.
     width_cm : float, default 2.00
@@ -1613,7 +1806,7 @@ def generate_range_gauge_only_image(
     return buf.getvalue()
 
 
-def insert_bitcoin_technical_chart_with_range(
+def insert_mexbol_technical_chart_with_range(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -1621,11 +1814,11 @@ def insert_bitcoin_technical_chart_with_range(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the Bitcoin technical analysis chart with the vertical range gauge into the PPT.
+    Insert the MEXBOL technical analysis chart with the vertical range gauge into the PPT.
 
-    This function behaves similarly to ``insert_bitcoin_technical_chart`` but uses
+    This function behaves similarly to ``insert_mexbol_technical_chart`` but uses
     ``generate_range_gauge_chart_image`` to draw a combined chart and gauge.
-    It attempts to find a shape named 'bitcoin' or containing '[bitcoin]' to locate the
+    It attempts to find a shape named 'mexbol' or containing '[mexbol]' to locate the
     slide for insertion.  The image is placed at fixed coordinates matching the
     original template (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
 
@@ -1634,7 +1827,7 @@ def insert_bitcoin_technical_chart_with_range(
     prs : Presentation
         The PowerPoint presentation into which the chart should be inserted.
     excel_file : file‑like object or path
-        Excel workbook containing Bitcoin price data.
+        Excel workbook containing MEXBOL price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.
     lookback_days : int, default 90
@@ -1647,14 +1840,14 @@ def insert_bitcoin_technical_chart_with_range(
     """
     # Load data
     try:
-        df_full = _load_price_data_from_obj(excel_file, "XBTUSD Curncy", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "MEXBOL Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "XBTUSD Curncy", price_mode=price_mode)
-    # Determine the implied volatility index value (BVXS Index) from the Excel file
+        df_full = _load_price_data(pathlib.Path(excel_file), "MEXBOL Index", price_mode=price_mode)
+    # Determine the implied volatility index value (VIX) from the Excel file
     # so that the expected one‑week trading range can be estimated.  If the
     # volatility index cannot be read, ``None`` is returned and the range
     # will fall back to an ATR‑based estimate.
-    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="BVXS Index")
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
     img_bytes = generate_range_gauge_chart_image(
         df_full,
         anchor_date=anchor_date,
@@ -1667,11 +1860,11 @@ def insert_bitcoin_technical_chart_with_range(
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "bitcoin":
+            if name_attr == "mexbol":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[bitcoin]":
+                if (shape.text or "").strip().lower() == "[mexbol]":
                     target_slide = slide
                     break
         if target_slide:
@@ -1680,7 +1873,7 @@ def insert_bitcoin_technical_chart_with_range(
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Position and dimensions tailored to the original placeholder size.
-    # The Bitcoin slide in the template allocates ~21.41 cm for the chart area
+    # The MEXBOL slide in the template allocates ~21.41 cm for the chart area
     # and reserves the remaining width for the chart title, subtitle and
     # margins.  We therefore insert the combined chart‑and‑gauge image
     # using the original dimensions (21.41 cm × 7.53 cm) and rely on the
