@@ -1,8 +1,8 @@
 """
-Utility functions for NIKKEI technical analysis and high‑resolution export.
+Utility functions for S&P 500 technical analysis and high‑resolution export.
 
 This module provides tools to build interactive and static charts for the
-NIKKEI index, calculate and insert technical and momentum scores into
+S&P 500 index, calculate and insert technical and momentum scores into
 PowerPoint presentations, generate horizontal and vertical gauges that
 visualise the average of the technical and momentum scores, as well as
 contextual trading ranges (higher and lower range bounds).  Functions
@@ -10,22 +10,22 @@ fall back to sensible defaults when placeholders are not found.
 
 Key functions include:
 
-* ``make_nikkei_figure`` – interactive Plotly chart for Streamlit.
-* ``insert_nikkei_technical_chart`` – insert a static NIKKEI chart into a PPTX.
-* ``insert_nikkei_technical_score_number`` – insert the technical score (integer).
-* ``insert_nikkei_momentum_score_number`` – insert the momentum score (integer).
-* ``insert_nikkei_subtitle`` – insert a user‑defined subtitle into the NIKKEI slide.
+* ``make_spx_figure`` – interactive Plotly chart for Streamlit.
+* ``insert_spx_technical_chart`` – insert a static SPX chart into a PPTX.
+* ``insert_spx_technical_score_number`` – insert the technical score (integer).
+* ``insert_spx_momentum_score_number`` – insert the momentum score (integer).
+* ``insert_spx_subtitle`` – insert a user‑defined subtitle into the SPX slide.
 * ``generate_average_gauge_image`` – create a horizontal gauge image.
-* ``insert_nikkei_average_gauge`` – insert the gauge into a PPT slide.
-* ``insert_nikkei_technical_assessment`` – insert a descriptive “view” text.
+* ``insert_spx_average_gauge`` – insert the gauge into a PPT slide.
+* ``insert_spx_technical_assessment`` – insert a descriptive “view” text.
 * ``generate_range_gauge_chart_image`` – create a combined price chart with
   a vertical range gauge on the right hand side, including a horizontal line
   connecting the last price to the gauge.  This function is used by
-  ``insert_nikkei_technical_chart_with_range``.
-* ``insert_nikkei_technical_chart_with_range`` – insert the NIKKEI technical
+  ``insert_spx_technical_chart_with_range``.
+* ``insert_spx_technical_chart_with_range`` – insert the SPX technical
   analysis chart with the higher/lower range gauge into the PPT.
 
-The range gauge illustrates the recent trading range for the NIKKEI.
+The range gauge illustrates the recent trading range for the S&P 500.
 Instead of using the absolute high and low closes of the last 90 days,
 the bounds are estimated from recent volatility.  Whenever possible the
 code looks up the forward‑looking volatility index (VIX) and computes a
@@ -56,21 +56,29 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 
 from pptx import Presentation
-
-# Import common helpers (eliminates code duplication)
-from technical_analysis.common_helpers import (
-    _get_run_font_attributes,
-    _apply_run_font_attributes,
-    _add_mas,
-    _get_technical_score_generic,
-    _get_momentum_score_generic,
-)
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
+
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Configuration
+#
+# ``PLOT_LOOKBACK_DAYS`` controls the default window of historical data used
+# when drawing charts.  It is expressed in trading days and set by default
+# to 90 (approximately 3 months) to match the desired timeframe.  The
+# Streamlit application may override this value at runtime by assigning
+# a new integer to this module-level constant before invoking any chart
+# functions.  When computing moving averages for the static charts, the
+# rolling windows are always computed on the full price history and then
+# cropped to the lookback window to avoid artificially shortening longer
+# moving averages when displaying a shorter slice of data.
+PLOT_LOOKBACK_DAYS: int = 90
 
 # Import helper for adjusting price data according to price mode.  The utils
 # module must reside at the project root.  It is deliberately not imported
@@ -83,25 +91,91 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
-# Default lookback window (in days) for plotting.  The app can override
-# this value at runtime by setting the module-level ``PLOT_LOOKBACK_DAYS``
-# attribute.  We use 90 days (approximately 3 months) by default to
-# align with the updated requirement from management.  When the user
-# selects a different timeframe (e.g. 6 months), ``app.py`` will
-# temporarily override this constant to 180 days.
-PLOT_LOOKBACK_DAYS: int = 90
-
 ###############################################################################
 # Internal helpers
 ###############################################################################
 
+def _get_run_font_attributes(run):
+    """Capture font attributes from a run.
+
+    Returns a tuple ``(size, rgb, theme_color, brightness, bold, italic)``.
+    The colour information includes either the RGB value if explicitly
+    defined, or the theme colour and brightness for a scheme colour.  If
+    colour information is not available, ``rgb`` and ``theme_color`` are
+    ``None``.  Bold and italic attributes are preserved as provided.
+    """
+    if run is None:
+        return None, None, None, None, None, None
+    size = run.font.size
+    colour = run.font.color
+    rgb = None
+    theme_color = None
+    brightness = None
+    # Try to capture an explicit RGB value
+    try:
+        rgb = colour.rgb
+    except Exception:
+        rgb = None
+        # If no RGB value, attempt to capture a theme colour
+        try:
+            theme_color = colour.theme_color
+        except Exception:
+            theme_color = None
+    # Capture brightness adjustment if available
+    try:
+        brightness = colour.brightness
+    except Exception:
+        brightness = None
+    bold = run.font.bold
+    italic = run.font.italic
+    return size, rgb, theme_color, brightness, bold, italic
 
 
+def _apply_run_font_attributes(new_run, size, rgb, theme_color, brightness, bold, italic):
+    """Apply captured font attributes to a new run.
+
+    Parameters
+    ----------
+    new_run : pptx.text.run.Run
+        The run to which attributes should be applied.
+    size : pptx.util.Length or None
+        The font size to apply.
+    rgb : pptx.dml.color.RGBColor or None
+        The explicit RGB colour value to apply.
+    theme_color : MSO_THEME_COLOR or None
+        The theme colour value to apply if no RGB colour is defined.
+    brightness : float or None
+        Brightness adjustment for the colour, if any.
+    bold : bool or None
+        Whether the font should be bold.
+    italic : bool or None
+        Whether the font should be italic.
+    """
+    if size is not None:
+        new_run.font.size = size
+    # Apply colour: prefer explicit RGB, otherwise theme colour
+    if rgb is not None:
+        try:
+            new_run.font.color.rgb = rgb
+        except Exception:
+            pass
+    elif theme_color is not None:
+        try:
+            new_run.font.color.theme_color = theme_color
+            if brightness is not None:
+                new_run.font.color.brightness = brightness
+        except Exception:
+            pass
+    # Apply bold and italic
+    if bold is not None:
+        new_run.font.bold = bold
+    if italic is not None:
+        new_run.font.italic = italic
 
 
 def _load_price_data(
     excel_path: pathlib.Path,
-    ticker: str = "NKY Index",
+    ticker: str = "SPX Index",
     price_mode: str = "Last Price",
 ) -> pd.DataFrame:
     """
@@ -111,7 +185,7 @@ def _load_price_data(
     ----------
     excel_path : pathlib.Path
         Path to the Excel workbook containing price data.
-    ticker : str, default "NKY Index"
+    ticker : str, default "SPX Index"
         Column name corresponding to the desired ticker in the Excel sheet.
     price_mode : str, default "Last Price"
         One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
@@ -144,7 +218,12 @@ def _load_price_data(
     return df_clean
 
 
-
+def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
+    """Add 50/100/200‑day moving‑average columns to a DataFrame."""
+    out = df.copy()
+    for w in (50, 100, 200):
+        out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
+    return out
 
 def _get_vol_index_value(
     excel_obj_or_path,
@@ -179,48 +258,22 @@ def _get_vol_index_value(
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
     except Exception:
         return None
-    # Drop first row and metadata rows
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    # Parse dates and the volatility index column
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    # Ensure the volatility index column exists
-    if vol_ticker not in df.columns:
-        return None
-    df["Price"] = pd.to_numeric(df[vol_ticker], errors="coerce")
-    df_clean = df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-        ["Date", "Price"]
-    ]
-    # Apply price mode adjustment if possible
-    if adjust_prices_for_mode is not None and price_mode:
-        try:
-            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
-        except Exception:
-            pass
-    if df_clean.empty:
-        return None
-    try:
-        return float(df_clean["Price"].iloc[-1])
-    except Exception:
-        return None
 
-
-###############################################################################
-# Plotly interactive chart for Streamlit
-###############################################################################
-
-def make_nikkei_figure(
+# ---------------------------------------------------------------------------
+# Momentum score helpers
+#
+def make_spx_figure(
     excel_path: str | pathlib.Path,
     anchor_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
 ) -> go.Figure:
     """
-    Build an interactive NIKKEI chart for Streamlit.
+    Build an interactive SPX chart for Streamlit.
 
     Parameters
     ----------
     excel_path : str or pathlib.Path
-        Path to the Excel file containing NIKKEI price data.
+        Path to the Excel file containing SPX price data.
     anchor_date : pandas.Timestamp or None, optional
         If provided, a regression channel is drawn from ``anchor_date`` to the
         latest date.
@@ -240,13 +293,15 @@ def make_nikkei_figure(
     """
     excel_path = pathlib.Path(excel_path)
     # Load data and adjust according to the price mode
-    df_raw = _load_price_data(excel_path, "NKY Index", price_mode=price_mode)
+    df_raw = _load_price_data(excel_path, "SPX Index", price_mode=price_mode)
     df_full = _add_mas(df_raw)
 
     if df_full.empty:
         return go.Figure()
 
     today = df_full["Date"].max().normalize()
+    # Restrict the chart to the configured lookback window (e.g. last 90 days).
+    # ``PLOT_LOOKBACK_DAYS`` defaults to 90 but may be overridden at runtime.
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -262,7 +317,7 @@ def make_nikkei_figure(
             x=df["Date"],
             y=df["Price"],
             mode="lines",
-            name=f"NIKKEI Price (last: {last_price_str})",
+            name=f"S&P 500 Price (last: {last_price_str})",
             line=dict(color="#153D64", width=2.5),
         )
     )
@@ -367,7 +422,7 @@ def make_nikkei_figure(
 # High‑resolution chart export (PNG)
 ###############################################################################
 
-def _generate_nikkei_image_from_df(
+def _generate_spx_image_from_df(
     df_full: pd.DataFrame,
     anchor_date: Optional[pd.Timestamp],
     width_cm: float = 21.41,
@@ -378,12 +433,16 @@ def _generate_nikkei_image_from_df(
     Includes price, moving averages, Fibonacci lines and optional regression channel.
     """
     today = df_full["Date"].max().normalize()
+    # Compute the lookback start based on the configurable window
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
+    # Slice the price history to the configured lookback window
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    df_ma = df.copy()
-    for w in (50, 100, 200):
-        df_ma[f"MA_{w}"] = df_ma["Price"].rolling(w, min_periods=1).mean()
+    # Compute moving averages on the full dataset once, then slice to the
+    # same window.  This prevents shorter lookback windows from truncating
+    # the rolling windows for the 50-, 100- and 200-day moving averages.
+    df_ma_full = _add_mas(df_full)
+    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
     uptrend = False
     upper = lower = None
@@ -411,7 +470,7 @@ def _generate_nikkei_image_from_df(
         df["Price"],
         color="#153D64",
         linewidth=2.5,
-        label=f"NIKKEI Price (last: {last_price_str})",
+        label=f"S&P 500 Price (last: {last_price_str})",
     )
     ax.plot(
         df_ma["Date"],
@@ -478,54 +537,64 @@ def _generate_nikkei_image_from_df(
 # Score helpers
 ###############################################################################
 
-def _get_nikkei_technical_score(excel_obj_or_path) -> Optional[float]:
+def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for NIKKEI.
-    Uses common helper with instrument-specific ticker.
+    Retrieve the technical score for SPX from 'data_technical_score' (col A, B).
+    Returns None if the sheet or score is unavailable.
     """
-    return _get_technical_score_generic(excel_obj_or_path, "NKY INDEX")
+    try:
+        df = pd.read_excel(excel_obj_or_path, sheet_name="data_technical_score")
+    except Exception:
+        return None
+    df = df.dropna(subset=[df.columns[0], df.columns[1]])
+    for _, row in df.iterrows():
+        if str(row[df.columns[0]]).strip().upper() == "SPX INDEX":
+            try:
+                return float(row[df.columns[1]])
+            except Exception:
+                return None
+    return None
 
 
+def _find_spx_slide(prs: Presentation) -> Optional[int]:
+    """Locate the index of the slide that contains the SPX placeholder.
 
-def _find_nikkei_slide(prs: Presentation) -> Optional[int]:
-    """Locate the index of the slide that contains the NIKKEI placeholder.
-
-    This helper searches for a slide containing a shape named ``nikkei`` or
-    whose text is exactly ``[nikkei]`` (case‑insensitive).  It returns the
+    This helper searches for a slide containing a shape named ``spx`` or
+    whose text is exactly ``[spx]`` (case‑insensitive).  It returns the
     zero‑based slide index or ``None`` if no such slide exists.
     """
     for idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "nikkei":
+            if name_attr == "spx":
                 return idx
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[nikkei]":
+                if (shape.text or "").strip().lower() == "[spx]":
                     return idx
     return None
 
 
-def insert_nikkei_technical_score_number(prs: Presentation, excel_file) -> Presentation:
+def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the NIKKEI technical score (integer) into the NIKKEI slide.
+    Insert the SPX technical score (integer) into the SPX slide.
 
-    This function looks for a shape named ``tech_score_nikkei`` on the slide
-    identified by the ``nikkei`` placeholder.  If not found, it searches for
+    This function looks for a shape named ``tech_score_spx`` on the slide
+    identified by the ``spx`` placeholder.  If not found, it searches for
     placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
     the original placeholder run is preserved.  Other slides are not
-    modified, avoiding accidental replacement of NIKKEI placeholders.
+    modified, avoiding accidental replacement of CSI placeholders.
     """
-    score = _get_nikkei_technical_score(excel_file)
+    score = _get_spx_technical_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
 
-    placeholder_name = "tech_score_nikkei"
+    placeholder_name = "tech_score_spx"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
-        # No NIKKEI slide found; return unmodified
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
+        # No SPX slide found; return unmodified
         return prs
-    slide = prs.slides[nikkei_idx]
+    slide = prs.slides[spx_idx]
     # First search for a shape named exactly as the placeholder
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -538,7 +607,7 @@ def insert_nikkei_technical_score_number(prs: Presentation, excel_file) -> Prese
                 new_run.text = score_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, search for textual placeholders within shapes on the NIKKEI slide
+    # Otherwise, search for textual placeholders within shapes on the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -571,7 +640,7 @@ def generate_range_callout_chart_image(
     show_legend: bool = True,
 ) -> bytes:
     """
-    Create a PNG image of the NIKKEI price chart with a textual call‑out on the
+    Create a PNG image of the SPX price chart with a textual call‑out on the
     right summarising the recent trading range.  The call‑out lists the
     higher and lower range values (with ±% changes relative to the last
     price) and draws small coloured markers aligned with those levels on
@@ -581,7 +650,7 @@ def generate_range_callout_chart_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full NIKKEI price history with 'Date' and 'Price' columns.
+        Full SPX price history with 'Date' and 'Price' columns.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for a regression channel; if provided, the
         channel is drawn on the price chart.
@@ -613,17 +682,14 @@ def generate_range_callout_chart_image(
     if df_full.empty:
         return b""
 
-    # Restrict to the last year of data for plotting
+    # Restrict to the configured lookback window for plotting
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
-    # Calculate moving averages on the full dataset and then slice to the
-    # plotting window.  Computing MAs on the truncated subset would
-    # shorten long-period averages (e.g. 200-day) and change their values.
-    # We therefore compute MAs on ``df_full`` and then filter to the
-    # desired date range.  See https://github.com/yourorg/ic/issues/1234
-    # for background on this change.
+    # Compute moving averages on the full history and then slice to the
+    # lookback window.  This ensures that long moving averages (e.g. 200 days)
+    # are not recomputed on the truncated data window.
     df_ma_full = _add_mas(df_full)
     df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -717,7 +783,7 @@ def generate_range_callout_chart_image(
 
     # Plot price and moving averages on the main chart
     ax_chart.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5,
-                  label=f"NIKKEI Price (last: {last_price:,.2f})")
+                  label=f"S&P 500 Price (last: {last_price:,.2f})")
     ax_chart.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
     ax_chart.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
@@ -839,7 +905,7 @@ def generate_range_callout_chart_image(
     return buf.getvalue()
 
 
-def insert_nikkei_technical_chart_with_callout(
+def insert_spx_technical_chart_with_callout(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -847,14 +913,14 @@ def insert_nikkei_technical_chart_with_callout(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the NIKKEI technical analysis chart with the trading range call‑out
+    Insert the SPX technical analysis chart with the trading range call‑out
     into the PowerPoint.  This function mirrors the behaviour of
-    ``insert_nikkei_technical_chart_with_range`` but uses the call‑out style to
+    ``insert_spx_technical_chart_with_range`` but uses the call‑out style to
     display the high and low bounds instead of a vertical gauge.
 
     The image is placed at the fixed coordinates (0.93 cm left, 5.46 cm top)
     with dimensions 24.2 cm wide by 6.52 cm high.  These values match those
-    used on the NIKKEI slide and leave room above for a separate legend on the
+    used on the IBOV slide and leave room above for a separate legend on the
     PowerPoint slide.  When inserting into the presentation the legend is
     suppressed in the image itself so that it can be added manually.
 
@@ -863,7 +929,7 @@ def insert_nikkei_technical_chart_with_callout(
     prs : Presentation
         The PowerPoint presentation to modify.
     excel_file : file‑like object or path
-        Excel workbook containing NIKKEI price data.
+        Excel workbook containing SPX price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for a regression channel.
     lookback_days : int, default 90
@@ -876,20 +942,21 @@ def insert_nikkei_technical_chart_with_callout(
     """
     # Load the price data from the Excel file
     try:
-        df_full = _load_price_data_from_obj(excel_file, "NKY Index", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "NKY Index", price_mode=price_mode)
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
 
-    # For the NIKKEI index there is no commonly used implied volatility index.
-    # Do not attempt to read a volatility index from the Excel file.  The
-    # range calculation in ``generate_range_callout_chart_image`` will
-    # automatically fall back to realised volatility when the
-    # ``vol_index_value`` is ``None``.
-    vol_val = None
+    # Determine the implied volatility index value (VIX) from the Excel file
+    # so that the expected one‑week trading range can be estimated.  If the
+    # volatility index cannot be read, ``None`` is returned and the range
+    # will fall back to an ATR‑based estimate.
+    vol_val = _get_vol_index_value(excel_file, price_mode=price_mode, vol_ticker="VIX Index")
     # Generate the image with the call‑out.  Use a width of 24.2 cm and a
-    # height of 6.52 cm (matching the NIKKEI template) so that there is
+    # height of 6.52 cm (matching the IBOV template) so that there is
     # sufficient space above the chart for an external legend.  Pass
-    # ``show_legend=False`` to suppress the internal legend on the figure.
+    # ``show_legend=False`` to suppress the internal legend on the figure and
+    # provide the volatility index value so that the range calculation can
+    # use the implied volatility if available.
     img_bytes = generate_range_callout_chart_image(
         df_full,
         anchor_date=anchor_date,
@@ -900,16 +967,16 @@ def insert_nikkei_technical_chart_with_callout(
         show_legend=False,
     )
 
-    # Locate the slide containing the 'nikkei' placeholder or text
+    # Locate the slide containing the 'spx' placeholder or text
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "nikkei":
+            if name_attr == "spx":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[nikkei]":
+                if (shape.text or "").strip().lower() == "[spx]":
                     target_slide = slide
                     break
         if target_slide:
@@ -919,7 +986,7 @@ def insert_nikkei_technical_chart_with_callout(
 
     # Insert the image at the requested coordinates.  The dimensions
     # 24.2 cm wide and 6.52 cm high and position (0.93 cm, 5.46 cm)
-    # mirror those used on the NIKKEI slide.  These values leave room
+    # mirror those used on the IBOV slide.  These values leave room
     # above for a separate legend, which can be added later.  Add the
     # picture and bring it to the front so that it is not obscured by
     # other shapes (e.g. a placeholder gauge).
@@ -938,11 +1005,11 @@ def insert_nikkei_technical_chart_with_callout(
         # Fallback: leave the picture at the end of the shape list
         pass
 
-    # Replace the last‑price placeholder on the NIKKEI slide.  Compute the
+    # Replace the last‑price placeholder on the SPX slide.  Compute the
     # most recent price and format it with two decimal places; fall back
     # to 'N/A' if unavailable.  The placeholder may be a shape named
-    # ``last_price_nikkei`` or text containing ``[last_price_nikkei]`` or
-    # ``last_price_nikkei``.  Font attributes are preserved.
+    # ``last_price_spx`` or text containing ``[last_price_spx]`` or
+    # ``last_price_spx``.  Font attributes are preserved.
     last_price = None
     if df_full is not None and not df_full.empty:
         try:
@@ -950,8 +1017,8 @@ def insert_nikkei_technical_chart_with_callout(
         except Exception:
             last_price = None
     last_str = f"(last: {last_price:,.2f})" if last_price is not None else "(last: N/A)"
-    placeholder_name = "last_price_nikkei"
-    placeholder_patterns = ["[last_price_nikkei]", "last_price_nikkei"]
+    placeholder_name = "last_price_spx"
+    placeholder_patterns = ["[last_price_spx]", "last_price_spx"]
     replaced = False
     for shp in target_slide.shapes:
         # Match by shape name
@@ -1000,34 +1067,75 @@ def insert_nikkei_technical_chart_with_callout(
     return prs
 
 
-def _get_nikkei_momentum_score(excel_obj_or_path) -> Optional[float]:
+def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the momentum score for NIKKEI.
-    Uses common helper with instrument-specific ticker.
+    Return the numeric momentum score for S&P 500 (ticker ``SPX INDEX``).
+
+    This function extracts the momentum score from the ``data_trend_rating``
+    sheet (column index 3). If the value is not present or is NaN, it checks
+    the ``parameters`` sheet for a custom override. Finally, it maps the
+    letter grade from the 'Current' column to a numeric score via a fixed
+    dictionary.
+
+    Parameters
+    ----------
+    excel_obj_or_path : file-like or path
+        Excel workbook containing ``data_trend_rating`` and optionally
+        ``parameters`` sheets.
+
+    Returns
+    -------
+    float or None
+        The numeric momentum score for S&P 500, or ``None`` if it cannot be
+        determined.
     """
-    return _get_momentum_score_generic(excel_obj_or_path, "NKY INDEX")
+    try:
+        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
+    except Exception:
+        return None
+    # Identify the row for SPX based on the ticker column (first column)
+    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SPX INDEX"
+    if not mask.any():
+        return None
+    row = df.loc[mask].iloc[0]
+    # Try to convert the existing value in column 3 to float
+    try:
+        return float(row.iloc[3])
+    except Exception:
+        pass
+    # Fall back to mapping letter rating to numeric using parameters sheet
+    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
+    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
+    # Optionally lookup in 'parameters' sheet for customized mapping
+    try:
+        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
+        spx_param = params[params["Tickers"].astype(str).str.upper() == "SPX INDEX"]
+        if not spx_param.empty and "Unnamed: 8" in spx_param:
+            return float(spx_param["Unnamed: 8"].dropna().iloc[0])
+    except Exception:
+        pass
+    return mapping.get(rating)
 
 
-
-def insert_nikkei_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
+def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
     """
-    Insert the NIKKEI momentum score (integer) into the NIKKEI slide.
+    Insert the SPX momentum score (integer) into the SPX slide.
 
-    The momentum score is inserted into a shape named ``mom_score_nikkei`` on
-    the NIKKEI slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
-    placeholder within the NIKKEI slide is replaced instead.  This avoids
-    inadvertently replacing placeholders on NIKKEI or other slides.
+    The momentum score is inserted into a shape named ``mom_score_spx`` on
+    the SPX slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
+    placeholder within the SPX slide is replaced instead.  This avoids
+    inadvertently replacing placeholders on CSI or other slides.
     """
-    score = _get_nikkei_momentum_score(excel_file)
+    score = _get_spx_momentum_score(excel_file)
     score_text = "N/A" if score is None else f"{int(round(float(score)))}"
 
-    placeholder_name = "mom_score_nikkei"
+    placeholder_name = "mom_score_spx"
     placeholder_patterns = ["[XXX]", "XXX"]
 
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[nikkei_idx]
+    slide = prs.slides[spx_idx]
     # Attempt to replace the named placeholder first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1040,7 +1148,7 @@ def insert_nikkei_momentum_score_number(prs: Presentation, excel_file) -> Presen
                 new_run.text = score_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, replace placeholder patterns on the NIKKEI slide only
+    # Otherwise, replace placeholder patterns on the SPX slide only
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1061,36 +1169,36 @@ def insert_nikkei_momentum_score_number(prs: Presentation, excel_file) -> Presen
 # Chart insertion
 ###############################################################################
 
-def insert_nikkei_technical_chart(
+def insert_spx_technical_chart(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the NIKKEI technical‑analysis chart into the PPT.
+    Insert the SPX technical‑analysis chart into the PPT.
 
-    We only use the textbox named ``nikkei`` (or containing “[nikkei]”) to locate
+    We only use the textbox named ``spx`` (or containing “[spx]”) to locate
     the correct slide; the chart itself is always pasted at the fixed
     coordinates (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
     """
     # Load data and generate image
     try:
-        df_full = _load_price_data_from_obj(excel_file, "NKY Index", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "NKY Index", price_mode=price_mode)
-    img_bytes = _generate_nikkei_image_from_df(df_full, anchor_date)
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
+    img_bytes = _generate_spx_image_from_df(df_full, anchor_date)
 
-    # Find the slide containing the 'nikkei' placeholder
+    # Find the slide containing the 'spx' placeholder
     target_slide = None
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "nikkei":
+            if name_attr == "spx":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[nikkei]":
+                if (shape.text or "").strip().lower() == "[spx]":
                     target_slide = slide
                     break
         if target_slide:
@@ -1113,24 +1221,24 @@ def insert_nikkei_technical_chart(
 # Subtitle insertion
 ###############################################################################
 
-def insert_nikkei_subtitle(prs: Presentation, subtitle: str) -> Presentation:
+def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     """
-    Replace the NIKKEI subtitle placeholder with the provided text.
+    Replace the SPX subtitle placeholder with the provided text.
 
-    Only the slide identified by the ``nikkei`` placeholder is modified.  A
-    shape named ``nikkei_text`` takes precedence; if it does not exist
-    within the NIKKEI slide, any occurrences of ``XXX`` or ``[XXX]`` on
+    Only the slide identified by the ``spx`` placeholder is modified.  A
+    shape named ``spx_text`` takes precedence; if it does not exist
+    within the SPX slide, any occurrences of ``XXX`` or ``[XXX]`` on
     that slide are replaced instead.  Formatting of the original run is
     preserved.
     """
-    placeholder_name = "nikkei_text"
+    placeholder_name = "spx_text"
     placeholder_patterns = ["[XXX]", "XXX"]
     subtitle_text = subtitle or ""
 
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[nikkei_idx]
+    slide = prs.slides[spx_idx]
     # Try to update the named subtitle shape first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1143,7 +1251,7 @@ def insert_nikkei_subtitle(prs: Presentation, subtitle: str) -> Presentation:
                 new_run.text = subtitle_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, replace placeholder patterns within the NIKKEI slide
+    # Otherwise, replace placeholder patterns within the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1324,7 +1432,7 @@ def generate_average_gauge_image(
 
 def _load_price_data_from_obj(
     excel_obj,
-    ticker: str = "NKY Index",
+    ticker: str = "SPX Index",
     price_mode: str = "Last Price",
 ) -> pd.DataFrame:
     """
@@ -1335,7 +1443,7 @@ def _load_price_data_from_obj(
     excel_obj : file-like
         File-like object representing an Excel workbook containing a
         ``data_prices`` sheet.
-    ticker : str, default "NKY Index"
+    ticker : str, default "SPX Index"
         Column name corresponding to the desired ticker in the Excel sheet.
     price_mode : str, default "Last Price"
         One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
@@ -1371,22 +1479,22 @@ def _load_price_data_from_obj(
 # Gauge insertion
 ###############################################################################
 
-def insert_nikkei_average_gauge(
+def insert_spx_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
 ) -> Presentation:
     """
-    Insert the NIKKEI average gauge into the NIKKEI slide.
+    Insert the SPX average gauge into the SPX slide.
 
     The gauge shows the average of the technical and momentum scores and
     last week's average.  It is inserted into a shape named
-    ``gauge_nikkei`` within the NIKKEI slide.  If such a shape is not found
-    within the NIKKEI slide, placeholders ``[GAUGE]``, ``GAUGE`` or
-    ``gauge_nikkei`` on the NIKKEI slide are used instead.  If neither is
+    ``gauge_spx`` within the SPX slide.  If such a shape is not found
+    within the SPX slide, placeholders ``[GAUGE]``, ``GAUGE`` or
+    ``gauge_spx`` on the SPX slide are used instead.  If neither is
     present, the gauge is placed at a default position below the chart
-    on the NIKKEI slide.  Other slides remain untouched.
+    on the SPX slide.  Other slides remain untouched.
     """
-    tech_score = _get_nikkei_technical_score(excel_file)
-    mom_score = _get_nikkei_momentum_score(excel_file)
+    tech_score = _get_spx_technical_score(excel_file)
+    mom_score = _get_spx_momentum_score(excel_file)
     if tech_score is None or mom_score is None:
         return prs
     try:
@@ -1401,13 +1509,13 @@ def insert_nikkei_average_gauge(
         )
     except Exception:
         return prs
-    # Identify NIKKEI slide
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
+    # Identify SPX slide
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[nikkei_idx]
-    placeholder_name = "gauge_nikkei"
-    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_nikkei"]
+    slide = prs.slides[spx_idx]
+    placeholder_name = "gauge_spx"
+    placeholder_patterns = ["[GAUGE]", "GAUGE", "gauge_spx"]
     # Search for named gauge placeholder first
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name:
@@ -1417,7 +1525,7 @@ def insert_nikkei_average_gauge(
             stream = BytesIO(gauge_bytes)
             slide.shapes.add_picture(stream, left, top, width=width, height=height)
             return prs
-    # Then search for textual gauge placeholders on the NIKKEI slide
+    # Then search for textual gauge placeholders on the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1427,7 +1535,7 @@ def insert_nikkei_average_gauge(
                     stream = BytesIO(gauge_bytes)
                     slide.shapes.add_picture(stream, left, top, width=width, height=height)
                     return prs
-    # Fallback: insert below the chart within the NIKKEI slide using template coordinates
+    # Fallback: insert below the chart within the SPX slide using template coordinates
     left = Cm(8.97)
     top = Cm(12.13)
     width = Cm(15.15)
@@ -1441,17 +1549,17 @@ def insert_nikkei_average_gauge(
 # Technical assessment insertion
 ###############################################################################
 
-def insert_nikkei_technical_assessment(
+def insert_spx_technical_assessment(
     prs: Presentation,
     excel_file,
     manual_desc: Optional[str] = None,
 ) -> Presentation:
     """
-    Insert a descriptive assessment text into the NIKKEI slide.
+    Insert a descriptive assessment text into the SPX slide.
 
-    The assessment is written into a shape named ``nikkei_view`` on the NIKKEI
+    The assessment is written into a shape named ``spx_view`` on the SPX
     slide.  If no such shape exists, the function replaces any
-    occurrences of ``[nikkei_view]`` or ``nikkei_view`` in text on that slide.
+    occurrences of ``[spx_view]`` or ``spx_view`` in text on that slide.
     A manual description may be provided; if not, the function computes
     the view from the average of the technical and momentum scores.
 
@@ -1461,36 +1569,36 @@ def insert_nikkei_technical_assessment(
     if manual_desc is not None and isinstance(manual_desc, str):
         desc = manual_desc.strip()
         if desc and not desc.lower().startswith("s&p 500"):
-            desc = f"NIKKEI: {desc}"
+            desc = f"S&P 500: {desc}"
     else:
-        tech_score = _get_nikkei_technical_score(excel_file)
-        mom_score = _get_nikkei_momentum_score(excel_file)
+        tech_score = _get_spx_technical_score(excel_file)
+        mom_score = _get_spx_momentum_score(excel_file)
         if tech_score is None or mom_score is None:
             return prs
         avg = (float(tech_score) + float(mom_score)) / 2.0
         if avg >= 80:
-            desc = "NIKKEI: Strongly Bullish"
+            desc = "S&P 500: Strongly Bullish"
         elif avg >= 70:
-            desc = "NIKKEI: Bullish"
+            desc = "S&P 500: Bullish"
         elif avg >= 60:
-            desc = "NIKKEI: Slightly Bullish"
+            desc = "S&P 500: Slightly Bullish"
         elif avg >= 40:
-            desc = "NIKKEI: Neutral"
+            desc = "S&P 500: Neutral"
         elif avg >= 30:
-            desc = "NIKKEI: Slightly Bearish"
+            desc = "S&P 500: Slightly Bearish"
         elif avg >= 20:
-            desc = "NIKKEI: Bearish"
+            desc = "S&P 500: Bearish"
         else:
-            desc = "NIKKEI: Strongly Bearish"
+            desc = "S&P 500: Strongly Bearish"
 
-    target_name = "nikkei_view"
-    placeholder_patterns = ["[nikkei_view]", "nikkei_view"]
+    target_name = "spx_view"
+    placeholder_patterns = ["[spx_view]", "spx_view"]
 
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[nikkei_idx]
-    # Try to locate a shape by name on the NIKKEI slide
+    slide = prs.slides[spx_idx]
+    # Try to locate a shape by name on the SPX slide
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
         if name_attr and name_attr.lower() == target_name:
@@ -1503,7 +1611,7 @@ def insert_nikkei_technical_assessment(
                 new_run.text = desc
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Otherwise, replace placeholder patterns on the NIKKEI slide
+    # Otherwise, replace placeholder patterns on the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1527,14 +1635,14 @@ def insert_nikkei_technical_assessment(
 # Source footnote insertion
 ###############################################################################
 
-def insert_nikkei_source(
+def insert_spx_source(
     prs: Presentation,
     used_date: Optional[pd.Timestamp],
     price_mode: str,
 ) -> Presentation:
     """
-    Insert the source footnote into a shape named 'nikkei_source' (or
-    containing '[nikkei_source]').  The footnote text depends on the selected
+    Insert the source footnote into a shape named 'spx_source' (or
+    containing '[spx_source]').  The footnote text depends on the selected
     price mode.  For example:
 
       * Last Close  → "Source: Bloomberg, Herculis Group, Data as of 29/07/2025 Close"
@@ -1564,13 +1672,13 @@ def insert_nikkei_source(
         return prs
     suffix = " Close" if str(price_mode).lower() == "last close" else ""
     source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
-    placeholder_name = "nikkei_source"
-    placeholder_patterns = ["[nikkei_source]", "nikkei_source"]
-    # Restrict insertion to the NIKKEI slide only
-    nikkei_idx = _find_nikkei_slide(prs)
-    if nikkei_idx is None:
+    placeholder_name = "spx_source"
+    placeholder_patterns = ["[spx_source]", "spx_source"]
+    # Restrict insertion to the SPX slide only
+    spx_idx = _find_spx_slide(prs)
+    if spx_idx is None:
         return prs
-    slide = prs.slides[nikkei_idx]
+    slide = prs.slides[spx_idx]
     # Case 1: replace a shape named exactly as the placeholder
     for shape in slide.shapes:
         name_attr = getattr(shape, "name", "")
@@ -1584,7 +1692,7 @@ def insert_nikkei_source(
                 new_run.text = source_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
-    # Case 2: replace occurrences of the placeholder pattern in text on the NIKKEI slide
+    # Case 2: replace occurrences of the placeholder pattern in text on the SPX slide
     for shape in slide.shapes:
         if shape.has_text_frame:
             for pattern in placeholder_patterns:
@@ -1612,7 +1720,7 @@ def _compute_range_bounds(
     df_full: pd.DataFrame, lookback_days: int = 90
 ) -> Tuple[float, float]:
     """
-    Compute fallback high and low range bounds for the NIKKEI using
+    Compute fallback high and low range bounds for the S&P 500 using
     realised volatility.
 
     This helper is used when an implied volatility index (e.g. VIX) is
@@ -1686,17 +1794,17 @@ def generate_range_gauge_chart_image(
     vol_index_value: Optional[float] = None,
 ) -> bytes:
     """
-    Create a PNG image of the NIKKEI price chart with a vertical range gauge
+    Create a PNG image of the SPX price chart with a vertical range gauge
     appended on the right.  The gauge shows a green–to–red gradient between
     recent high and support levels, with labels for the upper and lower
     bounds.  A horizontal line continues the last price into the gauge so
     that viewers can assess relative positioning.  This function is used by
-    ``insert_nikkei_technical_chart_with_range``.
+    ``insert_spx_technical_chart_with_range``.
 
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full NIKKEI price history as returned by ``_load_price_data``.
+        Full SPX price history as returned by ``_load_price_data``.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.  If ``None`` no
         channel will be drawn.
@@ -1716,14 +1824,11 @@ def generate_range_gauge_chart_image(
     if df_full.empty:
         return b""
 
-    # Compute bounds for the last year of data
+    # Compute bounds for the configured lookback window
     today = df_full["Date"].max().normalize()
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    # Compute moving averages on the full dataset and then select
-    # the subset matching the plotting window.  This preserves the
-    # correct lookback for long-term averages when only a short
-    # window of data is displayed.
+    # Compute moving averages on the full dataset and slice to the lookback window
     df_ma_full = _add_mas(df_full)
     df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
 
@@ -1782,7 +1887,7 @@ def generate_range_gauge_chart_image(
 
     # Plot main price series and MAs
     ax.plot(
-        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"NIKKEI Price (last: {last_price_str})"
+        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"S&P 500 Price (last: {last_price_str})"
     )
     ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
     ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
@@ -1947,7 +2052,7 @@ def generate_range_gauge_only_image(
     Parameters
     ----------
     df_full : pandas.DataFrame
-        Full NIKKEI price history as returned by ``_load_price_data``.
+        Full SPX price history as returned by ``_load_price_data``.
     lookback_days : int, default 90
         Number of trading days to look back when computing high/low range.
     width_cm : float, default 2.00
@@ -2046,7 +2151,7 @@ def generate_range_gauge_only_image(
     return buf.getvalue()
 
 
-def insert_nikkei_technical_chart_with_range(
+def insert_spx_technical_chart_with_range(
     prs: Presentation,
     excel_file,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -2054,11 +2159,11 @@ def insert_nikkei_technical_chart_with_range(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """
-    Insert the NIKKEI technical analysis chart with the vertical range gauge into the PPT.
+    Insert the SPX technical analysis chart with the vertical range gauge into the PPT.
 
-    This function behaves similarly to ``insert_nikkei_technical_chart`` but uses
+    This function behaves similarly to ``insert_spx_technical_chart`` but uses
     ``generate_range_gauge_chart_image`` to draw a combined chart and gauge.
-    It attempts to find a shape named 'nikkei' or containing '[nikkei]' to locate the
+    It attempts to find a shape named 'spx' or containing '[spx]' to locate the
     slide for insertion.  The image is placed at fixed coordinates matching the
     original template (0.93 cm left, 4.39 cm top, 21.41 cm wide, 7.53 cm high).
 
@@ -2067,7 +2172,7 @@ def insert_nikkei_technical_chart_with_range(
     prs : Presentation
         The PowerPoint presentation into which the chart should be inserted.
     excel_file : file‑like object or path
-        Excel workbook containing NIKKEI price data.
+        Excel workbook containing SPX price data.
     anchor_date : pandas.Timestamp or None, optional
         Optional anchor date for the regression channel.
     lookback_days : int, default 90
@@ -2080,9 +2185,9 @@ def insert_nikkei_technical_chart_with_range(
     """
     # Load data
     try:
-        df_full = _load_price_data_from_obj(excel_file, "NKY Index", price_mode=price_mode)
+        df_full = _load_price_data_from_obj(excel_file, "SPX Index", price_mode=price_mode)
     except Exception:
-        df_full = _load_price_data(pathlib.Path(excel_file), "NKY Index", price_mode=price_mode)
+        df_full = _load_price_data(pathlib.Path(excel_file), "SPX Index", price_mode=price_mode)
     # Determine the implied volatility index value (VIX) from the Excel file
     # so that the expected one‑week trading range can be estimated.  If the
     # volatility index cannot be read, ``None`` is returned and the range
@@ -2100,11 +2205,11 @@ def insert_nikkei_technical_chart_with_range(
     for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "nikkei":
+            if name_attr == "spx":
                 target_slide = slide
                 break
             if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[nikkei]":
+                if (shape.text or "").strip().lower() == "[spx]":
                     target_slide = slide
                     break
         if target_slide:
@@ -2113,7 +2218,7 @@ def insert_nikkei_technical_chart_with_range(
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Position and dimensions tailored to the original placeholder size.
-    # The NIKKEI slide in the template allocates ~21.41 cm for the chart area
+    # The SPX slide in the template allocates ~21.41 cm for the chart area
     # and reserves the remaining width for the chart title, subtitle and
     # margins.  We therefore insert the combined chart‑and‑gauge image
     # using the original dimensions (21.41 cm × 7.53 cm) and rely on the

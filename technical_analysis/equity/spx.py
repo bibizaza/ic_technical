@@ -63,6 +63,15 @@ import matplotlib.patches as patches
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
+# Import common helpers (eliminates code duplication)
+from technical_analysis.common_helpers import (
+    _get_run_font_attributes,
+    _apply_run_font_attributes,
+    _add_mas,
+    _get_technical_score_generic,
+    _get_momentum_score_generic,
+)
+
 # ---------------------------------------------------------------------------
 
 
@@ -94,136 +103,6 @@ except Exception:
 ###############################################################################
 # Internal helpers
 ###############################################################################
-
-def _get_run_font_attributes(run):
-    """Capture font attributes from a run.
-
-    Returns a tuple ``(size, rgb, theme_color, brightness, bold, italic)``.
-    The colour information includes either the RGB value if explicitly
-    defined, or the theme colour and brightness for a scheme colour.  If
-    colour information is not available, ``rgb`` and ``theme_color`` are
-    ``None``.  Bold and italic attributes are preserved as provided.
-    """
-    if run is None:
-        return None, None, None, None, None, None
-    size = run.font.size
-    colour = run.font.color
-    rgb = None
-    theme_color = None
-    brightness = None
-    # Try to capture an explicit RGB value
-    try:
-        rgb = colour.rgb
-    except Exception:
-        rgb = None
-        # If no RGB value, attempt to capture a theme colour
-        try:
-            theme_color = colour.theme_color
-        except Exception:
-            theme_color = None
-    # Capture brightness adjustment if available
-    try:
-        brightness = colour.brightness
-    except Exception:
-        brightness = None
-    bold = run.font.bold
-    italic = run.font.italic
-    return size, rgb, theme_color, brightness, bold, italic
-
-
-def _apply_run_font_attributes(new_run, size, rgb, theme_color, brightness, bold, italic):
-    """Apply captured font attributes to a new run.
-
-    Parameters
-    ----------
-    new_run : pptx.text.run.Run
-        The run to which attributes should be applied.
-    size : pptx.util.Length or None
-        The font size to apply.
-    rgb : pptx.dml.color.RGBColor or None
-        The explicit RGB colour value to apply.
-    theme_color : MSO_THEME_COLOR or None
-        The theme colour value to apply if no RGB colour is defined.
-    brightness : float or None
-        Brightness adjustment for the colour, if any.
-    bold : bool or None
-        Whether the font should be bold.
-    italic : bool or None
-        Whether the font should be italic.
-    """
-    if size is not None:
-        new_run.font.size = size
-    # Apply colour: prefer explicit RGB, otherwise theme colour
-    if rgb is not None:
-        try:
-            new_run.font.color.rgb = rgb
-        except Exception:
-            pass
-    elif theme_color is not None:
-        try:
-            new_run.font.color.theme_color = theme_color
-            if brightness is not None:
-                new_run.font.color.brightness = brightness
-        except Exception:
-            pass
-    # Apply bold and italic
-    if bold is not None:
-        new_run.font.bold = bold
-    if italic is not None:
-        new_run.font.italic = italic
-
-
-def _load_price_data(
-    excel_path: pathlib.Path,
-    ticker: str = "SPX Index",
-    price_mode: str = "Last Price",
-) -> pd.DataFrame:
-    """
-    Read the raw price sheet and return a tidy Date‑Price DataFrame.
-
-    Parameters
-    ----------
-    excel_path : pathlib.Path
-        Path to the Excel workbook containing price data.
-    ticker : str, default "SPX Index"
-        Column name corresponding to the desired ticker in the Excel sheet.
-    price_mode : str, default "Last Price"
-        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
-        is available and the mode is "Last Close", rows with the last
-        recorded date (if equal to today's date) will be dropped.
-
-    Returns
-    -------
-    pandas.DataFrame
-        DataFrame with columns ``Date`` and ``Price``.  The data are
-        sorted by date and any rows with missing values are removed.
-    """
-    df = pd.read_excel(excel_path, sheet_name="data_prices")
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    df_clean = (
-        df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-            ["Date", "Price"]
-        ]
-    )
-    # Adjust for price mode if helper is available
-    if adjust_prices_for_mode is not None and price_mode:
-        try:
-            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
-        except Exception:
-            # If adjustment fails, silently fall back to unadjusted data
-            pass
-    return df_clean
-
-
-def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
-    """Add 50/100/200‑day moving‑average columns to a DataFrame."""
-    out = df.copy()
-    for w in (50, 100, 200):
-        out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
-    return out
 
 def _get_vol_index_value(
     excel_obj_or_path,
@@ -537,24 +416,13 @@ def _generate_spx_image_from_df(
 # Score helpers
 ###############################################################################
 
+
 def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for SPX from 'data_technical_score' (col A, B).
-    Returns None if the sheet or score is unavailable.
+    Retrieve the technical score for S&P 500.
+    Uses common helper with SPX-specific ticker.
     """
-    try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_technical_score")
-    except Exception:
-        return None
-    df = df.dropna(subset=[df.columns[0], df.columns[1]])
-    for _, row in df.iterrows():
-        if str(row[df.columns[0]]).strip().upper() == "SPX INDEX":
-            try:
-                return float(row[df.columns[1]])
-            except Exception:
-                return None
-    return None
-
+    return _get_technical_score_generic(excel_obj_or_path, "SPX INDEX")
 
 def _find_spx_slide(prs: Presentation) -> Optional[int]:
     """Locate the index of the slide that contains the SPX placeholder.
@@ -1067,55 +935,13 @@ def insert_spx_technical_chart_with_callout(
     return prs
 
 
+
 def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Return the numeric momentum score for S&P 500 (ticker ``SPX INDEX``).
-
-    This function extracts the momentum score from the ``data_trend_rating``
-    sheet (column index 3). If the value is not present or is NaN, it checks
-    the ``parameters`` sheet for a custom override. Finally, it maps the
-    letter grade from the 'Current' column to a numeric score via a fixed
-    dictionary.
-
-    Parameters
-    ----------
-    excel_obj_or_path : file-like or path
-        Excel workbook containing ``data_trend_rating`` and optionally
-        ``parameters`` sheets.
-
-    Returns
-    -------
-    float or None
-        The numeric momentum score for S&P 500, or ``None`` if it cannot be
-        determined.
+    Retrieve the momentum score for S&P 500.
+    Uses common helper with SPX-specific ticker.
     """
-    try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
-    except Exception:
-        return None
-    # Identify the row for SPX based on the ticker column (first column)
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "SPX INDEX"
-    if not mask.any():
-        return None
-    row = df.loc[mask].iloc[0]
-    # Try to convert the existing value in column 3 to float
-    try:
-        return float(row.iloc[3])
-    except Exception:
-        pass
-    # Fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # Optionally lookup in 'parameters' sheet for customized mapping
-    try:
-        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
-        spx_param = params[params["Tickers"].astype(str).str.upper() == "SPX INDEX"]
-        if not spx_param.empty and "Unnamed: 8" in spx_param:
-            return float(spx_param["Unnamed: 8"].dropna().iloc[0])
-    except Exception:
-        pass
-    return mapping.get(rating)
-
+    return _get_momentum_score_generic(excel_obj_or_path, "SPX INDEX")
 
 def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
     """

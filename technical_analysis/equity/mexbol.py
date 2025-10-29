@@ -56,6 +56,15 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 
 from pptx import Presentation
+
+# Import common helpers (eliminates code duplication)
+from technical_analysis.common_helpers import (
+    _get_run_font_attributes,
+    _apply_run_font_attributes,
+    _add_mas,
+    _get_technical_score_generic,
+    _get_momentum_score_generic,
+)
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -93,82 +102,8 @@ import matplotlib.patches as mpatches
 # Internal helpers
 ###############################################################################
 
-def _get_run_font_attributes(run):
-    """Capture font attributes from a run.
-
-    Returns a tuple ``(size, rgb, theme_color, brightness, bold, italic)``.
-    The colour information includes either the RGB value if explicitly
-    defined, or the theme colour and brightness for a scheme colour.  If
-    colour information is not available, ``rgb`` and ``theme_color`` are
-    ``None``.  Bold and italic attributes are preserved as provided.
-    """
-    if run is None:
-        return None, None, None, None, None, None
-    size = run.font.size
-    colour = run.font.color
-    rgb = None
-    theme_color = None
-    brightness = None
-    # Try to capture an explicit RGB value
-    try:
-        rgb = colour.rgb
-    except Exception:
-        rgb = None
-        # If no RGB value, attempt to capture a theme colour
-        try:
-            theme_color = colour.theme_color
-        except Exception:
-            theme_color = None
-    # Capture brightness adjustment if available
-    try:
-        brightness = colour.brightness
-    except Exception:
-        brightness = None
-    bold = run.font.bold
-    italic = run.font.italic
-    return size, rgb, theme_color, brightness, bold, italic
 
 
-def _apply_run_font_attributes(new_run, size, rgb, theme_color, brightness, bold, italic):
-    """Apply captured font attributes to a new run.
-
-    Parameters
-    ----------
-    new_run : pptx.text.run.Run
-        The run to which attributes should be applied.
-    size : pptx.util.Length or None
-        The font size to apply.
-    rgb : pptx.dml.color.RGBColor or None
-        The explicit RGB colour value to apply.
-    theme_color : MSO_THEME_COLOR or None
-        The theme colour value to apply if no RGB colour is defined.
-    brightness : float or None
-        Brightness adjustment for the colour, if any.
-    bold : bool or None
-        Whether the font should be bold.
-    italic : bool or None
-        Whether the font should be italic.
-    """
-    if size is not None:
-        new_run.font.size = size
-    # Apply colour: prefer explicit RGB, otherwise theme colour
-    if rgb is not None:
-        try:
-            new_run.font.color.rgb = rgb
-        except Exception:
-            pass
-    elif theme_color is not None:
-        try:
-            new_run.font.color.theme_color = theme_color
-            if brightness is not None:
-                new_run.font.color.brightness = brightness
-        except Exception:
-            pass
-    # Apply bold and italic
-    if bold is not None:
-        new_run.font.bold = bold
-    if italic is not None:
-        new_run.font.italic = italic
 
 
 def _load_price_data(
@@ -216,12 +151,7 @@ def _load_price_data(
     return df_clean
 
 
-def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
-    """Add 50/100/200‑day moving‑average columns to a DataFrame."""
-    out = df.copy()
-    for w in (50, 100, 200):
-        out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
-    return out
+
 
 def _get_vol_index_value(
     excel_obj_or_path,
@@ -564,21 +494,11 @@ def _generate_mexbol_image_from_df(
 
 def _get_mexbol_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for MEXBOL from 'data_technical_score' (col A, B).
-    Returns None if the sheet or score is unavailable.
+    Retrieve the technical score for MEXBOL.
+    Uses common helper with instrument-specific ticker.
     """
-    try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_technical_score")
-    except Exception:
-        return None
-    df = df.dropna(subset=[df.columns[0], df.columns[1]])
-    for _, row in df.iterrows():
-        if str(row[df.columns[0]]).strip().upper() == "MEXBOL INDEX":
-            try:
-                return float(row[df.columns[1]])
-            except Exception:
-                return None
-    return None
+    return _get_technical_score_generic(excel_obj_or_path, "MEXBOL INDEX")
+
 
 
 def _find_mexbol_slide(prs: Presentation) -> Optional[int]:
@@ -1098,33 +1018,12 @@ def insert_mexbol_technical_chart_with_callout(
 
 
 def _get_mexbol_momentum_score(excel_obj_or_path) -> Optional[float]:
-    """Return MEXBOL momentum score, mapping letter grades to numeric if needed."""
-    try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
-    except Exception:
-        return None
-    # find MEXBOL row
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "MEXBOL INDEX"
-    if not mask.any():
-        return None
-    row = df.loc[mask].iloc[0]
-    # try to convert the existing value to float
-    try:
-        return float(row.iloc[3])
-    except Exception:
-        pass
-    # fall back to mapping letter rating to numeric using parameters sheet
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    # optionally lookup in 'parameters' sheet for customised mapping
-    try:
-        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
-        mexbol_param = params[params["Tickers"].astype(str).str.upper() == "MEXBOL INDEX"]
-        if not mexbol_param.empty and "Unnamed: 8" in mexbol_param:
-            return float(mexbol_param["Unnamed: 8"].dropna().iloc[0])
-    except Exception:
-        pass
-    return mapping.get(rating)
+    """
+    Retrieve the momentum score for MEXBOL.
+    Uses common helper with instrument-specific ticker.
+    """
+    return _get_momentum_score_generic(excel_obj_or_path, "MEXBOL INDEX")
+
 
 
 def insert_mexbol_momentum_score_number(prs: Presentation, excel_file) -> Presentation:

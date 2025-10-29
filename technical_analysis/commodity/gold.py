@@ -56,6 +56,15 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 
 from pptx import Presentation
+
+# Import common helpers (eliminates code duplication)
+from technical_analysis.common_helpers import (
+    _get_run_font_attributes,
+    _apply_run_font_attributes,
+    _add_mas,
+    _get_technical_score_generic,
+    _get_momentum_score_generic,
+)
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -86,82 +95,8 @@ PLOT_LOOKBACK_DAYS: int = 90
 # Internal helpers
 ###############################################################################
 
-def _get_run_font_attributes(run):
-    """Capture font attributes from a run.
-
-    Returns a tuple ``(size, rgb, theme_color, brightness, bold, italic)``.
-    The colour information includes either the RGB value if explicitly
-    defined, or the theme colour and brightness for a scheme colour.  If
-    colour information is not available, ``rgb`` and ``theme_color`` are
-    ``None``.  Bold and italic attributes are preserved as provided.
-    """
-    if run is None:
-        return None, None, None, None, None, None
-    size = run.font.size
-    colour = run.font.color
-    rgb = None
-    theme_color = None
-    brightness = None
-    # Try to capture an explicit RGB value
-    try:
-        rgb = colour.rgb
-    except Exception:
-        rgb = None
-        # If no RGB value, attempt to capture a theme colour
-        try:
-            theme_color = colour.theme_color
-        except Exception:
-            theme_color = None
-    # Capture brightness adjustment if available
-    try:
-        brightness = colour.brightness
-    except Exception:
-        brightness = None
-    bold = run.font.bold
-    italic = run.font.italic
-    return size, rgb, theme_color, brightness, bold, italic
 
 
-def _apply_run_font_attributes(new_run, size, rgb, theme_color, brightness, bold, italic):
-    """Apply captured font attributes to a new run.
-
-    Parameters
-    ----------
-    new_run : pptx.text.run.Run
-        The run to which attributes should be applied.
-    size : pptx.util.Length or None
-        The font size to apply.
-    rgb : pptx.dml.color.RGBColor or None
-        The explicit RGB colour value to apply.
-    theme_color : MSO_THEME_COLOR or None
-        The theme colour value to apply if no RGB colour is defined.
-    brightness : float or None
-        Brightness adjustment for the colour, if any.
-    bold : bool or None
-        Whether the font should be bold.
-    italic : bool or None
-        Whether the font should be italic.
-    """
-    if size is not None:
-        new_run.font.size = size
-    # Apply colour: prefer explicit RGB, otherwise theme colour
-    if rgb is not None:
-        try:
-            new_run.font.color.rgb = rgb
-        except Exception:
-            pass
-    elif theme_color is not None:
-        try:
-            new_run.font.color.theme_color = theme_color
-            if brightness is not None:
-                new_run.font.color.brightness = brightness
-        except Exception:
-            pass
-    # Apply bold and italic
-    if bold is not None:
-        new_run.font.bold = bold
-    if italic is not None:
-        new_run.font.italic = italic
 
 
 def _load_price_data(
@@ -209,12 +144,7 @@ def _load_price_data(
     return df_clean
 
 
-def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
-    """Add 50/100/200‑day moving‑average columns to a DataFrame."""
-    out = df.copy()
-    for w in (50, 100, 200):
-        out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
-    return out
+
 
 def _get_vol_index_value(
     excel_obj_or_path,
@@ -550,22 +480,11 @@ def _generate_gold_image_from_df(
 
 def _get_gold_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for Gold from 'data_technical_score' (col A, B).
-    Returns None if the sheet or score is unavailable.
+    Retrieve the technical score for GOLD.
+    Uses common helper with instrument-specific ticker.
     """
-    try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_technical_score")
-    except Exception:
-        return None
-    df = df.dropna(subset=[df.columns[0], df.columns[1]])
-    for _, row in df.iterrows():
-        # Search for the Gold ticker (GCA COMDTY) rather than the original SPX string
-        if str(row[df.columns[0]]).strip().upper() == "GCA COMDTY":
-            try:
-                return float(row[df.columns[1]])
-            except Exception:
-                return None
-    return None
+    return _get_technical_score_generic(excel_obj_or_path, "GCA COMDTY")
+
 
 
 def _find_gold_slide(prs: Presentation) -> Optional[int]:
@@ -1066,59 +985,11 @@ def insert_gold_technical_chart_with_callout(
 
 def _get_gold_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Return the numeric momentum score for Gold (ticker ``GCA COMDTY``).
-
-    The function attempts to extract a numeric score directly from the
-    ``data_trend_rating`` sheet (column index 3).  If the value is not
-    present or is NaN, it checks the ``parameters`` sheet for a custom
-    override in column ``Unnamed: 8``.  Finally, it maps the letter grade
-    from the 'Current' column to a numeric score via a fixed dictionary.
-
-    Parameters
-    ----------
-    excel_obj_or_path : file‑like or path
-        Excel workbook containing ``data_trend_rating`` and optionally
-        ``parameters`` sheets.
-
-    Returns
-    -------
-    float or None
-        The numeric momentum score for Gold, or ``None`` if it cannot be
-        determined.
+    Retrieve the momentum score for GOLD.
+    Uses common helper with instrument-specific ticker.
     """
-    try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
-    except Exception:
-        return None
-    # Identify the row for Gold based on the ticker column (first column)
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == "GCA COMDTY"
-    if not mask.any():
-        return None
-    row = df.loc[mask].iloc[0]
-    import numpy as _np  # used for NaN checking
-    # 1) Attempt to use the numeric rating in column 3 (Previous rating)
-    try:
-        val = float(row.iloc[3])
-        if not _np.isnan(val):
-            return val
-    except Exception:
-        pass
-    # 2) Check for a custom override in the parameters sheet (column 'Unnamed: 8')
-    try:
-        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
-        # Normalise column names
-        params.columns = [str(c).strip() for c in params.columns]
-        gold_param = params[params["Tickers"].astype(str).str.upper() == "GCA COMDTY"]
-        if not gold_param.empty and "Unnamed: 8" in gold_param.columns:
-            custom_series = gold_param["Unnamed: 8"].dropna()
-            if not custom_series.empty:
-                return float(custom_series.iloc[0])
-    except Exception:
-        pass
-    # 3) Map the letter rating from the 'Current' column to a numeric value
-    rating = str(row.iloc[2]).strip().upper()
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-    return mapping.get(rating)
+    return _get_momentum_score_generic(excel_obj_or_path, "GCA COMDTY")
+
 
 
 def insert_gold_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
