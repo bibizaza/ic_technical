@@ -145,14 +145,29 @@ def compute_csi_score_with_lasso(
     return _compute_csi_score_with_weights(prices_df, learned_weights)
 
 
+def _simple_percentile_rank(value: float, historical_series: pd.Series) -> float:
+    """
+    Compute global percentile rank: where does value rank in the historical series?
+    This matches the percentile calculation used in LASSO training.
+
+    Returns value between 0-100.
+    """
+    hist = historical_series.dropna()
+    if hist.empty or pd.isna(value):
+        return np.nan
+    rank = (hist < value).sum() / len(hist)
+    return rank * 100.0
+
+
 def _compute_csi_score_with_weights(
     df: pd.DataFrame,
     weights: Dict[str, float],
 ) -> pd.Series:
     """
-    Internal function to compute CSI score with given weights.
+    Internal function to compute CSI score with given LASSO weights.
 
-    This replicates the main MARS scoring logic but with custom weights.
+    CRITICAL: Uses simple global percentile ranking (not rolling window percentile)
+    to match the feature transformation used in LASSO training.
     """
     if df is None or df.empty:
         return pd.Series(dtype=float)
@@ -180,7 +195,7 @@ def _compute_csi_score_with_weights(
     bench_candidates = ["MXWO Index", "MXWO", "CSI", "SPX Index", "SPX"]
     bench_col = next((c for c in bench_candidates if c in df.columns), target_col)
 
-    # Compute raw components
+    # Compute raw components for full history
     raw_components = compute_raw_components(
         df=df,
         target_col=target_col,
@@ -189,14 +204,38 @@ def _compute_csi_score_with_weights(
         bench_col=bench_col,
     )
 
-    # Convert to percentiles (winsorized 5-year)
-    lookback = 252 * 5
+    # Convert to percentiles using GLOBAL RANK (same as LASSO training)
+    # For each date, rank the raw component value against its full history
     abs_percentiles = pd.DataFrame(index=raw_components.index)
-    for col in raw_components.columns:
-        abs_percentiles[col] = _rolling_percentile_of_last(raw_components[col], lookback)
+
+    # Limit to last 5 years for percentile calculation (standard practice)
+    lookback_days = 252 * 5
+    start_date = raw_components.index.max() - pd.Timedelta(days=lookback_days * 2)  # Allow buffer
+    historical_window = raw_components.loc[raw_components.index >= start_date]
+
+    for col in historical_window.columns:
+        # For each date, compute: where does this value rank in full history?
+        percentile_series = pd.Series(index=historical_window.index, dtype=float)
+
+        # Get full historical series for this component (for ranking)
+        full_historical = historical_window[col].dropna()
+
+        # Winsorize the historical series at 2-98% (like reference code)
+        hist_lo = full_historical.quantile(0.02)
+        hist_hi = full_historical.quantile(0.98)
+        winsorized_historical = full_historical.clip(lower=hist_lo, upper=hist_hi)
+
+        for date in historical_window.index:
+            raw_value = historical_window.loc[date, col]
+            # Rank this value against winsorized history up to this date
+            hist_up_to_date = winsorized_historical.loc[:date]
+            percentile_series.loc[date] = _simple_percentile_rank(raw_value, hist_up_to_date)
+
+        abs_percentiles[col] = percentile_series
+
     abs_percentiles = abs_percentiles.apply(_safe_clip_0_100)
 
-    # Weighted aggregation
+    # Weighted aggregation using learned weights
     W = _normalize_weights(weights)
 
     def _weighted_avg(row: pd.Series) -> float:
