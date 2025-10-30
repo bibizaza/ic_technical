@@ -145,18 +145,37 @@ def compute_csi_score_with_lasso(
     return _compute_csi_score_with_weights(prices_df, learned_weights)
 
 
-def _simple_percentile_rank(value: float, historical_series: pd.Series) -> float:
-    """
-    Compute global percentile rank: where does value rank in the historical series?
-    This matches the percentile calculation used in LASSO training.
+def _winsorize_series(s: pd.Series, lower_q: float = 0.02, upper_q: float = 0.98) -> pd.Series:
+    """Winsorize series to lower and upper quantiles."""
+    s_clean = s.dropna()
+    if s_clean.empty:
+        return s
+    lo = s_clean.quantile(lower_q)
+    hi = s_clean.quantile(upper_q)
+    return s.clip(lower=lo, upper=hi)
 
-    Returns value between 0-100.
+
+def _rolling_percentile_rank(s: pd.Series, window: int = 252 * 5) -> pd.Series:
     """
-    hist = historical_series.dropna()
-    if hist.empty or pd.isna(value):
-        return np.nan
-    rank = (hist < value).sum() / len(hist)
-    return rank * 100.0
+    Compute rolling percentile rank matching the top2 method.
+
+    For each date, look at the last `window` days, winsorize that window to 2-98%,
+    and return the percentile of the current value within that window.
+
+    This EXACTLY matches _rolling_percentile_of_last used in top2 scoring.
+    """
+    def _fn(x: np.ndarray) -> float:
+        if len(x) < 2:
+            return np.nan
+        v = pd.Series(x)
+        # Winsorize the window
+        v_w = _winsorize_series(v, lower_q=0.02, upper_q=0.98)
+        # Get the last value
+        last = v_w.iloc[-1]
+        # Return percentile rank of last value within window
+        return float((v_w <= last).mean() * 100.0)
+
+    return s.rolling(window, min_periods=window).apply(_fn, raw=True)
 
 
 def _compute_csi_score_with_weights(
@@ -204,34 +223,14 @@ def _compute_csi_score_with_weights(
         bench_col=bench_col,
     )
 
-    # Convert to percentiles using GLOBAL RANK (same as LASSO training)
-    # For each date, rank the raw component value against its full history
+    # Convert to percentiles using ROLLING 5-year window (matches top2 method)
+    # This is CRITICAL: must match the percentile calculation method exactly
+    lookback = 252 * 5  # 5-year rolling window
+
     abs_percentiles = pd.DataFrame(index=raw_components.index)
-
-    # Limit to last 5 years for percentile calculation (standard practice)
-    lookback_days = 252 * 5
-    start_date = raw_components.index.max() - pd.Timedelta(days=lookback_days * 2)  # Allow buffer
-    historical_window = raw_components.loc[raw_components.index >= start_date]
-
-    for col in historical_window.columns:
-        # For each date, compute: where does this value rank in full history?
-        percentile_series = pd.Series(index=historical_window.index, dtype=float)
-
-        # Get full historical series for this component (for ranking)
-        full_historical = historical_window[col].dropna()
-
-        # Winsorize the historical series at 2-98% (like reference code)
-        hist_lo = full_historical.quantile(0.02)
-        hist_hi = full_historical.quantile(0.98)
-        winsorized_historical = full_historical.clip(lower=hist_lo, upper=hist_hi)
-
-        for date in historical_window.index:
-            raw_value = historical_window.loc[date, col]
-            # Rank this value against winsorized history up to this date
-            hist_up_to_date = winsorized_historical.loc[:date]
-            percentile_series.loc[date] = _simple_percentile_rank(raw_value, hist_up_to_date)
-
-        abs_percentiles[col] = percentile_series
+    for col in raw_components.columns:
+        # Use rolling percentile rank - same as top2 method
+        abs_percentiles[col] = _rolling_percentile_rank(raw_components[col], window=lookback)
 
     abs_percentiles = abs_percentiles.apply(_safe_clip_0_100)
 
