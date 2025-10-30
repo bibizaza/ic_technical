@@ -90,11 +90,14 @@ def prepare_training_data(
     # This is NOT a train/test mismatch because LASSO learns the RELATIONSHIP between
     # percentiles and forward returns, which is stable regardless of percentile method.
 
-    feature_df = pd.DataFrame(index=raw_components_df.index)
+    # Build feature DataFrame efficiently (avoid frame.insert warnings)
+    feature_cols = {}
     for col in ['pure', 'smooth', 'sharpe', 'idio', 'adx']:
         if col in raw_components_df.columns:
             # Use global percentile rank over the entire training window
-            feature_df[col] = raw_components_df[col].rank(pct=True) * 100.0
+            feature_cols[col] = raw_components_df[col].rank(pct=True) * 100.0
+
+    feature_df = pd.DataFrame(feature_cols, index=raw_components_df.index)
 
     # Diagnostic: Check if percentiles have variance
     print(f"\n📊 Feature Percentile Stats (global rank over training window):")
@@ -154,8 +157,9 @@ def train_lasso_model(
     X_scaled = scaler.fit_transform(X)
 
     # Define alpha grid (logarithmic)
-    # Lower range to reduce over-regularization
-    alphas = np.logspace(-6, -2, 30)  # 0.000001 to 0.01, more granular
+    # Ultra-low range to allow minimal regularization
+    # If optimal alpha consistently hits the max, range is still too high
+    alphas = np.logspace(-8, -3, 40)  # 0.00000001 to 0.001
 
     # Train LassoCV
     model = LassoCV(

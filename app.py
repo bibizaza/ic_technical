@@ -2544,8 +2544,9 @@ def show_technical_analysis_page():
                     f"{ticker_key}_anchor",
                     (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
                 )
-                # Ensure default is within valid range
-                default_anchor = max(min_date, min(default_anchor, max_date))
+                # Ensure default is within valid range (convert to Timestamp for comparison)
+                default_anchor = pd.Timestamp(default_anchor)
+                default_anchor = max(pd.Timestamp(min_date), min(default_anchor, pd.Timestamp(max_date)))
                 anchor_input = st.date_input(
                     "Select anchor date",
                     value=default_anchor,
@@ -2948,8 +2949,9 @@ def show_commodity_technical_analysis() -> None:
                 f"{ticker_key}_anchor",
                 (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
             )
-            # Ensure default is within valid range
-            default_anchor = max(min_date, min(default_anchor, max_date))
+            # Ensure default is within valid range (convert to Timestamp for comparison)
+            default_anchor = pd.Timestamp(default_anchor)
+            default_anchor = max(pd.Timestamp(min_date), min(default_anchor, pd.Timestamp(max_date)))
             anchor_input = st.date_input(
                 "Select anchor date",
                 value=default_anchor,
@@ -3306,8 +3308,9 @@ def show_crypto_technical_analysis() -> None:
                 f"{ticker_key}_anchor",
                 (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
             )
-            # Ensure default is within valid range
-            default_anchor = max(min_date, min(default_anchor, max_date))
+            # Ensure default is within valid range (convert to Timestamp for comparison)
+            default_anchor = pd.Timestamp(default_anchor)
+            default_anchor = max(pd.Timestamp(min_date), min(default_anchor, pd.Timestamp(max_date)))
             anchor_input = st.date_input(
                 "Select anchor date",
                 value=default_anchor,
