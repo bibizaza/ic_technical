@@ -128,8 +128,9 @@ def compute_csi_score_with_lasso(
     else:
         weights_row = lasso_weights_df.mean()
 
+    # Handle both old column name "pure_momentum" and new "pure"
     learned_weights = {
-        "pure": float(weights_row.get("pure", 0.0)),
+        "pure": float(weights_row.get("pure", weights_row.get("pure_momentum", 0.0))),
         "smooth": float(weights_row.get("smooth", 0.0)),
         "sharpe": float(weights_row.get("sharpe", 0.0)),
         "idio": float(weights_row.get("idio", 0.0)),
