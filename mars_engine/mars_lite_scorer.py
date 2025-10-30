@@ -249,6 +249,86 @@ def calculate_relative_score(prices: pd.DataFrame, window: int = 126, target_col
 
 
 # -----------------------------------------------------------------------------
+# Default component weights for weighted aggregation
+# -----------------------------------------------------------------------------
+DEFAULT_WEIGHTS = {
+    "pure": 0.40,
+    "smooth": 0.20,
+    "sharpe": 0.20,
+    "idio": 0.10,
+    "adx": 0.10,
+}
+
+
+def _normalize_weights(weights: Dict[str, float]) -> Dict[str, float]:
+    """Normalize weights to sum to 1.0."""
+    cleaned = {k: max(0.0, float(v)) for k, v in weights.items()}
+    total = sum(cleaned.values())
+    if total <= 0:
+        return {k: 1.0 / len(cleaned) for k in cleaned}
+    return {k: v / total for k, v in cleaned.items()}
+
+
+def _aggregate_percentiles(
+    percentiles_df: pd.DataFrame,
+    method: str = "top2",
+    weights: Optional[Dict[str, float]] = None,
+) -> pd.Series:
+    """
+    Aggregate component percentiles using specified method.
+
+    Parameters
+    ----------
+    percentiles_df : pd.DataFrame
+        DataFrame with columns: ['pure', 'smooth', 'sharpe', 'idio', 'adx']
+    method : str
+        Aggregation method: 'top2', 'top3', or 'weighted'
+    weights : Optional[Dict[str, float]]
+        Component weights for 'weighted' method. Uses DEFAULT_WEIGHTS if None.
+
+    Returns
+    -------
+    pd.Series
+        Aggregated absolute score (0-100)
+    """
+    method = method.lower()
+
+    if method == "top2":
+        def _avg_top2(row: pd.Series) -> float:
+            r = row.dropna()
+            if r.size < 2:
+                return np.nan
+            top2 = np.sort(r.values)[-2:]
+            return float(np.mean(top2))
+        return percentiles_df.apply(_avg_top2, axis=1)
+
+    elif method == "top3":
+        def _avg_top3(row: pd.Series) -> float:
+            r = row.dropna()
+            if r.size < 3:
+                return np.nan
+            top3 = np.sort(r.values)[-3:]
+            return float(np.mean(top3))
+        return percentiles_df.apply(_avg_top3, axis=1)
+
+    elif method == "weighted":
+        W = _normalize_weights(weights or DEFAULT_WEIGHTS)
+
+        def _weighted_avg(row: pd.Series) -> float:
+            valid = {k: v for k, v in row.items() if not pd.isna(v) and W.get(k, 0) > 0}
+            if not valid:
+                return np.nan
+            total_weight = sum(W[k] for k in valid)
+            weighted_sum = sum(valid[k] * W[k] for k in valid)
+            return float(weighted_sum / total_weight) if total_weight > 0 else np.nan
+
+        return percentiles_df.apply(_weighted_avg, axis=1)
+
+    else:
+        raise ValueError(f"Unknown aggregation method: {method}. Use 'top2', 'top3', or 'weighted'.")
+
+
+# -----------------------------------------------------------------------------
 # Core engine with caching
 # -----------------------------------------------------------------------------
 def _generate_score_history(
@@ -259,6 +339,8 @@ def _generate_score_history(
     lo_col: str,
     peer_universe: Iterable[str],
     bench_candidates: Iterable[str],
+    agg_method: str = "top2",
+    weights: Optional[Dict[str, float]] = None,
 ) -> pd.Series:
     """
     Compute momentum score series using the "lite" MARS recipe with caching.
@@ -312,15 +394,8 @@ def _generate_score_history(
         abs_percentiles[col] = _rolling_percentile_of_last(raw[col], lookback)
     abs_percentiles = abs_percentiles.apply(_safe_clip_0_100)
 
-    # Absolute score = Average of TOP 2 component percentiles
-    def _avg_top2(row: pd.Series) -> float:
-        r = row.dropna()
-        if r.size < 2:
-            return np.nan
-        top2 = np.sort(r.values)[-2:]
-        return float(np.mean(top2))
-
-    absolute_score = abs_percentiles.apply(_avg_top2, axis=1)
+    # Absolute score using configured aggregation method
+    absolute_score = _aggregate_percentiles(abs_percentiles, method=agg_method, weights=weights)
 
     # Relative score
     rel_universe = df[[target_col] + peers_avail].copy()
@@ -341,10 +416,29 @@ def _generate_score_history(
 # -----------------------------------------------------------------------------
 # Public wrappers (SPX & CSI)
 # -----------------------------------------------------------------------------
-def generate_spx_score_history(prices_df: pd.DataFrame) -> pd.Series:
+def generate_spx_score_history(
+    prices_df: pd.DataFrame,
+    agg_method: str = "top2",
+    weights: Optional[Dict[str, float]] = None,
+) -> pd.Series:
     """
     SPX wrapper. Expects columns: SPX, SPX_high, SPX_low plus as many peers
     as available (matching PEER_GROUP_SPX). Returns last ~2y [0,100].
+
+    Parameters
+    ----------
+    prices_df : pd.DataFrame
+        Price data with SPX columns
+    agg_method : str, default "top2"
+        Aggregation method: "top2", "top3", or "weighted"
+    weights : Optional[Dict[str, float]]
+        Component weights for weighted method. Uses DEFAULT_WEIGHTS if None.
+        Expected keys: 'pure', 'smooth', 'sharpe', 'idio', 'adx'
+
+    Returns
+    -------
+    pd.Series
+        MARS score history (0-100), last ~2 years
     """
     return _generate_score_history(
         prices_df,
@@ -353,14 +447,35 @@ def generate_spx_score_history(prices_df: pd.DataFrame) -> pd.Series:
         lo_col="SPX_low",
         peer_universe=PEER_GROUP_SPX,
         bench_candidates=["MXWO Index", "MXWO", "SPX"],
+        agg_method=agg_method,
+        weights=weights,
     )
 
 
-def generate_csi_score_history(prices_df: pd.DataFrame) -> pd.Series:
+def generate_csi_score_history(
+    prices_df: pd.DataFrame,
+    agg_method: str = "top2",
+    weights: Optional[Dict[str, float]] = None,
+) -> pd.Series:
     """
     CSI (SHSZ300) wrapper. Relative peers = SPX peers with 'SHSZ300 Index'
     replaced by 'SPX Index' as requested. Expects columns:
     CSI, CSI_high, CSI_low (+ available peers).
+
+    Parameters
+    ----------
+    prices_df : pd.DataFrame
+        Price data with CSI columns
+    agg_method : str, default "top2"
+        Aggregation method: "top2", "top3", or "weighted"
+    weights : Optional[Dict[str, float]]
+        Component weights for weighted method. Uses DEFAULT_WEIGHTS if None.
+        Expected keys: 'pure', 'smooth', 'sharpe', 'idio', 'adx'
+
+    Returns
+    -------
+    pd.Series
+        MARS score history (0-100), last ~2 years
     """
     return _generate_score_history(
         prices_df,
@@ -369,4 +484,6 @@ def generate_csi_score_history(prices_df: pd.DataFrame) -> pd.Series:
         lo_col="CSI_low",
         peer_universe=PEER_GROUP_CSI,
         bench_candidates=["MXWO Index", "MXWO", "CSI", "SPX"],
+        agg_method=agg_method,
+        weights=weights,
     )
