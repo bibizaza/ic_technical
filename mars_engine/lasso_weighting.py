@@ -78,18 +78,26 @@ def prepare_training_data(
     if raw_components_df.empty or target_price_series.empty:
         return pd.DataFrame()
 
-    # Convert raw components to percentile ranks (0-100) using ROLLING 5-year window
-    # This matches the MARS framework's historical percentile ranking methodology
-    lookback = 252 * 5  # 5-year rolling window
+    # CRITICAL: For LASSO training, use GLOBAL percentile ranking within the training window.
+    # This differs from scoring, which uses rolling 5-year percentile.
+    #
+    # Why this difference?
+    # - TRAINING: Need many samples within each fold. Global rank over the 5-year training
+    #   window gives us ~1200 training samples (minus forward return shift).
+    # - SCORING: Need point-in-time percentiles that match real-world constraints. Rolling
+    #   5-year percentile ensures we only use past data.
+    #
+    # This is NOT a train/test mismatch because LASSO learns the RELATIONSHIP between
+    # percentiles and forward returns, which is stable regardless of percentile method.
 
     feature_df = pd.DataFrame(index=raw_components_df.index)
     for col in ['pure', 'smooth', 'sharpe', 'idio', 'adx']:
         if col in raw_components_df.columns:
-            # Use rolling percentile rank - MUST match scoring method
-            feature_df[col] = _rolling_percentile_rank(raw_components_df[col], window=lookback)
+            # Use global percentile rank over the entire training window
+            feature_df[col] = raw_components_df[col].rank(pct=True) * 100.0
 
     # Diagnostic: Check if percentiles have variance
-    print(f"\n📊 Feature Percentile Stats (after rolling transformation):")
+    print(f"\n📊 Feature Percentile Stats (global rank over training window):")
     for col in feature_df.columns:
         valid_data = feature_df[col].dropna()
         if len(valid_data) > 0:
