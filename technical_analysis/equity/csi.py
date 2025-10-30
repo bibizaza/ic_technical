@@ -87,13 +87,12 @@ except Exception:
     # preserves compatibility with environments where price mode is not used.
     adjust_prices_for_mode = None  # type: ignore
 
-# Import MARS momentum scoring engine
-from mars_engine import (
-    generate_csi_score_history,
-    load_prices_for_mars,
-)
-# Import CSI-specific LASSO scorer (dynamic weighting)
-from mars_engine.csi_lasso_scorer import get_csi_lasso_score
+# Import MARS momentum scoring engine (no longer used for calculation - kept for reference)
+# from mars_engine import (
+#     generate_csi_score_history,
+#     load_prices_for_mars,
+# )
+# MARS scores are now read directly from mars_score sheet in Excel (see _compute_csi_mars_score_cached)
 
 # Default lookback window (in days) for plotting.  The app can override
 # this value at runtime by setting the module-level ``PLOT_LOOKBACK_DAYS``

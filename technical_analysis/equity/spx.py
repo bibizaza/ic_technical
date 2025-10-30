@@ -89,11 +89,12 @@ from technical_analysis.powerpoint_utils import (
     insert_source,
 )
 
-# Import MARS momentum scoring engine
-from mars_engine import (
-    generate_spx_score_history,
-    load_prices_for_mars,
-)
+# Import MARS momentum scoring engine (no longer used for calculation - kept for reference)
+# from mars_engine import (
+#     generate_spx_score_history,
+#     load_prices_for_mars,
+# )
+# MARS scores are now read directly from mars_score sheet in Excel (see _compute_spx_mars_score_cached)
 
 
 def _load_price_data(
