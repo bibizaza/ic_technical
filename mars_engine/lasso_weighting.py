@@ -15,9 +15,8 @@ from sklearn.preprocessing import StandardScaler
 
 
 def prepare_training_data(
-    prices_df: pd.DataFrame,
     raw_components_df: pd.DataFrame,  # DataFrame with 5 raw component columns
-    target_col: str,
+    target_price_series: pd.Series,  # Price series for computing forward returns
     forward_return_days: int = 63,
 ) -> pd.DataFrame:
     """
@@ -25,13 +24,11 @@ def prepare_training_data(
 
     Parameters
     ----------
-    prices_df : pd.DataFrame
-        Full price history for computing forward returns
     raw_components_df : pd.DataFrame
         DataFrame with columns: ['pure', 'smooth', 'sharpe', 'idio', 'adx']
         containing RAW component values (not percentiles)
-    target_col : str
-        Column name in prices_df for the target asset
+    target_price_series : pd.Series
+        Target asset price series for computing forward returns
     forward_return_days : int
         Forward return window for target variable
 
@@ -40,7 +37,7 @@ def prepare_training_data(
     pd.DataFrame
         Training data with percentile-ranked features and forward returns
     """
-    if raw_components_df.empty or target_col not in prices_df.columns:
+    if raw_components_df.empty or target_price_series.empty:
         return pd.DataFrame()
 
     # Convert raw components to percentile ranks (0-100)
@@ -50,8 +47,7 @@ def prepare_training_data(
             feature_df[col] = raw_components_df[col].rank(pct=True) * 100.0
 
     # Compute forward returns
-    px = prices_df[target_col]
-    forward_ret = (px.shift(-forward_return_days) / px) - 1.0
+    forward_ret = (target_price_series.shift(-forward_return_days) / target_price_series) - 1.0
 
     # Combine features and target
     training_df = feature_df.copy()
@@ -177,10 +173,10 @@ def perform_walk_forward_validation(
         components_slice = raw_components_history.loc[training_start:fold_end_date]
 
         # Prepare training data
+        price_slice = prices_df[target_col].loc[training_start:fold_end_date]
         training_df = prepare_training_data(
-            prices_df=prices_df,
             raw_components_df=components_slice,
-            target_col=target_col,
+            target_price_series=price_slice,
             forward_return_days=forward_return_days,
         )
 

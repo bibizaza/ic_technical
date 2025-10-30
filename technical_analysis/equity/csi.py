@@ -92,6 +92,8 @@ from mars_engine import (
     generate_csi_score_history,
     load_prices_for_mars,
 )
+# Import CSI-specific LASSO scorer (dynamic weighting)
+from mars_engine.csi_lasso_scorer import get_csi_lasso_score
 
 # Default lookback window (in days) for plotting.  The app can override
 # this value at runtime by setting the module-level ``PLOT_LOOKBACK_DAYS``
@@ -679,13 +681,19 @@ def insert_csi_technical_chart_with_callout(
 @st.cache_data(show_spinner=False)
 def _compute_csi_mars_score_cached(excel_path: str) -> Optional[float]:
     """
-    Compute MARS momentum score for CSI 300 using the lightweight MARS engine.
+    Compute MARS momentum score for CSI 300 using dynamic LASSO weighting.
 
     This function is cached to avoid recomputation on every call.
-    Uses the same MARS scoring algorithm as the standalone MARS app:
+    CSI uses dynamic LASSO weighting where component weights are learned via
+    walk-forward validation on 5-year rolling windows. This approach adapts
+    to changing market regimes in emerging markets.
+
+    Algorithm:
     - 5 absolute factors (pure momentum, smoothness, Sharpe, idio, ADX)
+    - Component weights learned via LassoCV on forward returns
+    - Walk-forward validation with 5-year training, 1-year step
     - Rolling 5-year percentile of last value (winsorized 2-98%)
-    - Average of top 2 component percentiles = absolute score
+    - Weighted average using learned weights (adaptive)
     - Relative score = 6-month return rank vs peer group (SPX peers with CSI → SPX swap)
     - Hybrid = 80% absolute + 20% relative
     - 5-day EMA smoothing
@@ -702,18 +710,10 @@ def _compute_csi_mars_score_cached(excel_path: str) -> Optional[float]:
         Latest MARS momentum score (0-100), or None if computation fails
     """
     try:
-        # Load all prices in MARS format
-        prices_df = load_prices_for_mars(excel_path)
-
-        # Generate MARS score history for CSI
-        score_series = generate_csi_score_history(prices_df)
-
-        # Return the latest score
-        if score_series is not None and not score_series.empty:
-            return float(score_series.iloc[-1])
-        return None
+        # Use LASSO-based scoring for CSI (adaptive weighting)
+        return get_csi_lasso_score(excel_path, use_cached_weights=True)
     except Exception as e:
-        print(f"Warning: Could not compute MARS score for CSI: {e}")
+        print(f"Warning: Could not compute CSI LASSO score: {e}")
         return None
 
 
