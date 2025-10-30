@@ -99,15 +99,6 @@ def prepare_training_data(
 
     feature_df = pd.DataFrame(feature_cols, index=raw_components_df.index)
 
-    # Diagnostic: Check if percentiles have variance
-    print(f"\n📊 Feature Percentile Stats (global rank over training window):")
-    for col in feature_df.columns:
-        valid_data = feature_df[col].dropna()
-        if len(valid_data) > 0:
-            print(f"  {col}: mean={valid_data.mean():.2f}, std={valid_data.std():.2f}, "
-                  f"min={valid_data.min():.2f}, max={valid_data.max():.2f}, "
-                  f"count={len(valid_data)}")
-
     # Compute forward returns
     forward_ret = (target_price_series.shift(-forward_return_days) / target_price_series) - 1.0
 
@@ -116,7 +107,16 @@ def prepare_training_data(
     training_df['forward_return'] = forward_ret
 
     result = training_df.dropna()
-    print(f"  Final training rows after dropna: {len(result)}")
+
+    # Diagnostic output (disabled for performance - enable if debugging)
+    # print(f"\n📊 Feature Percentile Stats (global rank over training window):")
+    # for col in feature_df.columns:
+    #     valid_data = feature_df[col].dropna()
+    #     if len(valid_data) > 0:
+    #         print(f"  {col}: mean={valid_data.mean():.2f}, std={valid_data.std():.2f}, "
+    #               f"min={valid_data.min():.2f}, max={valid_data.max():.2f}, "
+    #               f"count={len(valid_data)}")
+    # print(f"  Final training rows after dropna: {len(result)}")
 
     return result
 
@@ -170,28 +170,26 @@ def train_lasso_model(
     )
 
     try:
-        # Diagnostic: Check feature variance and correlations
-        print(f"\n🔍 LASSO Training Diagnostics:")
-        print(f"  Training samples: {len(X)}")
-        print(f"  Feature std devs: {X.std(axis=0)}")
-        print(f"  Target (y) std dev: {y.std():.6f}")
-        print(f"  Target (y) mean: {y.mean():.6f}")
-
-        # Check correlations with target
-        correlations = {}
-        for i, name in enumerate(feature_names):
-            corr = np.corrcoef(X[:, i], y)[0, 1]
-            correlations[name] = corr
-        print(f"  Feature-target correlations: {correlations}")
-
         model.fit(X_scaled, y)
         optimal_alpha = float(model.alpha_)
         coefs = model.coef_
 
-        print(f"  Optimal alpha: {optimal_alpha:.6f}")
-        print(f"  Raw coefficients: {dict(zip(feature_names, coefs))}")
-
         weights_dict = dict(zip(feature_names, coefs))
+
+        # Diagnostic output (disabled for performance - uncomment if debugging)
+        # print(f"\n🔍 LASSO Training Diagnostics:")
+        # print(f"  Training samples: {len(X)}")
+        # print(f"  Feature std devs: {X.std(axis=0)}")
+        # print(f"  Target (y) std dev: {y.std():.6f}")
+        # print(f"  Target (y) mean: {y.mean():.6f}")
+        # correlations = {}
+        # for i, name in enumerate(feature_names):
+        #     corr = np.corrcoef(X[:, i], y)[0, 1]
+        #     correlations[name] = corr
+        # print(f"  Feature-target correlations: {correlations}")
+        # print(f"  Optimal alpha: {optimal_alpha:.6f}")
+        # print(f"  Raw coefficients: {dict(zip(feature_names, coefs))}")
+
         return weights_dict, optimal_alpha
     except Exception as e:
         print(f"❌ LASSO training failed: {e}")
