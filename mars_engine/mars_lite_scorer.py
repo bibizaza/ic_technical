@@ -4,11 +4,11 @@ Lightweight MARS scorer with data-aware caching.
 
 This module keeps the original "lite" MARS algorithm used in the IC app:
 - 5 absolute components computed on full history:
-    pure momentum (12m + 0.5*6m + 0.25*3m),
+    pure momentum (0.4*12m + 0.4*6m + 0.2*3m),
     trend smoothness (fraction of positive days over ~126),
-    Sharpe (log-return SR over ~126, annualised),
-    idiosyncratic momentum (residual-vs-benchmark, vectorised),
-    ADX(14).
+    Sharpe (simple-return SR over ~126, annualised),
+    idiosyncratic momentum (6m cumulative residual return from 12m OLS),
+    ADX(14) with Wilder/RMA smoothing.
 - Each absolute component is converted to a rolling 5-year percentile of
   the LAST value within that window, after winsorising the window at 2/98.
 - Absolute score = Average of the Top 2 component percentiles.
@@ -43,6 +43,15 @@ import hashlib
 
 import numpy as np
 import pandas as pd
+
+# Import corrected raw component calculations
+from .raw_components import (
+    calculate_raw_pure_momentum,
+    calculate_raw_trend_smoothness,
+    calculate_raw_sharpe_ratio,
+    calculate_raw_idiosyncratic_momentum,
+    calculate_raw_adx,
+)
 
 # -----------------------------------------------------------------------------
 # Peer universes (unchanged relative to the IC app "lite" scorer)
@@ -155,81 +164,6 @@ def _ema(series: pd.Series, span: int) -> pd.Series:
 
 def _safe_clip_0_100(s: pd.Series) -> pd.Series:
     return s.clip(lower=0.0, upper=100.0)
-
-
-# -----------------------------------------------------------------------------
-# Absolute component calculations (vectorised)
-# -----------------------------------------------------------------------------
-def calculate_raw_pure_momentum(close: pd.Series) -> pd.Series:
-    r12m = close.pct_change(252)
-    r6m  = close.pct_change(126)
-    r3m  = close.pct_change( 63)
-    return r12m + 0.5 * r6m + 0.25 * r3m
-
-
-def calculate_raw_trend_smoothness(close: pd.Series) -> pd.Series:
-    daily = close.pct_change()
-    return daily.gt(0).rolling(126, min_periods=126).mean()
-
-
-def calculate_raw_sharpe_ratio(close: pd.Series) -> pd.Series:
-    lr = np.log(close / close.shift(1))
-    win = 126
-    mean = lr.rolling(win, min_periods=win).mean()
-    std  = lr.rolling(win, min_periods=win).std()
-    return (mean / std) * np.sqrt(252.0)
-
-
-def calculate_raw_idiosyncratic_momentum(close: pd.Series, benchmark: pd.Series) -> pd.Series:
-    """
-    Rolling-OLS, vectorised via rolling moments:
-        beta = Cov(Ra,Rb)/Var(Rb), alpha = E[Ra]-beta*E[Rb],
-        resid_t = Ra_t - (alpha + beta*Rb_t);
-    accumulate simple residual returns.
-    """
-    win = 126
-    ra = np.log(close / close.shift(1))
-    rb = np.log(benchmark / benchmark.shift(1))
-
-    ma = ra.rolling(win, min_periods=win).mean()
-    mb = rb.rolling(win, min_periods=win).mean()
-
-    e_ra_rb = (ra * rb).rolling(win, min_periods=win).mean()
-    e_rb2   = (rb * rb).rolling(win, min_periods=win).mean()
-
-    cov   = e_ra_rb - ma * mb
-    var_b = e_rb2 - mb * mb
-    beta  = cov / var_b.replace(0.0, np.nan)
-    alpha = ma - beta * mb
-
-    resid_lr = ra - (alpha + beta * rb)
-    resid_lr = resid_lr.fillna(0.0)
-    resid_simple = np.expm1(resid_lr)
-
-    idio = (1.0 + resid_simple).cumprod() - 1.0
-    return idio
-
-
-def calculate_raw_adx(high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
-    period  = 14
-    up_move   = high.diff()
-    down_move = low.shift(1) - low  # positive when new low < prior low
-
-    plus_dm  = pd.Series(np.where((up_move > down_move) & (up_move > 0), up_move, 0.0), index=high.index)
-    minus_dm = pd.Series(np.where((down_move > up_move) & (down_move > 0), down_move, 0.0), index=high.index)
-
-    tr = pd.concat(
-        [(high - low), (high - close.shift(1)).abs(), (low - close.shift(1)).abs()],
-        axis=1
-    ).max(axis=1)
-
-    atr     = tr.rolling(period, min_periods=period).sum()  # Wilder approx
-    plus_di = 100.0 * plus_dm.rolling(period, min_periods=period).sum() / atr
-    minus_di= 100.0 * minus_dm.rolling(period, min_periods=period).sum() / atr
-
-    dx  = 100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di)
-    adx = dx.rolling(period, min_periods=period).mean()
-    return adx
 
 
 # -----------------------------------------------------------------------------

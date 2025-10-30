@@ -14,7 +14,8 @@ import numpy as np
 
 def calculate_raw_pure_momentum(close: pd.Series) -> pd.Series:
     """
-    Pure momentum: 12m + 0.5*6m + 0.25*3m returns.
+    Pure momentum: weighted blend of 12m, 6m, 3m returns.
+    Weights: 12m=0.4, 6m=0.4, 3m=0.2 (matches reference implementation)
 
     Parameters
     ----------
@@ -29,7 +30,8 @@ def calculate_raw_pure_momentum(close: pd.Series) -> pd.Series:
     r12m = close.pct_change(252)
     r6m = close.pct_change(126)
     r3m = close.pct_change(63)
-    return r12m + 0.5 * r6m + 0.25 * r3m
+    # Reference weights: 12m=0.4, 6m=0.4, 3m=0.2
+    return 0.4 * r12m + 0.4 * r6m + 0.2 * r3m
 
 
 def calculate_raw_trend_smoothness(close: pd.Series) -> pd.Series:
@@ -52,7 +54,8 @@ def calculate_raw_trend_smoothness(close: pd.Series) -> pd.Series:
 
 def calculate_raw_sharpe_ratio(close: pd.Series) -> pd.Series:
     """
-    Sharpe ratio: annualized log-return Sharpe over 126-day window.
+    Sharpe ratio: annualized simple-return Sharpe over 126-day window.
+    Matches reference implementation using simple (not log) returns.
 
     Parameters
     ----------
@@ -64,21 +67,23 @@ def calculate_raw_sharpe_ratio(close: pd.Series) -> pd.Series:
     pd.Series
         Raw Sharpe ratio values
     """
-    lr = np.log(close / close.shift(1))
+    # Use simple returns (not log returns) to match reference
+    returns = close.pct_change()
     win = 126
-    mean = lr.rolling(win, min_periods=win).mean()
-    std = lr.rolling(win, min_periods=win).std()
-    return (mean / std) * np.sqrt(252.0)
+    mean = returns.rolling(win, min_periods=win).mean()
+    std = returns.rolling(win, min_periods=win).std()
+    # Annualize: mean * 252 / (std * sqrt(252))
+    return (mean * 252) / (std * np.sqrt(252))
 
 
 def calculate_raw_idiosyncratic_momentum(close: pd.Series, benchmark: pd.Series) -> pd.Series:
     """
-    Idiosyncratic momentum: cumulative residual returns from rolling OLS.
+    Idiosyncratic momentum: 6-month cumulative return of residuals from 12-month OLS.
 
-    Rolling-OLS, vectorized via rolling moments:
-        beta = Cov(Ra,Rb)/Var(Rb), alpha = E[Ra]-beta*E[Rb],
-        resid_t = Ra_t - (alpha + beta*Rb_t);
-    accumulate simple residual returns.
+    Reference implementation:
+    - Regress asset returns vs benchmark over 12 months (252 days)
+    - Take residuals from last 6 months (126 days)
+    - Compute cumulative return of those residuals
 
     Parameters
     ----------
@@ -90,34 +95,52 @@ def calculate_raw_idiosyncratic_momentum(close: pd.Series, benchmark: pd.Series)
     Returns
     -------
     pd.Series
-        Raw idiosyncratic momentum values
+        Raw idiosyncratic momentum values (6m cumulative residual return)
     """
-    win = 126
-    ra = np.log(close / close.shift(1))
-    rb = np.log(benchmark / benchmark.shift(1))
+    # Use simple returns to match reference
+    ra = close.pct_change()
+    rb = benchmark.pct_change()
 
-    ma = ra.rolling(win, min_periods=win).mean()
-    mb = rb.rolling(win, min_periods=win).mean()
+    # 12-month regression window
+    reg_win = 252
+    # 6-month residual window
+    resid_win = 126
 
-    e_ra_rb = (ra * rb).rolling(win, min_periods=win).mean()
-    e_rb2 = (rb * rb).rolling(win, min_periods=win).mean()
+    # Rolling OLS via rolling moments
+    ma = ra.rolling(reg_win, min_periods=reg_win).mean()
+    mb = rb.rolling(reg_win, min_periods=reg_win).mean()
+
+    e_ra_rb = (ra * rb).rolling(reg_win, min_periods=reg_win).mean()
+    e_rb2 = (rb * rb).rolling(reg_win, min_periods=reg_win).mean()
 
     cov = e_ra_rb - ma * mb
     var_b = e_rb2 - mb * mb
     beta = cov / var_b.replace(0.0, np.nan)
     alpha = ma - beta * mb
 
-    resid_lr = ra - (alpha + beta * rb)
-    resid_lr = resid_lr.fillna(0.0)
-    resid_simple = np.expm1(resid_lr)
+    # Compute residuals
+    resid = ra - (alpha + beta * rb)
+    resid = resid.fillna(0.0)
 
-    idio = (1.0 + resid_simple).cumprod() - 1.0
+    # Cumulative return of last 6 months of residuals
+    # For each date, take last 126 days of residuals and compute cumulative return
+    def _cumulative_resid_return(x):
+        if len(x) < resid_win:
+            return np.nan
+        # Take last 126 days
+        resid_window = x[-resid_win:]
+        # Cumulative return: (1 + r1) * (1 + r2) * ... - 1
+        return (1 + resid_window).prod() - 1
+
+    idio = resid.rolling(resid_win, min_periods=resid_win).apply(_cumulative_resid_return, raw=True)
     return idio
 
 
 def calculate_raw_adx(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
     """
-    Average Directional Index (ADX).
+    Average Directional Index (ADX) using Wilder's smoothing (RMA).
+
+    Matches reference implementation using EWM with alpha=1/length for RMA.
 
     Parameters
     ----------
@@ -135,8 +158,12 @@ def calculate_raw_adx(high: pd.Series, low: pd.Series, close: pd.Series, period:
     pd.Series
         Raw ADX values
     """
+    def _rma(s: pd.Series, length: int) -> pd.Series:
+        """Wilder's smoothing (RMA) via EMA with alpha = 1/length"""
+        return s.ewm(alpha=1/length, adjust=False, min_periods=length).mean()
+
     up_move = high.diff()
-    down_move = low.shift(1) - low  # positive when new low < prior low
+    down_move = -low.diff()  # positive when low is falling
 
     plus_dm = pd.Series(
         np.where((up_move > down_move) & (up_move > 0), up_move, 0.0),
@@ -152,12 +179,13 @@ def calculate_raw_adx(high: pd.Series, low: pd.Series, close: pd.Series, period:
         axis=1
     ).max(axis=1)
 
-    atr = tr.rolling(period, min_periods=period).sum()  # Wilder approx
-    plus_di = 100.0 * plus_dm.rolling(period, min_periods=period).sum() / atr
-    minus_di = 100.0 * minus_dm.rolling(period, min_periods=period).sum() / atr
+    # Use RMA (Wilder smoothing) instead of simple rolling
+    atr = _rma(tr, period)
+    plus_di = 100.0 * _rma(plus_dm, period) / atr
+    minus_di = 100.0 * _rma(minus_dm, period) / atr
 
     dx = 100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di)
-    adx = dx.rolling(period, min_periods=period).mean()
+    adx = _rma(dx, period)
     return adx
 
 
