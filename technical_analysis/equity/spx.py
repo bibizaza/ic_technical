@@ -663,17 +663,11 @@ def insert_spx_technical_chart_with_callout(
 @st.cache_data(show_spinner=False)
 def _compute_spx_mars_score_cached(excel_path: str) -> Optional[float]:
     """
-    Compute MARS momentum score for SPX using the lightweight MARS engine.
+    Read pre-computed MARS momentum score for SPX from the mars_score sheet.
 
-    This function is cached to avoid recomputation on every call.
-    Uses the same MARS scoring algorithm as the standalone MARS app:
-    - 5 absolute factors (pure momentum, smoothness, Sharpe, idio, ADX)
-    - Rolling 5-year percentile of last value (winsorized 2-98%)
-    - Average of top 2 component percentiles = absolute score
-    - Relative score = 6-month return rank vs peer group
-    - Hybrid = 80% absolute + 20% relative
-    - 5-day EMA smoothing
-    - Output clipped to [0, 100]
+    The mars_score sheet should contain pre-computed scores from the standalone
+    MARS application. This ensures 100% consistency with the MARS app and
+    provides instant performance (no calculation needed).
 
     Parameters
     ----------
@@ -683,21 +677,24 @@ def _compute_spx_mars_score_cached(excel_path: str) -> Optional[float]:
     Returns
     -------
     float or None
-        Latest MARS momentum score (0-100), or None if computation fails
+        Latest MARS momentum score (0-100), or None if not found
     """
     try:
-        # Load all prices in MARS format
-        prices_df = load_prices_for_mars(excel_path)
+        from mars_engine.data_loader import load_mars_scores
 
-        # Generate MARS score history for SPX
-        score_series = generate_spx_score_history(prices_df)
+        # Load all pre-computed MARS scores
+        mars_scores = load_mars_scores(excel_path)
 
-        # Return the latest score
-        if score_series is not None and not score_series.empty:
-            return float(score_series.iloc[-1])
+        # Look for SPX score (try multiple ticker name variations)
+        for ticker in ["SPX", "SPX Index", "S&P 500"]:
+            if ticker in mars_scores:
+                return float(mars_scores[ticker])
+
+        print("Warning: SPX not found in mars_score sheet")
         return None
+
     except Exception as e:
-        print(f"Warning: Could not compute MARS score for SPX: {e}")
+        print(f"Warning: Could not read MARS score for SPX: {e}")
         return None
 
 

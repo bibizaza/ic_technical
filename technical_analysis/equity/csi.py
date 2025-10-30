@@ -681,23 +681,15 @@ def insert_csi_technical_chart_with_callout(
 @st.cache_data(show_spinner=False)
 def _compute_csi_mars_score_cached(excel_path: str) -> Optional[float]:
     """
-    Compute MARS momentum score for CSI 300 using dynamic LASSO weighting.
+    Read pre-computed MARS momentum score for CSI 300 from the mars_score sheet.
 
-    This function is cached to avoid recomputation on every call.
-    CSI uses dynamic LASSO weighting where component weights are learned via
-    walk-forward validation on 5-year rolling windows. This approach adapts
-    to changing market regimes in emerging markets.
+    The mars_score sheet should contain pre-computed scores from the standalone
+    MARS application. This ensures 100% consistency with the MARS app and
+    provides instant performance (no calculation needed).
 
-    Algorithm:
-    - 5 absolute factors (pure momentum, smoothness, Sharpe, idio, ADX)
-    - Component weights learned via LassoCV on forward returns
-    - Walk-forward validation with 5-year training, 1-year step
-    - Rolling 5-year percentile of last value (winsorized 2-98%)
-    - Weighted average using learned weights (adaptive)
-    - Relative score = 6-month return rank vs peer group (SPX peers with CSI → SPX swap)
-    - Hybrid = 80% absolute + 20% relative
-    - 5-day EMA smoothing
-    - Output clipped to [0, 100]
+    The MARS app calculates CSI scores using dynamic LASSO weighting where
+    component weights are learned via walk-forward validation on 5-year
+    rolling windows. This pre-computed approach is the definitive source.
 
     Parameters
     ----------
@@ -707,13 +699,24 @@ def _compute_csi_mars_score_cached(excel_path: str) -> Optional[float]:
     Returns
     -------
     float or None
-        Latest MARS momentum score (0-100), or None if computation fails
+        Latest MARS momentum score (0-100), or None if not found
     """
     try:
-        # Use LASSO-based scoring for CSI (adaptive weighting)
-        return get_csi_lasso_score(excel_path, use_cached_weights=True)
+        from mars_engine.data_loader import load_mars_scores
+
+        # Load all pre-computed MARS scores
+        mars_scores = load_mars_scores(excel_path)
+
+        # Look for CSI score (try multiple ticker name variations)
+        for ticker in ["CSI", "CSI 300", "SHSZ300", "SHSZ300 Index"]:
+            if ticker in mars_scores:
+                return float(mars_scores[ticker])
+
+        print("Warning: CSI not found in mars_score sheet")
+        return None
+
     except Exception as e:
-        print(f"Warning: Could not compute CSI LASSO score: {e}")
+        print(f"Warning: Could not read MARS score for CSI: {e}")
         return None
 
 

@@ -6,6 +6,7 @@ Public API:
     - generate_csi_score_history(prices_df: pd.DataFrame, agg_method, weights) -> pd.Series
     - get_csi_lasso_score(excel_path_or_df) -> float  # CSI with dynamic LASSO
     - load_prices_for_mars(excel_obj_or_path) -> pd.DataFrame
+    - load_mars_scores(excel_obj_or_path) -> dict[str, float]  # Pre-computed scores
     - DEFAULT_WEIGHTS: dict[str, float]
     - PEER_GROUP_SPX: list[str]
     - PEER_GROUP_CSI: list[str]
@@ -24,7 +25,7 @@ from .mars_lite_scorer import (
     PEER_GROUP_CSI,
     DEFAULT_WEIGHTS,
 )
-from .data_loader import load_prices_for_mars
+from .data_loader import load_prices_for_mars, load_mars_scores
 from .lasso_weighting import (
     perform_walk_forward_validation,
     train_lasso_model,
@@ -38,6 +39,7 @@ __all__ = [
     "generate_csi_score_history",
     "get_csi_lasso_score",
     "load_prices_for_mars",
+    "load_mars_scores",
     "DEFAULT_WEIGHTS",
     "PEER_GROUP_SPX",
     "PEER_GROUP_CSI",

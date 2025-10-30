@@ -99,3 +99,58 @@ def load_prices_for_mars(excel_obj_or_path: Union[str, pathlib.Path, pd.ExcelFil
             df["CSI_low"] = df["CSI"] * 0.99
 
     return df
+
+
+def load_mars_scores(excel_obj_or_path: Union[str, pathlib.Path, pd.ExcelFile]) -> dict:
+    """
+    Load pre-computed MARS scores from the mars_score sheet.
+
+    The mars_score sheet should have:
+    - Column A: Ticker names (header "Ticker" in A1)
+    - Column B: MARS scores (header "Mars" in B1)
+
+    Parameters
+    ----------
+    excel_obj_or_path : str, pathlib.Path, or pd.ExcelFile
+        Excel file path or already-opened Excel file object
+
+    Returns
+    -------
+    dict
+        Dictionary mapping ticker name to MARS score (float)
+        Example: {"SPX": 95.5, "CSI": 32.0, ...}
+    """
+    try:
+        # Read mars_score sheet
+        df = pd.read_excel(excel_obj_or_path, sheet_name="mars_score")
+
+        # Ensure columns are named correctly
+        if len(df.columns) < 2:
+            print("Warning: mars_score sheet has fewer than 2 columns")
+            return {}
+
+        # Use first two columns (Ticker, Mars)
+        ticker_col = df.columns[0]
+        score_col = df.columns[1]
+
+        # Create dictionary mapping ticker -> score
+        scores = {}
+        for _, row in df.iterrows():
+            ticker = row[ticker_col]
+            score = row[score_col]
+
+            if pd.notna(ticker) and pd.notna(score):
+                # Clean ticker name (strip whitespace)
+                ticker_clean = str(ticker).strip()
+                # Convert score to float
+                try:
+                    score_float = float(score)
+                    scores[ticker_clean] = score_float
+                except (ValueError, TypeError):
+                    continue
+
+        return scores
+
+    except Exception as e:
+        print(f"Warning: Could not load mars_score sheet: {e}")
+        return {}
