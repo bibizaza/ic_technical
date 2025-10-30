@@ -173,7 +173,7 @@ def calculate_relative_score(prices: pd.DataFrame, window: int = 126, target_col
     """
     Cross-sectional percentile rank of target's window return vs available peers.
     """
-    ret = prices.pct_change(window)
+    ret = prices.pct_change(window, fill_method=None)
     if target_col and target_col not in ret.columns:
         target_col = ret.columns[0]
     elif not target_col:

@@ -154,7 +154,8 @@ def train_lasso_model(
     X_scaled = scaler.fit_transform(X)
 
     # Define alpha grid (logarithmic)
-    alphas = np.logspace(-4, -1, 20)
+    # Lower range to reduce over-regularization
+    alphas = np.logspace(-6, -2, 30)  # 0.000001 to 0.01, more granular
 
     # Train LassoCV
     model = LassoCV(
