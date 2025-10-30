@@ -136,10 +136,19 @@ def compute_csi_score_with_lasso(
         "adx": float(weights_row.get("adx", 0.0)),
     }
 
+    print(f"🔍 Raw LASSO weights (before normalization): {learned_weights}")
+
+    # Check if LASSO produced meaningful weights (not all zeros)
+    total_abs_weight = sum(abs(w) for w in learned_weights.values())
+    if total_abs_weight < 0.001:
+        print("⚠️  LASSO produced all-zero weights. Falling back to top2 aggregation.")
+        from .mars_lite_scorer import generate_csi_score_history
+        return generate_csi_score_history(prices_df, agg_method="top2")
+
     # Normalize weights
     learned_weights = _normalize_weights(learned_weights)
 
-    print(f"📊 Using CSI LASSO weights: {learned_weights}")
+    print(f"📊 Normalized LASSO weights: {learned_weights}")
 
     # Now compute the score using these weights
     return _compute_csi_score_with_weights(prices_df, learned_weights)

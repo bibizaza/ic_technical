@@ -14,6 +14,40 @@ from sklearn.linear_model import LassoCV
 from sklearn.preprocessing import StandardScaler
 
 
+def _winsorize_series(s: pd.Series, lower_q: float = 0.02, upper_q: float = 0.98) -> pd.Series:
+    """Winsorize series to lower and upper quantiles."""
+    s_clean = s.dropna()
+    if s_clean.empty:
+        return s
+    lo = s_clean.quantile(lower_q)
+    hi = s_clean.quantile(upper_q)
+    return s.clip(lower=lo, upper=hi)
+
+
+def _rolling_percentile_rank(s: pd.Series, window: int = 252 * 5) -> pd.Series:
+    """
+    Compute rolling percentile rank using 5-year lookback window.
+
+    This MUST match the percentile calculation used in scoring to ensure
+    LASSO training features match the features it will see at inference time.
+
+    For each date, looks at the last `window` days, winsorizes that window to 2-98%,
+    and returns the percentile of the current value within that window.
+    """
+    def _fn(x: np.ndarray) -> float:
+        if len(x) < 2:
+            return np.nan
+        v = pd.Series(x)
+        # Winsorize the window (2nd-98th percentile)
+        v_w = _winsorize_series(v, lower_q=0.02, upper_q=0.98)
+        # Get the last value
+        last = v_w.iloc[-1]
+        # Return percentile rank of last value within window
+        return float((v_w <= last).mean() * 100.0)
+
+    return s.rolling(window, min_periods=window).apply(_fn, raw=True)
+
+
 def prepare_training_data(
     raw_components_df: pd.DataFrame,  # DataFrame with 5 raw component columns
     target_price_series: pd.Series,  # Price series for computing forward returns
@@ -21,6 +55,10 @@ def prepare_training_data(
 ) -> pd.DataFrame:
     """
     Build ML-ready dataset for LASSO training.
+
+    CRITICAL: Uses rolling 5-year percentile ranking to match the MARS framework's
+    "Historical Percentile Ranking" methodology (Section 3.1). This ensures training
+    features exactly match the features used during scoring/inference.
 
     Parameters
     ----------
@@ -40,11 +78,15 @@ def prepare_training_data(
     if raw_components_df.empty or target_price_series.empty:
         return pd.DataFrame()
 
-    # Convert raw components to percentile ranks (0-100)
+    # Convert raw components to percentile ranks (0-100) using ROLLING 5-year window
+    # This matches the MARS framework's historical percentile ranking methodology
+    lookback = 252 * 5  # 5-year rolling window
+
     feature_df = pd.DataFrame(index=raw_components_df.index)
     for col in ['pure', 'smooth', 'sharpe', 'idio', 'adx']:
         if col in raw_components_df.columns:
-            feature_df[col] = raw_components_df[col].rank(pct=True) * 100.0
+            # Use rolling percentile rank - MUST match scoring method
+            feature_df[col] = _rolling_percentile_rank(raw_components_df[col], window=lookback)
 
     # Compute forward returns
     forward_ret = (target_price_series.shift(-forward_return_days) / target_price_series) - 1.0
