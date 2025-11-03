@@ -5,10 +5,85 @@ This module generates all chart images concurrently before PowerPoint insertion,
 dramatically reducing total generation time on multi-core systems.
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, Any, Optional
 import traceback
+
+
+def _generate_single_chart(task, excel_path, pmode):
+    """
+    Generate a single chart based on task specification.
+
+    This is a module-level function so it can be pickled for ProcessPoolExecutor.
+
+    Returns:
+        Tuple of (task_name, success, image_bytes_or_error, cache_key)
+        The image bytes are returned so the main process can cache them.
+    """
+    from technical_analysis.common_helpers import (
+        _load_price_data_generic,
+        generate_range_callout_chart_image,
+        generate_average_gauge_image,
+        _get_technical_score_generic,
+        _get_momentum_score_generic,
+    )
+
+    def get_vol_value(ticker):
+        try:
+            import pandas as pd
+            df_vol = pd.read_excel(excel_path, sheet_name="data_prices")
+            df_vol = df_vol.drop(index=0)
+            if ticker in df_vol.columns:
+                return float(df_vol[ticker].iloc[-1])
+        except:
+            pass
+        return None
+
+    try:
+        if task['type'] == 'callout_chart':
+            # Load price data
+            df = _load_price_data_generic(excel_path, task['ticker'], pmode)
+
+            # Get volatility index if specified
+            vol_val = None
+            if task.get('vol_ticker'):
+                vol_val = get_vol_value(task['vol_ticker'])
+
+            # Generate chart WITHOUT cache key (worker processes have separate memory)
+            # The main process will cache the returned bytes
+            img_bytes = generate_range_callout_chart_image(
+                df,
+                anchor_date=task['anchor'],
+                lookback_days=90,
+                width_cm=24.2,
+                height_cm=6.52,
+                vol_index_value=vol_val,
+                show_legend=False,
+                cache_key=None  # Don't cache in worker process
+            )
+            return (task['name'], True, img_bytes, task['cache_key'])
+
+        elif task['type'] == 'average_gauge':
+            # Get scores
+            tech_score = _get_technical_score_generic(excel_path, task['ticker']) or 50.0
+            mom_score = _get_momentum_score_generic(excel_path, task['ticker']) or 50.0
+
+            # Generate gauge WITHOUT cache key (worker processes have separate memory)
+            # The main process will cache the returned bytes
+            gauge_bytes = generate_average_gauge_image(
+                tech_score,
+                mom_score,
+                task['last_week_avg'],
+                cache_key=None  # Don't cache in worker process
+            )
+            return (task['name'], True, gauge_bytes, task['cache_key'])
+
+    except Exception as e:
+        error_msg = f"Failed {task['name']}: {str(e)}"
+        print(f"  ⚠️  {error_msg}")
+        traceback.print_exc()
+        return (task['name'], False, str(e), None)
 
 
 def prewarm_all_instrument_charts(
@@ -43,31 +118,11 @@ def prewarm_all_instrument_charts(
     Dict[str, bool]
         Success status for each chart
     """
-    from technical_analysis.common_helpers import (
-        _load_price_data_generic,
-        generate_range_callout_chart_image,
-        generate_average_gauge_image,
-        _get_technical_score_generic,
-        _get_momentum_score_generic,
-    )
-
     # Price mode
     pmode = config.get('price_mode', 'Last Price')
 
     # Build list of all chart generation tasks
     tasks = []
-
-    # Helper to load vol index
-    def get_vol_value(ticker):
-        try:
-            import pandas as pd
-            df_vol = pd.read_excel(excel_path, sheet_name="data_prices")
-            df_vol = df_vol.drop(index=0)
-            if ticker in df_vol.columns:
-                return float(df_vol[ticker].iloc[-1])
-        except:
-            pass
-        return None
 
     # ========== EQUITY INSTRUMENTS ==========
     equity_instruments = [
@@ -158,63 +213,26 @@ def prewarm_all_instrument_charts(
 
     print(f"🚀 Pre-generating {total_tasks} charts in parallel with {max_workers} workers...")
 
-    def generate_single_chart(task):
-        """Generate a single chart based on task specification."""
-        try:
-            if task['type'] == 'callout_chart':
-                # Load price data
-                df = _load_price_data_generic(excel_path, task['ticker'], pmode)
+    # Import cache functions for storing results in main process
+    from technical_analysis.common_helpers import _IMAGE_CACHE
 
-                # Get volatility index if specified
-                vol_val = None
-                if task.get('vol_ticker'):
-                    vol_val = get_vol_value(task['vol_ticker'])
-
-                # Generate chart with cache key
-                img_bytes = generate_range_callout_chart_image(
-                    df,
-                    anchor_date=task['anchor'],
-                    lookback_days=90,
-                    width_cm=24.2,
-                    height_cm=6.52,
-                    vol_index_value=vol_val,
-                    show_legend=False,
-                    cache_key=task['cache_key']
-                )
-                return (task['name'], True, len(img_bytes) if img_bytes else 0)
-
-            elif task['type'] == 'average_gauge':
-                # Get scores
-                tech_score = _get_technical_score_generic(excel_path, task['ticker']) or 50.0
-                mom_score = _get_momentum_score_generic(excel_path, task['ticker']) or 50.0
-
-                # Generate gauge with cache key
-                gauge_bytes = generate_average_gauge_image(
-                    tech_score,
-                    mom_score,
-                    task['last_week_avg'],
-                    cache_key=task['cache_key']
-                )
-                return (task['name'], True, len(gauge_bytes) if gauge_bytes else 0)
-
-        except Exception as e:
-            error_msg = f"Failed {task['name']}: {str(e)}"
-            print(f"  ⚠️  {error_msg}")
-            traceback.print_exc()
-            return (task['name'], False, str(e))
-
-    # Execute all tasks in parallel
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
-        future_to_task = {executor.submit(generate_single_chart, task): task for task in tasks}
+    # Execute all tasks in parallel using processes (not threads) for true parallelism
+    # This bypasses Python's GIL and allows matplotlib to render charts on multiple CPU cores
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks with excel_path and pmode as arguments
+        future_to_task = {executor.submit(_generate_single_chart, task, excel_path, pmode): task for task in tasks}
 
         # Collect results as they complete
         for future in as_completed(future_to_task):
             task = future_to_task[future]
             try:
-                name, success, result = future.result()
+                name, success, result, cache_key = future.result()
                 results[name] = success
                 completed += 1
+
+                # Cache the image bytes in the main process's cache
+                if success and result and cache_key:
+                    _IMAGE_CACHE[cache_key] = result
 
                 if progress_callback:
                     progress_callback(completed, total_tasks, name)
