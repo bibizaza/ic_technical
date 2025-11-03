@@ -492,7 +492,7 @@ def _get_binance_technical_score(excel_obj_or_path) -> Optional[float]:
     Retrieve the technical score for BINANCE.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_technical_score_generic(excel_obj_or_path, "XBNCUR CURNCY")
+    return _get_technical_score_generic(excel_obj_or_path, "XBIUSD CURNCY")
 
 
 
@@ -668,7 +668,7 @@ def _get_binance_momentum_score(excel_obj_or_path) -> Optional[float]:
     Retrieve the momentum score for BINANCE.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_momentum_score_generic(excel_obj_or_path, "XBNCUR CURNCY")
+    return _get_momentum_score_generic(excel_obj_or_path, "XBIUSD CURNCY")
 
 
 

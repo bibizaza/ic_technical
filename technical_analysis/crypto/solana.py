@@ -492,7 +492,7 @@ def _get_solana_technical_score(excel_obj_or_path) -> Optional[float]:
     Retrieve the technical score for SOLANA.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_technical_score_generic(excel_obj_or_path, "SOLUSD CURNCY")
+    return _get_technical_score_generic(excel_obj_or_path, "XSOUSD CURNCY")
 
 
 
@@ -668,7 +668,7 @@ def _get_solana_momentum_score(excel_obj_or_path) -> Optional[float]:
     Retrieve the momentum score for SOLANA.
     Uses common helper with instrument-specific ticker.
     """
-    return _get_momentum_score_generic(excel_obj_or_path, "SOLUSD CURNCY")
+    return _get_momentum_score_generic(excel_obj_or_path, "XSOUSD CURNCY")
 
 
 
