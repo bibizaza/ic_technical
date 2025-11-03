@@ -117,9 +117,14 @@ def _load_price_data(excel_path: Union[str, pathlib.Path], tickers: List[str]) -
     df = df[df[df.columns[0]] != "DATES"].copy()
     df = df.rename(columns={df.columns[0]: "Date"})
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    # Filter tickers to only include those that actually exist in the Excel file
+    available_tickers = [t for t in tickers if t in df.columns]
+    missing_tickers = [t for t in tickers if t not in df.columns]
+    if missing_tickers:
+        print(f"Warning: The following tickers are not in the Excel file and will be skipped: {missing_tickers}")
     # Restrict to requested tickers and coerce to numeric
-    out = df[["Date"] + tickers].copy()
-    for t in tickers:
+    out = df[["Date"] + available_tickers].copy()
+    for t in available_tickers:
         out[t] = pd.to_numeric(out[t], errors="coerce")
     return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
 
