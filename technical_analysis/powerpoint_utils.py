@@ -195,7 +195,7 @@ def insert_subtitle(
     instrument_name : str
         Instrument identifier (e.g., "spx", "gold", "bitcoin").
     placeholder_name : str, optional
-        Name of the placeholder shape (default: "{instrument_name}_subtitle").
+        Name of the placeholder shape (default: "{instrument_name}_text").
 
     Returns
     -------
@@ -203,7 +203,10 @@ def insert_subtitle(
         Modified presentation object.
     """
     if placeholder_name is None:
-        placeholder_name = f"{instrument_name}_subtitle"
+        placeholder_name = f"{instrument_name}_text"
+
+    subtitle_text = subtitle or ""
+    placeholder_patterns = ["[XXX]", "XXX"]
 
     slide_idx = find_slide_by_placeholder(prs, instrument_name)
     if slide_idx is None:
@@ -211,7 +214,7 @@ def insert_subtitle(
 
     slide = prs.slides[slide_idx]
 
-    # Search for the placeholder shape
+    # Search for the placeholder shape by name
     for shape in slide.shapes:
         if getattr(shape, "name", "").lower() == placeholder_name.lower():
             if shape.has_text_frame:
@@ -220,23 +223,24 @@ def insert_subtitle(
                 shape.text_frame.clear()
                 p = shape.text_frame.paragraphs[0]
                 new_run = p.add_run()
-                new_run.text = subtitle
+                new_run.text = subtitle_text
                 _apply_run_font_attributes(new_run, *attrs)
             return prs
 
-    # Otherwise search for placeholder text
+    # Otherwise search for placeholder text patterns
     for shape in slide.shapes:
         if shape.has_text_frame:
-            if "[subtitle]" in (shape.text or "").lower():
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                new_text = shape.text.replace("[subtitle]", subtitle).replace("[Subtitle]", subtitle)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = new_text
-                _apply_run_font_attributes(new_run, *attrs)
-                return prs
+            for pattern in placeholder_patterns:
+                if pattern in (shape.text or ""):
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    new_text = shape.text.replace(pattern, subtitle_text)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = new_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    return prs
 
     return prs
 
