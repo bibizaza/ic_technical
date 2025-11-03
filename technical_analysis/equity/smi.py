@@ -575,6 +575,7 @@ def insert_smi_technical_chart_with_callout(
         height_cm=6.52,
         vol_index_value=vol_val,
         show_legend=False,
+        cache_key="smi_main_callout",  # Phase 2: Use cached chart
     )
 
     # Locate the slide containing the 'smi' placeholder or text
@@ -788,6 +789,7 @@ def insert_smi_average_gauge(
             last_label_text="Previous Week",
             width_cm=15.15,
             height_cm=3.13,
+            cache_key="smi_avg_gauge",  # Phase 2: Use cached gauge
         )
     except Exception:
         return prs

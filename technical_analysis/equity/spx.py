@@ -570,6 +570,7 @@ def insert_spx_technical_chart_with_callout(
         height_cm=6.52,
         vol_index_value=vol_val,
         show_legend=False,
+        cache_key="spx_main_callout",  # Phase 2: Use cached chart if available
     )
 
     # Locate the slide containing the 'spx' placeholder or text
@@ -840,6 +841,7 @@ def insert_spx_average_gauge(
             last_label_text="Previous Week",
             width_cm=15.15,
             height_cm=3.13,
+            cache_key="spx_avg_gauge",  # Phase 2: Use cached gauge if available
         )
     except Exception:
         return prs
