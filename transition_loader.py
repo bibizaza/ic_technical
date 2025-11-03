@@ -42,11 +42,9 @@ def read_transition_sheet(excel_path) -> Dict[str, Dict[str, Any]]:
         print(f"Warning: Could not read 'transition' sheet: {e}")
         return {}
 
-    # Data starts at row 2 in Excel (row 1 after pandas reads it)
-    # So we need to skip the first row which contains headers
-    if len(df) > 1:
-        df = df.iloc[1:]  # Skip row 0 (which is row 1 in Excel, the header)
-        print(f"DEBUG: After skipping header row, {len(df)} data rows remain")
+    # Pandas automatically uses Excel row 1 as column names.
+    # Excel row 2+ become DataFrame rows 0, 1, 2, etc.
+    # No need to skip any rows - all rows contain data.
 
     result = {}
 
