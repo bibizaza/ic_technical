@@ -373,18 +373,28 @@ def create_historical_performance_table(
     df = _load_price_data(excel_path, tickers)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
     perf = _build_returns_table(df_adj, mapping)
-    heat_df = perf[["Name", "YTD", "1M", "3M", "6M", "12M"]].dropna().sort_values("YTD", ascending=False).reset_index(drop=True)
+    # Keep all cryptos, even if they have missing data for some time periods
+    # Only drop rows where the Name itself is missing
+    heat_df = perf[["Name", "YTD", "1M", "3M", "6M", "12M"]].dropna(subset=["Name"]).sort_values("YTD", ascending=False).reset_index(drop=True)
     n_rows = len(heat_df)
     cols = ["YTD", "1M", "3M", "6M", "12M"]
     color_array = np.zeros((n_rows, len(cols), 4))
     for j, col in enumerate(cols):
         col_vals = heat_df[col].astype(float).values
-        pos_vals = col_vals[col_vals > 0]
-        neg_vals = col_vals[col_vals < 0]
+        # Handle NaN values when computing color scale
+        valid_vals = col_vals[~np.isnan(col_vals)]
+        if len(valid_vals) == 0:
+            continue
+        pos_vals = valid_vals[valid_vals > 0]
+        neg_vals = valid_vals[valid_vals < 0]
         max_pos = pos_vals.max() if len(pos_vals) > 0 else 0.0
         min_neg = neg_vals.min() if len(neg_vals) > 0 else 0.0
         for i, val in enumerate(col_vals):
-            color_array[i, j] = _colour_for_value(float(val), max_pos, min_neg)
+            if not np.isnan(val):
+                color_array[i, j] = _colour_for_value(float(val), max_pos, min_neg)
+            else:
+                # Use light gray for missing data
+                color_array[i, j] = [0.9, 0.9, 0.9, 1.0]
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(width, height))
     ax.imshow(color_array, aspect="auto")
@@ -392,10 +402,15 @@ def create_historical_performance_table(
     for i in range(n_rows):
         for j, col in enumerate(cols):
             val = heat_df.iloc[i][col]
+            # Display "N/A" for missing data instead of trying to format NaN
+            if pd.isna(val):
+                text = "N/A"
+            else:
+                text = f"{val:.1f}%"
             ax.text(
                 j,
                 i,
-                f"{val:.1f}%",
+                text,
                 ha="center",
                 va="center",
                 fontsize=9,
