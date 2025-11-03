@@ -24,6 +24,7 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import matplotlib.patches as patches
 from matplotlib.colors import LinearSegmentedColormap
 from sklearn.linear_model import LinearRegression
@@ -839,6 +840,9 @@ def generate_range_gauge_chart_image(
     for spine in ax.spines.values():
         spine.set_visible(False)
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+    # Format x-axis dates as "Aug-01" to save space
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b-%d'))
+    fig.autofmt_xdate()  # Rotate date labels for better readability
     # Add legend for main chart
     ax.legend(
         loc="upper center",
@@ -1150,6 +1154,9 @@ def generate_range_callout_chart_image(
     ax_chart.tick_params(axis="y", which="both", length=0)
     ax_chart.tick_params(axis="x", which="both", length=2)
     ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+    # Format x-axis dates as "Aug-01" to save space
+    ax_chart.xaxis.set_major_formatter(mdates.DateFormatter('%b-%d'))
+    fig.autofmt_xdate()  # Rotate date labels for better readability
     # Legend: when ``show_legend`` is True, place the legend just above
     # the main chart, aligned to the left so that it does not overlap the
     # call‑out panel.  Use a multi‑column layout to fit all entries on a

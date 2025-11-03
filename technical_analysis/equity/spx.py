@@ -60,6 +60,7 @@ from pptx import Presentation
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import matplotlib.patches as patches
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
@@ -462,6 +463,10 @@ def _generate_spx_image_from_df(
     for spine in ax.spines.values():
         spine.set_visible(False)
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+
+    # Format x-axis dates as "Aug-01" to save space
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b-%d'))
+    fig.autofmt_xdate()  # Rotate date labels for better readability
 
     ax.legend(
         loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=4, fontsize=8, frameon=False
