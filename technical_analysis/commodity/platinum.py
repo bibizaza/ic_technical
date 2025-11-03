@@ -69,6 +69,11 @@ from technical_analysis.common_helpers import (
     _compute_range_bounds,
     generate_range_callout_chart_image,
 )
+from technical_analysis.powerpoint_utils import (
+    find_slide_by_placeholder,
+    insert_score_number,
+    insert_subtitle,
+)
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
