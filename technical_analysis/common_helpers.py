@@ -589,9 +589,9 @@ def generate_average_gauge_image(
 
     fig_w, fig_h = width_cm / 2.54, height_cm / 2.54
     plt.style.use("default")
-    # Set font to Calibri for all chart text
-    plt.rcParams['font.family'] = 'Calibri'
-    plt.rcParams['font.sans-serif'] = ['Calibri']
+    # Set font to Calibri (Windows) with fallbacks for macOS/Linux
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['Calibri', 'Arial', 'Helvetica', 'DejaVu Sans']
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
     gradient = np.linspace(0, 1, 500).reshape(1, -1)
@@ -758,9 +758,9 @@ def generate_range_gauge_only_image(
     # Prepare figure
     fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
     plt.style.use("default")
-    # Set font to Calibri for all chart text
-    plt.rcParams['font.family'] = 'Calibri'
-    plt.rcParams['font.sans-serif'] = ['Calibri']
+    # Set font to Calibri (Windows) with fallbacks for macOS/Linux
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['Calibri', 'Arial', 'Helvetica', 'DejaVu Sans']
     fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
     # Build vertical gradient: red → white → green
     gradient = np.linspace(0, 1, 256).reshape(-1, 1)
@@ -929,9 +929,9 @@ def generate_range_gauge_chart_image(
 
     fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
     plt.style.use("default")
-    # Set font to Calibri for all chart text
-    plt.rcParams['font.family'] = 'Calibri'
-    plt.rcParams['font.sans-serif'] = ['Calibri']
+    # Set font to Calibri (Windows) with fallbacks for macOS/Linux
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['Calibri', 'Arial', 'Helvetica', 'DejaVu Sans']
     fig = plt.figure(figsize=(fig_w_in, fig_h_in))
 
     # Determine relative widths for the chart and gauge.  The chart occupies
@@ -1171,9 +1171,9 @@ def generate_range_callout_chart_image(
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
 
-    # Set font to Calibri for all chart text
-    plt.rcParams['font.family'] = 'Calibri'
-    plt.rcParams['font.sans-serif'] = ['Calibri']
+    # Set font to Calibri (Windows) with fallbacks for macOS/Linux
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['Calibri', 'Arial', 'Helvetica', 'DejaVu Sans']
 
     if df_full.empty:
         return b""

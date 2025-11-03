@@ -134,10 +134,21 @@ def _copy_breadth_test_range(xlsx_path: Path) -> Path:
         19.55 cm on the slide.
 
     Returns the PNG file path.
+
+    Note: This function requires Windows and pywin32 (pythoncom, win32com).
     """
-    import os, uuid, math, tempfile, shutil, subprocess, pythoncom, traceback
-    from win32com.client import DispatchEx
+    import os, uuid, math, tempfile, shutil, subprocess, traceback, platform
     from PIL import Image
+
+    # Check if running on Windows
+    if platform.system() != "Windows":
+        raise RuntimeError("Breadth table generation requires Windows (uses Excel COM automation)")
+
+    try:
+        import pythoncom
+        from win32com.client import DispatchEx
+    except ImportError as e:
+        raise RuntimeError(f"Breadth table requires pywin32 package: {e}")
 
     # ---------------- user‑tuneables ----------------------------------
     SRC_SHEET      = "helper_breadth"
@@ -5461,7 +5472,11 @@ def show_generate_presentation_page():
             img_path = _copy_breadth_test_range(Path(excel_path_for_ppt))
             prs = _paste_breadth_test_picture(prs, img_path)
         except Exception as e:
-            print("Breadth‑test step failed:", e)
+            import platform
+            if platform.system() == "Windows":
+                print(f"Breadth table generation failed: {e}")
+            else:
+                print(f"Breadth table skipped (requires Windows): {e}")
         prs.save(out_stream)
         out_stream.seek(0)
         updated_bytes = out_stream.getvalue()
