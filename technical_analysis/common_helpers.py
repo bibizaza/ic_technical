@@ -742,7 +742,7 @@ def generate_range_gauge_chart_image(
 
     # Compute bounds for the configured lookback window
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
+    start = today - timedelta(days=lookback_days)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
     # Compute moving averages on the full dataset and slice to the lookback window
     df_ma_full = _add_mas(df_full)
@@ -1008,7 +1008,7 @@ def generate_range_callout_chart_image(
 
     # Restrict to the configured lookback window for plotting
     today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
+    start = today - timedelta(days=lookback_days)
     df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
 
     # Compute moving averages on the full history and then slice to the
