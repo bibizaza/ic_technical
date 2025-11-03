@@ -3494,11 +3494,50 @@ def show_generate_presentation_page():
     )
 
     if st.sidebar.button("Generate updated PPTX", key="gen_ppt_button"):
+        import time
+
+        # Initialize progress tracking
+        total_steps = 32  # Total number of major operations
+        current_step = 0
+        start_time = time.time()
+
+        # Create progress bar and status text placeholders
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        time_text = st.empty()
+
+        def update_progress(step_name):
+            """Update progress bar and estimated time remaining."""
+            nonlocal current_step
+            current_step += 1
+            progress = current_step / total_steps
+            progress_bar.progress(progress)
+
+            # Calculate elapsed and estimated remaining time
+            elapsed = time.time() - start_time
+            if current_step > 0:
+                avg_time_per_step = elapsed / current_step
+                remaining_steps = total_steps - current_step
+                estimated_remaining = avg_time_per_step * remaining_steps
+
+                # Format time display
+                if estimated_remaining < 60:
+                    time_str = f"{int(estimated_remaining)}s remaining"
+                else:
+                    mins = int(estimated_remaining // 60)
+                    secs = int(estimated_remaining % 60)
+                    time_str = f"{mins}m {secs}s remaining"
+
+                time_text.text(f"⏱️ {time_str} (Step {current_step}/{total_steps})")
+
+            status_text.text(f"🔄 {step_name}")
+
         # Write the uploaded PPTX to a temporary file so that python-pptx
         # can read it reliably.  Also write the uploaded Excel file to a
         # temporary XLSX path so that multiple reads do not exhaust the
         # underlying file-like object.  The Excel path is reused for
         # inserting charts and scores throughout the presentation.
+        update_progress("Loading PowerPoint template...")
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp_input:
             tmp_input.write(st.session_state["pptx_file"].getbuffer())
             tmp_input.flush()
@@ -3507,6 +3546,7 @@ def show_generate_presentation_page():
         # Persist the Excel to a temporary path to avoid file pointer
         # exhaustion when pandas reads multiple sheets.  Without this,
         # repeated reads from the UploadedFile can yield empty DataFrames.
+        update_progress("Loading Excel data...")
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_xls:
             tmp_xls.write(st.session_state["excel_file"].getbuffer())
             tmp_xls.flush()
@@ -3623,6 +3663,9 @@ def show_generate_presentation_page():
             prs = _set_text_in_named_textbox(prs, "DataIC", human_date)
 
         # Insert YTD charts
+        update_progress("Updating date on first slide...")
+
+        update_progress("Inserting Equity YTD chart...")
         prs = insert_equity_chart(
             prs,
             excel_path_for_ppt,
@@ -3630,6 +3673,8 @@ def show_generate_presentation_page():
             tickers=st.session_state.get("selected_eq_tickers", []),
             price_mode=st.session_state.get("price_mode", "Last Price"),
         )
+
+        update_progress("Inserting Commodity YTD chart...")
         prs = insert_commodity_chart(
             prs,
             excel_path_for_ppt,
@@ -3637,6 +3682,8 @@ def show_generate_presentation_page():
             tickers=st.session_state.get("selected_co_tickers", []),
             price_mode=st.session_state.get("price_mode", "Last Price"),
         )
+
+        update_progress("Inserting Crypto YTD chart...")
         prs = insert_crypto_chart(
             prs,
             excel_path_for_ppt,
@@ -3688,6 +3735,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert SPX technical analysis slide (always)
         # ------------------------------------------------------------------
+        update_progress("Processing S&P 500 technical analysis...")
         prs = insert_spx_technical_chart_with_callout(
             prs,
             excel_path_for_ppt,
@@ -3746,6 +3794,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert CSI technical analysis slide (always)
         # ------------------------------------------------------------------
+        update_progress("Processing CSI 300 technical analysis...")
         prs = insert_csi_technical_chart_with_callout(
             prs,
             excel_path_for_ppt,
@@ -3804,6 +3853,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Nikkei technical analysis slide (always)
         # ------------------------------------------------------------------
+        update_progress("Processing Nikkei 225 technical analysis...")
         prs = insert_nikkei_technical_chart_with_callout(
             prs,
             excel_path_for_ppt,
@@ -3862,6 +3912,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert TASI technical analysis slide (always)
         # ------------------------------------------------------------------
+        update_progress("Processing TASI technical analysis...")
         prs = insert_tasi_technical_chart_with_callout(
             prs,
             excel_path_for_ppt,
@@ -3921,6 +3972,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Sensex technical analysis slide
         # ------------------------------------------------------------------
+        update_progress("Processing Sensex technical analysis...")
         # Sensex technical analysis uses realised volatility and a separate implied vol index (INVIXN)
         prs = insert_sensex_technical_chart_with_callout(
             prs,
@@ -3981,6 +4033,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert DAX technical analysis slide (always)
         # ------------------------------------------------------------------
+        update_progress("Processing DAX technical analysis...")
         prs = insert_dax_technical_chart_with_callout(
             prs,
             excel_path_for_ppt,
@@ -4040,6 +4093,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert SMI technical analysis slide (always)
         # ------------------------------------------------------------------
+        update_progress("Processing SMI technical analysis...")
         prs = insert_smi_technical_chart_with_callout(
             prs,
             excel_path_for_ppt,
@@ -4099,6 +4153,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert IBOV technical analysis slide (always)
         # ------------------------------------------------------------------
+        update_progress("Processing IBOV technical analysis...")
         prs = insert_ibov_technical_chart_with_callout(
             prs,
             excel_path_for_ppt,
@@ -4158,6 +4213,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Mexbol technical analysis slide (always)
         # ------------------------------------------------------------------
+        update_progress("Processing Mexbol technical analysis...")
         prs = insert_mexbol_technical_chart_with_callout(
             prs,
             excel_path_for_ppt,
@@ -4217,6 +4273,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Gold technical analysis slide (commodity)
         # ------------------------------------------------------------------
+        update_progress("Processing Gold technical analysis...")
         # Only attempt if Gold helper functions are available (imported above)
         try:
             # Insert the Gold chart with call-out and regression channel anchored at gold_anchor_dt
@@ -4281,6 +4338,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Silver technical analysis slide (commodity)
         # ------------------------------------------------------------------
+        update_progress("Processing Silver technical analysis...")
         try:
             prs = insert_silver_technical_chart_with_callout(
                 prs,
@@ -4337,6 +4395,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Platinum technical analysis slide (commodity)
         # ------------------------------------------------------------------
+        update_progress("Processing Platinum technical analysis...")
         try:
             # Insert the Platinum chart with call-out and regression channel anchored at platinum_anchor_dt
             prs = insert_platinum_technical_chart_with_callout(
@@ -4410,6 +4469,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Palladium technical analysis slide (commodity)
         # ------------------------------------------------------------------
+        update_progress("Processing Palladium technical analysis...")
         try:
             # Insert the Palladium chart with call-out and regression channel anchored at palladium_anchor_dt
             prs = insert_palladium_technical_chart_with_callout(
@@ -4483,6 +4543,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Oil technical analysis slide (commodity)
         # ------------------------------------------------------------------
+        update_progress("Processing Oil technical analysis...")
         try:
             # Insert the Oil chart with call-out and regression channel anchored at oil_anchor_dt
             prs = insert_oil_technical_chart_with_callout(
@@ -4556,6 +4617,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Copper technical analysis slide (commodity)
         # ------------------------------------------------------------------
+        update_progress("Processing Copper technical analysis...")
         try:
             # Insert the Copper chart with call-out and regression channel anchored at copper_anchor_dt
             prs = insert_copper_technical_chart_with_callout(
@@ -4629,6 +4691,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Bitcoin technical analysis slide (crypto)
         # ------------------------------------------------------------------
+        update_progress("Processing Bitcoin technical analysis...")
         try:
             # Insert the Bitcoin chart with call-out and regression channel anchored at bitcoin_anchor_dt
             prs = insert_bitcoin_technical_chart_with_callout(
@@ -4702,6 +4765,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Ethereum technical analysis slide (crypto)
         # ------------------------------------------------------------------
+        update_progress("Processing Ethereum technical analysis...")
         try:
             # Insert the Ethereum chart with call-out and regression channel anchored at ethereum_anchor_dt
             prs = insert_ethereum_technical_chart_with_callout(
@@ -4775,6 +4839,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Ethereum technical analysis slide (crypto)
         # ------------------------------------------------------------------
+        update_progress("Processing Ethereum technical analysis...")
         try:
             # Insert the Ethereum chart with call-out and regression channel anchored at ethereum_anchor_dt
             prs = insert_ethereum_technical_chart_with_callout(
@@ -4848,6 +4913,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Ripple technical analysis slide (crypto)
         # ------------------------------------------------------------------
+        update_progress("Processing Ripple technical analysis...")
         try:
             # Insert the Ripple chart with call-out and regression channel anchored at ripple_anchor_dt
             prs = insert_ripple_technical_chart_with_callout(
@@ -4921,6 +4987,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Solana technical analysis slide (crypto)
         # ------------------------------------------------------------------
+        update_progress("Processing Solana technical analysis...")
         try:
             # Insert the Solana chart with call-out and regression channel anchored at solana_anchor_dt
             prs = insert_solana_technical_chart_with_callout(
@@ -4990,6 +5057,7 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         # Insert Binance technical analysis slide (crypto)
         # ------------------------------------------------------------------
+        update_progress("Processing Binance technical analysis...")
         try:
             # Insert the Binance chart with call-out and regression channel anchored at binance_anchor_dt
             prs = insert_binance_technical_chart_with_callout(
@@ -5101,6 +5169,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Insert FX performance charts
             # ------------------------------------------------------------------
+            update_progress("Processing FX performance charts...")
             # Generate the weekly FX performance bar chart with price-mode adjustment
             fx_bar_bytes, fx_used_date = create_weekly_fx_performance_chart(
                 excel_path_for_ppt,
@@ -5171,6 +5240,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Insert Rates performance charts
             # ------------------------------------------------------------------
+            update_progress("Processing Rates performance charts...")
             # Generate the weekly rates performance bar chart with price-mode adjustment
             rates_bar_bytes, rates_used_date = create_weekly_rates_performance_chart(
                 excel_path_for_ppt,
@@ -5206,6 +5276,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Insert Credit performance charts
             # ------------------------------------------------------------------
+            update_progress("Processing Credit performance charts...")
             # Generate the weekly credit performance bar chart with price-mode adjustment
             credit_bar_bytes, credit_used_date = create_weekly_credit_performance_chart(
                 excel_path_for_ppt,
@@ -5357,6 +5428,7 @@ def show_generate_presentation_page():
         # Apply the font correction to all tables after all slides have been added
         force_all_tables_calibri(prs, size_pt=11)
 
+        update_progress("Finalizing presentation...")
         out_stream = BytesIO()
         try:
             img_path = _copy_breadth_test_range(Path(excel_path_for_ppt))
@@ -5375,6 +5447,18 @@ def show_generate_presentation_page():
         # This yields names like "03092025_Herculis_Partners_Macro_Update.pptx".
         fname = f"{stamp_ddmmyyyy}_Herculis_Partners_Technical_Update.pptx"
         mime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+        # Complete the progress
+        progress_bar.progress(1.0)
+        elapsed_total = time.time() - start_time
+        if elapsed_total < 60:
+            time_str = f"{int(elapsed_total)}s"
+        else:
+            mins = int(elapsed_total // 60)
+            secs = int(elapsed_total % 60)
+            time_str = f"{mins}m {secs}s"
+        status_text.text(f"✅ Presentation generated successfully in {time_str}!")
+        time_text.text("")
 
         st.sidebar.success("Updated presentation created successfully.")
         st.sidebar.download_button(
