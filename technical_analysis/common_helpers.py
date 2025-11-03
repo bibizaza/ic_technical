@@ -47,6 +47,15 @@ except Exception:
 _EXCEL_CACHE = {}
 
 
+# ============================================================================
+# IMAGE GENERATION CACHE (Phase 2 Optimization)
+# ============================================================================
+# Cache for pre-generated chart images to enable parallel processing.
+# Charts are generated in parallel, cached, then inserted sequentially.
+_IMAGE_CACHE = {}
+_IMAGE_CACHE_ENABLED = False  # Toggle to enable/disable image caching
+
+
 def _get_cached_excel_sheet(excel_path, sheet_name: str) -> pd.DataFrame:
     """
     Load an Excel sheet with caching to avoid redundant reads.
@@ -88,6 +97,53 @@ def clear_excel_cache():
     """
     global _EXCEL_CACHE
     _EXCEL_CACHE = {}
+
+
+def enable_image_cache():
+    """Enable image caching for parallel chart generation (Phase 2)."""
+    global _IMAGE_CACHE_ENABLED
+    _IMAGE_CACHE_ENABLED = True
+
+
+def disable_image_cache():
+    """Disable image caching and clear cached images."""
+    global _IMAGE_CACHE_ENABLED, _IMAGE_CACHE
+    _IMAGE_CACHE_ENABLED = False
+    _IMAGE_CACHE = {}
+
+
+def cache_chart_image(cache_key: str, image_bytes: bytes):
+    """
+    Cache a generated chart image for later reuse.
+
+    Parameters
+    ----------
+    cache_key : str
+        Unique identifier for this chart (e.g., "spx_callout_2024-01-01_90days")
+    image_bytes : bytes
+        The PNG image data
+    """
+    if _IMAGE_CACHE_ENABLED:
+        _IMAGE_CACHE[cache_key] = image_bytes
+
+
+def get_cached_chart_image(cache_key: str) -> Optional[bytes]:
+    """
+    Retrieve a cached chart image.
+
+    Parameters
+    ----------
+    cache_key : str
+        The cache key used when storing the image
+
+    Returns
+    -------
+    bytes or None
+        The cached image bytes, or None if not cached or caching is disabled
+    """
+    if _IMAGE_CACHE_ENABLED:
+        return _IMAGE_CACHE.get(cache_key)
+    return None
 
 
 def _get_run_font_attributes(run):
@@ -484,6 +540,7 @@ def generate_average_gauge_image(
     last_label_text: str = "Last Week",
     width_cm: float = 15.15,
     height_cm: float = 3.13,
+    cache_key: Optional[str] = None,
 ) -> bytes:
     """
     Create a horizontal gauge with a red→yellow→green gradient, marking the
@@ -507,12 +564,19 @@ def generate_average_gauge_image(
         Width of the gauge in centimeters.
     height_cm : float, default 3.13
         Height of the gauge in centimeters.
+    cache_key : str, optional
+        Optional cache key for Phase 2 parallel optimization.
 
     Returns
     -------
     bytes
         PNG image data.
     """
+    # Phase 2 optimization: Check image cache first
+    if cache_key:
+        cached = get_cached_chart_image(cache_key)
+        if cached is not None:
+            return cached
     def clamp100(x: float) -> float:
         return max(0.0, min(100.0, float(x)))
 
@@ -637,7 +701,13 @@ def generate_average_gauge_image(
     plt.savefig(buf, format="png", dpi=600, transparent=True)
     plt.close(fig)
     buf.seek(0)
-    return buf.getvalue()
+    image_bytes = buf.getvalue()
+
+    # Phase 2 optimization: Cache the generated image
+    if cache_key:
+        cache_chart_image(cache_key, image_bytes)
+
+    return image_bytes
 
 
 def generate_range_gauge_only_image(
@@ -772,6 +842,7 @@ def generate_range_gauge_chart_image(
     gauge_width_cm: float = 4.0,
     *,
     vol_index_value: Optional[float] = None,
+    cache_key: Optional[str] = None,
 ) -> bytes:
     """
     Create a PNG image of the instrument price chart with a vertical range gauge
@@ -795,12 +866,20 @@ def generate_range_gauge_chart_image(
         template placeholder size in PowerPoint.
     height_cm : float, default 7.53
         Height of the output image in centimetres.
+    cache_key : str, optional
+        Optional cache key for Phase 2 parallel optimization.
 
     Returns
     -------
     bytes
         A byte array containing the PNG image data with transparency.
     """
+    # Phase 2 optimization: Check image cache first
+    if cache_key:
+        cached = get_cached_chart_image(cache_key)
+        if cached is not None:
+            return cached
+
     if df_full.empty:
         return b""
 
@@ -1019,7 +1098,13 @@ def generate_range_gauge_chart_image(
     plt.savefig(buf, format="png", dpi=600, transparent=True)
     plt.close(fig)
     buf.seek(0)
-    return buf.getvalue()
+    image_bytes = buf.getvalue()
+
+    # Phase 2 optimization: Cache the generated image
+    if cache_key:
+        cache_chart_image(cache_key, image_bytes)
+
+    return image_bytes
 
 
 
@@ -1034,6 +1119,7 @@ def generate_range_callout_chart_image(
     *,
     vol_index_value: Optional[float] = None,
     show_legend: bool = True,
+    cache_key: Optional[str] = None,
 ) -> bytes:
     """
     Create a PNG image of the instrument price chart with a textual call‑out on the
@@ -1067,11 +1153,21 @@ def generate_range_callout_chart_image(
         suppressed (set to ``False``) so that a manually positioned
         legend on the slide remains visible.
 
+    cache_key : str, optional
+        Optional cache key for Phase 2 parallel optimization. If provided
+        and caching is enabled, will check cache first and store result.
+
     Returns
     -------
     bytes
         PNG image bytes with transparency.
     """
+    # Phase 2 optimization: Check image cache first
+    if cache_key:
+        cached = get_cached_chart_image(cache_key)
+        if cached is not None:
+            return cached
+
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
 
@@ -1307,7 +1403,13 @@ def generate_range_callout_chart_image(
                 bbox_inches="tight", pad_inches=0.05)
     plt.close(fig)
     buf.seek(0)
-    return buf.getvalue()
+    image_bytes = buf.getvalue()
+
+    # Phase 2 optimization: Cache the generated image for parallel reuse
+    if cache_key:
+        cache_chart_image(cache_key, image_bytes)
+
+    return image_bytes
 
 
 
