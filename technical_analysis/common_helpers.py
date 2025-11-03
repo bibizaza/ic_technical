@@ -232,54 +232,49 @@ def _get_momentum_score_generic(
     ticker: str
 ) -> Optional[float]:
     """
-    Retrieve the momentum score for any instrument from 'data_trend_rating'.
+    Retrieve the momentum score for any instrument from 'mars_score' sheet.
 
-    Uses the same pattern as all instruments: reads from Excel, maps letter grades.
+    Reads pre-computed MARS scores from the mars_score sheet, ensuring consistency
+    with the standalone MARS application for all asset classes (equity, commodities, crypto).
 
     Parameters
     ----------
     excel_obj_or_path : file-like or path
-        Excel workbook containing data_trend_rating sheet.
+        Excel workbook containing mars_score sheet.
     ticker : str
-        Ticker to search for (e.g., "SPX INDEX", "GCA COMDTY").
+        Ticker to search for (e.g., "SPX INDEX", "GCA COMDTY", "XBTUSD CURNCY").
 
     Returns
     -------
     float or None
-        The momentum score or None if unavailable.
+        The MARS momentum score (0-100) or None if unavailable.
     """
     try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_trend_rating")
-    except Exception:
+        from mars_engine.data_loader import load_mars_scores
+
+        # Load all MARS scores from mars_score sheet
+        mars_scores = load_mars_scores(excel_obj_or_path)
+
+        # Try exact match first (case-insensitive)
+        ticker_upper = ticker.strip().upper()
+        for key, score in mars_scores.items():
+            if key.upper() == ticker_upper:
+                return float(score)
+
+        # Try partial match (e.g., "GCA COMDTY" might be stored as "GCA" or "Gold")
+        ticker_parts = ticker_upper.split()
+        if ticker_parts:
+            first_part = ticker_parts[0]
+            for key, score in mars_scores.items():
+                if first_part in key.upper():
+                    return float(score)
+
+        print(f"Warning: Ticker '{ticker}' not found in mars_score sheet")
         return None
 
-    # Identify the row by ticker
-    mask = df.iloc[:, 0].astype(str).str.strip().str.upper() == ticker.upper()
-    if not mask.any():
+    except Exception as e:
+        print(f"Warning: Could not read MARS score for '{ticker}': {e}")
         return None
-
-    row = df.loc[mask].iloc[0]
-
-    # Try to convert column 3 to float
-    try:
-        return float(row.iloc[3])
-    except Exception:
-        pass
-
-    # Fall back to letter grade mapping
-    rating = str(row.iloc[2]).strip().upper()  # 'Current' column
-    mapping = {"A": 100.0, "B": 70.0, "C": 40.0, "D": 0.0}
-
-    # Optionally lookup in 'parameters' sheet for customized mapping
-    try:
-        params = pd.read_excel(excel_obj_or_path, sheet_name="parameters")
-        param_row = params[params["Tickers"].astype(str).str.upper() == ticker.upper()]
-        if not param_row.empty and "Unnamed: 8" in param_row:
-            return float(param_row["Unnamed: 8"].dropna().iloc[0])
-    except Exception:
-        pass
-
-    return mapping.get(rating)
 
 
 def _interpolate_color(value: float) -> Tuple[float, float, float]:
