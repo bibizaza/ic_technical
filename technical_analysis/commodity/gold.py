@@ -67,6 +67,8 @@ from technical_analysis.common_helpers import (
     _interpolate_color,
     _load_price_data_from_obj,
     _compute_range_bounds,
+    generate_average_gauge_image,
+    generate_range_gauge_chart_image,
     generate_range_callout_chart_image,
 )
 from technical_analysis.powerpoint_utils import (
