@@ -26,6 +26,7 @@ from io import BytesIO
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LinearSegmentedColormap
+from sklearn.linear_model import LinearRegression
 
 # Import helper for adjusting price data according to price mode
 try:
