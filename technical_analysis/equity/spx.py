@@ -370,6 +370,10 @@ def _generate_spx_image_from_df(
     Create a high‑resolution (dpi=300) transparent PNG chart from the DataFrame.
     Includes price, moving averages, Fibonacci lines and optional regression channel.
     """
+    # Set font to Calibri for all chart text
+    plt.rcParams['font.family'] = 'Calibri'
+    plt.rcParams['font.sans-serif'] = ['Calibri']
+
     today = df_full["Date"].max().normalize()
     # Compute the lookback start based on the configurable window
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
