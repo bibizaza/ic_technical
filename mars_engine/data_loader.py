@@ -11,6 +11,14 @@ from typing import Union
 import pathlib
 import pandas as pd
 
+# Import caching function from common_helpers for performance
+try:
+    from technical_analysis.common_helpers import _get_cached_excel_sheet
+except ImportError:
+    # Fallback if import fails - just use pd.read_excel directly
+    def _get_cached_excel_sheet(excel_path, sheet_name: str) -> pd.DataFrame:
+        return pd.read_excel(excel_path, sheet_name=sheet_name)
+
 
 # Mapping from Excel column names to MARS scorer names
 TICKER_NAME_MAP = {
@@ -59,8 +67,8 @@ def load_prices_for_mars(excel_obj_or_path: Union[str, pathlib.Path, pd.ExcelFil
         Column names are transformed to match MARS expectations.
         For SPX, also creates SPX_high and SPX_low columns if not present.
     """
-    # Read data_prices sheet
-    df = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
+    # Read data_prices sheet with caching for performance
+    df = _get_cached_excel_sheet(excel_obj_or_path, "data_prices")
 
     # Clean: drop first row and filter out "DATES" rows
     df = df.drop(index=0)
@@ -121,8 +129,8 @@ def load_mars_scores(excel_obj_or_path: Union[str, pathlib.Path, pd.ExcelFile]) 
         Example: {"SPX": 95.5, "CSI": 32.0, ...}
     """
     try:
-        # Read mars_score sheet
-        df = pd.read_excel(excel_obj_or_path, sheet_name="mars_score")
+        # Read mars_score sheet with caching for performance
+        df = _get_cached_excel_sheet(excel_obj_or_path, "mars_score")
 
         # Ensure columns are named correctly
         if len(df.columns) < 2:

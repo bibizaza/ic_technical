@@ -3552,6 +3552,12 @@ def show_generate_presentation_page():
             tmp_xls.flush()
             excel_path_for_ppt = Path(tmp_xls.name)
 
+        # Clear Excel cache to ensure clean state for this generation run
+        # This is part of Phase 1 optimization - Excel sheets will be cached
+        # during generation to avoid redundant reads across 20+ instruments
+        from technical_analysis.common_helpers import clear_excel_cache
+        clear_excel_cache()
+
         # ----------------------------------------------------------------------
         # Automatically update the date on the first slide and prepare filename
         #
