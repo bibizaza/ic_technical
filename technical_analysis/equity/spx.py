@@ -299,7 +299,10 @@ def make_spx_figure(
         )
 
     if anchor_date is not None:
-        per = df_full[df_full["Date"].between(anchor_date, today)].copy()
+        # Limit regression channel to the same date range as the chart (start to today)
+        # This prevents the X-axis from extending beyond PLOT_LOOKBACK_DAYS
+        channel_start = max(anchor_date, start)  # Don't go before chart start
+        per = df_full[df_full["Date"].between(channel_start, today)].copy()
         if not per.empty:
             X = per["Date"].map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
             y_vals = per["Price"].to_numpy()
