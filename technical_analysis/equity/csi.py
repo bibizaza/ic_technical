@@ -68,6 +68,7 @@ from technical_analysis.common_helpers import (
     _interpolate_color,
     _load_price_data_from_obj,
     _compute_range_bounds,
+    generate_range_callout_chart_image,
 )
 from pptx.util import Cm
 from io import BytesIO
