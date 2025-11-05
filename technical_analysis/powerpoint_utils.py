@@ -23,6 +23,10 @@ def find_slide_by_placeholder(prs: Presentation, placeholder_text: str) -> Optio
     """
     Find the index of a slide containing a specific placeholder text.
 
+    This function searches for slides with exact placeholder matches to avoid
+    false positives (e.g., YTD equity slide containing "Nikkei 225" in a legend
+    should not match when searching for the dedicated "nikkei" slide).
+
     Parameters
     ----------
     prs : Presentation
@@ -34,12 +38,30 @@ def find_slide_by_placeholder(prs: Presentation, placeholder_text: str) -> Optio
     -------
     int or None
         Index of the slide containing the placeholder, or None if not found.
+
+    Matching Rules
+    --------------
+    1. Shape name exactly matches placeholder_text (case-insensitive)
+    2. Shape text exactly matches "[placeholder_text]" (case-insensitive)
+    3. Shape text exactly matches "placeholder_text" as standalone word
     """
+    target_lower = placeholder_text.lower()
+    bracket_placeholder = f"[{target_lower}]"
+
     for idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
+            # Rule 1: Check if shape name matches exactly
+            shape_name = getattr(shape, "name", "").lower()
+            if shape_name == target_lower:
+                return idx
+
+            # Rule 2 & 3: Check text content for exact matches
             if shape.has_text_frame:
-                if placeholder_text.lower() in (shape.text or "").lower():
+                text = (shape.text or "").strip().lower()
+                # Match [placeholder] or exact placeholder text
+                if text == bracket_placeholder or text == target_lower:
                     return idx
+
     return None
 
 
