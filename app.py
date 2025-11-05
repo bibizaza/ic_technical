@@ -2009,16 +2009,21 @@ def show_technical_analysis_page():
     # Analysis timeframe selection
     # -------------------------------------------------------------------
     # Allow the user to choose the lookback horizon for all technical charts.
-    # Provide both "3 months" (≈90 days) and "6 months" (≈180 days) so users
-    # can toggle between a shorter three‑month window and a six‑month window.
-    # The default is three months.
-    timeframe_options: dict[str, int] = {"3 months": 90, "6 months": 180}
+    # Provide multiple timeframe options: 3, 4, 5, and 6 months so users
+    # can toggle between different analysis windows. The default is 4 months
+    # as requested by management.
+    timeframe_options: dict[str, int] = {
+        "3 months": 90,
+        "4 months": 120,
+        "5 months": 150,
+        "6 months": 180,
+    }
     # Determine the default based on any previously stored selection; fall
-    # back to three months if none is present.
-    default_tf_label = st.session_state.get("ta_timeframe_label", "3 months")
+    # back to 4 months if none is present.
+    default_tf_label = st.session_state.get("ta_timeframe_label", "4 months")
     tf_labels = list(timeframe_options.keys())
     if default_tf_label not in tf_labels:
-        default_tf_idx = 0
+        default_tf_idx = 1  # Index 1 is "4 months"
     else:
         default_tf_idx = tf_labels.index(default_tf_label)
     selected_tf_label = st.sidebar.selectbox(
