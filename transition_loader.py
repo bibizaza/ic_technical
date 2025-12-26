@@ -11,11 +11,16 @@ def read_transition_sheet(excel_path) -> Dict[str, Dict[str, Any]]:
     Read the 'transition' sheet from Excel to pre-populate app fields.
 
     Expected structure:
-    - Column A (row 2+): Ticker (e.g., "SPX INDEX", "GCA COMDTY")
-    - Column B (row 2+): Last week DMAS (float)
-    - Column C (row 2+): Anchor date for regression channel (date)
-    - Column D (row 2+): Assessment (string)
-    - Column E (row 2+): Subtitle (string)
+    - Column A (row 2+): Ticker (e.g., "SPX INDEX", "GCA COMDTY") - REQUIRED
+    - Column B (row 2+): Last week DMAS (float) - REQUIRED
+    - Column C (row 2+): Anchor date for regression channel (date) - OPTIONAL (auto-generated if missing)
+    - Column D (row 2+): Assessment (string) - OPTIONAL (auto-generated if missing)
+    - Column E (row 2+): Subtitle (string) - OPTIONAL (auto-generated if missing)
+
+    Note: Columns C, D, E are now optional. If not provided, they will be auto-generated:
+    - Column C: Defaults to 30 days before last data point
+    - Column D: Auto-generated using herculis-assessment module
+    - Column E: Auto-generated using subtitle generator module
 
     Parameters
     ----------

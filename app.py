@@ -27,6 +27,31 @@ Key modifications relative to the original application:
 import streamlit as st
 
 # ---------------------------------------------------------------------
+# Assessment and subtitle generation
+# ---------------------------------------------------------------------
+try:
+    from assessment_integration import (
+        ASSESSMENT_OPTIONS,
+        get_default_assessment_from_dmas,
+        generate_assessment_and_subtitle,
+        SubtitleGenerator
+    )
+    SUBTITLE_GEN_AVAILABLE = True
+    # Initialize global subtitle generator for anti-repetition across weeks
+    if 'subtitle_generator' not in st.session_state:
+        st.session_state['subtitle_generator'] = SubtitleGenerator()
+except ImportError as e:
+    print(f"Warning: Could not import assessment_integration: {e}")
+    SUBTITLE_GEN_AVAILABLE = False
+    ASSESSMENT_OPTIONS = [
+        "Bearish",
+        "Cautious",
+        "Neutral",
+        "Constructive",
+        "Bullish",
+    ]
+
+# ---------------------------------------------------------------------
 # Safe score helpers to avoid float(None) crashes in commodities/crypto
 # ---------------------------------------------------------------------
 from typing import Optional, Union
@@ -2581,30 +2606,18 @@ def show_technical_analysis_page():
             # Assessment selection third
             # -------------------------------------------------------------------
             if tech_score is not None and mom_score is not None and dmas is not None:
-                options = [
-                    "Strongly Bearish",
-                    "Bearish",
-                    "Slightly Bearish",
-                    "Neutral",
-                    "Slightly Bullish",
-                    "Bullish",
-                    "Strongly Bullish",
-                ]
+                options = ASSESSMENT_OPTIONS
                 def _default_index_from_dmas(val: float) -> int:
-                    if val >= 80:
-                        return options.index("Strongly Bullish")
-                    elif val >= 70:
+                    if val >= 70:
                         return options.index("Bullish")
-                    elif val >= 60:
-                        return options.index("Slightly Bullish")
-                    elif val >= 40:
+                    elif val >= 55:
+                        return options.index("Constructive")
+                    elif val >= 45:
                         return options.index("Neutral")
                     elif val >= 30:
-                        return options.index("Slightly Bearish")
-                    elif val >= 20:
-                        return options.index("Bearish")
+                        return options.index("Cautious")
                     else:
-                        return options.index("Strongly Bearish")
+                        return options.index("Bearish")
 
                 # Check if assessment was pre-set from transition sheet
                 preset_assessment = st.session_state.get(f"{ticker_key}_assessment")
@@ -2628,6 +2641,42 @@ def show_technical_analysis_page():
             # -------------------------------------------------------------------
             # Subtitle input fourth
             # -------------------------------------------------------------------
+            # Auto-generate subtitle button
+            if SUBTITLE_GEN_AVAILABLE and tech_score is not None and mom_score is not None and dmas is not None:
+                if st.button(f"🔄 Auto-generate {ticker_key.upper()} subtitle", key=f"{ticker_key}_autogen_subtitle"):
+                    try:
+                        # Get price data for structure analysis (if available)
+                        try:
+                            if excel_available:
+                                df_price = pd.read_excel(temp_path, sheet_name="Price")
+                                prices = df_price["Price"]
+                            else:
+                                prices = pd.Series([100] * 300)  # Fallback dummy data
+                        except Exception:
+                            prices = pd.Series([100] * 300)  # Fallback
+
+                        # Get last week DMAS
+                        dmas_prev = st.session_state.get(f"{ticker_key}_last_week_avg", dmas)
+
+                        # Generate subtitle
+                        result = generate_assessment_and_subtitle(
+                            ticker_key=ticker_key,
+                            asset_name=selected_index,
+                            prices=prices,
+                            dmas=dmas,
+                            technical_score=tech_score,
+                            momentum_score=mom_score,
+                            dmas_prev_week=dmas_prev,
+                            subtitle_generator=st.session_state.get('subtitle_generator')
+                        )
+
+                        # Update session state
+                        st.session_state[f"{ticker_key}_subtitle"] = result["subtitle"]
+                        st.success(f"Generated: {result['subtitle']}")
+
+                    except Exception as e:
+                        st.error(f"Could not auto-generate subtitle: {e}")
+
             subtitle_value = st.text_input(
                 f"{ticker_key.upper()} subtitle" if selected_index == "S&P 500" else f"{ticker_key.upper()} subtitle",
                 value=st.session_state.get(f"{ticker_key}_subtitle", ""),
@@ -2995,22 +3044,16 @@ def show_commodity_technical_analysis() -> None:
                 "Strongly Bullish",
             ]
             def _default_index_from_dmas(val: float) -> int:
-                if val >= 80:
-                    return options.index("Strongly Bullish")
-                elif val >= 70:
+                if val >= 70:
                     return options.index("Bullish")
-                elif val >= 60:
-                    return options.index("Slightly Bullish")
-                elif val >= 40:
+                elif val >= 55:
+                    return options.index("Constructive")
+                elif val >= 45:
                     return options.index("Neutral")
                 elif val >= 30:
-                    return options.index("Slightly Bearish")
-                elif val >= 20:
-                    return options.index("Bearish")
+                    return options.index("Cautious")
                 else:
-                    return options.index("Strongly Bearish")
-
-            # Check if assessment was pre-set from transition sheet
+                    return options.index("Bearish")
             preset_assessment = st.session_state.get(f"{ticker_key}_assessment")
             if preset_assessment and preset_assessment in options:
                 default_idx = options.index(preset_assessment)
@@ -3031,6 +3074,42 @@ def show_commodity_technical_analysis() -> None:
         # -----------------------------------------------------------------
         # Subtitle input
         # -----------------------------------------------------------------
+        # Auto-generate subtitle button
+        if SUBTITLE_GEN_AVAILABLE and tech_score is not None and mom_score is not None and dmas is not None:
+            if st.button(f"🔄 Auto-generate {ticker_key.upper()} subtitle", key=f"{ticker_key}_autogen_subtitle"):
+                try:
+                    # Get price data for structure analysis (if available)
+                    try:
+                        if excel_available:
+                            df_price = pd.read_excel(temp_path, sheet_name="Price")
+                            prices = df_price["Price"]
+                        else:
+                            prices = pd.Series([100] * 300)  # Fallback dummy data
+                    except Exception:
+                        prices = pd.Series([100] * 300)  # Fallback
+
+                    # Get last week DMAS
+                    dmas_prev = st.session_state.get(f"{ticker_key}_last_week_avg", dmas)
+
+                    # Generate subtitle
+                    result = generate_assessment_and_subtitle(
+                        ticker_key=ticker_key,
+                        asset_name=selected_index,
+                        prices=prices,
+                        dmas=dmas,
+                        technical_score=tech_score,
+                        momentum_score=mom_score,
+                        dmas_prev_week=dmas_prev,
+                        subtitle_generator=st.session_state.get('subtitle_generator')
+                    )
+
+                    # Update session state
+                    st.session_state[f"{ticker_key}_subtitle"] = result["subtitle"]
+                    st.success(f"Generated: {result['subtitle']}")
+
+                except Exception as e:
+                    st.error(f"Could not auto-generate subtitle: {e}")
+
         subtitle_value = st.text_input(
             f"{ticker_key.upper()} subtitle",
             value=st.session_state.get(f"{ticker_key}_subtitle", ""),
@@ -3354,22 +3433,16 @@ def show_crypto_technical_analysis() -> None:
                 "Strongly Bullish",
             ]
             def _default_index_from_dmas(val: float) -> int:
-                if val >= 80:
-                    return options.index("Strongly Bullish")
-                elif val >= 70:
+                if val >= 70:
                     return options.index("Bullish")
-                elif val >= 60:
-                    return options.index("Slightly Bullish")
-                elif val >= 40:
+                elif val >= 55:
+                    return options.index("Constructive")
+                elif val >= 45:
                     return options.index("Neutral")
                 elif val >= 30:
-                    return options.index("Slightly Bearish")
-                elif val >= 20:
-                    return options.index("Bearish")
+                    return options.index("Cautious")
                 else:
-                    return options.index("Strongly Bearish")
-
-            # Check if assessment was pre-set from transition sheet
+                    return options.index("Bearish")
             preset_assessment = st.session_state.get(f"{ticker_key}_assessment")
             if preset_assessment and preset_assessment in options:
                 default_idx = options.index(preset_assessment)
@@ -3390,6 +3463,42 @@ def show_crypto_technical_analysis() -> None:
         # -----------------------------------------------------------------
         # Subtitle input
         # -----------------------------------------------------------------
+        # Auto-generate subtitle button
+        if SUBTITLE_GEN_AVAILABLE and tech_score is not None and mom_score is not None and dmas is not None:
+            if st.button(f"🔄 Auto-generate {ticker_key.upper()} subtitle", key=f"{ticker_key}_autogen_subtitle"):
+                try:
+                    # Get price data for structure analysis (if available)
+                    try:
+                        if excel_available:
+                            df_price = pd.read_excel(temp_path, sheet_name="Price")
+                            prices = df_price["Price"]
+                        else:
+                            prices = pd.Series([100] * 300)  # Fallback dummy data
+                    except Exception:
+                        prices = pd.Series([100] * 300)  # Fallback
+
+                    # Get last week DMAS
+                    dmas_prev = st.session_state.get(f"{ticker_key}_last_week_avg", dmas)
+
+                    # Generate subtitle
+                    result = generate_assessment_and_subtitle(
+                        ticker_key=ticker_key,
+                        asset_name=selected_index,
+                        prices=prices,
+                        dmas=dmas,
+                        technical_score=tech_score,
+                        momentum_score=mom_score,
+                        dmas_prev_week=dmas_prev,
+                        subtitle_generator=st.session_state.get('subtitle_generator')
+                    )
+
+                    # Update session state
+                    st.session_state[f"{ticker_key}_subtitle"] = result["subtitle"]
+                    st.success(f"Generated: {result['subtitle']}")
+
+                except Exception as e:
+                    st.error(f"Could not auto-generate subtitle: {e}")
+
         subtitle_value = st.text_input(
             f"{ticker_key.upper()} subtitle",
             value=st.session_state.get(f"{ticker_key}_subtitle", ""),
