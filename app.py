@@ -1960,7 +1960,7 @@ def show_upload_page():
                             prices = prices_df["Price"]
 
                             # Compute technical scores
-                            scores = compute_dmas_scores(prices)
+                            scores = compute_dmas_scores(prices, ticker=bbg_ticker)
                             tech_score = scores["technical_score"]
                             mom_score = scores["momentum_score"]
                             dmas = scores["dmas"]
