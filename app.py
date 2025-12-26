@@ -1857,6 +1857,161 @@ def show_upload_page():
     )
     if pptx_file is not None:
         st.session_state["pptx_file"] = pptx_file
+
+    # =========================================================================
+    # GLOBAL ANALYSIS BUTTON
+    # =========================================================================
+    if excel_file is not None:
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("📊 Auto-Analysis")
+
+        if st.sidebar.button("🚀 Run Full Analysis", type="primary", help="Compute technical scores, assessments, and subtitles for all assets"):
+            with st.spinner("Running analysis for all assets..."):
+                try:
+                    # Import required modules
+                    import sys
+                    from pathlib import Path as PathLib
+                    sys.path.insert(0, str(PathLib(__file__).parent / "herculis-technical-score" / "src"))
+
+                    from scoring import compute_dmas_scores
+                    from assessment_integration import generate_assessment_and_subtitle
+
+                    # Save Excel to temp file
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+                        tmp.write(excel_file.getbuffer())
+                        tmp.flush()
+                        analysis_temp_path = Path(tmp.name)
+
+                    # Read price data
+                    df_prices = pd.read_excel(analysis_temp_path, sheet_name="data_prices")
+                    df_prices = df_prices.drop(index=0)
+                    df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
+                    df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+
+                    # Asset mapping: ticker_key -> (Bloomberg ticker, display name)
+                    asset_map = {
+                        # Equity
+                        "spx": ("SPX Index", "S&P 500"),
+                        "csi": ("SHSZ300 Index", "CSI 300"),
+                        "nikkei": ("NKY Index", "Nikkei 225"),
+                        "tasi": ("SASEIDX Index", "TASI"),
+                        "sensex": ("SENSEX Index", "Sensex"),
+                        "dax": ("DAX Index", "Dax"),
+                        "smi": ("SMI Index", "SMI"),
+                        "ibov": ("IBOV Index", "IBOV"),
+                        "mexbol": ("MEXBOL Index", "MEXBOL"),
+                        # Commodity
+                        "gold": ("GCA COMDTY", "Gold"),
+                        "silver": ("SIA COMDTY", "Silver"),
+                        "platinum": ("XPT COMDTY", "Platinum"),
+                        "palladium": ("XPD CURNCY", "Palladium"),
+                        "oil": ("CL1 COMDTY", "Oil"),
+                        "copper": ("LP1 COMDTY", "Copper"),
+                        # Crypto
+                        "bitcoin": ("XBTUSD CURNCY", "Bitcoin"),
+                        "ethereum": ("XETUSD CURNCY", "Ethereum"),
+                        "ripple": ("XRPUSD CURNCY", "Ripple"),
+                        "solana": ("XSOUSD CURNCY", "Solana"),
+                        "binance": ("XBIUSD CURNCY", "Binance"),
+                    }
+
+                    results = []
+                    progress_bar = st.sidebar.progress(0)
+                    status_text = st.sidebar.empty()
+
+                    for idx, (ticker_key, (bbg_ticker, display_name)) in enumerate(asset_map.items()):
+                        try:
+                            status_text.text(f"Processing {display_name}...")
+
+                            # Check if ticker exists in data
+                            if bbg_ticker not in df_prices.columns:
+                                st.sidebar.warning(f"⚠️ {display_name}: No data found")
+                                continue
+
+                            # Extract price series
+                            prices_df = df_prices[["Date", bbg_ticker]].copy()
+                            prices_df.columns = ["Date", "Price"]
+                            prices_df["Price"] = pd.to_numeric(prices_df["Price"], errors="coerce")
+                            prices_df = prices_df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
+
+                            if len(prices_df) < 200:
+                                st.sidebar.warning(f"⚠️ {display_name}: Insufficient data ({len(prices_df)} days)")
+                                continue
+
+                            prices = prices_df["Price"]
+
+                            # Compute technical scores
+                            scores = compute_dmas_scores(prices)
+                            tech_score = scores["technical_score"]
+                            mom_score = scores["momentum_score"]
+                            dmas = scores["dmas"]
+
+                            # Store scores in session state
+                            st.session_state[f"{ticker_key}_tech_score"] = tech_score
+                            st.session_state[f"{ticker_key}_mom_score"] = mom_score
+                            st.session_state[f"{ticker_key}_dmas"] = dmas
+
+                            # Get last week DMAS (if available from transition sheet)
+                            dmas_prev = st.session_state.get(f"{ticker_key}_last_week_avg", dmas)
+
+                            # Generate assessment and subtitle
+                            result = generate_assessment_and_subtitle(
+                                ticker_key=ticker_key,
+                                asset_name=display_name,
+                                prices=prices,
+                                dmas=dmas,
+                                technical_score=tech_score,
+                                momentum_score=mom_score,
+                                dmas_prev_week=dmas_prev,
+                                subtitle_generator=st.session_state.get('subtitle_generator')
+                            )
+
+                            # Store results in session state
+                            st.session_state[f"{ticker_key}_assessment"] = result["assessment"]
+                            st.session_state[f"{ticker_key}_subtitle"] = result["subtitle"]
+                            st.session_state[f"{ticker_key}_selected_view"] = result["assessment"]
+
+                            results.append({
+                                "Asset": display_name,
+                                "DMAS": f"{dmas:.0f}",
+                                "Tech": f"{tech_score:.0f}",
+                                "Mom": f"{mom_score:.0f}",
+                                "Assessment": result["assessment"],
+                                "Subtitle": result["subtitle"][:50] + "..." if len(result["subtitle"]) > 50 else result["subtitle"]
+                            })
+
+                        except Exception as e:
+                            st.sidebar.error(f"❌ {display_name}: {str(e)[:50]}")
+                            import traceback
+                            print(f"Error processing {display_name}: {traceback.format_exc()}")
+
+                        # Update progress
+                        progress_bar.progress((idx + 1) / len(asset_map))
+
+                    # Clean up
+                    analysis_temp_path.unlink()
+                    progress_bar.empty()
+                    status_text.empty()
+
+                    # Show results
+                    if results:
+                        st.sidebar.success(f"✅ Analysis complete! Processed {len(results)} assets")
+
+                        # Show summary in main area
+                        st.subheader("Analysis Results")
+                        st.dataframe(pd.DataFrame(results), use_container_width=True)
+                        st.info("📝 All scores, assessments, and subtitles have been auto-generated and saved. Navigate to asset tabs to review and edit if needed.")
+                    else:
+                        st.sidebar.warning("⚠️ No assets were successfully processed")
+
+                except ImportError as e:
+                    st.sidebar.error(f"❌ Missing modules: {e}")
+                    st.sidebar.info("Make sure herculis-technical-score and assessment modules are available")
+                except Exception as e:
+                    st.sidebar.error(f"❌ Analysis failed: {str(e)[:100]}")
+                    import traceback
+                    print(f"Global analysis error: {traceback.format_exc()}")
+
     st.sidebar.success("Files uploaded. Navigate to other pages to continue.")
 
     # Allow the user to choose between using the last recorded price (which may
