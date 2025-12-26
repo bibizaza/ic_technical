@@ -24,32 +24,55 @@ Key modifications relative to the original application:
   presentation.
 """
 
+# =====================================================================
+# IMPORTANT: Clean up sys.path BEFORE any imports
+# =====================================================================
+import sys
+from pathlib import Path
+
+# Remove any herculis-technical-score or herculis-assessment paths
+# that might have been added by other modules or previous runs
+_app_dir = str(Path(__file__).parent)
+_paths_to_remove = [
+    p for p in sys.path
+    if p and ('herculis-technical-score' in p or 'herculis-assessment' in p or 'market_compass' in p)
+]
+for p in _paths_to_remove:
+    while p in sys.path:
+        try:
+            sys.path.remove(p)
+        except ValueError:
+            break
+
+# Also clear any cached imports of utils from wrong paths
+if 'utils' in sys.modules:
+    _utils_module_path = getattr(sys.modules['utils'], '__file__', '')
+    if 'herculis-technical-score' in _utils_module_path:
+        # Wrong utils module was loaded, remove it
+        del sys.modules['utils']
+
+# Ensure app directory is first in sys.path
+if _app_dir in sys.path:
+    sys.path.remove(_app_dir)
+sys.path.insert(0, _app_dir)
+
 import streamlit as st
 
 # ---------------------------------------------------------------------
-# Assessment and subtitle generation
+# Assessment and subtitle generation - LAZY LOADING
 # ---------------------------------------------------------------------
-try:
-    from assessment_integration import (
-        ASSESSMENT_OPTIONS,
-        get_default_assessment_from_dmas,
-        generate_assessment_and_subtitle,
-        SubtitleGenerator
-    )
-    SUBTITLE_GEN_AVAILABLE = True
-    # Initialize global subtitle generator for anti-repetition across weeks
-    if 'subtitle_generator' not in st.session_state:
-        st.session_state['subtitle_generator'] = SubtitleGenerator()
-except ImportError as e:
-    print(f"Warning: Could not import assessment_integration: {e}")
-    SUBTITLE_GEN_AVAILABLE = False
-    ASSESSMENT_OPTIONS = [
-        "Bearish",
-        "Cautious",
-        "Neutral",
-        "Constructive",
-        "Bullish",
-    ]
+# Don't import at module level to avoid sys.path pollution
+# Import only when needed inside functions
+SUBTITLE_GEN_AVAILABLE = True  # Assume available, will check when needed
+
+# Define assessment options directly here to avoid import
+ASSESSMENT_OPTIONS = [
+    "Bearish",
+    "Cautious",
+    "Neutral",
+    "Constructive",
+    "Bullish",
+]
 
 # ---------------------------------------------------------------------
 # Safe score helpers to avoid float(None) crashes in commodities/crypto
