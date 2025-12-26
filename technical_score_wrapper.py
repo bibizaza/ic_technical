@@ -47,21 +47,19 @@ def compute_technical_score_only(prices: pd.Series, ticker: str = "Unknown") -> 
     with open(scoring_path, 'r') as f:
         scoring_code = f.read()
 
-    # Replace relative import with direct access to config
+    # Replace ALL relative imports with direct access
     scoring_code = scoring_code.replace('from ..config import (', 'from _herculis_config import (')
+    scoring_code = scoring_code.replace('from .indicators import (', 'from indicators import (')
 
     # Create a temporary module
     import types
     scoring_module = types.ModuleType("_herculis_scoring")
     scoring_module.__dict__['_herculis_config'] = config
 
-    # Load indicators modules
-    indicators_path = herculis_path / "src" / "indicators"
-
-    # We need to set up the indicators package in sys.modules
+    # Set up config in sys.modules
     sys.modules['_herculis_config'] = config
 
-    # Add paths to allow indicator imports
+    # Add paths to allow indicator imports (no relative imports)
     original_path = sys.path.copy()
     sys.path.insert(0, str(herculis_path / "src"))
     sys.path.insert(0, str(herculis_path))
@@ -97,6 +95,9 @@ def read_momentum_score_from_excel(excel_path: str, ticker: str) -> Optional[flo
     """
     Read pre-computed momentum score from mars_score sheet.
 
+    Uses the existing _get_momentum_score_generic helper which handles
+    ticker format conversion and sheet reading.
+
     Parameters
     ----------
     excel_path : str
@@ -110,21 +111,19 @@ def read_momentum_score_from_excel(excel_path: str, ticker: str) -> Optional[flo
         Momentum score from mars_score sheet
     """
     try:
-        # Convert ticker format from "SPX Index" to "SPX_Index" etc.
-        ticker_normalized = ticker.replace(" ", "_")
+        # Use existing helper function from common_helpers
+        import sys
+        from pathlib import Path
 
-        # Read mars_score sheet
-        df_mars = pd.read_excel(excel_path, sheet_name="mars_score")
+        # Add technical_analysis to path temporarily
+        orig_path = sys.path.copy()
+        sys.path.insert(0, str(Path(__file__).parent))
 
-        # Find the row with matching ticker (column A)
-        mask = df_mars.iloc[:, 0] == ticker_normalized
-
-        if mask.any():
-            # Return score from column B
-            score = df_mars.loc[mask, df_mars.columns[1]].iloc[0]
-            return float(score) if pd.notna(score) else None
-
-        return None
+        try:
+            from technical_analysis.common_helpers import _get_momentum_score_generic
+            return _get_momentum_score_generic(excel_path, ticker)
+        finally:
+            sys.path = orig_path
 
     except Exception as e:
         print(f"Warning: Could not read momentum score for {ticker}: {e}")
