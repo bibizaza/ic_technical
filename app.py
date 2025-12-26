@@ -1947,7 +1947,7 @@ def show_upload_page():
                             bbg_ticker_upper = bbg_ticker.upper()
 
                             for col in df_prices.columns:
-                                if col.upper() == bbg_ticker_upper:
+                                if isinstance(col, str) and col.upper() == bbg_ticker_upper:
                                     matching_col = col
                                     break
 
@@ -2559,7 +2559,7 @@ def show_technical_analysis_page():
                         # Find matching column (case-insensitive)
                         matching_col = None
                         for col in df_prices.columns:
-                            if col.upper() == bbg_ticker.upper():
+                            if isinstance(col, str) and col.upper() == bbg_ticker.upper():
                                 matching_col = col
                                 break
 
@@ -3039,7 +3039,7 @@ def show_commodity_technical_analysis() -> None:
                     # Find matching column (case-insensitive)
                     matching_col = None
                     for col in df_prices.columns:
-                        if col.upper() == bbg_ticker.upper():
+                        if isinstance(col, str) and col.upper() == bbg_ticker.upper():
                             matching_col = col
                             break
 
@@ -3488,7 +3488,7 @@ def show_crypto_technical_analysis() -> None:
                     # Find matching column (case-insensitive)
                     matching_col = None
                     for col in df_prices.columns:
-                        if col.upper() == bbg_ticker.upper():
+                        if isinstance(col, str) and col.upper() == bbg_ticker.upper():
                             matching_col = col
                             break
 
