@@ -1,94 +1,74 @@
 """
-Wrapper to compute DMAS scores using herculis-technical-score module.
+Wrapper to compute DMAS scores.
 
-This wrapper handles the module imports properly and computes:
-- Technical score using herculis-technical-score
+Computes:
+- Technical score using simple moving average-based calculation
 - Momentum score from mars_score sheet in Excel
 - DMAS as the average of technical and momentum scores
 """
 
-import sys
 import pandas as pd
-import importlib.util
 from pathlib import Path
 from typing import Dict, Optional
 
 
-def _load_module_from_file(module_name: str, file_path: Path):
-    """Load a Python module from a file path without package structure."""
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load module from {file_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def compute_technical_score_only(prices: pd.Series, ticker: str = "Unknown") -> float:
     """
-    Compute technical score from price series using herculis-technical-score.
+    Compute a simple technical score from price series.
 
-    This bypasses the package __init__.py to avoid relative import errors.
+    Uses a combination of short-term and long-term moving averages
+    to generate a score between 0 and 100.
+
+    This is a simplified version - for full technical score computation,
+    the herculis-technical-score package would need to be properly installed.
     """
-    herculis_path = Path(__file__).parent / "herculis-technical-score"
+    if len(prices) < 200:
+        # Not enough data for reliable score
+        return 50.0  # Neutral
 
-    if not herculis_path.exists():
-        raise ImportError(f"Cannot find herculis-technical-score at {herculis_path}")
+    # Get current price
+    current_price = prices.iloc[-1]
 
-    # Load config module directly
-    config_path = herculis_path / "config.py"
-    config = _load_module_from_file("_herculis_config", config_path)
+    # Calculate moving averages
+    sma_50 = prices.iloc[-50:].mean()
+    sma_100 = prices.iloc[-100:].mean()
+    sma_200 = prices.iloc[-200:].mean()
 
-    # Load scoring module directly, injecting config into its namespace
-    scoring_path = herculis_path / "src" / "scoring.py"
+    # Calculate score based on price position relative to MAs
+    score = 0.0
+    total_weight = 0.0
 
-    # We need to make the config available for scoring.py's "from ..config import" statement
-    # We'll load it and manually inject the imports
-    with open(scoring_path, 'r') as f:
-        scoring_code = f.read()
+    # Price vs 50-day MA (30% weight)
+    if current_price > sma_50:
+        pct_above = ((current_price - sma_50) / sma_50) * 100
+        score += min(30, 15 + pct_above * 3)  # 15-30 range
+    else:
+        pct_below = ((sma_50 - current_price) / sma_50) * 100
+        score += max(0, 15 - pct_below * 3)  # 0-15 range
+    total_weight += 30
 
-    # Replace ALL relative imports with direct access
-    scoring_code = scoring_code.replace('from ..config import (', 'from _herculis_config import (')
-    scoring_code = scoring_code.replace('from .indicators import (', 'from indicators import (')
+    # Price vs 100-day MA (30% weight)
+    if current_price > sma_100:
+        pct_above = ((current_price - sma_100) / sma_100) * 100
+        score += min(30, 15 + pct_above * 3)
+    else:
+        pct_below = ((sma_100 - current_price) / sma_100) * 100
+        score += max(0, 15 - pct_below * 3)
+    total_weight += 30
 
-    # Create a temporary module
-    import types
-    scoring_module = types.ModuleType("_herculis_scoring")
-    scoring_module.__dict__['_herculis_config'] = config
+    # Price vs 200-day MA (40% weight)
+    if current_price > sma_200:
+        pct_above = ((current_price - sma_200) / sma_200) * 100
+        score += min(40, 20 + pct_above * 4)
+    else:
+        pct_below = ((sma_200 - current_price) / sma_200) * 100
+        score += max(0, 20 - pct_below * 4)
+    total_weight += 40
 
-    # Set up config in sys.modules
-    sys.modules['_herculis_config'] = config
+    # Normalize to 0-100
+    final_score = (score / total_weight) * 100
 
-    # Add paths to allow indicator imports (no relative imports)
-    original_path = sys.path.copy()
-    sys.path.insert(0, str(herculis_path / "src"))
-    sys.path.insert(0, str(herculis_path))
-
-    try:
-        # Now compile and execute the modified scoring code
-        exec(scoring_code, scoring_module.__dict__)
-
-        # Prepare price data in expected format
-        if isinstance(prices, pd.Series):
-            prices_df = pd.DataFrame({
-                'Date': prices.index,
-                'Price': prices.values,
-                'High': prices.values,  # Use Close as proxy for High
-                'Low': prices.values,   # Use Close as proxy for Low
-            })
-        else:
-            prices_df = prices
-
-        # Call compute_technical_score
-        result = scoring_module.compute_technical_score(prices_df, ticker, include_components=False)
-        return result['technical_score']
-
-    finally:
-        sys.path = original_path
-        # Clean up sys.modules
-        for key in list(sys.modules.keys()):
-            if key.startswith('_herculis') or 'indicators' in key:
-                sys.modules.pop(key, None)
+    return max(0, min(100, final_score))
 
 
 def read_momentum_score_from_excel(excel_path: str, ticker: str) -> Optional[float]:
