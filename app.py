@@ -2558,7 +2558,7 @@ def show_technical_analysis_page():
                 # timeframe (e.g. 180 or 365 days).
                 default_anchor = st.session_state.get(
                     f"{ticker_key}_anchor",
-                    (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
+                    (max_date - pd.Timedelta(days=30))  # 1 month before last data,
                 )
                 # Ensure default is within valid range (convert to Timestamp for comparison)
                 default_anchor = pd.Timestamp(default_anchor)
@@ -2963,7 +2963,7 @@ def show_commodity_technical_analysis() -> None:
             # a default of 90 days (three months) is used.
             default_anchor = st.session_state.get(
                 f"{ticker_key}_anchor",
-                (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
+                (max_date - pd.Timedelta(days=30))  # 1 month before last data,
             )
             # Ensure default is within valid range (convert to Timestamp for comparison)
             default_anchor = pd.Timestamp(default_anchor)
@@ -3322,7 +3322,7 @@ def show_crypto_technical_analysis() -> None:
             # (three months) is used.
             default_anchor = st.session_state.get(
                 f"{ticker_key}_anchor",
-                (max_date - pd.Timedelta(days=st.session_state.get("ta_timeframe_days", 90))),
+                (max_date - pd.Timedelta(days=30))  # 1 month before last data,
             )
             # Ensure default is within valid range (convert to Timestamp for comparison)
             default_anchor = pd.Timestamp(default_anchor)
