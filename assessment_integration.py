@@ -10,16 +10,6 @@ from pathlib import Path
 import pandas as pd
 from typing import Optional, Dict, Any
 
-# Add modules to path
-_BASE_PATH = Path(__file__).parent
-sys.path.insert(0, str(_BASE_PATH / "herculis-assessment" / "src"))
-sys.path.insert(0, str(_BASE_PATH / "market_compass"))
-
-# Import after adding to path
-from config import Assessment, ASSESSMENT_LABELS
-from classifier import classify
-from subtitle_generator import SubtitleGenerator
-
 
 # Assessment options for Streamlit dropdown (5-level system)
 ASSESSMENT_OPTIONS = [
@@ -57,6 +47,26 @@ def get_default_assessment_from_dmas(dmas: float) -> str:
         return "Bearish"
 
 
+def _import_assessment_modules():
+    """Import assessment modules with temporary path modification."""
+    original_path = sys.path.copy()
+    try:
+        # Add modules to path temporarily
+        _BASE_PATH = Path(__file__).parent
+        sys.path.insert(0, str(_BASE_PATH / "herculis-assessment" / "src"))
+        sys.path.insert(0, str(_BASE_PATH / "market_compass"))
+
+        # Import modules
+        from config import Assessment, ASSESSMENT_LABELS
+        from classifier import classify
+        from subtitle_generator import SubtitleGenerator
+
+        return Assessment, ASSESSMENT_LABELS, classify, SubtitleGenerator
+    finally:
+        # Restore original sys.path
+        sys.path = original_path
+
+
 def generate_assessment_and_subtitle(
     ticker_key: str,
     asset_name: str,
@@ -74,7 +84,7 @@ def generate_assessment_and_subtitle(
     near_resistance: bool = False,
     at_ath: bool = False,
     price_target: Optional[float] = None,
-    subtitle_generator: Optional[SubtitleGenerator] = None
+    subtitle_generator = None
 ) -> Dict[str, Any]:
     """
     Auto-generate assessment and subtitle for an asset.
@@ -125,6 +135,9 @@ def generate_assessment_and_subtitle(
             "pattern_used": str # Pattern category (for debugging)
         }
     """
+    # Import modules temporarily
+    Assessment, ASSESSMENT_LABELS, classify, SubtitleGenerator = _import_assessment_modules()
+
     # Try to use herculis-assessment for intelligent classification
     try:
         if len(prices) >= 200:
@@ -183,3 +196,37 @@ def generate_assessment_and_subtitle(
         "subtitle": subtitle,
         "pattern_used": pattern_used
     }
+
+
+# For the SubtitleGenerator class, create a lazy import wrapper
+class SubtitleGenerator:
+    """Wrapper class that lazily imports the real SubtitleGenerator."""
+
+    def __init__(self):
+        self._generator = None
+
+    def _ensure_loaded(self):
+        """Lazy load the real generator."""
+        if self._generator is None:
+            _, _, _, RealSubtitleGenerator = _import_assessment_modules()
+            self._generator = RealSubtitleGenerator()
+
+    def generate(self, *args, **kwargs):
+        """Generate subtitle."""
+        self._ensure_loaded()
+        return self._generator.generate(*args, **kwargs)
+
+    def generate_batch(self, *args, **kwargs):
+        """Generate batch of subtitles."""
+        self._ensure_loaded()
+        return self._generator.generate_batch(*args, **kwargs)
+
+    def reset_history(self):
+        """Reset history."""
+        self._ensure_loaded()
+        return self._generator.reset_history()
+
+    def get_stats(self):
+        """Get stats."""
+        self._ensure_loaded()
+        return self._generator.get_stats()
