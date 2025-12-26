@@ -1942,13 +1942,21 @@ def show_upload_page():
                         try:
                             status_text.text(f"Processing {display_name}...")
 
-                            # Check if ticker exists in data
-                            if bbg_ticker not in df_prices.columns:
-                                st.sidebar.warning(f"⚠️ {display_name}: No data found")
+                            # Find matching column (case-insensitive, flexible matching)
+                            matching_col = None
+                            bbg_ticker_upper = bbg_ticker.upper()
+
+                            for col in df_prices.columns:
+                                if col.upper() == bbg_ticker_upper:
+                                    matching_col = col
+                                    break
+
+                            if matching_col is None:
+                                st.sidebar.warning(f"⚠️ {display_name}: No data found (looking for {bbg_ticker})")
                                 continue
 
                             # Extract price series
-                            prices_df = df_prices[["Date", bbg_ticker]].copy()
+                            prices_df = df_prices[["Date", matching_col]].copy()
                             prices_df.columns = ["Date", "Price"]
                             prices_df["Price"] = pd.to_numeric(prices_df["Price"], errors="coerce")
                             prices_df = prices_df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
@@ -2520,55 +2528,54 @@ def show_technical_analysis_page():
             st.subheader("Technical and momentum scores")
             tech_score = None
             mom_score = None
-            if excel_available:
+            if excel_available and df_prices is not None:
                 try:
-                    # Use the temporary file path for reading scores so that
-                    # pandas can access the Excel multiple times reliably.
-                    if selected_index == "S&P 500":
-                        tech_score = _get_spx_technical_score(temp_path)
-                    elif selected_index == "CSI 300":
-                        tech_score = _get_csi_technical_score(temp_path)
-                    elif selected_index == "Nikkei 225":
-                        tech_score = _get_nikkei_technical_score(temp_path)
-                    elif selected_index == "TASI":
-                        tech_score = _get_tasi_technical_score(temp_path)
-                    elif selected_index == "Sensex":
-                        tech_score = _get_sensex_technical_score(temp_path)
-                    elif selected_index == "Dax":
-                        tech_score = _get_dax_technical_score(temp_path)
-                    elif selected_index == "SMI":
-                        tech_score = _get_smi_technical_score(temp_path)
-                    elif selected_index == "Ibov":
-                        tech_score = _get_ibov_technical_score(temp_path)
-                    elif selected_index == "Mexbol":
-                        tech_score = _get_mexbol_technical_score(temp_path)
-                    else:
-                        tech_score = None
-                except Exception:
+                    # Map display name to Bloomberg ticker
+                    ticker_map = {
+                        "S&P 500": "SPX Index",
+                        "CSI 300": "SHSZ300 Index",
+                        "Nikkei 225": "NKY Index",
+                        "TASI": "SASEIDX Index",
+                        "Sensex": "SENSEX Index",
+                        "Dax": "DAX Index",
+                        "SMI": "SMI Index",
+                        "Ibov": "IBOV Index",
+                        "Mexbol": "MEXBOL Index",
+                        "Gold": "GCA COMDTY",
+                        "Silver": "SIA COMDTY",
+                        "Platinum": "XPT COMDTY",
+                        "Palladium": "XPD CURNCY",
+                        "Oil": "CL1 COMDTY",
+                        "Copper": "LP1 COMDTY",
+                        "Bitcoin": "XBTUSD CURNCY",
+                        "Ethereum": "XETUSD CURNCY",
+                        "Ripple": "XRPUSD CURNCY",
+                        "Solana": "XSOUSD CURNCY",
+                        "Binance": "XBIUSD CURNCY",
+                    }
+
+                    bbg_ticker = ticker_map.get(selected_index)
+                    if bbg_ticker:
+                        # Find matching column (case-insensitive)
+                        matching_col = None
+                        for col in df_prices.columns:
+                            if col.upper() == bbg_ticker.upper():
+                                matching_col = col
+                                break
+
+                        if matching_col and len(df_prices) >= 200:
+                            # Extract prices
+                            prices = df_prices[matching_col].dropna()
+                            if len(prices) >= 200:
+                                # Import and compute scores
+                                from technical_score_wrapper import compute_dmas_scores
+                                scores = compute_dmas_scores(prices, ticker=bbg_ticker, excel_path=str(temp_path))
+                                tech_score = scores["technical_score"]
+                                mom_score = scores["momentum_score"]
+
+                except Exception as e:
+                    print(f"Error computing scores for {selected_index}: {e}")
                     tech_score = None
-                try:
-                    if selected_index == "S&P 500":
-                        # Use standard Excel-based momentum (same as all other instruments)
-                        mom_score = _get_spx_momentum_score(temp_path)
-                    elif selected_index == "CSI 300":
-                        mom_score = _get_csi_momentum_score(temp_path)
-                    elif selected_index == "Nikkei 225":
-                        mom_score = _get_nikkei_momentum_score(temp_path)
-                    elif selected_index == "TASI":
-                        mom_score = _get_tasi_momentum_score(temp_path)
-                    elif selected_index == "Sensex":
-                        mom_score = _get_sensex_momentum_score(temp_path)
-                    elif selected_index == "Dax":
-                        mom_score = _get_dax_momentum_score(temp_path)
-                    elif selected_index == "SMI":
-                        mom_score = _get_smi_momentum_score(temp_path)
-                    elif selected_index == "Ibov":
-                        mom_score = _get_ibov_momentum_score(temp_path)
-                    elif selected_index == "Mexbol":
-                        mom_score = _get_mexbol_momentum_score(temp_path)
-                    else:
-                        mom_score = None
-                except Exception:
                     mom_score = None
 
             # Prepare DMAS and table if both scores are available
@@ -3015,36 +3022,40 @@ def show_commodity_technical_analysis() -> None:
         st.subheader("Technical and momentum scores")
         tech_score: Optional[float] = None
         mom_score: Optional[float] = None
-        if excel_available:
+        if excel_available and df_prices is not None:
             try:
-                if selected_index == "Gold":
-                    tech_score = _get_gold_technical_score(temp_path)
-                elif selected_index == "Silver":
-                    tech_score = _get_silver_technical_score(temp_path)
-                elif selected_index == "Platinum":
-                    tech_score = _get_platinum_technical_score(temp_path)
-                elif selected_index == "Palladium":
-                    tech_score = _get_palladium_technical_score(temp_path)
-                elif selected_index == "Oil":
-                    tech_score = _get_oil_technical_score(temp_path)
-                elif selected_index == "Copper":
-                    tech_score = _get_copper_technical_score(temp_path)
-            except Exception:
+                # Map display name to Bloomberg ticker
+                ticker_map = {
+                    "Gold": "GCA COMDTY",
+                    "Silver": "SIA COMDTY",
+                    "Platinum": "XPT COMDTY",
+                    "Palladium": "XPD CURNCY",
+                    "Oil": "CL1 COMDTY",
+                    "Copper": "LP1 COMDTY",
+                }
+
+                bbg_ticker = ticker_map.get(selected_index)
+                if bbg_ticker:
+                    # Find matching column (case-insensitive)
+                    matching_col = None
+                    for col in df_prices.columns:
+                        if col.upper() == bbg_ticker.upper():
+                            matching_col = col
+                            break
+
+                    if matching_col and len(df_prices) >= 200:
+                        # Extract prices
+                        prices = df_prices[matching_col].dropna()
+                        if len(prices) >= 200:
+                            # Import and compute scores
+                            from technical_score_wrapper import compute_dmas_scores
+                            scores = compute_dmas_scores(prices, ticker=bbg_ticker, excel_path=str(temp_path))
+                            tech_score = scores["technical_score"]
+                            mom_score = scores["momentum_score"]
+
+            except Exception as e:
+                print(f"Error computing scores for {selected_index}: {e}")
                 tech_score = None
-            try:
-                if selected_index == "Gold":
-                    mom_score = _get_gold_momentum_score(temp_path)
-                elif selected_index == "Silver":
-                    mom_score = _get_silver_momentum_score(temp_path)
-                elif selected_index == "Platinum":
-                    mom_score = _get_platinum_momentum_score(temp_path)
-                elif selected_index == "Palladium":
-                    mom_score = _get_palladium_momentum_score(temp_path)
-                elif selected_index == "Oil":
-                    mom_score = _get_oil_momentum_score(temp_path)
-                elif selected_index == "Copper":
-                    mom_score = _get_copper_momentum_score(temp_path)
-            except Exception:
                 mom_score = None
         # Compute DMAS if scores are available
         dmas: Optional[float] = None
@@ -3461,14 +3472,39 @@ def show_crypto_technical_analysis() -> None:
         st.subheader("Technical and momentum scores")
         tech_score: Optional[float] = None
         mom_score: Optional[float] = None
-        if excel_available:
+        if excel_available and df_prices is not None:
             try:
-                tech_score = get_tech_score(temp_path)
-            except Exception:
+                # Map display name to Bloomberg ticker
+                ticker_map = {
+                    "Bitcoin": "XBTUSD CURNCY",
+                    "Ethereum": "XETUSD CURNCY",
+                    "Ripple": "XRPUSD CURNCY",
+                    "Solana": "XSOUSD CURNCY",
+                    "Binance": "XBIUSD CURNCY",
+                }
+
+                bbg_ticker = ticker_map.get(selected_index)
+                if bbg_ticker:
+                    # Find matching column (case-insensitive)
+                    matching_col = None
+                    for col in df_prices.columns:
+                        if col.upper() == bbg_ticker.upper():
+                            matching_col = col
+                            break
+
+                    if matching_col and len(df_prices) >= 200:
+                        # Extract prices
+                        prices = df_prices[matching_col].dropna()
+                        if len(prices) >= 200:
+                            # Import and compute scores
+                            from technical_score_wrapper import compute_dmas_scores
+                            scores = compute_dmas_scores(prices, ticker=bbg_ticker, excel_path=str(temp_path))
+                            tech_score = scores["technical_score"]
+                            mom_score = scores["momentum_score"]
+
+            except Exception as e:
+                print(f"Error computing scores for {selected_index}: {e}")
                 tech_score = None
-            try:
-                mom_score = get_mom_score(temp_path)
-            except Exception:
                 mom_score = None
         # Compute DMAS if available
         dmas: Optional[float] = None
