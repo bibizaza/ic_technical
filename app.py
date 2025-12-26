@@ -1869,11 +1869,7 @@ def show_upload_page():
             with st.spinner("Running analysis for all assets..."):
                 try:
                     # Import required modules
-                    import sys
-                    from pathlib import Path as PathLib
-                    sys.path.insert(0, str(PathLib(__file__).parent / "herculis-technical-score" / "src"))
-
-                    from scoring import compute_dmas_scores
+                    from technical_score_wrapper import compute_dmas_scores
                     from assessment_integration import generate_assessment_and_subtitle
 
                     # Save Excel to temp file

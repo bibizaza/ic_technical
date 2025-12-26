@@ -11,11 +11,13 @@ import pandas as pd
 from typing import Optional, Dict, Any
 
 # Add modules to path
-sys.path.insert(0, str(Path(__file__).parent / "herculis-assessment"))
-sys.path.insert(0, str(Path(__file__).parent / "market_compass"))
+_BASE_PATH = Path(__file__).parent
+sys.path.insert(0, str(_BASE_PATH / "herculis-assessment" / "src"))
+sys.path.insert(0, str(_BASE_PATH / "market_compass"))
 
-from herculis_assessment.src.config import Assessment, ASSESSMENT_LABELS
-from herculis_assessment.src.classifier import classify
+# Import after adding to path
+from config import Assessment, ASSESSMENT_LABELS
+from classifier import classify
 from subtitle_generator import SubtitleGenerator
 
 
@@ -171,6 +173,8 @@ def generate_assessment_and_subtitle(
 
     except Exception as e:
         print(f"Warning: Could not generate subtitle for {asset_name}: {e}")
+        import traceback
+        print(traceback.format_exc())
         subtitle = f"DMAS {dmas:.0f} - {assessment}"
         pattern_used = "fallback"
 
