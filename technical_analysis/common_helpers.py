@@ -306,6 +306,9 @@ def _get_technical_score_generic(
     """
     Retrieve the technical score for any instrument from 'data_technical_score'.
 
+    If the sheet doesn't exist, computes the technical score from price data
+    using moving average-based calculation.
+
     This uses vectorized pandas operations (100x faster than .iterrows()).
 
     Parameters
@@ -320,26 +323,138 @@ def _get_technical_score_generic(
     float or None
         The technical score or None if unavailable.
     """
+    # First, try to read from the Excel sheet
     try:
         # Use cached Excel data instead of reading directly
         df = _get_cached_excel_sheet(excel_obj_or_path, "data_technical_score")
+        df = df.dropna(subset=[df.columns[0], df.columns[1]])
+
+        # VECTORIZED: Direct boolean indexing (100x faster than .iterrows())
+        df[df.columns[0]] = df[df.columns[0]].astype(str).str.strip().str.upper()
+        target_ticker = ticker.upper()
+
+        matches = df[df[df.columns[0]] == target_ticker]
+        if not matches.empty:
+            try:
+                return float(matches.iloc[0][df.columns[1]])
+            except Exception:
+                pass
     except Exception:
-        return None
+        pass
 
-    df = df.dropna(subset=[df.columns[0], df.columns[1]])
+    # Fallback: compute technical score from price data
+    # Try multiple ticker variations (e.g., "SPX INDEX" -> "SPX Index")
+    ticker_variations = _get_ticker_variations(ticker)
+    for ticker_var in ticker_variations:
+        try:
+            price_df = _load_price_data_generic(excel_obj_or_path, ticker_var)
+            if price_df is not None and len(price_df) >= 200:
+                prices = price_df["Price"]
+                return _compute_technical_score_from_prices(prices)
+        except Exception:
+            continue
 
-    # VECTORIZED: Direct boolean indexing (100x faster than .iterrows())
-    df[df.columns[0]] = df[df.columns[0]].astype(str).str.strip().str.upper()
-    target_ticker = ticker.upper()
+    return None
 
-    matches = df[df[df.columns[0]] == target_ticker]
-    if matches.empty:
-        return None
 
-    try:
-        return float(matches.iloc[0][df.columns[1]])
-    except Exception:
-        return None
+def _get_ticker_variations(ticker: str) -> list:
+    """
+    Generate ticker name variations to match different Excel column formats.
+
+    For example, "SPX INDEX" might be stored as "SPX Index" in the data_prices sheet.
+
+    Parameters
+    ----------
+    ticker : str
+        The original ticker name (e.g., "SPX INDEX", "GCA COMDTY").
+
+    Returns
+    -------
+    list
+        List of ticker variations to try.
+    """
+    variations = [ticker]  # Original first
+
+    # Title case version (e.g., "SPX INDEX" -> "Spx Index")
+    title_case = ticker.title()
+    if title_case not in variations:
+        variations.append(title_case)
+
+    # Special case: keep first part uppercase, title case the rest
+    # e.g., "SPX INDEX" -> "SPX Index", "GCA COMDTY" -> "GCA Comdty"
+    parts = ticker.split()
+    if len(parts) >= 2:
+        special_case = parts[0].upper() + " " + " ".join(p.title() for p in parts[1:])
+        if special_case not in variations:
+            variations.append(special_case)
+
+    # Lowercase version
+    lower_case = ticker.lower()
+    if lower_case not in variations:
+        variations.append(lower_case)
+
+    return variations
+
+
+def _compute_technical_score_from_prices(prices: pd.Series) -> float:
+    """
+    Compute a technical score from price series using moving averages.
+
+    Uses a combination of short-term and long-term moving averages
+    to generate a score between 0 and 100.
+
+    Parameters
+    ----------
+    prices : pd.Series
+        Price series with at least 200 data points.
+
+    Returns
+    -------
+    float
+        Technical score between 0 and 100.
+    """
+    if len(prices) < 200:
+        return 50.0  # Neutral if not enough data
+
+    # Get current price
+    current_price = prices.iloc[-1]
+
+    # Calculate moving averages
+    sma_50 = prices.iloc[-50:].mean()
+    sma_100 = prices.iloc[-100:].mean()
+    sma_200 = prices.iloc[-200:].mean()
+
+    # Calculate score based on price position relative to MAs
+    score = 0.0
+
+    # Price vs 50-day MA (30% weight)
+    if current_price > sma_50:
+        pct_above = ((current_price - sma_50) / sma_50) * 100
+        score += min(30, 15 + pct_above * 3)  # 15-30 range
+    else:
+        pct_below = ((sma_50 - current_price) / sma_50) * 100
+        score += max(0, 15 - pct_below * 3)  # 0-15 range
+
+    # Price vs 100-day MA (30% weight)
+    if current_price > sma_100:
+        pct_above = ((current_price - sma_100) / sma_100) * 100
+        score += min(30, 15 + pct_above * 3)
+    else:
+        pct_below = ((sma_100 - current_price) / sma_100) * 100
+        score += max(0, 15 - pct_below * 3)
+
+    # Price vs 200-day MA (40% weight)
+    if current_price > sma_200:
+        pct_above = ((current_price - sma_200) / sma_200) * 100
+        score += min(40, 20 + pct_above * 4)
+    else:
+        pct_below = ((sma_200 - current_price) / sma_200) * 100
+        score += max(0, 20 - pct_below * 4)
+
+    # Normalize to 0-100
+    final_score = score
+
+    return max(0, min(100, final_score))
 
 
 def _get_momentum_score_generic(
