@@ -44,7 +44,7 @@ STYLE_EXAMPLES = [
 
 
 RATING_SPECIFIC_EXAMPLES = {
-    "Positive": [
+    "Bullish": [  # Was "Positive"
         "The picture remains bullish with strong momentum",
         "All the technical elements are in place for further gains",
         "New highs supported by strong technical and momentum",
@@ -72,8 +72,8 @@ RATING_SPECIFIC_EXAMPLES = {
         "Limited upside potential with current setup",
         "The 100d MA is critical support",
     ],
-    "Negative": [
-        "Deeply negative technical picture",
+    "Bearish": [  # Was "Negative"
+        "Deeply bearish technical picture",
         "Below all major moving averages",
         "No short-term catalyst for recovery visible",
         "The bearish setup shows no signs of improvement",

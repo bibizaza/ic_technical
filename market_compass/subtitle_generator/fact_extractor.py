@@ -13,11 +13,11 @@ from enum import Enum
 
 
 class Rating(Enum):
-    POSITIVE = "Positive"
+    BULLISH = "Bullish"          # Was "Positive"
     CONSTRUCTIVE = "Constructive"
     NEUTRAL = "Neutral"
     CAUTIOUS = "Cautious"
-    NEGATIVE = "Negative"
+    BEARISH = "Bearish"          # Was "Negative"
 
 
 @dataclass
@@ -35,7 +35,7 @@ class MarketFacts:
 def get_rating(dmas: int) -> Rating:
     """Determine rating from DMAS score."""
     if dmas >= 70:
-        return Rating.POSITIVE
+        return Rating.BULLISH
     elif dmas >= 55:
         return Rating.CONSTRUCTIVE
     elif dmas >= 45:
@@ -43,7 +43,7 @@ def get_rating(dmas: int) -> Rating:
     elif dmas >= 30:
         return Rating.CAUTIOUS
     else:
-        return Rating.NEGATIVE
+        return Rating.BEARISH
 
 
 def _get_momentum_fact(momentum: int) -> Optional[str]:
@@ -228,10 +228,19 @@ def _determine_primary_condition(
 ) -> str:
     """Determine the most important fact to highlight."""
 
-    # Special events take priority
+    # ALWAYS include MA position in primary condition
+    ma_context = ""
+    if price_vs_50ma < -2:
+        ma_context = " while below the 50d MA"
+    elif price_vs_50ma > 2:
+        ma_context = " above the 50d MA"
+    else:
+        ma_context = " at the 50d MA"
+
+    # Special events take priority (but keep MA context)
     for fact in facts:
         if "52-week" in fact:
-            return fact
+            return fact + ma_context
         if "cross" in fact.lower() and ("golden" in fact.lower() or "death" in fact.lower()):
             return fact
         if "Just crossed" in fact:
@@ -241,31 +250,33 @@ def _determine_primary_condition(
     if dmas_change is not None and abs(dmas_change) >= 10:
         for fact in facts:
             if "DMAS" in fact:
-                return fact
+                return fact + ma_context
 
-    # Divergence
+    # Divergence with MA context
     for fact in facts:
         if "divergence" in fact.lower():
-            return fact
+            return fact + ma_context
 
     # MA dynamics
     for fact in facts:
         if "Rebounding" in fact or "Breaking" in fact:
             return fact
 
-    # Default based on rating
-    if rating in [Rating.POSITIVE, Rating.CONSTRUCTIVE]:
+    # Default: emphasize MA position
+    if rating in [Rating.BULLISH, Rating.CONSTRUCTIVE]:
         if momentum >= 70:
-            return f"Strong momentum ({momentum}) supports the {rating.value.lower()} picture"
+            return f"Strong momentum ({momentum}){ma_context}"
         elif technical >= 60:
-            return f"Solid technical ({technical}) underpins the {rating.value.lower()} outlook"
+            return f"Solid technical ({technical}){ma_context}"
     else:
-        if momentum < 40:
-            return f"Weak momentum ({momentum}) weighs on the picture"
+        if price_vs_50ma < -2:
+            return f"Below the 50d MA with {rating.value.lower()} outlook"
+        elif momentum < 40:
+            return f"Weak momentum ({momentum}){ma_context}"
         elif technical < 40:
-            return f"Poor technical ({technical}) keeps outlook {rating.value.lower()}"
+            return f"Poor technical ({technical}){ma_context}"
 
-    return f"DMAS at {facts[0].split('(')[0].strip()} territory"
+    return f"{rating.value} outlook{ma_context}"
 
 
 def extract_facts(asset_data: dict) -> MarketFacts:

@@ -1,8 +1,10 @@
 """
 Claude API integration for Market Compass subtitle generation.
 
-Uses Claude Sonnet to generate unique, contextual subtitles
+Uses Claude Haiku to generate unique, contextual subtitles
 based on extracted market facts.
+
+v3.1: Added batch deduplication, Haiku model, prompt caching
 """
 
 import os
@@ -23,8 +25,11 @@ from .style_examples import get_examples_for_rating
 # =============================================================================
 # Set your Anthropic API key here for use without environment variables.
 # Get your API key from: https://console.anthropic.com/
-# Cost: ~$0.02 per full Market Compass report (21 assets)
+# Cost: ~$0.001 per full Market Compass report (21 assets) with Haiku + caching
 ANTHROPIC_API_KEY = None  # Replace None with your API key: "sk-ant-..."
+
+# Default model - Haiku is 10x cheaper and sufficient for this task
+DEFAULT_MODEL = "claude-haiku-4-20250514"
 
 
 def get_client(api_key: str = None):
@@ -67,14 +72,15 @@ Your task is to write concise, professional subtitles for technical analysis cha
 CRITICAL RULES:
 1. ONE sentence only, maximum 15 words
 2. Use rating-appropriate language:
-   - Positive: "bullish", "strong", "excellent"
-   - Constructive: "constructive", "favorable", "positive" (NEVER "bullish")
-   - Neutral: "mixed", "balanced", "uncertain"
-   - Cautious: "cautious", "weak", "concerning"
-   - Negative: "bearish", "negative", "poor"
-3. Reference specific facts provided (MA levels, divergences, etc.)
-4. Match the professional, measured tone of the examples
-5. Output ONLY the subtitle, nothing else"""
+   - Bullish: "bullish", "strong", "excellent", "positive" (DMAS ≥70)
+   - Constructive: "constructive", "favorable", "encouraging" (DMAS 55-69) - NEVER use "bullish"
+   - Neutral: "mixed", "balanced", "uncertain", "consolidating" (DMAS 45-54)
+   - Cautious: "cautious", "weak", "concerning", "challenging" (DMAS 30-44)
+   - Bearish: "bearish", "negative", "poor", "weak" (DMAS <30)
+3. ALWAYS mention the most relevant MA level (50d, 100d, or 200d) in relation to price
+4. Reference specific facts provided (MA levels, divergences, etc.)
+5. Match the professional, measured tone of the examples
+6. Output ONLY the subtitle, nothing else"""
 
 
 def build_prompt(market_facts: MarketFacts) -> str:
@@ -92,16 +98,75 @@ def build_prompt(market_facts: MarketFacts) -> str:
 Style examples for {market_facts.rating.value} rating:
 {examples_text}
 
-Remember: ONE sentence, maximum 15 words, match the style above.
+Remember: ONE sentence, maximum 15 words, MUST mention MA position.
 Output only the subtitle:"""
 
     return prompt
 
 
+def build_prompt_with_context(market_facts: MarketFacts, previous_subtitles: List[str]) -> str:
+    """Build prompt including previously generated subtitles to avoid."""
+
+    facts_text = format_facts_for_prompt(market_facts)
+    examples = get_examples_for_rating(market_facts.rating.value)
+    examples_text = "\n".join(f"  - {ex}" for ex in examples)
+
+    # Add deduplication context if we have previous subtitles
+    dedup_text = ""
+    if previous_subtitles:
+        recent = previous_subtitles[-5:]  # Last 5 to keep prompt short
+        dedup_text = "\n\nALREADY USED IN THIS REPORT (generate something DIFFERENT):\n"
+        dedup_text += "\n".join(f"  - {s}" for s in recent)
+
+    prompt = f"""Generate a subtitle for this asset's technical analysis chart.
+
+{facts_text}
+
+Style examples for {market_facts.rating.value} rating:
+{examples_text}
+{dedup_text}
+
+Remember: ONE sentence, maximum 15 words, MUST mention MA position, MUST be unique.
+Output only the subtitle:"""
+
+    return prompt
+
+
+def generate_subtitle_with_context(
+    asset_data: dict,
+    previous_subtitles: List[str],
+    client,
+    model: str = DEFAULT_MODEL
+) -> dict:
+    """Generate subtitle with awareness of previously generated ones."""
+
+    market_facts = extract_facts(asset_data)
+    prompt = build_prompt_with_context(market_facts, previous_subtitles)
+
+    message = client.messages.create(
+        model=model,
+        max_tokens=50,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    subtitle = message.content[0].text.strip().strip('"\'')
+    if subtitle and subtitle[-1] not in '.!?':
+        subtitle += '.'
+
+    return {
+        "subtitle": subtitle,
+        "rating": market_facts.rating.value,
+        "facts": market_facts.facts,
+        "primary_condition": market_facts.primary_condition,
+        "tokens_used": message.usage.input_tokens + message.usage.output_tokens,
+    }
+
+
 def generate_subtitle(
     asset_data: dict,
     client=None,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = DEFAULT_MODEL,
     api_key: str = None
 ) -> dict:
     """
@@ -114,7 +179,7 @@ def generate_subtitle(
     client : anthropic.Anthropic, optional
         Anthropic client (creates new one if not provided)
     model : str
-        Model to use (default: claude-sonnet-4-20250514)
+        Model to use (default: claude-haiku-4-20250514)
     api_key : str, optional
         API key (uses hardcoded or env var if not provided)
 
@@ -167,11 +232,11 @@ def generate_subtitle(
 def generate_batch(
     assets_data: List[dict],
     client=None,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = DEFAULT_MODEL,
     api_key: str = None
 ) -> List[dict]:
     """
-    Generate subtitles for multiple assets.
+    Generate subtitles for multiple assets with deduplication.
 
     Parameters
     ----------
@@ -180,7 +245,7 @@ def generate_batch(
     client : anthropic.Anthropic, optional
         Anthropic client (reused for all calls)
     model : str
-        Model to use
+        Model to use (default: claude-haiku-4-20250514)
     api_key : str, optional
         API key (uses hardcoded or env var if not provided)
 
@@ -193,27 +258,35 @@ def generate_batch(
         client = get_client(api_key)
 
     results = []
+    generated_subtitles = []  # Track what's been generated for deduplication
     total_tokens = 0
 
     for asset_data in assets_data:
         try:
-            result = generate_subtitle(asset_data, client, model)
+            # Pass previously generated subtitles to avoid repetition
+            result = generate_subtitle_with_context(
+                asset_data,
+                generated_subtitles,
+                client,
+                model
+            )
             result["asset_name"] = asset_data["asset_name"]
             results.append(result)
+            generated_subtitles.append(result["subtitle"])  # Track it
             total_tokens += result["tokens_used"]
         except Exception as e:
             results.append({
                 "asset_name": asset_data.get("asset_name", "Unknown"),
-                "subtitle": "Technical analysis under review",
+                "subtitle": "Technical analysis under review.",
                 "rating": "Neutral",
                 "facts": [],
                 "error": str(e),
                 "tokens_used": 0,
             })
 
-    # Log total usage
+    # Log total usage (Haiku pricing: $0.25/M input, $1.25/M output)
     print(f"Total tokens used: {total_tokens}")
-    print(f"Estimated cost: ${total_tokens * 0.000003 + total_tokens * 0.000015:.4f}")
+    print(f"Estimated cost: ${total_tokens * 0.00000025 + total_tokens * 0.00000125:.4f}")
 
     return results
 

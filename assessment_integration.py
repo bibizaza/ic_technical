@@ -4,12 +4,12 @@ Integration helpers for assessment classification and subtitle generation.
 Uses the Market Compass subtitle generator for proper pattern-based
 subtitle generation with anti-repetition and MA dynamics.
 
-Rating Vocabulary:
-- Positive: Bullish, strong momentum and/or technical (DMAS >= 70)
-- Constructive: Positive outlook, favorable technical setup (DMAS 55-69)
+Rating Vocabulary (v3.1):
+- Bullish: Strong momentum and/or technical (DMAS >= 70)
+- Constructive: Favorable technical setup (DMAS 55-69)
 - Neutral: Mixed signals, no clear direction (DMAS 45-54)
-- Cautious: Negative bias, warning signs present (DMAS 30-44)
-- Negative: Bearish, weak technical and/or momentum (DMAS < 30)
+- Cautious: Warning signs present (DMAS 30-44)
+- Bearish: Weak technical and/or momentum (DMAS < 30)
 """
 
 import pandas as pd
@@ -45,13 +45,13 @@ except ImportError:
 
 
 # Assessment options for Streamlit dropdown (5-level system)
-# Maps to rating vocabulary: Negative, Cautious, Neutral, Constructive, Positive
+# Maps to rating vocabulary: Bearish, Cautious, Neutral, Constructive, Bullish
 ASSESSMENT_OPTIONS = [
-    "Negative",
+    "Bearish",
     "Cautious",
     "Neutral",
     "Constructive",
-    "Positive",
+    "Bullish",
 ]
 
 
@@ -60,11 +60,11 @@ def get_default_assessment_from_dmas(dmas: float) -> str:
     Get default assessment label from DMAS score using 5-level system.
 
     Thresholds (per directive):
-    - DMAS >= 70: Positive
+    - DMAS >= 70: Bullish
     - DMAS >= 55: Constructive
     - DMAS >= 45: Neutral
     - DMAS >= 30: Cautious
-    - DMAS < 30: Negative
+    - DMAS < 30: Bearish
 
     Parameters
     ----------
@@ -74,14 +74,16 @@ def get_default_assessment_from_dmas(dmas: float) -> str:
     Returns
     -------
     str
-        Assessment label: Positive, Constructive, Neutral, Cautious, or Negative
+        Assessment label: Bullish, Constructive, Neutral, Cautious, or Bearish
     """
     if SUBTITLE_GEN_AVAILABLE:
-        return get_rating(int(dmas))
+        rating = get_rating(int(dmas))
+        # get_rating returns a Rating enum, extract its value
+        return rating.value if hasattr(rating, 'value') else str(rating)
 
     # Fallback if subtitle generator not available
     if dmas >= 70:
-        return "Positive"
+        return "Bullish"
     elif dmas >= 55:
         return "Constructive"
     elif dmas >= 45:
@@ -89,7 +91,7 @@ def get_default_assessment_from_dmas(dmas: float) -> str:
     elif dmas >= 30:
         return "Cautious"
     else:
-        return "Negative"
+        return "Bearish"
 
 
 def _calculate_ma(prices: pd.Series, period: int) -> float:
