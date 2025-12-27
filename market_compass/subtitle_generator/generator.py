@@ -4,19 +4,20 @@ Main subtitle generator class.
 Coordinates pattern selection, anti-repetition logic, and
 subtitle generation for Market Compass assets.
 
-Implements the directive V2 specifications:
+Implements the directive V3 specifications:
 - Processing order: momentum → technical → DMAS → rating → subtitle
 - One sentence only, maximum 15 words
 - Pattern library usage (no generic boilerplate)
 - Correct rating vocabulary: Positive, Constructive, Neutral, Cautious, Negative
 - Anti-repetition: Track last 3 subtitles per asset
+- BATCH DEDUPLICATION: No two assets in same report can have identical subtitles
+- RATING-APPROPRIATE LANGUAGE: No "bullish" for Constructive, etc.
 """
 
 import random
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Set
 
-from .patterns import PATTERNS, get_rating, get_ma_dynamics
-from .decision_tree import route_subtitle
+from .patterns import PATTERNS, get_rating, get_ma_dynamics, add_context_if_needed
 
 
 class SubtitleTracker:
@@ -82,12 +83,66 @@ class SubtitleTracker:
             self.history.clear()
 
 
+def validate_subtitle_language(subtitle: str, rating: str) -> bool:
+    """
+    Validate that subtitle uses rating-appropriate language.
+
+    Word restrictions by rating:
+    - Positive: Can use "bullish", "strong"
+    - Constructive: NO "bullish" - use "constructive", "favorable", "positive"
+    - Neutral: NO "bullish" or "bearish"
+    - Cautious: NO "bullish"
+    - Negative: NO "bullish" or "constructive"
+
+    Parameters
+    ----------
+    subtitle : str
+        Generated subtitle text
+    rating : str
+        Current rating (Positive, Constructive, Neutral, Cautious, Negative)
+
+    Returns
+    -------
+    bool
+        True if language is appropriate for the rating
+    """
+    subtitle_lower = subtitle.lower()
+
+    if rating == "Constructive":
+        # Should not use "bullish"
+        if "bullish" in subtitle_lower:
+            return False
+
+    if rating in ["Neutral", "Cautious", "Negative"]:
+        # Should not use "bullish"
+        if "bullish" in subtitle_lower:
+            return False
+
+    if rating in ["Positive", "Constructive"]:
+        # Should not use "bearish" or "negative"
+        if "bearish" in subtitle_lower:
+            return False
+        # Allow "negative" only if it's about territory (e.g., "negative territory")
+        if "negative" in subtitle_lower and "territory" not in subtitle_lower:
+            return False
+
+    if rating == "Negative":
+        # Should not use "constructive"
+        if "constructive" in subtitle_lower:
+            return False
+
+    return True
+
+
 class SubtitleGenerator:
     """
     Generates Market Compass subtitles with anti-repetition logic.
 
     Tracks last 3 patterns used per asset to avoid repetition
     and provides variety in subtitle generation.
+
+    NEW IN V3: Batch-level deduplication to prevent same subtitle
+    appearing for multiple assets in the same report.
 
     Attributes
     ----------
@@ -97,6 +152,10 @@ class SubtitleGenerator:
         Maps asset_name to last pattern string used
     last_category_used : dict
         Maps asset_name to last pattern category used
+    current_batch_subtitles : set
+        Tracks all subtitles used in current batch (normalized)
+    current_batch_patterns : dict
+        Tracks pattern category usage counts in current batch
     """
 
     def __init__(self):
@@ -104,13 +163,65 @@ class SubtitleGenerator:
         self.tracker = SubtitleTracker()
         self.last_pattern_used: Dict[str, str] = {}
         self.last_category_used: Dict[str, str] = {}
+        # NEW: Batch-level tracking
+        self.current_batch_subtitles: Set[str] = set()
+        self.current_batch_patterns: Dict[str, int] = {}
+
+    def start_batch(self):
+        """
+        Call before generating subtitles for a new report.
+
+        Clears batch-level tracking to start fresh for each report.
+        Per-asset history (tracker) is preserved across batches.
+        """
+        self.current_batch_subtitles.clear()
+        self.current_batch_patterns.clear()
+
+    def _normalize_subtitle(self, subtitle: str) -> str:
+        """Normalize subtitle for comparison."""
+        return subtitle.lower().strip()
+
+    def _is_used_in_batch(self, subtitle: str) -> bool:
+        """
+        Check if subtitle already used in current batch.
+
+        Parameters
+        ----------
+        subtitle : str
+            Subtitle to check
+
+        Returns
+        -------
+        bool
+            True if subtitle (normalized) already used in this batch
+        """
+        normalized = self._normalize_subtitle(subtitle)
+        return normalized in self.current_batch_subtitles
+
+    def _record_batch_usage(self, subtitle: str, pattern_category: str):
+        """
+        Record subtitle usage in current batch.
+
+        Parameters
+        ----------
+        subtitle : str
+            Subtitle used
+        pattern_category : str
+            Pattern category used
+        """
+        normalized = self._normalize_subtitle(subtitle)
+        self.current_batch_subtitles.add(normalized)
+        self.current_batch_patterns[pattern_category] = \
+            self.current_batch_patterns.get(pattern_category, 0) + 1
 
     def get_pattern(self, asset: str, category: str) -> str:
         """
-        Select pattern from category with anti-repetition.
+        Select pattern from category with BOTH per-asset AND batch-level anti-repetition.
 
-        Filters out recently used patterns for this asset if possible,
-        ensuring variety across weeks.
+        Filters out:
+        1. Last pattern used for this asset
+        2. Patterns in this asset's history
+        3. Patterns already heavily used in current batch
 
         Parameters
         ----------
@@ -132,11 +243,30 @@ class SubtitleGenerator:
         last_used = self.last_pattern_used.get(asset)
         history = self.tracker.history.get(asset, [])
 
-        # Filter out last used pattern and any in recent history
-        available = [p for p in patterns if p != last_used and p not in history]
+        # Collect patterns used by OTHER assets in this batch
+        batch_used_patterns = set()
+        for other_asset, pattern in self.last_pattern_used.items():
+            if other_asset != asset:
+                batch_used_patterns.add(pattern)
+
+        # Filter patterns with multiple criteria
+        available = []
+        for p in patterns:
+            # Skip last used for this asset
+            if p == last_used:
+                continue
+            # Skip patterns in this asset's history
+            if p in history:
+                continue
+            # Skip patterns used by other assets in this batch (if category used > 0)
+            if self.current_batch_patterns.get(category, 0) > 0 and p in batch_used_patterns:
+                continue
+            available.append(p)
+
         if not available:
-            # If all patterns were filtered, just avoid the last used one
+            # Fallback: just avoid last used for this asset
             available = [p for p in patterns if p != last_used]
+
         if not available:
             # If still none, use all patterns
             available = patterns
@@ -187,6 +317,35 @@ class SubtitleGenerator:
         except (TypeError, ValueError):
             return False
 
+    def _generate_unique_fallback(self, asset: str, dmas: int) -> str:
+        """
+        Generate a unique asset-specific subtitle as last resort.
+
+        Used when all pattern-based attempts result in duplicates.
+
+        Parameters
+        ----------
+        asset : str
+            Asset name
+        dmas : int
+            DMAS score
+
+        Returns
+        -------
+        str
+            Unique fallback subtitle
+        """
+        if dmas >= 70:
+            return f"{asset} maintains strong technical positioning"
+        elif dmas >= 55:
+            return f"{asset} holds constructive outlook with mixed signals"
+        elif dmas >= 45:
+            return f"Technical picture for {asset} remains balanced"
+        elif dmas >= 30:
+            return f"{asset} shows cautious technical setup"
+        else:
+            return f"Weak technical backdrop persists for {asset}"
+
     def generate(
         self,
         asset_data: dict,
@@ -194,7 +353,7 @@ class SubtitleGenerator:
         max_words: int = 15
     ) -> dict:
         """
-        Generate subtitle for an asset.
+        Generate subtitle for an asset with batch deduplication.
 
         Processing order (per directive):
         1. Read momentum_score from input
@@ -203,7 +362,7 @@ class SubtitleGenerator:
         4. Validate all scores
         5. Determine rating
         6. Calculate MA dynamics
-        7. Generate subtitle
+        7. Generate subtitle with batch deduplication
 
         Parameters
         ----------
@@ -241,6 +400,9 @@ class SubtitleGenerator:
             - validated (bool): True if all scores were valid
             - word_count (int): Number of words in subtitle
         """
+        # Import here to avoid circular import
+        from .decision_tree import route_subtitle
+
         asset = asset_data["asset_name"]
 
         # Validate scores
@@ -265,8 +427,33 @@ class SubtitleGenerator:
         def pattern_selector(category: str) -> str:
             return self.get_pattern(asset, category)
 
-        # Route to appropriate subtitle
-        subtitle, pattern_category = route_subtitle(asset_data, pattern_selector)
+        # Route to appropriate subtitle with retry logic for deduplication
+        max_attempts = 5
+        attempts = 0
+        subtitle = None
+        pattern_category = None
+
+        while attempts < max_attempts:
+            subtitle, pattern_category = route_subtitle(asset_data, pattern_selector)
+
+            # Validate language is appropriate for rating
+            if not validate_subtitle_language(subtitle, rating):
+                attempts += 1
+                continue
+
+            # Check batch duplication
+            if not self._is_used_in_batch(subtitle):
+                break
+
+            attempts += 1
+
+        # If still duplicate after max attempts, use unique fallback
+        if subtitle and self._is_used_in_batch(subtitle):
+            subtitle = self._generate_unique_fallback(asset, asset_data["dmas"])
+            pattern_category = "unique_fallback"
+
+        # Add contextual suffix if conditions warrant (FIX 5)
+        subtitle = add_context_if_needed(subtitle, asset_data, max_words)
 
         # Ensure one sentence only and max 15 words
         # Split into sentences and take first one
@@ -285,8 +472,9 @@ class SubtitleGenerator:
                 subtitle = subtitle.rstrip(',;:') + '.'
             word_count = max_words
 
-        # Record for anti-repetition
+        # Record for anti-repetition (both per-asset and batch)
         self.tracker.record(asset, subtitle)
+        self._record_batch_usage(subtitle, pattern_category)
 
         return {
             "subtitle": subtitle,
@@ -302,7 +490,10 @@ class SubtitleGenerator:
         max_words: int = 15
     ) -> list:
         """
-        Generate subtitles for multiple assets.
+        Generate subtitles for multiple assets with deduplication.
+
+        IMPORTANT: Starts a new batch before generating, ensuring no
+        two assets in the same report have identical subtitles.
 
         Parameters
         ----------
@@ -317,6 +508,9 @@ class SubtitleGenerator:
         list[dict]
             List of results with subtitle, pattern_used, rating for each asset
         """
+        # START NEW BATCH - clear batch tracking
+        self.start_batch()
+
         results = []
 
         for asset_data in assets_data:
@@ -347,6 +541,8 @@ class SubtitleGenerator:
         self.last_pattern_used.clear()
         self.last_category_used.clear()
         self.tracker.clear()
+        self.current_batch_subtitles.clear()
+        self.current_batch_patterns.clear()
 
     def get_stats(self) -> dict:
         """
@@ -358,6 +554,8 @@ class SubtitleGenerator:
             Statistics with keys:
             - assets_tracked (int): Number of assets with history
             - category_distribution (dict): Count per category used
+            - batch_subtitle_count (int): Unique subtitles in current batch
+            - batch_pattern_distribution (dict): Pattern category counts in batch
         """
         category_counts = {}
         for category in self.last_category_used.values():
@@ -365,7 +563,9 @@ class SubtitleGenerator:
 
         return {
             "assets_tracked": len(self.last_pattern_used),
-            "category_distribution": category_counts
+            "category_distribution": category_counts,
+            "batch_subtitle_count": len(self.current_batch_subtitles),
+            "batch_pattern_distribution": dict(self.current_batch_patterns)
         }
 
 

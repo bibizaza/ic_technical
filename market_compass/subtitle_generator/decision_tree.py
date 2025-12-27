@@ -8,6 +8,11 @@ Priority order:
 1. MA cross events (most newsworthy)
 2. Dramatic WoW changes (|delta| > 10)
 3. Rating-based pattern selection (Positive/Constructive/Neutral/Cautious/Negative)
+
+IMPORTANT V3 UPDATES:
+- Stricter "rebound" validation: only when dmas_change > 5 AND previous DMAS < 65
+- More variety in pattern selection with new categories
+- Proper use of rating-appropriate language
 """
 
 from typing import Optional, Callable, Tuple
@@ -188,10 +193,20 @@ def _handle_positive(
     price_target = asset_data.get("price_target")
     near_resistance = asset_data.get("near_resistance", False)
 
-    # At all-time high
+    # At all-time high / 52-week high
     if at_ath:
         pattern = pattern_selector("positive_ath")
         return pattern.format(asset=asset), "positive_ath"
+
+    # REBOUND: Only use if DMAS actually increased significantly AND was previously lower
+    # Stricter validation: dmas_change > 5 AND previous DMAS was below 65
+    dmas_prev = asset_data.get("dmas_prev_week", dmas)
+    actual_rebound = dmas_change > 5 and dmas_prev < 65
+
+    if actual_rebound and ma_dynamics.get("above_50ma"):
+        pattern = pattern_selector("positive_rebound")
+        ma = get_relevant_ma(asset_data)
+        return pattern.format(asset=asset, ma=ma), "positive_rebound"
 
     # Near target
     if near_resistance and price_target:
@@ -203,14 +218,8 @@ def _handle_positive(
         pattern = pattern_selector("positive_strong")
         return pattern.format(asset=asset), "positive_strong"
 
-    # Rebound scenario
-    if dmas_change > 5 and ma_dynamics.get("above_50ma"):
-        pattern = pattern_selector("positive_rebound")
-        ma = get_relevant_ma(asset_data)
-        return pattern.format(asset=asset, ma=ma), "positive_rebound"
-
-    # Continuation
-    if dmas_change >= 0:
+    # Continuation (only if DMAS stable or improving)
+    if dmas_change >= -2:  # Allow small dips
         pattern = pattern_selector("positive_continuation")
         return pattern.format(asset=asset), "positive_continuation"
 
@@ -229,7 +238,13 @@ def _handle_constructive(
     ma_dynamics: dict,
     pattern_selector: Callable[[str], str]
 ) -> Tuple[str, str]:
-    """Handle Constructive rating scenarios (DMAS 55-69)."""
+    """
+    Handle Constructive rating scenarios (DMAS 55-69).
+
+    IMPORTANT: Do NOT use "bullish" language in Constructive patterns.
+    Use: constructive, favorable, positive, encouraging
+    """
+    ma = get_relevant_ma(asset_data)
 
     # High momentum but technical calls for caution
     if momentum >= 80 and technical < 55:
@@ -241,9 +256,25 @@ def _handle_constructive(
         pattern = pattern_selector("constructive_correction")
         return pattern.format(asset=asset), "constructive_correction"
 
-    # Improving
-    pattern = pattern_selector("constructive_improving")
-    return pattern.format(asset=asset), "constructive_improving"
+    # Near MA - use new category for variety
+    if ma_dynamics.get("at_50ma") or ma_dynamics.get("at_100ma"):
+        pattern = pattern_selector("constructive_near_ma")
+        ma_near = 50 if ma_dynamics.get("at_50ma") else 100
+        return pattern.format(asset=asset, ma=ma_near), "constructive_near_ma"
+
+    # Stable or improving - use improving patterns
+    if dmas_change >= 0:
+        pattern = pattern_selector("constructive_improving")
+        return pattern.format(asset=asset), "constructive_improving"
+
+    # Default constructive with small decline
+    if dmas_change >= -3:
+        pattern = pattern_selector("constructive_improving")
+        return pattern.format(asset=asset), "constructive_improving"
+
+    # Larger decline but still constructive
+    pattern = pattern_selector("constructive_correction")
+    return pattern.format(asset=asset), "constructive_correction"
 
 
 def _handle_neutral(
@@ -256,10 +287,15 @@ def _handle_neutral(
     ma_dynamics: dict,
     pattern_selector: Callable[[str], str]
 ) -> Tuple[str, str]:
-    """Handle Neutral rating scenarios (DMAS 45-54)."""
+    """
+    Handle Neutral rating scenarios (DMAS 45-54).
 
+    IMPORTANT: Do NOT use "bullish" or "bearish" language.
+    Use: balanced, mixed, uncertain, consolidating
+    """
     near_support = asset_data.get("near_support", False)
     near_resistance = asset_data.get("near_resistance", False)
+    ma = get_relevant_ma(asset_data)
 
     # High technical, low momentum
     if technical >= 60 and momentum < 40:
@@ -271,10 +307,17 @@ def _handle_neutral(
         pattern = pattern_selector("neutral_mom_offset")
         return pattern.format(asset=asset), "neutral_mom_offset"
 
+    # Near MA with potential breakout
+    if ma_dynamics.get("at_50ma") or ma_dynamics.get("at_100ma"):
+        if dmas_change > 0:  # Trending up toward MA
+            pattern = pattern_selector("neutral_breakout_potential")
+            ma_key = 50 if ma_dynamics.get("at_50ma") else 100
+            return pattern.format(asset=asset, ma=ma_key), "neutral_breakout_potential"
+
     # Consolidation (small WoW change)
     if abs(dmas_change) < 5:
         # Check if at turning point
-        if near_support or near_resistance or ma_dynamics.get("at_50ma"):
+        if near_support or near_resistance:
             pattern = pattern_selector("neutral_turning")
             return pattern.format(asset=asset), "neutral_turning"
 
@@ -296,8 +339,12 @@ def _handle_cautious(
     ma_dynamics: dict,
     pattern_selector: Callable[[str], str]
 ) -> Tuple[str, str]:
-    """Handle Cautious rating scenarios (DMAS 30-44)."""
+    """
+    Handle Cautious rating scenarios (DMAS 30-44).
 
+    IMPORTANT: Do NOT use "bullish" language.
+    IMPORTANT: Only use "rebound" if dmas_change > 5 (actual rebound occurred)
+    """
     ma = get_relevant_ma(asset_data)
     near_52w_low = asset_data.get("near_52w_low", False)
 
@@ -306,7 +353,7 @@ def _handle_cautious(
         pattern = pattern_selector("cautious_near_52w_low")
         return pattern.format(asset=asset), "cautious_near_52w_low"
 
-    # Weakening scenario
+    # Weakening scenario (DMAS dropping)
     if dmas_change < -5:
         pattern = pattern_selector("cautious_weakening")
         return pattern.format(asset=asset, ma=ma), "cautious_weakening"
@@ -320,15 +367,25 @@ def _handle_cautious(
         pattern = pattern_selector("cautious_stuck")
         return pattern.format(asset=asset, ma=100), "cautious_stuck"
 
-    # Small rebound but not enough
-    if dmas_change > 0:
+    # STRICT REBOUND VALIDATION: Only use if dmas_change > 5 (significant improvement)
+    if dmas_change > 5:
         pattern = pattern_selector("cautious_rebound")
         return pattern.format(asset=asset), "cautious_rebound"
+
+    # Small positive change but NOT a "rebound" - use no_catalyst instead
+    if dmas_change > 0 and dmas_change <= 5:
+        pattern = pattern_selector("cautious_no_catalyst")
+        return pattern.format(asset=asset), "cautious_no_catalyst"
 
     # Silver lining - managed to stay above some MA
     if ma_dynamics.get("above_200ma"):
         pattern = pattern_selector("cautious_silver")
         return pattern.format(asset=asset, ma=200), "cautious_silver"
+
+    # No catalyst / default cautious
+    if abs(dmas_change) < 3:
+        pattern = pattern_selector("cautious_no_catalyst")
+        return pattern.format(asset=asset), "cautious_no_catalyst"
 
     # Default cautious
     pattern = pattern_selector("cautious_weakening")
@@ -345,8 +402,12 @@ def _handle_negative(
     ma_dynamics: dict,
     pattern_selector: Callable[[str], str]
 ) -> Tuple[str, str]:
-    """Handle Negative rating scenarios (DMAS < 30)."""
+    """
+    Handle Negative rating scenarios (DMAS < 30).
 
+    IMPORTANT: Do NOT use "bullish" or "constructive" language.
+    Use: bearish, negative, weak, poor
+    """
     ma = get_relevant_ma(asset_data)
     near_52w_low = asset_data.get("near_52w_low", False)
 

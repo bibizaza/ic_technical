@@ -12,17 +12,19 @@ Rating Vocabulary:
 - Negative: Bearish, weak technical and/or momentum (DMAS < 30)
 """
 
-from .generator import SubtitleGenerator, SubtitleTracker, generate_subtitle
-from .patterns import PATTERNS, get_rating, get_ma_dynamics, get_high_low_dynamics
+from .generator import SubtitleGenerator, SubtitleTracker, generate_subtitle, validate_subtitle_language
+from .patterns import PATTERNS, get_rating, get_ma_dynamics, get_high_low_dynamics, add_context_if_needed
 
 __all__ = [
     'SubtitleGenerator',
     'SubtitleTracker',
     'generate_subtitle',
+    'validate_subtitle_language',
     'PATTERNS',
     'get_rating',
     'get_ma_dynamics',
     'get_high_low_dynamics',
+    'add_context_if_needed',
 ]
 
-__version__ = '2.1.0'
+__version__ = '3.0.0'
