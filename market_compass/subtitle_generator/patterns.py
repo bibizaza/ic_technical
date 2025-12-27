@@ -11,7 +11,14 @@ RATING VOCABULARY (per directive):
 - Neutral: Mixed signals, no clear direction (DMAS 45-54)
 - Cautious: Negative bias, warning signs present (DMAS 30-44)
 - Negative: Bearish, weak technical and/or momentum (DMAS < 30)
+
+52-WEEK HIGH/LOW DETECTION:
+Uses 52-week (252 trading days) high as ATH proxy since full history
+is not always available. 52-week low serves as support proxy.
 """
+
+import pandas as pd
+from typing import Optional
 
 
 def get_rating(dmas: int, technical_score: int = None, momentum_score: int = None) -> str:
@@ -104,6 +111,78 @@ def get_relevant_ma(row: dict) -> int:
         return 200
 
 
+def get_high_low_dynamics(
+    prices: pd.Series,
+    threshold_pct: float = 2.0,
+    lookback_days: int = 252
+) -> dict:
+    """
+    Detect 52-week high/low proximity for subtitle generation.
+
+    Uses 52-week high as ATH proxy since full price history is not
+    always available. 52-week low serves as support proxy.
+
+    Parameters
+    ----------
+    prices : pd.Series
+        Price series (requires at least lookback_days of data)
+    threshold_pct : float, default=2.0
+        Percentage threshold for "near" detection
+    lookback_days : int, default=252
+        Number of trading days for 52-week window
+
+    Returns
+    -------
+    dict
+        High/low dynamics with keys:
+        - near_52w_high (bool): Within threshold_pct of 52-week high
+        - near_52w_low (bool): Within threshold_pct of 52-week low
+        - pct_from_high (float): Percentage below 52-week high
+        - pct_from_low (float): Percentage above 52-week low
+        - high_52w (float): 52-week high value
+        - low_52w (float): 52-week low value
+        - at_ath (bool): Alias for near_52w_high (ATH proxy)
+        - near_support (bool): Alias for near_52w_low (support proxy)
+    """
+    result = {
+        "near_52w_high": False,
+        "near_52w_low": False,
+        "pct_from_high": 0.0,
+        "pct_from_low": 0.0,
+        "high_52w": None,
+        "low_52w": None,
+        "at_ath": False,
+        "near_support": False,
+    }
+
+    if prices is None or len(prices) < lookback_days:
+        return result
+
+    current_price = prices.iloc[-1]
+    lookback_prices = prices.iloc[-lookback_days:]
+
+    high_52w = lookback_prices.max()
+    low_52w = lookback_prices.min()
+
+    result["high_52w"] = high_52w
+    result["low_52w"] = low_52w
+
+    # Calculate percentage from high/low
+    if high_52w > 0:
+        pct_from_high = ((high_52w - current_price) / high_52w) * 100
+        result["pct_from_high"] = pct_from_high
+        result["near_52w_high"] = pct_from_high <= threshold_pct
+        result["at_ath"] = result["near_52w_high"]  # ATH proxy
+
+    if low_52w > 0:
+        pct_from_low = ((current_price - low_52w) / low_52w) * 100
+        result["pct_from_low"] = pct_from_low
+        result["near_52w_low"] = pct_from_low <= threshold_pct
+        result["near_support"] = result["near_52w_low"]  # Support proxy
+
+    return result
+
+
 # Pattern templates organized by RATING category
 # Use {asset}, {ma}, {target}, {ordinal} as placeholders
 # Maximum 15 words per pattern
@@ -122,8 +201,9 @@ PATTERNS = {
     ],
 
     "positive_ath": [
-        "New all-time highs are supported by strong technical and momentum",
-        "The global technical picture is unchanged and calls for more gains",
+        "New 52-week highs are supported by strong technical and momentum",
+        "At 52-week highs with the technical picture calling for more gains",
+        "Trading near 52-week highs with strong momentum behind it",
     ],
 
     "positive_target": [
@@ -212,6 +292,12 @@ PATTERNS = {
         "A short-lived rebound accompanied by a death cross",
     ],
 
+    "cautious_near_52w_low": [
+        "{asset} is testing 52-week lows with weak momentum",
+        "Trading near 52-week lows, technical setup remains fragile",
+        "Close to 52-week lows with no clear reversal signal yet",
+    ],
+
     # =========================================================================
     # NEGATIVE Rating Patterns (DMAS < 30)
     # =========================================================================
@@ -230,6 +316,12 @@ PATTERNS = {
     "negative_dramatic": [
         "A dramatic picture for {asset} that crossed all its MA in a week",
         "No respite for {asset} that crossed down all the MA",
+    ],
+
+    "negative_near_52w_low": [
+        "{asset} is at 52-week lows with no sign of a bottom",
+        "Trading at 52-week lows amid deep negative momentum",
+        "At 52-week lows with both technical and momentum severely impaired",
     ],
 
     # =========================================================================

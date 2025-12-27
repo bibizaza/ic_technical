@@ -299,6 +299,12 @@ def _handle_cautious(
     """Handle Cautious rating scenarios (DMAS 30-44)."""
 
     ma = get_relevant_ma(asset_data)
+    near_52w_low = asset_data.get("near_52w_low", False)
+
+    # Near 52-week low - prioritize this pattern
+    if near_52w_low:
+        pattern = pattern_selector("cautious_near_52w_low")
+        return pattern.format(asset=asset), "cautious_near_52w_low"
 
     # Weakening scenario
     if dmas_change < -5:
@@ -342,6 +348,12 @@ def _handle_negative(
     """Handle Negative rating scenarios (DMAS < 30)."""
 
     ma = get_relevant_ma(asset_data)
+    near_52w_low = asset_data.get("near_52w_low", False)
+
+    # Near 52-week low - prioritize this pattern
+    if near_52w_low:
+        pattern = pattern_selector("negative_near_52w_low")
+        return pattern.format(asset=asset), "negative_near_52w_low"
 
     # Both components very weak
     if technical < 30 and momentum < 30:

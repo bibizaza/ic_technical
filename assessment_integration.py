@@ -22,10 +22,12 @@ try:
         SubtitleGenerator,
         generate_subtitle as mc_generate_subtitle,
         get_rating,
+        get_high_low_dynamics,
     )
     SUBTITLE_GEN_AVAILABLE = True
 except ImportError:
     SUBTITLE_GEN_AVAILABLE = False
+    get_high_low_dynamics = None
 
 
 # Assessment options for Streamlit dropdown (5-level system)
@@ -188,30 +190,72 @@ def detect_ma_cross(prices: pd.Series, lookback: int = 5) -> Optional[str]:
     return None
 
 
-def detect_ath(prices: pd.Series, lookback_days: int = 252) -> bool:
+def detect_ath(prices: pd.Series, lookback_days: int = 252, threshold_pct: float = 2.0) -> bool:
     """
-    Detect if price is at or near all-time high.
+    Detect if price is at or near all-time high (uses 52-week high as proxy).
 
     Parameters
     ----------
     prices : pd.Series
         Price series
     lookback_days : int
-        Number of days to look back for ATH (default 252 = ~1 year)
+        Number of days to look back for ATH (default 252 = ~1 year / 52 weeks)
+    threshold_pct : float
+        Percentage threshold for "near" detection (default 2.0)
 
     Returns
     -------
     bool
-        True if current price is within 2% of the highest price in lookback period
+        True if current price is within threshold_pct of the highest price in lookback period
     """
+    # Use get_high_low_dynamics if available
+    if SUBTITLE_GEN_AVAILABLE and get_high_low_dynamics is not None:
+        dynamics = get_high_low_dynamics(prices, threshold_pct, lookback_days)
+        return dynamics.get("at_ath", False)
+
+    # Fallback
     if prices is None or len(prices) < lookback_days:
         return False
 
     current_price = prices.iloc[-1]
     max_price = prices.iloc[-lookback_days:].max()
 
-    # Within 2% of ATH
-    return current_price >= max_price * 0.98
+    # Within threshold_pct of 52-week high (ATH proxy)
+    return current_price >= max_price * (1 - threshold_pct / 100)
+
+
+def detect_52w_low(prices: pd.Series, lookback_days: int = 252, threshold_pct: float = 2.0) -> bool:
+    """
+    Detect if price is at or near 52-week low (support proxy).
+
+    Parameters
+    ----------
+    prices : pd.Series
+        Price series
+    lookback_days : int
+        Number of days to look back (default 252 = ~1 year / 52 weeks)
+    threshold_pct : float
+        Percentage threshold for "near" detection (default 2.0)
+
+    Returns
+    -------
+    bool
+        True if current price is within threshold_pct of the lowest price in lookback period
+    """
+    # Use get_high_low_dynamics if available
+    if SUBTITLE_GEN_AVAILABLE and get_high_low_dynamics is not None:
+        dynamics = get_high_low_dynamics(prices, threshold_pct, lookback_days)
+        return dynamics.get("near_52w_low", False)
+
+    # Fallback
+    if prices is None or len(prices) < lookback_days:
+        return False
+
+    current_price = prices.iloc[-1]
+    min_price = prices.iloc[-lookback_days:].min()
+
+    # Within threshold_pct of 52-week low
+    return current_price <= min_price * (1 + threshold_pct / 100)
 
 
 def detect_support_resistance(
@@ -264,6 +308,7 @@ def generate_subtitle(
     near_resistance: bool = None,
     ma_cross_event: str = None,
     price_target: float = None,
+    near_52w_low: bool = None,
 ) -> str:
     """
     Generate a subtitle for the asset using the Market Compass pattern library.
@@ -287,7 +332,7 @@ def generate_subtitle(
     subtitle_generator : SubtitleGenerator, optional
         Existing generator instance for anti-repetition tracking
     at_ath : bool, optional
-        True if at all-time high (auto-detected if prices provided)
+        True if at 52-week high (ATH proxy, auto-detected if prices provided)
     near_support : bool, optional
         True if near support level (auto-detected if prices provided)
     near_resistance : bool, optional
@@ -296,6 +341,8 @@ def generate_subtitle(
         MA cross event (auto-detected if prices provided)
     price_target : float, optional
         Price target for target-based patterns
+    near_52w_low : bool, optional
+        True if near 52-week low (auto-detected if prices provided)
 
     Returns
     -------
@@ -321,6 +368,9 @@ def generate_subtitle(
         if at_ath is None:
             at_ath = detect_ath(prices)
 
+        if near_52w_low is None:
+            near_52w_low = detect_52w_low(prices)
+
         if near_support is None or near_resistance is None:
             detected_support, detected_resistance = detect_support_resistance(prices)
             if near_support is None:
@@ -334,6 +384,8 @@ def generate_subtitle(
     # Default values for flags
     if at_ath is None:
         at_ath = False
+    if near_52w_low is None:
+        near_52w_low = False
     if near_support is None:
         near_support = False
     if near_resistance is None:
@@ -354,6 +406,7 @@ def generate_subtitle(
             "at_ath": at_ath,
             "near_support": near_support,
             "near_resistance": near_resistance,
+            "near_52w_low": near_52w_low,
             "ma_cross_event": ma_cross_event,
             "price_target": price_target,
         }
@@ -422,6 +475,7 @@ def generate_assessment_and_subtitle(
     near_resistance: bool = None,
     ma_cross_event: str = None,
     price_target: float = None,
+    near_52w_low: bool = None,
     **kwargs
 ) -> Dict[str, str]:
     """
@@ -449,7 +503,7 @@ def generate_assessment_and_subtitle(
     subtitle_generator : SubtitleGenerator, optional
         Existing generator instance for anti-repetition tracking
     at_ath : bool, optional
-        True if at all-time high (auto-detected if not provided)
+        True if at 52-week high (ATH proxy, auto-detected if not provided)
     near_support : bool, optional
         True if near support level (auto-detected if not provided)
     near_resistance : bool, optional
@@ -458,6 +512,8 @@ def generate_assessment_and_subtitle(
         MA cross event (auto-detected if not provided)
     price_target : float, optional
         Price target for target-based patterns
+    near_52w_low : bool, optional
+        True if near 52-week low (auto-detected if not provided)
 
     Returns
     -------
@@ -482,6 +538,7 @@ def generate_assessment_and_subtitle(
         near_resistance=near_resistance,
         ma_cross_event=ma_cross_event,
         price_target=price_target,
+        near_52w_low=near_52w_low,
     )
 
     return {
@@ -498,6 +555,7 @@ __all__ = [
     "generate_subtitle",
     "detect_ma_cross",
     "detect_ath",
+    "detect_52w_low",
     "detect_support_resistance",
     "SUBTITLE_GEN_AVAILABLE",
 ]

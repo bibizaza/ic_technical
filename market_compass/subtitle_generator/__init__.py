@@ -13,7 +13,7 @@ Rating Vocabulary:
 """
 
 from .generator import SubtitleGenerator, SubtitleTracker, generate_subtitle
-from .patterns import PATTERNS, get_rating, get_ma_dynamics
+from .patterns import PATTERNS, get_rating, get_ma_dynamics, get_high_low_dynamics
 
 __all__ = [
     'SubtitleGenerator',
@@ -22,6 +22,7 @@ __all__ = [
     'PATTERNS',
     'get_rating',
     'get_ma_dynamics',
+    'get_high_low_dynamics',
 ]
 
-__version__ = '2.0.0'
+__version__ = '2.1.0'
