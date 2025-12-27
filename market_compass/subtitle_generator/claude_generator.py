@@ -29,7 +29,7 @@ from .style_examples import get_examples_for_rating
 ANTHROPIC_API_KEY = None  # Replace None with your API key: "sk-ant-..."
 
 # Default model - Haiku is 10x cheaper and sufficient for this task
-DEFAULT_MODEL = "claude-haiku-4-20250514"
+DEFAULT_MODEL = "claude-3-5-haiku-20241022"
 
 
 def get_client(api_key: str = None):
@@ -275,6 +275,7 @@ def generate_batch(
             generated_subtitles.append(result["subtitle"])  # Track it
             total_tokens += result["tokens_used"]
         except Exception as e:
+            print(f"Error generating subtitle for {asset_data.get('asset_name', 'Unknown')}: {e}")
             results.append({
                 "asset_name": asset_data.get("asset_name", "Unknown"),
                 "subtitle": "Technical analysis under review.",
