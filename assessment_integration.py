@@ -13,7 +13,8 @@ Rating Vocabulary:
 """
 
 import pandas as pd
-from typing import Optional, Dict
+import numpy as np
+from typing import Optional, Dict, Tuple
 
 # Try to import the Market Compass subtitle generator
 try:
@@ -75,32 +76,178 @@ def get_default_assessment_from_dmas(dmas: float) -> str:
         return "Negative"
 
 
-def _calculate_ma_pct(prices: pd.Series, ma_period: int) -> float:
+def _calculate_ma(prices: pd.Series, period: int) -> float:
     """
-    Calculate percentage difference between current price and moving average.
+    Calculate moving average value.
 
     Parameters
     ----------
     prices : pd.Series
         Price series
-    ma_period : int
+    period : int
         Moving average period (50, 100, or 200)
+
+    Returns
+    -------
+    float
+        Moving average value
+    """
+    if prices is None or len(prices) < period:
+        return np.nan
+    return prices.iloc[-period:].mean()
+
+
+def _calculate_ma_pct(current_price: float, ma_value: float) -> float:
+    """
+    Calculate percentage difference between current price and moving average.
+
+    Parameters
+    ----------
+    current_price : float
+        Current price
+    ma_value : float
+        Moving average value
 
     Returns
     -------
     float
         Percentage above/below MA (positive = above, negative = below)
     """
-    if prices is None or len(prices) < ma_period:
+    if np.isnan(ma_value) or ma_value == 0:
         return 0.0
+    return ((current_price - ma_value) / ma_value) * 100
+
+
+def detect_ma_cross(prices: pd.Series, lookback: int = 5) -> Optional[str]:
+    """
+    Detect MA cross events in recent price action.
+
+    Parameters
+    ----------
+    prices : pd.Series
+        Price series (at least 200+ lookback days)
+    lookback : int
+        Number of days to look back for cross detection
+
+    Returns
+    -------
+    str or None
+        Cross event: "crossed_above_50", "crossed_below_50",
+        "crossed_above_100", "crossed_below_100",
+        "crossed_above_200", "crossed_below_200",
+        "golden_cross", "death_cross", or None
+    """
+    if prices is None or len(prices) < 200 + lookback:
+        return None
+
+    # Current and previous values
+    current_price = prices.iloc[-1]
+    prev_prices = prices.iloc[-lookback-1:-1]
+
+    # Calculate current MAs
+    ma_50 = prices.iloc[-50:].mean()
+    ma_100 = prices.iloc[-100:].mean()
+    ma_200 = prices.iloc[-200:].mean()
+
+    # Calculate previous MAs (lookback days ago)
+    prev_ma_50 = prices.iloc[-50-lookback:-lookback].mean()
+    prev_ma_100 = prices.iloc[-100-lookback:-lookback].mean()
+
+    # Check for golden cross (50MA crosses above 200MA)
+    prev_50_vs_200 = prev_ma_50 - prices.iloc[-200-lookback:-lookback].mean()
+    curr_50_vs_200 = ma_50 - ma_200
+    if prev_50_vs_200 < 0 and curr_50_vs_200 > 0:
+        return "golden_cross"
+
+    # Check for death cross (50MA crosses below 200MA)
+    if prev_50_vs_200 > 0 and curr_50_vs_200 < 0:
+        return "death_cross"
+
+    # Check for price crossing MAs
+    prev_avg_price = prev_prices.mean()
+
+    # 50MA cross
+    if prev_avg_price < prev_ma_50 and current_price > ma_50:
+        return "crossed_above_50"
+    if prev_avg_price > prev_ma_50 and current_price < ma_50:
+        return "crossed_below_50"
+
+    # 100MA cross
+    if prev_avg_price < prev_ma_100 and current_price > ma_100:
+        return "crossed_above_100"
+    if prev_avg_price > prev_ma_100 and current_price < ma_100:
+        return "crossed_below_100"
+
+    # 200MA cross (using longer lookback for 200MA)
+    prev_ma_200 = prices.iloc[-200-lookback:-lookback].mean()
+    if prev_avg_price < prev_ma_200 and current_price > ma_200:
+        return "crossed_above_200"
+    if prev_avg_price > prev_ma_200 and current_price < ma_200:
+        return "crossed_below_200"
+
+    return None
+
+
+def detect_ath(prices: pd.Series, lookback_days: int = 252) -> bool:
+    """
+    Detect if price is at or near all-time high.
+
+    Parameters
+    ----------
+    prices : pd.Series
+        Price series
+    lookback_days : int
+        Number of days to look back for ATH (default 252 = ~1 year)
+
+    Returns
+    -------
+    bool
+        True if current price is within 2% of the highest price in lookback period
+    """
+    if prices is None or len(prices) < lookback_days:
+        return False
 
     current_price = prices.iloc[-1]
-    ma_value = prices.iloc[-ma_period:].mean()
+    max_price = prices.iloc[-lookback_days:].max()
 
-    if ma_value == 0:
-        return 0.0
+    # Within 2% of ATH
+    return current_price >= max_price * 0.98
 
-    return ((current_price - ma_value) / ma_value) * 100
+
+def detect_support_resistance(
+    prices: pd.Series,
+    lookback_days: int = 60
+) -> Tuple[bool, bool]:
+    """
+    Detect if price is near support or resistance levels.
+
+    Uses simple high/low detection over lookback period.
+
+    Parameters
+    ----------
+    prices : pd.Series
+        Price series
+    lookback_days : int
+        Number of days to look back
+
+    Returns
+    -------
+    tuple[bool, bool]
+        (near_support, near_resistance)
+    """
+    if prices is None or len(prices) < lookback_days:
+        return False, False
+
+    current_price = prices.iloc[-1]
+    recent_prices = prices.iloc[-lookback_days:]
+    high = recent_prices.max()
+    low = recent_prices.min()
+
+    # Within 2% of support/resistance
+    near_resistance = current_price >= high * 0.98
+    near_support = current_price <= low * 1.02
+
+    return near_support, near_resistance
 
 
 def generate_subtitle(
@@ -112,6 +259,11 @@ def generate_subtitle(
     momentum_score: float = None,
     prices: pd.Series = None,
     subtitle_generator: "SubtitleGenerator" = None,
+    at_ath: bool = None,
+    near_support: bool = None,
+    near_resistance: bool = None,
+    ma_cross_event: str = None,
+    price_target: float = None,
 ) -> str:
     """
     Generate a subtitle for the asset using the Market Compass pattern library.
@@ -134,6 +286,16 @@ def generate_subtitle(
         Price series for calculating MA dynamics
     subtitle_generator : SubtitleGenerator, optional
         Existing generator instance for anti-repetition tracking
+    at_ath : bool, optional
+        True if at all-time high (auto-detected if prices provided)
+    near_support : bool, optional
+        True if near support level (auto-detected if prices provided)
+    near_resistance : bool, optional
+        True if near resistance level (auto-detected if prices provided)
+    ma_cross_event : str, optional
+        MA cross event (auto-detected if prices provided)
+    price_target : float, optional
+        Price target for target-based patterns
 
     Returns
     -------
@@ -146,9 +308,36 @@ def generate_subtitle(
     price_vs_200ma_pct = 0.0
 
     if prices is not None and len(prices) >= 200:
-        price_vs_50ma_pct = _calculate_ma_pct(prices, 50)
-        price_vs_100ma_pct = _calculate_ma_pct(prices, 100)
-        price_vs_200ma_pct = _calculate_ma_pct(prices, 200)
+        current_price = prices.iloc[-1]
+        ma_50 = _calculate_ma(prices, 50)
+        ma_100 = _calculate_ma(prices, 100)
+        ma_200 = _calculate_ma(prices, 200)
+
+        price_vs_50ma_pct = _calculate_ma_pct(current_price, ma_50)
+        price_vs_100ma_pct = _calculate_ma_pct(current_price, ma_100)
+        price_vs_200ma_pct = _calculate_ma_pct(current_price, ma_200)
+
+        # Auto-detect flags if not provided
+        if at_ath is None:
+            at_ath = detect_ath(prices)
+
+        if near_support is None or near_resistance is None:
+            detected_support, detected_resistance = detect_support_resistance(prices)
+            if near_support is None:
+                near_support = detected_support
+            if near_resistance is None:
+                near_resistance = detected_resistance
+
+        if ma_cross_event is None:
+            ma_cross_event = detect_ma_cross(prices)
+
+    # Default values for flags
+    if at_ath is None:
+        at_ath = False
+    if near_support is None:
+        near_support = False
+    if near_resistance is None:
+        near_resistance = False
 
     # Use Market Compass subtitle generator if available
     if SUBTITLE_GEN_AVAILABLE:
@@ -162,11 +351,11 @@ def generate_subtitle(
             "price_vs_50ma_pct": price_vs_50ma_pct,
             "price_vs_100ma_pct": price_vs_100ma_pct,
             "price_vs_200ma_pct": price_vs_200ma_pct,
-            "at_ath": False,
-            "near_support": False,
-            "near_resistance": False,
-            "ma_cross_event": None,
-            "price_target": None,
+            "at_ath": at_ath,
+            "near_support": near_support,
+            "near_resistance": near_resistance,
+            "ma_cross_event": ma_cross_event,
+            "price_target": price_target,
         }
 
         try:
@@ -228,6 +417,11 @@ def generate_assessment_and_subtitle(
     momentum_score: float,
     dmas_prev_week: Optional[float] = None,
     subtitle_generator: "SubtitleGenerator" = None,
+    at_ath: bool = None,
+    near_support: bool = None,
+    near_resistance: bool = None,
+    ma_cross_event: str = None,
+    price_target: float = None,
     **kwargs
 ) -> Dict[str, str]:
     """
@@ -254,6 +448,16 @@ def generate_assessment_and_subtitle(
         Previous week's DMAS
     subtitle_generator : SubtitleGenerator, optional
         Existing generator instance for anti-repetition tracking
+    at_ath : bool, optional
+        True if at all-time high (auto-detected if not provided)
+    near_support : bool, optional
+        True if near support level (auto-detected if not provided)
+    near_resistance : bool, optional
+        True if near resistance level (auto-detected if not provided)
+    ma_cross_event : str, optional
+        MA cross event (auto-detected if not provided)
+    price_target : float, optional
+        Price target for target-based patterns
 
     Returns
     -------
@@ -273,6 +477,11 @@ def generate_assessment_and_subtitle(
         momentum_score=momentum_score,
         prices=prices,
         subtitle_generator=subtitle_generator,
+        at_ath=at_ath,
+        near_support=near_support,
+        near_resistance=near_resistance,
+        ma_cross_event=ma_cross_event,
+        price_target=price_target,
     )
 
     return {
@@ -287,5 +496,8 @@ __all__ = [
     "get_default_assessment_from_dmas",
     "generate_assessment_and_subtitle",
     "generate_subtitle",
+    "detect_ma_cross",
+    "detect_ath",
+    "detect_support_resistance",
     "SUBTITLE_GEN_AVAILABLE",
 ]

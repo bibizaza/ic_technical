@@ -143,11 +143,18 @@ def _handle_ma_cross(
         pattern = pattern_selector("ma_cross_down")
         return pattern.format(asset=asset, ma=ma_num), "ma_cross_down"
 
-    # Fallback - shouldn't reach here
-    return _handle_positive(
-        asset, dmas, technical, momentum, 0,
-        {}, {}, pattern_selector
-    )
+    # Fallback for unrecognized MA events - use rating-based routing
+    rating = get_rating(dmas, technical, momentum)
+    if rating == "Positive":
+        return _handle_positive(asset, dmas, technical, momentum, 0, {}, {}, pattern_selector)
+    elif rating == "Constructive":
+        return _handle_constructive(asset, dmas, technical, momentum, 0, {}, {}, pattern_selector)
+    elif rating == "Neutral":
+        return _handle_neutral(asset, dmas, technical, momentum, 0, {}, {}, pattern_selector)
+    elif rating == "Cautious":
+        return _handle_cautious(asset, dmas, technical, momentum, 0, {}, {}, pattern_selector)
+    else:
+        return _handle_negative(asset, dmas, technical, momentum, 0, {}, {}, pattern_selector)
 
 
 def _handle_dramatic_change(
