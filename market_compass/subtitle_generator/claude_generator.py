@@ -18,22 +18,47 @@ except ImportError:
 from .fact_extractor import extract_facts, format_facts_for_prompt, MarketFacts
 from .style_examples import get_examples_for_rating
 
+# =============================================================================
+# API KEY CONFIGURATION
+# =============================================================================
+# Set your Anthropic API key here for use without environment variables.
+# Get your API key from: https://console.anthropic.com/
+# Cost: ~$0.02 per full Market Compass report (21 assets)
+ANTHROPIC_API_KEY = None  # Replace None with your API key: "sk-ant-..."
 
-def get_client():
-    """Get Anthropic client."""
+
+def get_client(api_key: str = None):
+    """
+    Get Anthropic client.
+
+    Parameters
+    ----------
+    api_key : str, optional
+        API key to use. If not provided, uses:
+        1. The hardcoded ANTHROPIC_API_KEY constant above
+        2. The ANTHROPIC_API_KEY environment variable
+
+    Returns
+    -------
+    anthropic.Anthropic
+        Configured Anthropic client
+    """
     if not ANTHROPIC_AVAILABLE:
         raise ImportError(
             "anthropic package not installed. "
             "Install with: pip install anthropic"
         )
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
+    # Priority: parameter > hardcoded constant > environment variable
+    key = api_key or ANTHROPIC_API_KEY or os.environ.get("ANTHROPIC_API_KEY")
+
+    if not key:
         raise ValueError(
-            "ANTHROPIC_API_KEY environment variable not set. "
-            "Set it with: export ANTHROPIC_API_KEY='your-key-here'"
+            "No Anthropic API key found. Either:\n"
+            "1. Set ANTHROPIC_API_KEY in claude_generator.py, or\n"
+            "2. Set ANTHROPIC_API_KEY environment variable"
         )
-    return anthropic.Anthropic(api_key=api_key)
+    return anthropic.Anthropic(api_key=key)
 
 
 SYSTEM_PROMPT = """You are a financial writer for Herculis Partners' Market Compass weekly report.
@@ -76,7 +101,8 @@ Output only the subtitle:"""
 def generate_subtitle(
     asset_data: dict,
     client=None,
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-4-20250514",
+    api_key: str = None
 ) -> dict:
     """
     Generate subtitle using Claude API.
@@ -89,6 +115,8 @@ def generate_subtitle(
         Anthropic client (creates new one if not provided)
     model : str
         Model to use (default: claude-sonnet-4-20250514)
+    api_key : str, optional
+        API key (uses hardcoded or env var if not provided)
 
     Returns
     -------
@@ -100,7 +128,7 @@ def generate_subtitle(
         - tokens_used (int): Total tokens used
     """
     if client is None:
-        client = get_client()
+        client = get_client(api_key)
 
     # Extract facts
     market_facts = extract_facts(asset_data)
@@ -139,7 +167,8 @@ def generate_subtitle(
 def generate_batch(
     assets_data: List[dict],
     client=None,
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-4-20250514",
+    api_key: str = None
 ) -> List[dict]:
     """
     Generate subtitles for multiple assets.
@@ -152,6 +181,8 @@ def generate_batch(
         Anthropic client (reused for all calls)
     model : str
         Model to use
+    api_key : str, optional
+        API key (uses hardcoded or env var if not provided)
 
     Returns
     -------
@@ -159,7 +190,7 @@ def generate_batch(
         List of results with subtitle, rating, facts for each asset
     """
     if client is None:
-        client = get_client()
+        client = get_client(api_key)
 
     results = []
     total_tokens = 0
@@ -187,6 +218,36 @@ def generate_batch(
     return results
 
 
+def is_claude_available() -> bool:
+    """
+    Check if Claude API is available and configured.
+
+    Returns
+    -------
+    bool
+        True if anthropic package is installed and API key is set
+    """
+    if not ANTHROPIC_AVAILABLE:
+        return False
+
+    # Check for API key (hardcoded or environment)
+    key = ANTHROPIC_API_KEY or os.environ.get("ANTHROPIC_API_KEY")
+    return key is not None
+
+
+def set_api_key(api_key: str):
+    """
+    Set the API key at runtime.
+
+    Parameters
+    ----------
+    api_key : str
+        Your Anthropic API key (starts with "sk-ant-...")
+    """
+    global ANTHROPIC_API_KEY
+    ANTHROPIC_API_KEY = api_key
+
+
 # Convenience function for single asset
 def quick_generate(
     asset_name: str,
@@ -196,6 +257,7 @@ def quick_generate(
     price_vs_50ma_pct: float = 0,
     price_vs_100ma_pct: float = 0,
     price_vs_200ma_pct: float = 0,
+    api_key: str = None,
     **kwargs
 ) -> str:
     """
@@ -214,5 +276,5 @@ def quick_generate(
         **kwargs
     }
 
-    result = generate_subtitle(asset_data)
+    result = generate_subtitle(asset_data, api_key=api_key)
     return result["subtitle"]

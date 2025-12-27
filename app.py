@@ -1888,12 +1888,29 @@ def show_upload_page():
         st.sidebar.markdown("---")
         st.sidebar.subheader("📊 Auto-Analysis")
 
+        # Check if Claude API is available for better subtitles
+        try:
+            from assessment_integration import is_claude_available, CLAUDE_GEN_AVAILABLE
+            claude_ready = CLAUDE_GEN_AVAILABLE and is_claude_available()
+        except ImportError:
+            claude_ready = False
+
+        if claude_ready:
+            st.sidebar.info("🤖 Claude API: Ready for unique subtitles")
+        else:
+            st.sidebar.warning("⚠️ Claude API not configured - using pattern-based subtitles")
+
         if st.sidebar.button("🚀 Run Full Analysis", type="primary", help="Compute technical scores, assessments, and subtitles for all assets"):
             with st.spinner("Running analysis for all assets..."):
                 try:
                     # Import required modules
                     from technical_score_wrapper import compute_dmas_scores
-                    from assessment_integration import generate_assessment_and_subtitle
+                    from assessment_integration import (
+                        generate_assessment_and_subtitle,
+                        generate_claude_subtitles_batch,
+                        is_claude_available,
+                        CLAUDE_GEN_AVAILABLE,
+                    )
 
                     # Save Excel to temp file
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
@@ -1935,12 +1952,15 @@ def show_upload_page():
                     }
 
                     results = []
+                    assets_for_claude = []  # Collect assets for batch subtitle generation
+                    prices_dict = {}  # Store prices for Claude batch generation
                     progress_bar = st.sidebar.progress(0)
                     status_text = st.sidebar.empty()
 
+                    # Phase 1: Compute scores for all assets
                     for idx, (ticker_key, (bbg_ticker, display_name)) in enumerate(asset_map.items()):
                         try:
-                            status_text.text(f"Processing {display_name}...")
+                            status_text.text(f"Computing scores for {display_name}...")
 
                             # Find matching column (case-insensitive, flexible matching)
                             matching_col = None
@@ -1966,6 +1986,7 @@ def show_upload_page():
                                 continue
 
                             prices = prices_df["Price"]
+                            prices_dict[ticker_key] = prices
 
                             # Compute technical scores
                             scores = compute_dmas_scores(prices, ticker=bbg_ticker, excel_path=str(analysis_temp_path))
@@ -1981,30 +2002,14 @@ def show_upload_page():
                             # Get last week DMAS (if available from transition sheet)
                             dmas_prev = st.session_state.get(f"{ticker_key}_last_week_avg", dmas)
 
-                            # Generate assessment and subtitle
-                            result = generate_assessment_and_subtitle(
-                                ticker_key=ticker_key,
-                                asset_name=display_name,
-                                prices=prices,
-                                dmas=dmas,
-                                technical_score=tech_score,
-                                momentum_score=mom_score,
-                                dmas_prev_week=dmas_prev,
-                                subtitle_generator=st.session_state.get('subtitle_generator')
-                            )
-
-                            # Store results in session state
-                            st.session_state[f"{ticker_key}_assessment"] = result["assessment"]
-                            st.session_state[f"{ticker_key}_subtitle"] = result["subtitle"]
-                            st.session_state[f"{ticker_key}_selected_view"] = result["assessment"]
-
-                            results.append({
-                                "Asset": display_name,
-                                "DMAS": f"{dmas:.0f}",
-                                "Tech": f"{tech_score:.0f}",
-                                "Mom": f"{mom_score:.0f}",
-                                "Assessment": result["assessment"],
-                                "Subtitle": result["subtitle"][:50] + "..." if len(result["subtitle"]) > 50 else result["subtitle"]
+                            # Collect for batch subtitle generation
+                            assets_for_claude.append({
+                                "ticker_key": ticker_key,
+                                "asset_name": display_name,
+                                "dmas": dmas,
+                                "technical_score": tech_score,
+                                "momentum_score": mom_score,
+                                "dmas_prev_week": dmas_prev,
                             })
 
                         except Exception as e:
@@ -2012,8 +2017,54 @@ def show_upload_page():
                             import traceback
                             print(f"Error processing {display_name}: {traceback.format_exc()}")
 
-                        # Update progress
-                        progress_bar.progress((idx + 1) / len(asset_map))
+                        # Update progress (0-50% for score computation)
+                        progress_bar.progress((idx + 1) / len(asset_map) * 0.5)
+
+                    # Phase 2: Generate subtitles (batch via Claude API if available)
+                    use_claude = CLAUDE_GEN_AVAILABLE and is_claude_available()
+                    if use_claude and assets_for_claude:
+                        status_text.text("Generating subtitles via Claude API...")
+                        subtitle_results = generate_claude_subtitles_batch(assets_for_claude, prices_dict)
+                    else:
+                        # Fall back to individual generation
+                        subtitle_results = {}
+                        for asset in assets_for_claude:
+                            ticker_key = asset["ticker_key"]
+                            result = generate_assessment_and_subtitle(
+                                ticker_key=ticker_key,
+                                asset_name=asset["asset_name"],
+                                prices=prices_dict.get(ticker_key),
+                                dmas=asset["dmas"],
+                                technical_score=asset["technical_score"],
+                                momentum_score=asset["momentum_score"],
+                                dmas_prev_week=asset["dmas_prev_week"],
+                                subtitle_generator=st.session_state.get('subtitle_generator')
+                            )
+                            subtitle_results[ticker_key] = result
+
+                    progress_bar.progress(0.75)
+
+                    # Phase 3: Store results
+                    status_text.text("Storing results...")
+                    for asset in assets_for_claude:
+                        ticker_key = asset["ticker_key"]
+                        result = subtitle_results.get(ticker_key, {})
+
+                        # Store results in session state
+                        st.session_state[f"{ticker_key}_assessment"] = result.get("assessment", "Neutral")
+                        st.session_state[f"{ticker_key}_subtitle"] = result.get("subtitle", "Technical analysis under review.")
+                        st.session_state[f"{ticker_key}_selected_view"] = result.get("assessment", "Neutral")
+
+                        results.append({
+                            "Asset": asset["asset_name"],
+                            "DMAS": f"{asset['dmas']:.0f}",
+                            "Tech": f"{asset['technical_score']:.0f}",
+                            "Mom": f"{asset['momentum_score']:.0f}",
+                            "Assessment": result.get("assessment", "Neutral"),
+                            "Subtitle": result.get("subtitle", "")[:50] + "..." if len(result.get("subtitle", "")) > 50 else result.get("subtitle", "")
+                        })
+
+                    progress_bar.progress(1.0)
 
                     # Clean up
                     analysis_temp_path.unlink()

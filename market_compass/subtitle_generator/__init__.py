@@ -22,6 +22,9 @@ from .claude_generator import (
     generate_subtitle,
     generate_batch,
     quick_generate,
+    is_claude_available,
+    set_api_key,
+    ANTHROPIC_API_KEY,
 )
 
 # Style examples
@@ -56,6 +59,9 @@ __all__ = [
     'generate_subtitle',
     'generate_batch',
     'quick_generate',
+    'is_claude_available',
+    'set_api_key',
+    'ANTHROPIC_API_KEY',
     # Style examples
     'STYLE_EXAMPLES',
     'RATING_SPECIFIC_EXAMPLES',

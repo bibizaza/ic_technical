@@ -29,6 +29,20 @@ except ImportError:
     SUBTITLE_GEN_AVAILABLE = False
     get_high_low_dynamics = None
 
+# Try to import Claude API generator
+try:
+    from market_compass.subtitle_generator import (
+        generate_subtitle as claude_generate_subtitle,
+        generate_batch as claude_generate_batch,
+        is_claude_available,
+        set_api_key as set_claude_api_key,
+    )
+    CLAUDE_GEN_AVAILABLE = True
+except ImportError:
+    CLAUDE_GEN_AVAILABLE = False
+    is_claude_available = lambda: False
+    set_claude_api_key = lambda x: None
+
 
 # Assessment options for Streamlit dropdown (5-level system)
 # Maps to rating vocabulary: Negative, Cautious, Neutral, Constructive, Positive
@@ -548,14 +562,149 @@ def generate_assessment_and_subtitle(
     }
 
 
+def generate_claude_subtitles_batch(
+    assets_list: list,
+    prices_dict: dict = None,
+) -> Dict[str, dict]:
+    """
+    Generate subtitles for multiple assets using Claude API.
+
+    This is the preferred method for the "Run Full Analysis" workflow
+    as it generates unique, high-quality subtitles via Claude Sonnet.
+
+    Parameters
+    ----------
+    assets_list : list[dict]
+        List of asset dictionaries with keys:
+        - ticker_key (str): Internal key (e.g., "spx", "gold")
+        - asset_name (str): Display name (e.g., "S&P 500", "Gold")
+        - dmas (float): DMAS score
+        - technical_score (float): Technical score
+        - momentum_score (float): Momentum score
+        - dmas_prev_week (float, optional): Previous week's DMAS
+    prices_dict : dict, optional
+        Dict mapping ticker_key to price Series for MA calculations
+
+    Returns
+    -------
+    dict
+        Dict mapping ticker_key to result dict with:
+        - assessment (str)
+        - subtitle (str)
+        - rating (str)
+        - facts (list)
+        - tokens_used (int)
+    """
+    if not CLAUDE_GEN_AVAILABLE or not is_claude_available():
+        # Fall back to legacy generation
+        print("Claude API not available, using legacy generator")
+        results = {}
+        for asset in assets_list:
+            result = generate_assessment_and_subtitle(
+                ticker_key=asset.get("ticker_key", "unknown"),
+                asset_name=asset["asset_name"],
+                prices=prices_dict.get(asset.get("ticker_key")) if prices_dict else None,
+                dmas=asset["dmas"],
+                technical_score=asset["technical_score"],
+                momentum_score=asset["momentum_score"],
+                dmas_prev_week=asset.get("dmas_prev_week"),
+            )
+            results[asset.get("ticker_key", asset["asset_name"])] = result
+        return results
+
+    # Prepare asset data for Claude API
+    claude_assets = []
+    for asset in assets_list:
+        ticker_key = asset.get("ticker_key", "unknown")
+        prices = prices_dict.get(ticker_key) if prices_dict else None
+
+        # Calculate MA percentages
+        price_vs_50ma_pct = 0.0
+        price_vs_100ma_pct = 0.0
+        price_vs_200ma_pct = 0.0
+        at_ath = False
+        near_52w_low = False
+        ma_cross_event = None
+
+        if prices is not None and len(prices) >= 200:
+            current_price = prices.iloc[-1]
+            ma_50 = _calculate_ma(prices, 50)
+            ma_100 = _calculate_ma(prices, 100)
+            ma_200 = _calculate_ma(prices, 200)
+
+            price_vs_50ma_pct = _calculate_ma_pct(current_price, ma_50)
+            price_vs_100ma_pct = _calculate_ma_pct(current_price, ma_100)
+            price_vs_200ma_pct = _calculate_ma_pct(current_price, ma_200)
+
+            at_ath = detect_ath(prices)
+            near_52w_low = detect_52w_low(prices)
+            ma_cross_event = detect_ma_cross(prices)
+
+        claude_assets.append({
+            "asset_name": asset["asset_name"],
+            "ticker_key": ticker_key,
+            "dmas": int(asset["dmas"]),
+            "technical_score": int(asset["technical_score"]),
+            "momentum_score": int(asset["momentum_score"]),
+            "dmas_prev_week": int(asset.get("dmas_prev_week", asset["dmas"])),
+            "price_vs_50ma_pct": price_vs_50ma_pct,
+            "price_vs_100ma_pct": price_vs_100ma_pct,
+            "price_vs_200ma_pct": price_vs_200ma_pct,
+            "at_ath": at_ath,
+            "near_52w_low": near_52w_low,
+            "ma_cross_event": ma_cross_event,
+        })
+
+    # Call Claude API for batch generation
+    try:
+        claude_results = claude_generate_batch(claude_assets)
+
+        # Format results
+        results = {}
+        for i, asset in enumerate(assets_list):
+            ticker_key = asset.get("ticker_key", "unknown")
+            claude_result = claude_results[i] if i < len(claude_results) else {}
+
+            results[ticker_key] = {
+                "assessment": claude_result.get("rating", get_default_assessment_from_dmas(asset["dmas"])),
+                "subtitle": claude_result.get("subtitle", "Technical analysis under review."),
+                "rating": claude_result.get("rating", get_default_assessment_from_dmas(asset["dmas"])),
+                "facts": claude_result.get("facts", []),
+                "tokens_used": claude_result.get("tokens_used", 0),
+            }
+
+        return results
+
+    except Exception as e:
+        print(f"Claude API error: {e}, falling back to legacy generator")
+        # Fall back to legacy generation
+        results = {}
+        for asset in assets_list:
+            result = generate_assessment_and_subtitle(
+                ticker_key=asset.get("ticker_key", "unknown"),
+                asset_name=asset["asset_name"],
+                prices=prices_dict.get(asset.get("ticker_key")) if prices_dict else None,
+                dmas=asset["dmas"],
+                technical_score=asset["technical_score"],
+                momentum_score=asset["momentum_score"],
+                dmas_prev_week=asset.get("dmas_prev_week"),
+            )
+            results[asset.get("ticker_key", asset["asset_name"])] = result
+        return results
+
+
 __all__ = [
     "ASSESSMENT_OPTIONS",
     "get_default_assessment_from_dmas",
     "generate_assessment_and_subtitle",
     "generate_subtitle",
+    "generate_claude_subtitles_batch",
     "detect_ma_cross",
     "detect_ath",
     "detect_52w_low",
     "detect_support_resistance",
     "SUBTITLE_GEN_AVAILABLE",
+    "CLAUDE_GEN_AVAILABLE",
+    "is_claude_available",
+    "set_claude_api_key",
 ]
