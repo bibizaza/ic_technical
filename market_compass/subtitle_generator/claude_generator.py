@@ -29,7 +29,7 @@ from .style_examples import get_examples_for_rating
 ANTHROPIC_API_KEY = None  # Replace None with your API key: "sk-ant-..."
 
 # Default model - Haiku is 10x cheaper and sufficient for this task
-DEFAULT_MODEL = "claude-3-5-haiku-20241022"
+DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
 def get_client(api_key: str = None):
