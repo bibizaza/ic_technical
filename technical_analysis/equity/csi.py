@@ -730,30 +730,11 @@ def _compute_csi_mars_score_cached(excel_path: str) -> Optional[float]:
 
 def _get_csi_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the momentum score for CSI 300 using MARS calculation.
+    Retrieve the momentum score for CSI 300 from the mars_score Excel sheet.
 
-    This replaces the old Excel lookup with the custom MARS momentum scoring
-    system, providing more sophisticated multi-factor momentum analysis.
+    Uses the generic momentum score function to read pre-computed MARS scores.
     """
-    # Convert to string path for caching
-    if isinstance(excel_obj_or_path, pathlib.Path):
-        excel_path = str(excel_obj_or_path)
-    elif isinstance(excel_obj_or_path, str):
-        excel_path = excel_obj_or_path
-    else:
-        # It's a pd.ExcelFile or BytesIO - can't cache, compute directly
-        try:
-            prices_df = load_prices_for_mars(excel_obj_or_path)
-            score_series = generate_csi_score_history(prices_df)
-            if score_series is not None and not score_series.empty:
-                return float(score_series.iloc[-1])
-            return None
-        except Exception as e:
-            print(f"Warning: Could not compute MARS score for CSI: {e}")
-            return None
-
-    # Use cached version for file paths
-    return _compute_csi_mars_score_cached(excel_path)
+    return _get_momentum_score_generic(excel_obj_or_path, "SHSZ300 INDEX")
 
 
 
