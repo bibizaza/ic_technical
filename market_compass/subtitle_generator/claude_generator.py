@@ -1,9 +1,13 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v4.4: Prompt caching - caches system prompt + examples for 83% cost savings.
+v5.0: Uniqueness enforcement with retry logic + MA position context.
 
-Uses Anthropic's prompt caching to cache static content (~2800 tokens) and only
-send asset-specific data (~200 tokens) per request.
+Features:
+- Prompt caching for ~80% cost savings
+- Uniqueness checking with is_too_similar() and retry logic
+- MA position context in prompts
+- Vocabulary rotation for variety
+- Historical context integration
 """
 
 import os
@@ -39,66 +43,43 @@ def get_client(api_key: str = None):
     return anthropic.Anthropic(api_key=key)
 
 
-SYSTEM_PROMPT = """You are the technical analyst for Herculis Partners' Market Compass weekly report.
+SYSTEM_PROMPT = """You are a financial analyst writing chart subtitles for Herculis Partners' Market Compass.
 
-## YOUR TASK
-Write ONE subtitle (max 15 words) answering: "What's the outlook for this asset next week?"
+ABSOLUTE RULES:
 
-## RATING SCALE
-- Bullish (DMAS ≥70): Strong setup, expect continuation
-- Constructive (DMAS 55-69): Positive bias, favorable conditions
-- Neutral (DMAS 45-54): Mixed signals, no clear direction
-- Cautious (DMAS 30-44): Weak setup, downside risk
-- Bearish (DMAS <30): Very weak, expect continued pressure
+1. Maximum 15 words per subtitle
 
-## CRITICAL RULES
+2. Rating word MUST appear matching the rating:
+   - Bullish → use "bullish", "bull run", "bullish momentum"
+   - Constructive → use "constructive" (NEVER "bullish")
+   - Neutral → use "neutral", "mixed", "balanced"
+   - Cautious → use "cautious", "weak" (NEVER "bearish")
+   - Bearish → use "bearish", "bear", "bearish pressure"
 
-### 1. Rating Match (MANDATORY)
-The subtitle tone MUST match the rating exactly:
-- Bullish → confident, continuation expected
-- Constructive → positive but measured
-- Neutral → uncertain, mixed, patience needed
-- Cautious → defensive, downside risk
-- Bearish → weak, further decline expected
-NEVER describe a Neutral as improving or a Cautious as recovering.
+3. UNIQUENESS IS MANDATORY:
+   - Each subtitle must be COMPLETELY DIFFERENT from others in the batch
+   - NEVER start two subtitles with the same word
+   - NEVER use the same verb phrase in multiple subtitles
+   - Use different sentence structures for each asset
 
-### 2. Length Limit (STRICT)
-Maximum 15 words. Count them. Cut if over.
-TOO LONG: "The constructive outlook persists with momentum improvement that could drive prices higher"
-CORRECT: "Constructive outlook persists with momentum supporting higher prices"
+4. MA POSITION IS CRITICAL:
+   - If price is within 3% of a key MA, MENTION IT
+   - "Testing the 50d MA", "Hovering at support", "Just below resistance"
+   - If ABOVE an MA, don't say "breakout potential" - say "holding above" or "building on gains"
 
-### 3. Avoid Overused Words
-Use these sparingly (max 1 per batch):
-- breakout → use: advance, push higher, clear resistance
-- exceptional → use: strong, solid, notable
-- surge → use: rally, gain, climb
-- collapse → use: decline, drop, slide
+5. VOCABULARY ROTATION - Rotate these synonyms:
+   - "aligned" alternatives: unified, harmonized, coordinated, confluent, in lockstep
+   - "momentum" alternatives: thrust, drive, impetus, velocity
+   - "strength" alternatives: vigor, power, robustness, resilience
+   - "rally" alternatives: advance, ascent, climb, thrust, charge
 
-### 4. When Both Scores High (>65)
-Don't describe separately. Use: "aligned indicators", "synchronized strength", "balanced setup"
-WRONG: "Very strong momentum combines with excellent technicals"
-RIGHT: "Aligned indicators support the bullish outlook"
+6. BEARISH VARIETY - Use different structures:
+   - Focus on MA: "Struggling below 50d MA with momentum fading"
+   - Divergence: "Technical breakdown despite stable momentum"
+   - Price action: "Downtrend extends with no support in sight"
+   - Recovery watch: "Awaiting stabilization before recovery hopes"
 
-### 5. Forward-Looking
-Focus on next week's expected move, not current state description.
-
-### 6. No Asset Names
-Never start with the asset name or ticker.
-
-### 7. MA Reference
-Only mention moving averages if there's action (cross, test, breakout).
-
-## TERMINOLOGY RULES
-
-### Moving Averages
-- Price ABOVE MA → MA is "support"
-- Price BELOW MA → MA is "resistance"
-
-### Momentum
-Momentum is a SCORE (0-100), not a price level. Never call it "support" or "floor".
-
-## OUTPUT
-Only the subtitle, nothing else."""
+Output ONLY the subtitle, nothing else."""
 
 
 EXAMPLES = """
@@ -398,20 +379,14 @@ def build_prompt(
     previous_subtitles: List[str],
     historical_context: Optional[str] = None
 ) -> str:
-    """Build forward-looking prompt with context."""
+    """Build prompt with strong uniqueness enforcement and MA context."""
 
-    asset = asset_data["asset_name"]
+    asset_name = asset_data["asset_name"]
     dmas = asset_data["dmas"]
-    tech = asset_data["technical_score"]
-    mom = asset_data["momentum_score"]
+    technical = asset_data["technical_score"]
+    momentum = asset_data["momentum_score"]
 
-    dmas_prev = asset_data.get("dmas_prev_week")
-    price_vs_50 = asset_data.get("price_vs_50ma_pct", 0)
-    price_vs_100 = asset_data.get("price_vs_100ma_pct", 0)
-    price_vs_200 = asset_data.get("price_vs_200ma_pct", 0)
-    price_vs_50_prev = asset_data.get("price_vs_50ma_pct_prev")
-
-    # Determine rating
+    # Get rating
     if dmas >= 70:
         rating = "Bullish"
     elif dmas >= 55:
@@ -423,89 +398,97 @@ def build_prompt(
     else:
         rating = "Bearish"
 
-    lines = [
-        f"## Generate forward-looking subtitle for: {asset}",
-        f"## Current Rating: {rating}",
-        "",
-        "### Current Scores",
-        f"DMAS: {dmas}",
-        f"Technical: {tech}",
-        f"Momentum: {mom}",
-    ]
+    # Extract MA data
+    price_vs_50ma = asset_data.get("price_vs_50ma_pct", 0)
+    price_vs_100ma = asset_data.get("price_vs_100ma_pct", 0)
+    price_vs_200ma = asset_data.get("price_vs_200ma_pct", 0)
 
-    # WoW change with interpretation
-    if dmas_prev is not None:
-        change = dmas - dmas_prev
-        if change >= 10:
-            lines.append(f"DMAS Change: +{change} (significant improvement)")
-        elif change >= 5:
-            lines.append(f"DMAS Change: +{change} (improving)")
-        elif change <= -10:
-            lines.append(f"DMAS Change: {change} (significant deterioration)")
-        elif change <= -5:
-            lines.append(f"DMAS Change: {change} (weakening)")
-        elif abs(change) <= 2:
-            lines.append(f"DMAS Change: {change:+d} (stable)")
+    # Build MA context string - CRITICAL for subtitle content
+    ma_context = []
+    if abs(price_vs_50ma) <= 3:
+        if price_vs_50ma >= 0:
+            ma_context.append(f"Price {price_vs_50ma:.1f}% ABOVE 50d MA (at support)")
         else:
-            lines.append(f"DMAS Change: {change:+d}")
+            ma_context.append(f"Price {abs(price_vs_50ma):.1f}% BELOW 50d MA (at resistance)")
+    elif price_vs_50ma > 3:
+        ma_context.append(f"Price {price_vs_50ma:.1f}% above 50d MA (extended)")
+    else:
+        ma_context.append(f"Price {abs(price_vs_50ma):.1f}% below 50d MA (weak)")
 
-    # Divergence detection - ONLY when very pronounced
-    divergence = mom - tech
-    if abs(divergence) >= 30:  # Raised threshold - divergence is secondary
-        if divergence > 0:
-            lines.append(f"Note: Momentum leads technical by {divergence} points")
-        else:
-            lines.append(f"Note: Technical leads momentum by {-divergence} points")
+    if abs(price_vs_100ma) <= 3:
+        ma_context.append(f"Near 100d MA ({price_vs_100ma:+.1f}%)")
+    if abs(price_vs_200ma) <= 5:
+        ma_context.append(f"Near 200d MA ({price_vs_200ma:+.1f}%)")
 
-    # MA positions with action flags
-    lines.append("")
-    lines.append("### MA Positions")
+    ma_text = " | ".join(ma_context)
 
-    ma_50_note = ""
-    if price_vs_50_prev is not None:
-        if price_vs_50_prev < -1 and price_vs_50 > 1:
-            ma_50_note = " >>> JUST BROKE ABOVE"
-        elif price_vs_50_prev > 1 and price_vs_50 < -1:
-            ma_50_note = " >>> JUST BROKE BELOW"
-        elif abs(price_vs_50) <= 2:
-            ma_50_note = " >>> TESTING"
-
-    lines.append(f"vs 50d MA: {price_vs_50:+.1f}%{ma_50_note}")
-
-    # Only include 100d/200d if relevant
-    if abs(price_vs_100) <= 3 or price_vs_50 < -2:
-        lines.append(f"vs 100d MA: {price_vs_100:+.1f}%")
-    if price_vs_200 < 0 or abs(price_vs_200) <= 3:
-        lines.append(f"vs 200d MA: {price_vs_200:+.1f}%")
-
-    # Special conditions
-    if asset_data.get("at_ath") or asset_data.get("at_52w_high"):
-        lines.append("[AT 52-WEEK HIGH]")
-    if asset_data.get("near_52w_low") or asset_data.get("at_52w_low"):
-        lines.append("[AT 52-WEEK LOW]")
-
-    # Historical context
-    if historical_context:
-        lines.append("")
-        lines.append("### Historical Context")
-        lines.append(historical_context)
-
-    # Deduplication
+    # Build uniqueness section with strong emphasis
+    uniqueness_section = ""
     if previous_subtitles:
-        lines.append("")
-        lines.append("### Already used (write something DIFFERENT):")
-        for s in previous_subtitles[-5:]:
-            lines.append(f"- {s}")
+        recent = previous_subtitles[-5:]
+        uniqueness_section = f"""
 
-    # Final instruction
-    lines.append("")
-    lines.append("### Task")
-    lines.append(f"Write a forward-looking subtitle for {asset}.")
-    lines.append("Answer: What should investors expect next week?")
-    lines.append("")
-    lines.append("Output only the subtitle:")
+⚠️ ALREADY USED SUBTITLES (you MUST write something COMPLETELY DIFFERENT):
+{chr(10).join(f'  ✗ "{s}"' for s in recent)}
 
-    return "\n".join(lines)
+REQUIREMENTS TO BE UNIQUE:
+- Use a DIFFERENT opening word than any above
+- Use a DIFFERENT verb than any above
+- Use a DIFFERENT structure than any above
+- Reference a SPECIFIC fact about this asset (MA level, momentum value, etc.)
+"""
+
+    # Historical context if available
+    history_section = ""
+    if historical_context:
+        history_section = f"\nHistorical Context: {historical_context}"
+
+    # Build final prompt
+    prompt = f"""Asset: {asset_name}
+Rating: {rating} (MUST use this word in subtitle)
+DMAS: {dmas} | Technical: {technical} | Momentum: {momentum}
+MA Positions: {ma_text}{history_section}
+{uniqueness_section}
+Generate ONE unique subtitle (max 15 words). Include the rating word:"""
+
+    return prompt
+
+
+def is_too_similar(new_subtitle: str, previous: List[str], threshold: float = 0.5) -> bool:
+    """
+    Check if new subtitle is too similar to any previous subtitle.
+
+    Uses word overlap ratio - if more than threshold of words match, it's too similar.
+    """
+    if not previous:
+        return False
+
+    new_words = set(new_subtitle.lower().split())
+    # Remove common words that don't indicate similarity
+    stop_words = {'the', 'a', 'an', 'with', 'and', 'or', 'but', 'for', 'to', 'in', 'at', 'of', 'on'}
+    new_words = new_words - stop_words
+
+    if not new_words:
+        return False
+
+    for prev in previous:
+        prev_words = set(prev.lower().split()) - stop_words
+        if not prev_words:
+            continue
+
+        overlap = len(new_words & prev_words)
+        ratio = overlap / min(len(new_words), len(prev_words))
+
+        if ratio >= threshold:
+            return True
+
+        # Also check if they start with the same word (bad for variety)
+        new_first = new_subtitle.split()[0].lower() if new_subtitle else ""
+        prev_first = prev.split()[0].lower() if prev else ""
+        if new_first == prev_first and new_first not in stop_words:
+            return True
+
+    return False
 
 
 def generate_subtitle(
@@ -514,7 +497,8 @@ def generate_subtitle(
     client=None,
     model: str = DEFAULT_MODEL,
     api_key: str = None,
-    historical_context: str = None
+    historical_context: str = None,
+    max_retries: int = 2
 ) -> dict:
     """
     Generate subtitle using Claude API with prompt caching.
@@ -539,6 +523,9 @@ def generate_subtitle(
     historical_context : str, optional
         Context from history tracker (e.g., "Below 50d MA for 4 weeks")
 
+    max_retries : int
+        Maximum retries if subtitle is too similar to previous ones
+
     Returns
     -------
     dict
@@ -550,9 +537,6 @@ def generate_subtitle(
     if previous_subtitles is None:
         previous_subtitles = []
 
-    # Build user prompt with raw data
-    prompt = build_prompt(asset_data, previous_subtitles, historical_context)
-
     # DEBUG: Print on first asset only
     is_first = not previous_subtitles
     if is_first:
@@ -562,32 +546,6 @@ def generate_subtitle(
         cached_content = SYSTEM_PROMPT + "\n\n" + EXAMPLES
         print(f"Cached content: {len(cached_content)} chars (~{len(cached_content)//4} tokens)")
         print(f"Model: {model}")
-
-    # Call Claude API with prompt caching
-    # Try WITHOUT beta header (caching may now be GA)
-    message = client.messages.create(
-        model=model,
-        max_tokens=50,
-        # REMOVED extra_headers - caching may be GA now
-        system=[
-            {
-                "type": "text",
-                "text": SYSTEM_PROMPT + "\n\n" + EXAMPLES,
-                "cache_control": {"type": "ephemeral"}  # Cache this block
-            }
-        ],
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    # DEBUG: Print raw usage on first asset
-    if is_first:
-        print(f"Raw usage object: {message.usage}")
-        print(f"Usage attributes: {[x for x in dir(message.usage) if not x.startswith('_')]}")
-        print(f"=== END DEBUG ===\n")
-
-    subtitle = message.content[0].text.strip().strip('"\'')
 
     # Determine rating
     dmas = asset_data["dmas"]
@@ -602,20 +560,71 @@ def generate_subtitle(
     else:
         rating = "Bearish"
 
-    # Get cache stats
-    usage = message.usage
-    cache_read = getattr(usage, 'cache_read_input_tokens', 0)
-    cache_create = getattr(usage, 'cache_creation_input_tokens', 0)
+    # Track total tokens across retries
+    total_input = 0
+    total_output = 0
+    total_cache_read = 0
+    total_cache_create = 0
+
+    subtitle = None
+    rejected_subtitles = []
+
+    for attempt in range(max_retries + 1):
+        # Build prompt with rejected subtitles added to previous
+        all_previous = previous_subtitles + rejected_subtitles
+        prompt = build_prompt(asset_data, all_previous, historical_context)
+
+        # Call Claude API with prompt caching
+        message = client.messages.create(
+            model=model,
+            max_tokens=50,
+            system=[
+                {
+                    "type": "text",
+                    "text": SYSTEM_PROMPT + "\n\n" + EXAMPLES,
+                    "cache_control": {"type": "ephemeral"}
+                }
+            ],
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        # DEBUG: Print raw usage on first asset
+        if is_first and attempt == 0:
+            print(f"Raw usage object: {message.usage}")
+            print(f"Usage attributes: {[x for x in dir(message.usage) if not x.startswith('_')]}")
+            print(f"=== END DEBUG ===\n")
+
+        # Accumulate tokens
+        usage = message.usage
+        total_input += usage.input_tokens
+        total_output += usage.output_tokens
+        total_cache_read += getattr(usage, 'cache_read_input_tokens', 0)
+        total_cache_create += getattr(usage, 'cache_creation_input_tokens', 0)
+
+        subtitle = message.content[0].text.strip().strip('"\'')
+
+        # Check uniqueness
+        if not is_too_similar(subtitle, previous_subtitles):
+            break  # Good, unique subtitle
+
+        # Too similar - retry with this added to rejected
+        if attempt < max_retries:
+            print(f"  ↻ Retry {attempt + 1}: '{subtitle}' too similar, regenerating...")
+            rejected_subtitles.append(subtitle)
+        else:
+            print(f"  ⚠ Max retries reached for {asset_data['asset_name']}, using last attempt")
 
     return {
         "subtitle": subtitle,
         "rating": rating,
-        "tokens_used": usage.input_tokens + usage.output_tokens,
+        "tokens_used": total_input + total_output,
         "tokens": {
-            "input": usage.input_tokens,
-            "output": usage.output_tokens,
-            "cache_read": cache_read,
-            "cache_create": cache_create,
+            "input": total_input,
+            "output": total_output,
+            "cache_read": total_cache_read,
+            "cache_create": total_cache_create,
         }
     }
 
@@ -708,10 +717,11 @@ def generate_batch(
             print(f"Warning: Could not save to history: {e}")
 
     # Cost calculation with caching
-    # Haiku 4.5: Input $0.80/1M, Output $4.00/1M
+    # Haiku 3.5: Input $0.80/1M, Output $4.00/1M
     # Cache read: 90% discount = $0.08/1M
     # Cache write: 25% premium = $1.00/1M
-    regular_input = total_input - total_cache_read - total_cache_create
+    # Note: API may report cache tokens separately, so ensure non-negative
+    regular_input = max(0, total_input - total_cache_read - total_cache_create)
     regular_input_cost = regular_input * 0.80 / 1_000_000
     cache_read_cost = total_cache_read * 0.08 / 1_000_000  # 90% off
     cache_write_cost = total_cache_create * 1.00 / 1_000_000  # 25% premium
