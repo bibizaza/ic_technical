@@ -564,12 +564,22 @@ def generate_subtitle(
     # Build user prompt with raw data
     prompt = build_prompt(asset_data, previous_subtitles, historical_context)
 
+    # DEBUG: Print on first asset only
+    is_first = not previous_subtitles
+    if is_first:
+        import anthropic as anth
+        print(f"\n=== CACHING DEBUG ===")
+        print(f"SDK version: {anth.__version__}")
+        cached_content = SYSTEM_PROMPT + "\n\n" + EXAMPLES
+        print(f"Cached content: {len(cached_content)} chars (~{len(cached_content)//4} tokens)")
+        print(f"Model: {model}")
+
     # Call Claude API with prompt caching
-    # Cache the static system prompt + examples, only send dynamic prompt each time
+    # Try WITHOUT beta header (caching may now be GA)
     message = client.messages.create(
         model=model,
         max_tokens=50,
-        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
+        # REMOVED extra_headers - caching may be GA now
         system=[
             {
                 "type": "text",
@@ -581,6 +591,12 @@ def generate_subtitle(
             {"role": "user", "content": prompt}
         ]
     )
+
+    # DEBUG: Print raw usage on first asset
+    if is_first:
+        print(f"Raw usage object: {message.usage}")
+        print(f"Usage attributes: {[x for x in dir(message.usage) if not x.startswith('_')]}")
+        print(f"=== END DEBUG ===\n")
 
     subtitle = message.content[0].text.strip().strip('"\'')
 
