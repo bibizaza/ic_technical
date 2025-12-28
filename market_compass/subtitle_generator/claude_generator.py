@@ -1,16 +1,17 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v5.2: Terminology clarity + 12-word limit + no trailing period.
+v5.3: Output truncation fix + terminology clarity + 1% MA threshold.
 
 Features:
 - Prompt caching for ~80% cost savings
 - Uniqueness checking with is_too_similar() and retry logic
-- MA asymmetry: BELOW MAs = critical signal, far above = don't mention
-- Terminology: "setup" for chart structure, "momentum" for velocity
-- Max 12 words, no trailing period, no asset name repetition
+- MA asymmetry with 1% threshold (was 5%)
+- Terminology: "setup" = combined tech+momentum (not contradictory)
+- Output truncation to remove Claude's explanations
 """
 
 import os
+import re
 from typing import Optional, List
 
 try:
@@ -47,48 +48,44 @@ SYSTEM_PROMPT = """You are a financial analyst writing chart subtitles for Hercu
 
 ABSOLUTE RULES:
 
-1. MAXIMUM 12 WORDS - Must fit on one line. No exceptions.
+1. MAXIMUM 12 WORDS - Must fit one line
 
-2. NO PERIOD at end of subtitle
+2. NO PERIOD at end
 
 3. RATING WORD MUST APPEAR:
    - Bullish → "bullish"
-   - Constructive → "constructive" (NEVER "bullish")
-   - Neutral → "neutral", "mixed"
-   - Cautious → "cautious" (NEVER "bearish")
+   - Constructive → "constructive"
+   - Neutral → "neutral" or "mixed"
+   - Cautious → "cautious"
    - Bearish → "bearish"
 
-4. NEVER REPEAT ASSET NAME - We already know which asset it is
-   BAD: "Oil's downward trajectory"
-   GOOD: "Downward trajectory intensifies beneath key averages"
+4. TERMINOLOGY - BE PRECISE:
+   - "technical" = Technical Score (chart structure)
+   - "momentum" = Momentum Score (velocity)
+   - "setup" or "picture" = BOTH combined (the overall view)
 
-5. TERMINOLOGY - Be precise:
-   - "momentum" = the momentum/MARS score
-   - "setup" or "picture" = the technical score / chart structure
-   - "indicators" = both scores together
-   AVOID: "technicals", "technical strength", "technical momentum" (confusing)
+   CRITICAL: "Setup" includes momentum. So:
+   ✓ "Strong technical with weak momentum"
+   ✓ "Mixed setup warrants patience"
+   ✗ "Solid setup with weak momentum" (CONTRADICTORY!)
 
-6. NO NUMBERS - Convert to qualitative words:
-   - Weak (0-25): "weak", "poor", "collapsed"
-   - Fragile (26-40): "fragile", "struggling"
-   - Mixed (41-55): "mixed", "moderate"
-   - Solid (56-70): "solid", "decent"
-   - Strong (71-85): "strong", "robust"
-   - Exceptional (86-100): "exceptional", "powerful"
+5. NO NUMBERS - Use qualitative words only
 
-7. MAX 1 SUPERLATIVE per sentence:
-   BAD: "extraordinary momentum with unparalleled power"
-   GOOD: "exceptional momentum drives continued advance"
+6. NO ASSET NAME REPETITION
 
-8. MA MENTION RULES:
-   - ABOVE all MAs by >5%: DO NOT MENTION MAs
-   - NEAR an MA (±5%): Can mention if testing
-   - BELOW any MA: MUST mention (critical signal)
-   - BELOW ALL MAs: MUST say "trapped below all moving averages" or similar
+7. MA RULES (1% threshold):
+   - Above ALL MAs by >1%: DO NOT mention MAs
+   - Near an MA (within 1%): Can mention the test
+   - Below ANY MA: MUST mention
 
-9. UNIQUENESS - Each subtitle completely different from others in batch
+8. UNIQUENESS:
+   - Different structure from previous subtitles
+   - Different opening word
+   - Vary "trapped/submerged/buried/struggling" for bearish
 
-Output ONLY the subtitle (no period at end)."""
+9. MAX 1 SUPERLATIVE per sentence
+
+Output ONLY the subtitle, nothing else. No quotes, no explanation."""
 
 
 EXAMPLES = """
@@ -288,7 +285,7 @@ def build_prompt(
     previous_subtitles: List[str],
     historical_context: Optional[str] = None
 ) -> str:
-    """Build prompt with strict length and terminology rules."""
+    """Build prompt with correct terminology, alignment detection, and 1% MA threshold."""
 
     asset_name = asset_data["asset_name"]
     dmas = asset_data["dmas"]
@@ -322,31 +319,49 @@ def build_prompt(
         else:
             return "weak"
 
-    setup_quality = score_to_quality(technical)  # "setup" not "technical"
-    momentum_quality = score_to_quality(momentum)
+    tech_quality = score_to_quality(technical)
+    mom_quality = score_to_quality(momentum)
+
+    # Determine if tech and momentum align
+    if abs(technical - momentum) <= 15:
+        alignment = f"ALIGNED: Both technical ({tech_quality}) and momentum ({mom_quality}) are similar"
+        setup_quality = score_to_quality((technical + momentum) // 2)
+        score_instruction = f"Use 'setup' freely: '{setup_quality} setup'"
+    else:
+        alignment = f"DIVERGENT: Technical is {tech_quality}, Momentum is {mom_quality}"
+        score_instruction = "Do NOT use 'setup' alone. Say 'strong technical offset by weak momentum' or similar"
 
     # Extract MA data
     price_vs_50ma = asset_data.get("price_vs_50ma_pct", 0)
     price_vs_100ma = asset_data.get("price_vs_100ma_pct", 0)
     price_vs_200ma = asset_data.get("price_vs_200ma_pct", 0)
 
-    # Determine MA context using asymmetry rule
-    above_all_far = price_vs_50ma > 5 and price_vs_100ma > 5 and price_vs_200ma > 5
-    below_all = price_vs_50ma < 0 and price_vs_100ma < 0 and price_vs_200ma < 0
-    below_some = price_vs_50ma < 0 or price_vs_100ma < 0
-    near_50 = -5 <= price_vs_50ma <= 5
+    # Determine MA context with 1% threshold (was 5%)
+    above_all = price_vs_50ma > 1 and price_vs_100ma > 1 and price_vs_200ma > 1
+    below_all = price_vs_50ma < -1 and price_vs_100ma < -1 and price_vs_200ma < -1
+    near_50 = -1 <= price_vs_50ma <= 1
 
-    # Build MA instruction
-    if below_all:
-        ma_instruction = "⚠️ CRITICAL: Price is BELOW ALL MAs - MUST mention 'trapped below all moving averages'"
-    elif below_some:
-        ma_instruction = "Price is below some MAs - mention this weakness"
-    elif near_50 and not above_all_far:
-        ma_instruction = f"Price is near 50d MA ({price_vs_50ma:+.1f}%) - can mention if relevant"
-    elif above_all_far:
-        ma_instruction = "⚠️ Price is FAR ABOVE all MAs - DO NOT mention MAs at all"
+    # Build MA instruction with bearish phrase rotation
+    if above_all:
+        ma_instruction = "⚠️ FAR ABOVE all MAs - DO NOT mention MAs at all"
+    elif below_all:
+        # Count bearish phrases already used for variety
+        used_phrases = [s for s in previous_subtitles if any(
+            x in s.lower() for x in ["below", "trapped", "submerged", "buried", "beneath"]
+        )]
+        phrase_count = len(used_phrases)
+        if phrase_count == 0:
+            ma_instruction = "Below ALL MAs - use: 'trapped below all moving averages'"
+        elif phrase_count == 1:
+            ma_instruction = "Below ALL MAs - use: 'submerged beneath key averages'"
+        elif phrase_count == 2:
+            ma_instruction = "Below ALL MAs - use: 'buried under moving average resistance'"
+        else:
+            ma_instruction = "Below ALL MAs - use: 'struggling beneath all key levels'"
+    elif near_50:
+        ma_instruction = f"NEAR 50d MA ({price_vs_50ma:+.1f}%) - mention this test"
     else:
-        ma_instruction = "MAs not critical - do not mention unless essential"
+        ma_instruction = "MAs not critical - do not mention"
 
     # Build uniqueness section
     uniqueness_section = ""
@@ -354,25 +369,20 @@ def build_prompt(
         recent = previous_subtitles[-5:]
         uniqueness_section = f"""
 
-ALREADY USED (write something DIFFERENT):
-{chr(10).join(f'  ✗ "{s}"' for s in recent)}"""
+AVOID THESE (already used):
+{chr(10).join(f'  ✗ "{s}"' for s in recent)}
+Use DIFFERENT structure and opening word."""
 
     # Build prompt
     prompt = f"""Asset: {asset_name}
 Rating: {rating}
-Setup (chart structure): {setup_quality}
-Momentum: {momentum_quality}
+Technical: {tech_quality} | Momentum: {mom_quality}
+{alignment}
+{score_instruction}
 {ma_instruction}
 {uniqueness_section}
 
-RULES REMINDER:
-- Max 12 words, NO period at end
-- Do NOT repeat the asset name
-- Use "setup/picture" for chart structure, "momentum" for velocity
-- AVOID "technicals", "technical strength", "technical momentum"
-- Max 1 superlative (exceptional OR powerful, not both)
-
-Generate subtitle:"""
+Generate ONE subtitle (max 12 words, no period, no quotes):"""
 
     return prompt
 
@@ -526,8 +536,15 @@ def generate_subtitle(
         total_cache_read += getattr(usage, 'cache_read_input_tokens', 0)
         total_cache_create += getattr(usage, 'cache_creation_input_tokens', 0)
 
-        # Clean subtitle
-        subtitle = message.content[0].text.strip().strip('"\'')
+        # Get raw response
+        raw_subtitle = message.content[0].text.strip()
+
+        # CRITICAL: Truncate at first quote, newline, or explanation
+        # Claude sometimes adds "This subtitle..." or other explanation after
+        subtitle = re.split(r'["\'\n]|This |Let me|I\'ll|Here', raw_subtitle)[0].strip()
+
+        # Also remove leading/trailing quotes if present
+        subtitle = subtitle.lstrip('"\'').rstrip('"\'')
 
         # Remove trailing period
         subtitle = subtitle.rstrip('.')
