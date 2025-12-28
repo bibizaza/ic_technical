@@ -39,166 +39,207 @@ def get_client(api_key: str = None):
 SYSTEM_PROMPT = """You are the technical analyst for Herculis Partners' Market Compass weekly report.
 
 ## YOUR TASK
-Write ONE subtitle (max 15 words) that answers: "What should investors expect for this asset next week?"
+Write ONE subtitle (max 15 words) answering: "What's the outlook for this asset next week?"
 
 ## RATING SCALE
-- Bullish (DMAS ≥70): Expect continuation or new highs
-- Constructive (DMAS 55-69): Positive bias, but watch for confirmation
-- Neutral (DMAS 45-54): Could go either way, wait for catalyst
-- Cautious (DMAS 30-44): Downside risk, defensive stance
-- Bearish (DMAS <30): Expect continued weakness
+- Bullish (DMAS ≥70): Strong setup, expect continuation
+- Constructive (DMAS 55-69): Positive bias, favorable conditions
+- Neutral (DMAS 45-54): Mixed signals, no clear direction
+- Cautious (DMAS 30-44): Weak setup, downside risk
+- Bearish (DMAS <30): Very weak, expect continued pressure
 
-## FIRST: IDENTIFY THE STORY (do not output this)
+## STORY PRIORITY (check in this order)
 
-Before writing, mentally identify which ONE story fits best:
+1. **DMAS Level First** - What does the overall score tell us?
+   - DMAS ≥70: Lead with strength
+   - DMAS <30: Lead with weakness
 
-1. **TREND CONTINUATION** - Strong aligned scores, expect more of the same
-2. **DIVERGENCE** - Tech vs Mom disagree, one will prevail
-3. **INFLECTION** - Near key level, could break either way
-4. **RECOVERY** - Improving from weakness
-5. **DETERIORATION** - Worsening from strength
-6. **CONSOLIDATION** - Range-bound, waiting for catalyst
-7. **BREAKOUT/BREAKDOWN** - Just crossed key level
+2. **Significant Change** - Did DMAS move >10 points?
+   - Yes: The change IS the story
 
-## THEN: WRITE FORWARD-LOOKING SUBTITLE
+3. **MA Action** - Is there a cross, test, or rejection happening?
+   - Only mention MA if there's ACTION this week
+   - If stuck below MA for weeks → that's the story (from history)
 
-Structure options:
-- "Expect [outcome] as [reason]"
-- "[Condition] suggests [expectation]"
-- "The setup points to [direction] if [condition]"
-- "Watch for [event] which would [implication]"
+4. **Divergence** - ONLY if gap >25 AND neither tech nor mom dominates the story
+   - Divergence is usually a SECONDARY detail, not the headline
+
+## CRITICAL TERMINOLOGY RULES
+
+### Moving Averages
+- Price ABOVE MA → MA is "support" (it holds price up)
+- Price BELOW MA → MA is "resistance" (it blocks price from rising)
+
+❌ WRONG: "Support fails" when price is already 5% below MA
+✅ RIGHT: "The 50d MA resistance remains a hurdle"
+
+❌ WRONG: "Testing support at the 50d MA" when price is below it
+✅ RIGHT: "Approaching the 50d MA resistance from below"
+
+### Momentum
+Momentum is a SCORE (0-100), not a price level.
+
+❌ WRONG: "Momentum support prevents further decline"
+✅ RIGHT: "Strong momentum cushions the weak technicals"
+
+❌ WRONG: "Momentum acts as a floor"
+✅ RIGHT: "High momentum score offsets technical weakness"
+
+## STRUCTURE TEMPLATES
+
+### For Bullish/Constructive (focus on continuation)
+- "The [bullish/constructive] setup points to further gains"
+- "Expect the rally to continue with [reason]"
+- "All indicators support the positive outlook"
+
+### For Neutral (focus on what needs to happen)
+- "Mixed signals suggest waiting for [catalyst]"
+- "The [condition] will determine next direction"
+- "No clear edge until [condition resolves]"
+
+### For Cautious/Bearish (focus on risks)
+- "Weak technicals suggest further downside risk"
+- "No catalyst visible for a reversal"
+- "The negative setup may persist until [condition]"
+
+### For MA Events (only when there's action)
+- "The break above the 50d MA reinforces the bullish case"
+- "Struggling below the 50d MA resistance limits upside"
+- "A sustained move above the [X]d MA would shift outlook"
+
+### For Divergence (only when pronounced AND central)
+- "Strong momentum may eventually lift weak technicals"
+- "Technical strength awaits momentum confirmation"
 
 ## RULES
 1. ONE sentence, max 15 words
-2. FORWARD-LOOKING - what's next, not just what is
-3. MA mentioned ONLY if:
-   - Price just crossed it (breakout/breakdown story)
-   - Price is testing it (inflection story)
-   - Price has been stuck at it for weeks (historical context)
-4. Use rating-appropriate language:
-   - Bullish: "expect gains", "rally may continue", "upside"
-   - Constructive: "positive bias", "favorable setup", "potential upside"
-   - Cautious: "downside risk", "defensive", "vulnerable"
-   - Bearish: "expect weakness", "further downside", "no floor"
-5. NEVER start with asset name
-6. Output ONLY the subtitle"""
+2. Lead with the OVERALL PICTURE, not a single detail
+3. MA mentioned only if there's action OR historical stuck pattern
+4. Divergence mentioned only if gap >25 and it's central to the story
+5. Use correct support/resistance terminology
+6. Never call momentum "support" or "floor"
+7. Match tone to rating (bullish words for bullish rating, etc.)
+
+## OUTPUT
+Only the subtitle, nothing else."""
 
 
 EXAMPLES = """
-## EXAMPLES BY STORY TYPE
+## EXAMPLES BY RATING
 
-### TREND CONTINUATION
-When: Strong aligned scores, clear direction, no obstacles
+### BULLISH (DMAS ≥70)
+Lead with strength, mention specifics only if remarkable.
 
-Data: DMAS=85, Tech=70, Mom=100, above all MAs, DMAS stable
-→ "The rally has room to run with momentum and technicals aligned"
+Data: DMAS=85, Tech=70, Mom=100
+→ "The bullish setup remains intact with aligned indicators"
 
-Data: DMAS=22, Tech=28, Mom=16, below all MAs, DMAS stable
-→ "Expect continued weakness with no catalyst for reversal"
+Data: DMAS=78, Tech=65, Mom=91, above all MAs
+→ "Expect the rally to extend with technicals and momentum aligned"
 
-Data: DMAS=78, Tech=65, Mom=91, 4 weeks of gains
-→ "The bullish trend should persist into the new week"
-
-
-### DIVERGENCE
-When: Tech and Mom disagree significantly (>20 point gap)
-
-Data: DMAS=52, Tech=68, Mom=36, Tech leading for 3 weeks
-→ "Strong technicals await momentum confirmation to turn constructive"
-
-Data: DMAS=54, Tech=38, Mom=70, Mom leading for 2 weeks
-→ "High momentum may eventually lift the weak technical picture"
-
-Data: DMAS=48, Tech=62, Mom=34, divergence widening
-→ "The tech-momentum gap must narrow for a clearer direction"
+Data: DMAS=72, Tech=55, Mom=89 (divergence but bullish)
+→ "Strong momentum drives the bullish outlook despite moderate technicals"
+NOT: "Divergence between momentum and technicals may cause..."
 
 
-### INFLECTION (at key level)
-When: Price at/near important MA, could go either way
-
-Data: DMAS=58, Tech=55, Mom=61, testing 50d MA from above
-→ "The 50d MA test will determine if the constructive bias holds"
-
-Data: DMAS=45, Tech=48, Mom=42, stuck below 50d MA for 4 weeks
-→ "A break above the stubborn 50d MA resistance would shift outlook"
-
-Data: DMAS=62, Tech=58, Mom=66, hovering at 50d MA
-→ "Watch the 50d MA - holding it keeps the constructive setup intact"
-
-
-### RECOVERY
-When: DMAS improving from low levels, or rebounding from correction
-
-Data: DMAS=55 (was 42), Tech=52, Mom=58, bounced off 100d MA
-→ "The rebound suggests a potential shift toward constructive territory"
-
-Data: DMAS=48 (was 35), Tech=50, Mom=46, rising from bearish
-→ "Early signs of stabilization, but confirmation needed above 50d MA"
-
-Data: DMAS=68 (was 58), Tech=65, Mom=71, resuming after pullback
-→ "The correction appears over, expect resumption of the uptrend"
-
-
-### DETERIORATION
-When: DMAS falling, conditions worsening
-
-Data: DMAS=52 (was 65), Tech=55, Mom=49, slipping
-→ "The picture is fading - watch for further weakness if momentum fails"
-
-Data: DMAS=38 (was 55), Tech=42, Mom=34, sharp drop
-→ "The swift deterioration may continue until support is found"
-
-Data: DMAS=28 (was 42), Tech=32, Mom=24, accelerating down
-→ "No floor in sight as both technicals and momentum collapse"
-
-
-### CONSOLIDATION
-When: Range-bound, low volatility, waiting for direction
-
-Data: DMAS=50, Tech=52, Mom=48, stable for 3 weeks
-→ "Sideways consolidation continues - await breakout for direction"
-
-Data: DMAS=55, Tech=54, Mom=56, tight range
-→ "Coiling in a tight range suggests a larger move is brewing"
-
-Data: DMAS=48, Tech=50, Mom=46, neutral for 5 weeks
-→ "The extended consolidation will resolve, but timing unclear"
-
-
-### BREAKOUT / BREAKDOWN
-When: Just crossed key level, new trend potentially starting
-
-Data: DMAS=58, Tech=52, Mom=64, just broke above 50d MA
-→ "The 50d MA breakout, if sustained, opens the door to further gains"
-
-Data: DMAS=42, Tech=45, Mom=39, just broke below 50d MA
-→ "The break below 50d MA signals risk of further downside"
-
-Data: DMAS=65, Tech=60, Mom=70, broke above after 4 weeks below
-→ "Finally clearing the 50d MA hurdle - bullish momentum may accelerate"
-
-
-### WITH HISTORICAL CONTEXT
-
-Data: DMAS=45, Tech=50, Mom=40, below 50d MA
-Historical: Below 50d MA for 5 weeks; Cautious for 4 weeks
-→ "Still stuck below the 50d MA - no change in cautious stance"
+### CONSTRUCTIVE (DMAS 55-69)
+Positive but measured tone.
 
 Data: DMAS=62, Tech=58, Mom=66
-Historical: DMAS improved +15 over past month
-→ "The steady improvement may push the outlook toward bullish"
+→ "The constructive setup suggests continued positive bias"
 
-Data: DMAS=38, Tech=42, Mom=34
-Historical: Bearish for 6 consecutive weeks
-→ "The persistent bearish trend shows no signs of reversal"
+Data: DMAS=58, Tech=52, Mom=64, just broke above 50d MA
+→ "The 50d MA breakout supports the improving outlook"
+
+Data: DMAS=60, Tech=68, Mom=52 (tech leads)
+→ "Solid technicals provide foundation for potential gains"
+NOT: "Tech-momentum divergence creates uncertainty"
 
 
-## BAD EXAMPLES (what NOT to write)
+### NEUTRAL (DMAS 45-54)
+Focus on what would change the picture.
+
+Data: DMAS=50, Tech=52, Mom=48
+→ "Mixed signals warrant patience until a clearer trend emerges"
+
+Data: DMAS=48, Tech=65, Mom=31 (big divergence)
+→ "Strong technicals need momentum confirmation to turn constructive"
+
+Data: DMAS=52, Tech=40, Mom=64 (opposite divergence)
+→ "Momentum strength may eventually lift the weak technical picture"
+
+
+### CAUTIOUS (DMAS 30-44)
+Highlight risks, what would improve.
+
+Data: DMAS=38, Tech=42, Mom=34, below 50d MA
+→ "Weak setup suggests continued pressure below the 50d MA resistance"
+NOT: "Support fails as technicals collapse"
+
+Data: DMAS=42, Tech=48, Mom=36
+→ "The cautious stance persists with no catalyst for reversal"
+
+Data: DMAS=35, Tech=38, Mom=32, well below 50d MA (-8%)
+→ "Far below key moving averages with no floor visible"
+NOT: "Testing support at the 50d MA" (it's 8% above, not testing)
+
+
+### BEARISH (DMAS <30)
+Emphasize severity, what would change.
+
+Data: DMAS=22, Tech=28, Mom=16
+→ "The bearish picture shows no signs of stabilization"
+
+Data: DMAS=18, Tech=24, Mom=12, below all MAs
+→ "Deep in bearish territory with further downside likely"
+
+Data: DMAS=28, Tech=32, Mom=24, small bounce
+→ "A modest bounce but far from reversing the negative trend"
+
+
+### MA-SPECIFIC (only when there's action)
+
+Crossing UP:
+Data: DMAS=58, just broke above 50d MA
+→ "The 50d MA breakout opens the door to further gains"
+
+Crossing DOWN:
+Data: DMAS=42, just broke below 50d MA
+→ "Breaking below the 50d MA adds to the cautious outlook"
+
+Testing from BELOW (approaching resistance):
+Data: DMAS=48, at -1% vs 50d MA, was -5%
+→ "Approaching the 50d MA resistance - a break above would shift tone"
+
+Testing from ABOVE (approaching support):
+Data: DMAS=58, at +1% vs 50d MA, was +5%
+→ "Testing the 50d MA support - holding it preserves the constructive case"
+
+STUCK below for weeks:
+Data: DMAS=42, -6% vs 50d MA
+History: Below 50d MA for 5 weeks
+→ "Still trapped below the 50d MA after five weeks of struggle"
+
+
+### WHAT NOT TO WRITE
+
+❌ "The massive tech-momentum divergence must resolve"
+→ Divergence is not the main story, DMAS level is
+
+❌ "Momentum support prevents further decline"
+→ Momentum is a score, not support
+
+❌ "Support fails as price breaks down"
+→ If already below, it's resistance not support
+
+❌ "Divergence will resolve lower if support breaks"
+→ Double error: over-emphasis on divergence + wrong terminology
+
+❌ "Despite moderate momentum support"
+→ Momentum is not support
 
 ❌ "DMAS is at 52 with technical at 55" (just restating data)
 ❌ "The picture is neutral" (no forward look)
 ❌ "Below the 50d MA at -3.2%" (data dump, no insight)
-❌ "Strong momentum and weak technical" (divergence but no implication)
 ❌ "S&P 500 remains bullish" (starts with asset name)
 """
 
@@ -259,12 +300,13 @@ def build_prompt(
         else:
             lines.append(f"DMAS Change: {change:+d}")
 
-    # Divergence detection
+    # Divergence detection - ONLY when very pronounced
     divergence = mom - tech
-    if divergence >= 25:
-        lines.append(f"DIVERGENCE: Momentum leads technical by {divergence} points")
-    elif divergence <= -25:
-        lines.append(f"DIVERGENCE: Technical leads momentum by {-divergence} points")
+    if abs(divergence) >= 30:  # Raised threshold - divergence is secondary
+        if divergence > 0:
+            lines.append(f"Note: Momentum leads technical by {divergence} points")
+        else:
+            lines.append(f"Note: Technical leads momentum by {-divergence} points")
 
     # MA positions with action flags
     lines.append("")
