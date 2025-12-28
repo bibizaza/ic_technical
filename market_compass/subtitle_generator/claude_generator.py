@@ -51,77 +51,51 @@ Write ONE subtitle (max 15 words) answering: "What's the outlook for this asset 
 - Cautious (DMAS 30-44): Weak setup, downside risk
 - Bearish (DMAS <30): Very weak, expect continued pressure
 
-## STORY PRIORITY (check in this order)
+## CRITICAL RULES
 
-1. **DMAS Level First** - What does the overall score tell us?
-   - DMAS ≥70: Lead with strength
-   - DMAS <30: Lead with weakness
+### 1. Rating Match (MANDATORY)
+The subtitle tone MUST match the rating exactly:
+- Bullish → confident, continuation expected
+- Constructive → positive but measured
+- Neutral → uncertain, mixed, patience needed
+- Cautious → defensive, downside risk
+- Bearish → weak, further decline expected
+NEVER describe a Neutral as improving or a Cautious as recovering.
 
-2. **Significant Change** - Did DMAS move >10 points?
-   - Yes: The change IS the story
+### 2. Length Limit (STRICT)
+Maximum 15 words. Count them. Cut if over.
+TOO LONG: "The constructive outlook persists with momentum improvement that could drive prices higher"
+CORRECT: "Constructive outlook persists with momentum supporting higher prices"
 
-3. **MA Action** - Is there a cross, test, or rejection happening?
-   - Only mention MA if there's ACTION this week
-   - If stuck below MA for weeks → that's the story (from history)
+### 3. Avoid Overused Words
+Use these sparingly (max 1 per batch):
+- breakout → use: advance, push higher, clear resistance
+- exceptional → use: strong, solid, notable
+- surge → use: rally, gain, climb
+- collapse → use: decline, drop, slide
 
-4. **Divergence** - ONLY if gap >25 AND neither tech nor mom dominates the story
-   - Divergence is usually a SECONDARY detail, not the headline
+### 4. When Both Scores High (>65)
+Don't describe separately. Use: "aligned indicators", "synchronized strength", "balanced setup"
+WRONG: "Very strong momentum combines with excellent technicals"
+RIGHT: "Aligned indicators support the bullish outlook"
 
-## CRITICAL TERMINOLOGY RULES
+### 5. Forward-Looking
+Focus on next week's expected move, not current state description.
+
+### 6. No Asset Names
+Never start with the asset name or ticker.
+
+### 7. MA Reference
+Only mention moving averages if there's action (cross, test, breakout).
+
+## TERMINOLOGY RULES
 
 ### Moving Averages
-- Price ABOVE MA → MA is "support" (it holds price up)
-- Price BELOW MA → MA is "resistance" (it blocks price from rising)
-
-❌ WRONG: "Support fails" when price is already 5% below MA
-✅ RIGHT: "The 50d MA resistance remains a hurdle"
-
-❌ WRONG: "Testing support at the 50d MA" when price is below it
-✅ RIGHT: "Approaching the 50d MA resistance from below"
+- Price ABOVE MA → MA is "support"
+- Price BELOW MA → MA is "resistance"
 
 ### Momentum
-Momentum is a SCORE (0-100), not a price level.
-
-❌ WRONG: "Momentum support prevents further decline"
-✅ RIGHT: "Strong momentum cushions the weak technicals"
-
-❌ WRONG: "Momentum acts as a floor"
-✅ RIGHT: "High momentum score offsets technical weakness"
-
-## STRUCTURE TEMPLATES
-
-### For Bullish/Constructive (focus on continuation)
-- "The [bullish/constructive] setup points to further gains"
-- "Expect the rally to continue with [reason]"
-- "All indicators support the positive outlook"
-
-### For Neutral (focus on what needs to happen)
-- "Mixed signals suggest waiting for [catalyst]"
-- "The [condition] will determine next direction"
-- "No clear edge until [condition resolves]"
-
-### For Cautious/Bearish (focus on risks)
-- "Weak technicals suggest further downside risk"
-- "No catalyst visible for a reversal"
-- "The negative setup may persist until [condition]"
-
-### For MA Events (only when there's action)
-- "The break above the 50d MA reinforces the bullish case"
-- "Struggling below the 50d MA resistance limits upside"
-- "A sustained move above the [X]d MA would shift outlook"
-
-### For Divergence (only when pronounced AND central)
-- "Strong momentum may eventually lift weak technicals"
-- "Technical strength awaits momentum confirmation"
-
-## RULES
-1. ONE sentence, max 15 words
-2. Lead with the OVERALL PICTURE, not a single detail
-3. MA mentioned only if there's action OR historical stuck pattern
-4. Divergence mentioned only if gap >25 and it's central to the story
-5. Use correct support/resistance terminology
-6. Never call momentum "support" or "floor"
-7. Match tone to rating (bullish words for bullish rating, etc.)
+Momentum is a SCORE (0-100), not a price level. Never call it "support" or "floor".
 
 ## OUTPUT
 Only the subtitle, nothing else."""
@@ -225,21 +199,36 @@ History: Below 50d MA for 5 weeks
 
 ### WHAT NOT TO WRITE
 
-❌ "The massive tech-momentum divergence must resolve"
-→ Divergence is not the main story, DMAS level is
+# Rating mismatch errors
+❌ "The neutral picture shows improving conditions"
+→ Neutral shouldn't sound constructive - use: "Mixed signals warrant patience"
 
+❌ "The cautious outlook is stabilizing"
+→ Cautious shouldn't sound recovering - use: "Weak setup persists with downside risk"
+
+# Too long (over 15 words)
+❌ "The bullish momentum continues to drive prices higher with technical indicators confirming the positive trend"
+→ 18 words! Use: "Bullish momentum persists with confirming technicals" (6 words)
+
+# Overused words
+❌ "Exceptional breakout drives explosive surge"
+→ Use: "Strong advance clears key resistance"
+
+# Redundant when both scores high
+❌ "Very strong momentum combines with excellent technicals"
+→ Use: "Aligned indicators support the bullish outlook"
+
+# Terminology errors
 ❌ "Momentum support prevents further decline"
 → Momentum is a score, not support
 
 ❌ "Support fails as price breaks down"
 → If already below, it's resistance not support
 
-❌ "Divergence will resolve lower if support breaks"
-→ Double error: over-emphasis on divergence + wrong terminology
+❌ "The massive tech-momentum divergence must resolve"
+→ Divergence is not the main story, DMAS level is
 
-❌ "Despite moderate momentum support"
-→ Momentum is not support
-
+# Other errors
 ❌ "DMAS is at 52 with technical at 55" (just restating data)
 ❌ "The picture is neutral" (no forward look)
 ❌ "Below the 50d MA at -3.2%" (data dump, no insight)
