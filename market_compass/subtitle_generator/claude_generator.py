@@ -1,6 +1,9 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v4.2: Forward-looking prompt - "What should investors expect next week?"
+v4.4: Prompt caching - caches system prompt + examples for 83% cost savings.
+
+Uses Anthropic's prompt caching to cache static content (~2800 tokens) and only
+send asset-specific data (~200 tokens) per request.
 """
 
 import os
@@ -368,7 +371,7 @@ def generate_subtitle(
     historical_context: str = None
 ) -> dict:
     """
-    Generate subtitle using Claude API.
+    Generate subtitle using Claude API with prompt caching.
 
     Parameters
     ----------
@@ -393,7 +396,7 @@ def generate_subtitle(
     Returns
     -------
     dict
-        Result with subtitle, rating, tokens_used
+        Result with subtitle, rating, tokens info (including cache stats)
     """
     if client is None:
         client = get_client(api_key)
@@ -404,13 +407,20 @@ def generate_subtitle(
     # Build user prompt with raw data
     prompt = build_prompt(asset_data, previous_subtitles, historical_context)
 
-    # Call Claude API
+    # Call Claude API with prompt caching
+    # Cache the static system prompt + examples, only send dynamic prompt each time
     message = client.messages.create(
         model=model,
         max_tokens=50,
-        system=SYSTEM_PROMPT,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM_PROMPT + "\n\n" + EXAMPLES,
+                "cache_control": {"type": "ephemeral"}  # Cache this block
+            }
+        ],
         messages=[
-            {"role": "user", "content": EXAMPLES + "\n\n" + prompt}
+            {"role": "user", "content": prompt}
         ]
     )
 
@@ -429,10 +439,21 @@ def generate_subtitle(
     else:
         rating = "Bearish"
 
+    # Get cache stats
+    usage = message.usage
+    cache_read = getattr(usage, 'cache_read_input_tokens', 0)
+    cache_create = getattr(usage, 'cache_creation_input_tokens', 0)
+
     return {
         "subtitle": subtitle,
         "rating": rating,
-        "tokens_used": message.usage.input_tokens + message.usage.output_tokens,
+        "tokens_used": usage.input_tokens + usage.output_tokens,
+        "tokens": {
+            "input": usage.input_tokens,
+            "output": usage.output_tokens,
+            "cache_read": cache_read,
+            "cache_create": cache_create,
+        }
     }
 
 
@@ -443,7 +464,7 @@ def generate_batch(
     api_key: str = None,
     use_history: bool = True
 ) -> List[dict]:
-    """Generate subtitles for multiple assets with deduplication."""
+    """Generate subtitles for multiple assets with deduplication and caching."""
 
     if client is None:
         client = get_client(api_key)
@@ -459,7 +480,12 @@ def generate_batch(
 
     results = []
     generated_subtitles = []
-    total_tokens = 0
+
+    # Track token usage with cache stats
+    total_input = 0
+    total_output = 0
+    total_cache_read = 0
+    total_cache_create = 0
 
     for asset_data in assets_data:
         try:
@@ -480,12 +506,19 @@ def generate_batch(
             result["asset_name"] = asset_data["asset_name"]
             results.append(result)
             generated_subtitles.append(result["subtitle"])
-            total_tokens += result["tokens_used"]
+
+            # Accumulate token counts
+            tokens = result.get("tokens", {})
+            total_input += tokens.get("input", result.get("tokens_used", 0))
+            total_output += tokens.get("output", 0)
+            total_cache_read += tokens.get("cache_read", 0)
+            total_cache_create += tokens.get("cache_create", 0)
+
         except Exception as e:
             print(f"Error generating subtitle for {asset_data.get('asset_name', 'Unknown')}: {e}")
             results.append({
                 "asset_name": asset_data.get("asset_name", "Unknown"),
-                "subtitle": "Technical analysis under review.",
+                "subtitle": "Technical analysis under review",
                 "rating": "Neutral",
                 "error": str(e),
                 "tokens_used": 0,
@@ -511,10 +544,27 @@ def generate_batch(
         except Exception as e:
             print(f"Warning: Could not save to history: {e}")
 
-    print(f"Total tokens used: {total_tokens}")
-    # Haiku pricing: $0.80/M input, $4/M output
-    estimated_cost = (total_tokens * 0.0000008) + (total_tokens * 0.000004)
-    print(f"Estimated cost: ${estimated_cost:.4f}")
+    # Cost calculation with caching
+    # Haiku 4.5: Input $0.80/1M, Output $4.00/1M
+    # Cache read: 90% discount = $0.08/1M
+    # Cache write: 25% premium = $1.00/1M
+    regular_input = total_input - total_cache_read - total_cache_create
+    regular_input_cost = regular_input * 0.80 / 1_000_000
+    cache_read_cost = total_cache_read * 0.08 / 1_000_000  # 90% off
+    cache_write_cost = total_cache_create * 1.00 / 1_000_000  # 25% premium
+    output_cost = total_output * 4.00 / 1_000_000
+
+    total_cost = regular_input_cost + cache_read_cost + cache_write_cost + output_cost
+
+    print(f"\n📊 Token Usage:")
+    print(f"   Input: {total_input:,} (Cache read: {total_cache_read:,}, Cache create: {total_cache_create:,})")
+    print(f"   Output: {total_output:,}")
+    print(f"   Estimated cost: ${total_cost:.4f}")
+
+    if total_cache_read > 0:
+        # Savings = what we would have paid at full price - what we paid at cached price
+        savings = total_cache_read * (0.80 - 0.08) / 1_000_000
+        print(f"   💰 Cache savings: ${savings:.4f}")
 
     return results
 
