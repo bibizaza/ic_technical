@@ -22,7 +22,7 @@ except ImportError:
 ANTHROPIC_API_KEY = None  # Or set via environment variable
 
 # Default model
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = "claude-3-5-haiku-20241022"
 
 
 def get_client(api_key: str = None):
