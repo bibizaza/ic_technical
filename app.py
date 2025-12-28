@@ -1708,6 +1708,83 @@ def _add_moving_averages(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def show_score_history(asset_name: str) -> None:
+    """
+    Display DMAS/Technical/Momentum history chart below the price chart.
+    Shows score evolution over time with rating zones.
+    """
+    try:
+        from market_compass.subtitle_generator.history_tracker import get_tracker
+    except ImportError:
+        return  # History tracker not available
+
+    tracker = get_tracker()
+    df = tracker.get_dataframe(asset_name)
+
+    if df.empty or len(df) < 2:
+        st.caption("📊 Score history will appear after 2+ weeks of data")
+        return
+
+    # Create chart
+    fig = go.Figure()
+
+    # DMAS line (thicker, primary)
+    fig.add_trace(go.Scatter(
+        x=df.index,
+        y=df["dmas"],
+        name="DMAS",
+        line=dict(width=3, color="#1f77b4"),
+        mode="lines+markers"
+    ))
+
+    # Technical line
+    fig.add_trace(go.Scatter(
+        x=df.index,
+        y=df["technical_score"],
+        name="Technical",
+        line=dict(width=2, color="#2ca02c"),
+        mode="lines"
+    ))
+
+    # Momentum line
+    fig.add_trace(go.Scatter(
+        x=df.index,
+        y=df["momentum_score"],
+        name="Momentum",
+        line=dict(width=2, color="#ff7f0e"),
+        mode="lines"
+    ))
+
+    # Rating zones (background colors)
+    fig.add_hrect(y0=70, y1=100, fillcolor="green", opacity=0.08,
+                  annotation_text="Bullish", annotation_position="top left")
+    fig.add_hrect(y0=55, y1=70, fillcolor="lightgreen", opacity=0.08,
+                  annotation_text="Constructive", annotation_position="top left")
+    fig.add_hrect(y0=45, y1=55, fillcolor="gray", opacity=0.08,
+                  annotation_text="Neutral", annotation_position="top left")
+    fig.add_hrect(y0=30, y1=45, fillcolor="orange", opacity=0.08,
+                  annotation_text="Cautious", annotation_position="top left")
+    fig.add_hrect(y0=0, y1=30, fillcolor="red", opacity=0.08,
+                  annotation_text="Bearish", annotation_position="top left")
+
+    fig.update_layout(
+        title="Score History",
+        yaxis_title="Score",
+        yaxis=dict(range=[0, 100]),
+        height=300,
+        margin=dict(t=40, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        hovermode="x unified"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Show context if available
+    context = tracker.get_context_for_subtitle(asset_name)
+    if context:
+        st.caption(f"📈 {context}")
+
+
 def _build_fallback_figure(
     df_full: pd.DataFrame, anchor_date: pd.Timestamp | None = None
 ) -> go.Figure:
@@ -2952,6 +3029,9 @@ def show_technical_analysis_page():
                 "Green shading indicates an uptrend; red shading indicates a downtrend."
             )
 
+            # Show score history below price chart
+            show_score_history(selected_index)
+
     elif asset_class == "Commodity":
         # Delegate to the commodity technical analysis handler
         show_commodity_technical_analysis()
@@ -3383,6 +3463,9 @@ def show_commodity_technical_analysis() -> None:
             "Green shading indicates an uptrend; red shading indicates a downtrend."
         )
 
+        # Show score history below price chart
+        show_score_history(selected_index)
+
 
 def show_crypto_technical_analysis() -> None:
     """Render the technical analysis interface for crypto assets such as Bitcoin.
@@ -3782,6 +3865,9 @@ def show_crypto_technical_analysis() -> None:
             "Use the controls above to enable and configure the regression channel. "
             "Green shading indicates an uptrend; red shading indicates a downtrend."
         )
+
+        # Show score history below price chart
+        show_score_history(selected_index)
 
 
 def show_market_breadth_page() -> None:

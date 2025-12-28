@@ -415,8 +415,6 @@ def generate_subtitle(
     )
 
     subtitle = message.content[0].text.strip().strip('"\'')
-    if subtitle and subtitle[-1] not in '.!?':
-        subtitle += '.'
 
     # Determine rating
     dmas = asset_data["dmas"]
