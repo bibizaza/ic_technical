@@ -1,13 +1,13 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v5.0: Uniqueness enforcement with retry logic + MA position context.
+v5.1: MA asymmetry (mention when BELOW, not when far above) + no numbers.
 
 Features:
 - Prompt caching for ~80% cost savings
 - Uniqueness checking with is_too_similar() and retry logic
-- MA position context in prompts
+- MA asymmetry: BELOW MAs = critical signal, far above = don't mention
+- No score numbers: convert to qualitative (weak/strong/exceptional)
 - Vocabulary rotation for variety
-- Historical context integration
 """
 
 import os
@@ -47,173 +47,110 @@ SYSTEM_PROMPT = """You are a financial analyst writing chart subtitles for Hercu
 
 ABSOLUTE RULES:
 
-1. Maximum 15 words per subtitle
+1. MAXIMUM 15 WORDS per subtitle
 
-2. Rating word MUST appear matching the rating:
-   - Bullish → use "bullish", "bull run", "bullish momentum"
-   - Constructive → use "constructive" (NEVER "bullish")
-   - Neutral → use "neutral", "mixed", "balanced"
-   - Cautious → use "cautious", "weak" (NEVER "bearish")
-   - Bearish → use "bearish", "bear", "bearish pressure"
+2. RATING WORD MUST APPEAR matching the rating:
+   - Bullish → "bullish"
+   - Constructive → "constructive" (NEVER "bullish")
+   - Neutral → "neutral", "mixed"
+   - Cautious → "cautious" (NEVER "bearish")
+   - Bearish → "bearish"
 
-3. UNIQUENESS IS MANDATORY:
+3. NEVER QUOTE NUMBERS - Convert scores to qualitative descriptors:
+   - 0-25: "weak", "poor", "minimal", "collapsed"
+   - 26-40: "fragile", "struggling", "subdued"
+   - 41-55: "modest", "moderate", "mixed"
+   - 56-70: "solid", "decent", "respectable"
+   - 71-85: "strong", "robust", "powerful"
+   - 86-100: "exceptional", "extraordinary", "maximum", "perfect"
+
+   BAD: "momentum at 94", "DMAS at 83", "93-point strength"
+   GOOD: "exceptional momentum", "robust technicals", "powerful strength"
+
+4. MA MENTION RULES - CRITICAL ASYMMETRY:
+
+   A) When ABOVE all MAs by >5%:
+      - Do NOT mention MAs at all
+      - Focus on momentum, strength, trend continuation
+      - Example: "Bullish momentum extends with exceptional technical strength"
+
+   B) When NEAR any MA (within 5%):
+      - Mention only the MA being tested
+      - Example: "Testing 50d MA resistance with improving momentum"
+
+   C) When BELOW one or more MAs:
+      - ALWAYS mention this - it's a critical bearish signal
+      - If below ALL three MAs (50d, 100d, 200d): "trapped below all major moving averages"
+      - If below 50d only: "struggling below 50d MA"
+      - If below 50d and 100d: "submerged below key moving averages"
+
+   THE RULE: Being below MAs is newsworthy. Being far above is not.
+
+5. UNIQUENESS IS MANDATORY:
    - Each subtitle must be COMPLETELY DIFFERENT from others in the batch
    - NEVER start two subtitles with the same word
-   - NEVER use the same verb phrase in multiple subtitles
-   - Use different sentence structures for each asset
+   - Use different verbs and structures for similar ratings
 
-4. MA POSITION IS CRITICAL:
-   - If price is within 3% of a key MA, MENTION IT
-   - "Testing the 50d MA", "Hovering at support", "Just below resistance"
-   - If ABOVE an MA, don't say "breakout potential" - say "holding above" or "building on gains"
-
-5. VOCABULARY ROTATION - Rotate these synonyms:
-   - "aligned" alternatives: unified, harmonized, coordinated, confluent, in lockstep
-   - "momentum" alternatives: thrust, drive, impetus, velocity
-   - "strength" alternatives: vigor, power, robustness, resilience
-   - "rally" alternatives: advance, ascent, climb, thrust, charge
-
-6. BEARISH VARIETY - Use different structures:
-   - Focus on MA: "Struggling below 50d MA with momentum fading"
-   - Divergence: "Technical breakdown despite stable momentum"
-   - Price action: "Downtrend extends with no support in sight"
-   - Recovery watch: "Awaiting stabilization before recovery hopes"
+6. VOCABULARY ROTATION for overused terms:
+   - "synchronized" → aligned, unified, harmonized, coordinated, confluent
+   - "momentum" → thrust, drive, impetus, velocity, push
+   - "strength" → vigor, power, robustness, resilience
+   - "rally" → surge, advance, ascent, climb, thrust
+   - "extends" → continues, persists, builds, develops
 
 Output ONLY the subtitle, nothing else."""
 
 
 EXAMPLES = """
-## EXAMPLES BY RATING
+=== BULLISH (DMAS ≥ 70) ===
+When FAR ABOVE all MAs (don't mention MAs):
+"Bullish momentum extends with exceptional technical strength driving gains."
+"Powerful bullish thrust continues as aligned indicators fuel the advance."
+"Robust bullish setup persists with extraordinary momentum propelling prices."
 
-### BULLISH (DMAS ≥70)
-Lead with strength, mention specifics only if remarkable.
+When NEAR an MA:
+"Bullish bias holds above 50d MA support with strong momentum confirmation."
+"Testing 50d MA from above, bullish setup maintains solid technical footing."
 
-Data: DMAS=85, Tech=70, Mom=100
-→ "The bullish setup remains intact with aligned indicators"
+=== CONSTRUCTIVE (DMAS 55-69) ===
+"Constructive outlook builds with improving technicals and solid momentum."
+"Building constructive foundation as momentum strengthens near key levels."
+"Constructive setup emerges with technicals recovering from recent lows."
 
-Data: DMAS=78, Tech=65, Mom=91, above all MAs
-→ "Expect the rally to extend with technicals and momentum aligned"
+=== NEUTRAL (DMAS 45-54) ===
+"Neutral stance prevails as mixed signals warrant continued patience."
+"Range-bound action keeps outlook neutral pending momentum clarity."
+"Mixed technicals maintain neutral bias until direction emerges."
 
-Data: DMAS=72, Tech=55, Mom=89 (divergence but bullish)
-→ "Strong momentum drives the bullish outlook despite moderate technicals"
-NOT: "Divergence between momentum and technicals may cause..."
+=== CAUTIOUS (DMAS 30-44) ===
+"Cautious positioning advised as technicals weaken near support zones."
+"Fragile momentum keeps cautious outlook intact with downside risks."
+"Cautious stance persists as price struggles to reclaim 50d MA."
 
+=== BEARISH (DMAS < 30) ===
+When BELOW ALL MAs (MUST mention):
+"Bearish outlook deepens with price trapped below all major moving averages."
+"Submerged below all key MAs, bearish pressure shows no signs of relief."
+"Trapped beneath 50d, 100d, and 200d MAs, bearish momentum dominates."
 
-### CONSTRUCTIVE (DMAS 55-69)
-Positive but measured tone.
+When BELOW some MAs:
+"Bearish pressure persists as price struggles below 50d and 100d MAs."
+"Weak technicals keep bearish bias intact below key resistance levels."
 
-Data: DMAS=62, Tech=58, Mom=66
-→ "The constructive setup suggests continued positive bias"
+=== WHAT NOT TO WRITE ===
 
-Data: DMAS=58, Tech=52, Mom=64, just broke above 50d MA
-→ "The 50d MA breakout supports the improving outlook"
+# Never quote numbers
+❌ "momentum at 94" → "exceptional momentum"
+❌ "DMAS at 83" → "strong setup"
+❌ "93-point strength" → "powerful strength"
 
-Data: DMAS=60, Tech=68, Mom=52 (tech leads)
-→ "Solid technicals provide foundation for potential gains"
-NOT: "Tech-momentum divergence creates uncertainty"
+# Don't mention MAs when far above
+❌ "Holding above 50d MA with strength" (when +15% above)
+→ "Bullish momentum extends with aligned indicators"
 
-
-### NEUTRAL (DMAS 45-54)
-Focus on what would change the picture.
-
-Data: DMAS=50, Tech=52, Mom=48
-→ "Mixed signals warrant patience until a clearer trend emerges"
-
-Data: DMAS=48, Tech=65, Mom=31 (big divergence)
-→ "Strong technicals need momentum confirmation to turn constructive"
-
-Data: DMAS=52, Tech=40, Mom=64 (opposite divergence)
-→ "Momentum strength may eventually lift the weak technical picture"
-
-
-### CAUTIOUS (DMAS 30-44)
-Highlight risks, what would improve.
-
-Data: DMAS=38, Tech=42, Mom=34, below 50d MA
-→ "Weak setup suggests continued pressure below the 50d MA resistance"
-NOT: "Support fails as technicals collapse"
-
-Data: DMAS=42, Tech=48, Mom=36
-→ "The cautious stance persists with no catalyst for reversal"
-
-Data: DMAS=35, Tech=38, Mom=32, well below 50d MA (-8%)
-→ "Far below key moving averages with no floor visible"
-NOT: "Testing support at the 50d MA" (it's 8% above, not testing)
-
-
-### BEARISH (DMAS <30)
-Emphasize severity, what would change.
-
-Data: DMAS=22, Tech=28, Mom=16
-→ "The bearish picture shows no signs of stabilization"
-
-Data: DMAS=18, Tech=24, Mom=12, below all MAs
-→ "Deep in bearish territory with further downside likely"
-
-Data: DMAS=28, Tech=32, Mom=24, small bounce
-→ "A modest bounce but far from reversing the negative trend"
-
-
-### MA-SPECIFIC (only when there's action)
-
-Crossing UP:
-Data: DMAS=58, just broke above 50d MA
-→ "The 50d MA breakout opens the door to further gains"
-
-Crossing DOWN:
-Data: DMAS=42, just broke below 50d MA
-→ "Breaking below the 50d MA adds to the cautious outlook"
-
-Testing from BELOW (approaching resistance):
-Data: DMAS=48, at -1% vs 50d MA, was -5%
-→ "Approaching the 50d MA resistance - a break above would shift tone"
-
-Testing from ABOVE (approaching support):
-Data: DMAS=58, at +1% vs 50d MA, was +5%
-→ "Testing the 50d MA support - holding it preserves the constructive case"
-
-STUCK below for weeks:
-Data: DMAS=42, -6% vs 50d MA
-History: Below 50d MA for 5 weeks
-→ "Still trapped below the 50d MA after five weeks of struggle"
-
-
-### WHAT NOT TO WRITE
-
-# Rating mismatch errors
-❌ "The neutral picture shows improving conditions"
-→ Neutral shouldn't sound constructive - use: "Mixed signals warrant patience"
-
-❌ "The cautious outlook is stabilizing"
-→ Cautious shouldn't sound recovering - use: "Weak setup persists with downside risk"
-
-# Too long (over 15 words)
-❌ "The bullish momentum continues to drive prices higher with technical indicators confirming the positive trend"
-→ 18 words! Use: "Bullish momentum persists with confirming technicals" (6 words)
-
-# Overused words
-❌ "Exceptional breakout drives explosive surge"
-→ Use: "Strong advance clears key resistance"
-
-# Redundant when both scores high
-❌ "Very strong momentum combines with excellent technicals"
-→ Use: "Aligned indicators support the bullish outlook"
-
-# Terminology errors
-❌ "Momentum support prevents further decline"
-→ Momentum is a score, not support
-
-❌ "Support fails as price breaks down"
-→ If already below, it's resistance not support
-
-❌ "The massive tech-momentum divergence must resolve"
-→ Divergence is not the main story, DMAS level is
-
-# Other errors
-❌ "DMAS is at 52 with technical at 55" (just restating data)
-❌ "The picture is neutral" (no forward look)
-❌ "Below the 50d MA at -3.2%" (data dump, no insight)
-❌ "S&P 500 remains bullish" (starts with asset name)
+# MUST mention MAs when below
+❌ "Bearish outlook persists" (when below ALL MAs)
+→ "Trapped below all major MAs, bearish pressure dominates"
 """
 
 # Padding content to reach 4,096 token minimum for Haiku 4.5 caching
@@ -379,7 +316,7 @@ def build_prompt(
     previous_subtitles: List[str],
     historical_context: Optional[str] = None
 ) -> str:
-    """Build prompt with strong uniqueness enforcement and MA context."""
+    """Build prompt with MA asymmetry and no-numbers rules."""
 
     asset_name = asset_data["asset_name"]
     dmas = asset_data["dmas"]
@@ -398,58 +335,78 @@ def build_prompt(
     else:
         rating = "Bearish"
 
+    # Convert scores to qualitative descriptors (for Claude's reference)
+    def score_to_quality(score):
+        if score >= 86:
+            return "exceptional"
+        elif score >= 71:
+            return "strong"
+        elif score >= 56:
+            return "solid"
+        elif score >= 41:
+            return "modest"
+        elif score >= 26:
+            return "fragile"
+        else:
+            return "weak"
+
+    tech_quality = score_to_quality(technical)
+    mom_quality = score_to_quality(momentum)
+
     # Extract MA data
     price_vs_50ma = asset_data.get("price_vs_50ma_pct", 0)
     price_vs_100ma = asset_data.get("price_vs_100ma_pct", 0)
     price_vs_200ma = asset_data.get("price_vs_200ma_pct", 0)
 
-    # Build MA context string - CRITICAL for subtitle content
-    ma_context = []
-    if abs(price_vs_50ma) <= 3:
+    # Determine MA context using asymmetry rule
+    above_all = price_vs_50ma > 5 and price_vs_100ma > 5 and price_vs_200ma > 5
+    below_all = price_vs_50ma < 0 and price_vs_100ma < 0 and price_vs_200ma < 0
+    below_50_100 = price_vs_50ma < 0 and price_vs_100ma < 0
+    below_50_only = price_vs_50ma < 0 and price_vs_100ma >= 0
+    near_50 = abs(price_vs_50ma) <= 5
+
+    # Build MA instruction based on asymmetry rule
+    if below_all:
+        ma_instruction = "⚠️ CRITICAL: Price is BELOW ALL major MAs (50d, 100d, 200d) - MUST mention 'trapped below all moving averages' or similar"
+    elif below_50_100:
+        ma_instruction = "⚠️ Price is below 50d AND 100d MAs - mention this weakness"
+    elif below_50_only:
+        ma_instruction = f"Price is below 50d MA ({price_vs_50ma:.1f}%) - mention this"
+    elif near_50 and not above_all:
         if price_vs_50ma >= 0:
-            ma_context.append(f"Price {price_vs_50ma:.1f}% ABOVE 50d MA (at support)")
+            ma_instruction = f"Price is testing 50d MA from above ({price_vs_50ma:.1f}%) - can mention support test"
         else:
-            ma_context.append(f"Price {abs(price_vs_50ma):.1f}% BELOW 50d MA (at resistance)")
-    elif price_vs_50ma > 3:
-        ma_context.append(f"Price {price_vs_50ma:.1f}% above 50d MA (extended)")
+            ma_instruction = f"Price is testing 50d MA from below ({price_vs_50ma:.1f}%) - mention resistance test"
+    elif above_all:
+        ma_instruction = "Price is FAR ABOVE all MAs - DO NOT mention MAs, focus on momentum/strength/trend"
     else:
-        ma_context.append(f"Price {abs(price_vs_50ma):.1f}% below 50d MA (weak)")
+        ma_instruction = "MAs not critical - mention only if relevant to the narrative"
 
-    if abs(price_vs_100ma) <= 3:
-        ma_context.append(f"Near 100d MA ({price_vs_100ma:+.1f}%)")
-    if abs(price_vs_200ma) <= 5:
-        ma_context.append(f"Near 200d MA ({price_vs_200ma:+.1f}%)")
-
-    ma_text = " | ".join(ma_context)
-
-    # Build uniqueness section with strong emphasis
+    # Build uniqueness section
     uniqueness_section = ""
     if previous_subtitles:
         recent = previous_subtitles[-5:]
         uniqueness_section = f"""
 
-⚠️ ALREADY USED SUBTITLES (you MUST write something COMPLETELY DIFFERENT):
+⚠️ ALREADY USED (write something COMPLETELY DIFFERENT):
 {chr(10).join(f'  ✗ "{s}"' for s in recent)}
 
-REQUIREMENTS TO BE UNIQUE:
-- Use a DIFFERENT opening word than any above
-- Use a DIFFERENT verb than any above
-- Use a DIFFERENT structure than any above
-- Reference a SPECIFIC fact about this asset (MA level, momentum value, etc.)
-"""
+Use DIFFERENT opening word, verb, and structure."""
 
-    # Historical context if available
-    history_section = ""
-    if historical_context:
-        history_section = f"\nHistorical Context: {historical_context}"
-
-    # Build final prompt
+    # Build prompt
     prompt = f"""Asset: {asset_name}
-Rating: {rating} (MUST use this word in subtitle)
-DMAS: {dmas} | Technical: {technical} | Momentum: {momentum}
-MA Positions: {ma_text}{history_section}
+Rating: {rating}
+Technical: {tech_quality} | Momentum: {mom_quality}
+{ma_instruction}
 {uniqueness_section}
-Generate ONE unique subtitle (max 15 words). Include the rating word:"""
+
+REMEMBER:
+- Do NOT quote any numbers
+- Convert scores to words: "strong momentum" not "momentum at 83"
+- If far above MAs, don't mention MAs
+- If below MAs, MUST mention it
+
+Generate ONE unique subtitle (max 15 words):"""
 
     return prompt
 
