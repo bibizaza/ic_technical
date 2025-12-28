@@ -246,6 +246,163 @@ History: Below 50d MA for 5 weeks
 ❌ "S&P 500 remains bullish" (starts with asset name)
 """
 
+# Padding content to reach 4,096 token minimum for Haiku 4.5 caching
+EXAMPLES_PADDING = """
+
+## Extended Analysis Framework
+
+### Bullish Environment (DMAS ≥70)
+When DMAS exceeds 70 with aligned technical and momentum scores, the setup strongly favors continuation.
+Strong bullish setups typically show technical scores above 65 combined with momentum readings above 80.
+Price action in these conditions tends to extend well above key moving averages.
+The rally has room to run when both indicators confirm and reinforce the bullish bias.
+New highs become probable when momentum sustains above 85 with technical confirmation.
+Pullbacks in bullish environments often find support at the 50-day moving average.
+
+### Constructive Territory (DMAS 55-69)
+DMAS readings between 55-69 indicate favorable but measured market conditions.
+Technical leadership over momentum in this range suggests solid underlying structural strength.
+Momentum leadership within constructive territory may indicate near-term acceleration potential.
+Watch for confirmation moves above key moving average levels to upgrade outlook.
+The constructive zone often precedes either bullish breakouts or neutral consolidation.
+Position sizing should reflect the moderate conviction level of constructive readings.
+
+### Neutral Zone Analysis (DMAS 45-54)
+DMAS readings of 45-54 require patience as directional clarity develops.
+Divergences between technical and momentum scores often precede significant breakouts.
+Range-bound price action in neutral territory suggests accumulation or distribution phases.
+Wait for a clear catalyst before committing to a strong directional view.
+The neutral zone is transitional - expect resolution toward bullish or cautious territory.
+Technical and momentum convergence from neutral often signals the next trend direction.
+
+### Cautious Stance (DMAS 30-44)
+DMAS readings of 30-44 warrant a defensive positioning approach.
+Below-average scores in this range suggest limited near-term upside potential.
+Key support levels become critically important in cautious market conditions.
+Recovery from cautious territory requires improvement in both technical and momentum.
+Failed rallies are common when DMAS remains stuck in the cautious zone.
+Risk management takes priority over return seeking in cautious environments.
+
+### Bearish Conditions (DMAS <30)
+DMAS readings below 30 indicate persistent and significant weakness.
+Both technical and momentum scores typically confirm the negative bias at these levels.
+Price action in bearish conditions usually remains below all key moving averages.
+Meaningful reversal requires a significant catalyst combined with score improvement.
+Counter-trend rallies in bearish territory are often short-lived and should be faded.
+The bearish zone demands defensive positioning until clear improvement emerges.
+
+### Moving Average Framework
+The 50-day MA serves as the primary short-term trend indicator and first support/resistance.
+The 100-day MA represents the intermediate trend benchmark for medium-term positioning.
+The 200-day MA defines the long-term trend and major support/resistance zones.
+Crosses between moving averages signal potential trend changes requiring attention.
+Price relationship to the MA structure defines the support and resistance framework.
+Golden crosses (50 above 200) and death crosses (50 below 200) mark major regime changes.
+
+### Divergence Analysis
+Technical-momentum divergence often precedes significant price moves.
+When momentum leads technical by 20+ points, expect technical scores to catch up.
+When technical leads momentum by 20+ points, watch for momentum confirmation or failure.
+Persistent divergence without resolution suggests range-bound conditions.
+Divergence resolution direction often determines the next trending move.
+
+### Forward-Looking Considerations
+Always frame analysis in terms of expected next-week price action.
+Consider both the current score levels and the direction of change.
+Weight recent momentum shifts more heavily than static score readings.
+Account for proximity to key moving averages when assessing breakout potential.
+Factor historical context when available to identify persistent patterns.
+
+### Score Interpretation Guidelines
+DMAS represents the average of technical and momentum scores, providing a balanced view.
+Technical scores reflect price structure, trend strength, and moving average relationships.
+Momentum scores capture rate of change, relative strength, and buying/selling pressure.
+The combination of both scores offers more reliable signals than either alone.
+Score changes of 5+ points week-over-week deserve attention in the subtitle.
+Score changes of 10+ points represent significant shifts requiring headline treatment.
+
+### Subtitle Writing Best Practices
+Lead with the most important insight, not background context.
+Use active voice and forward-looking language whenever possible.
+Avoid technical jargon that requires explanation in a single line.
+Match the energy of the subtitle to the conviction level of the scores.
+Bullish subtitles should sound confident; bearish subtitles should sound cautious.
+Neutral subtitles should emphasize uncertainty and the need for patience.
+
+### Common Pitfalls to Avoid
+Never describe momentum as a price level or support/resistance zone.
+Never use past tense when the goal is forward-looking analysis.
+Never simply restate the numerical scores without adding insight.
+Never start the subtitle with the asset name or ticker symbol.
+Never use hedging language that undermines the assessment rating.
+Never focus on minor details when the overall picture is clear.
+
+### Historical Context Integration
+When an asset has been at the same rating for 4+ weeks, note the persistence.
+When DMAS has changed significantly over the past month, highlight the trend.
+When price has been stuck below/above an MA for weeks, that becomes the story.
+Use historical context to add depth, not to replace the forward-looking view.
+Balance historical perspective with actionable near-term expectations.
+
+### Rating-Specific Language Patterns
+Bullish: "expect", "should continue", "further upside", "strength persists"
+Constructive: "positive bias", "favorable", "potential for gains", "improving"
+Neutral: "mixed", "unclear", "patience required", "await confirmation"
+Cautious: "downside risk", "vulnerable", "limited upside", "defensive"
+Bearish: "weakness", "further decline", "no floor", "capitulation risk"
+
+### Market Structure Analysis
+Strong uptrends are characterized by higher highs and higher lows with expanding volume.
+Downtrends show lower highs and lower lows with capitulation spikes marking potential bottoms.
+Range-bound markets oscillate between well-defined support and resistance zones.
+Breakouts from consolidation patterns often lead to sustained directional moves.
+Failed breakouts can signal exhaustion and potential trend reversals.
+Volume confirmation adds conviction to price-based technical signals.
+
+### Momentum Dynamics
+Rising momentum with stable technicals suggests potential for acceleration higher.
+Falling momentum with stable technicals may indicate weakening buying interest.
+Momentum divergences from price action often precede significant trend changes.
+Extreme momentum readings above 90 or below 10 suggest potential mean reversion.
+Momentum crossovers between short and long lookback periods signal regime changes.
+Sustained momentum above 70 supports bullish continuation expectations.
+
+### Technical Score Components
+Price position relative to key moving averages drives technical score calculations.
+Trend direction and strength contribute to the overall technical assessment.
+Recent price action and pattern formations influence short-term technical readings.
+Volume patterns and breadth indicators may affect technical score stability.
+Higher highs and higher lows support elevated technical scores.
+Distribution patterns and lower highs pressure technical readings lower.
+
+### Cross-Asset Considerations
+Equity indices often lead cyclical commodities in risk-on/risk-off transitions.
+Currency movements can influence commodity prices and equity valuations.
+Interest rate expectations affect both equity multiples and bond performance.
+Correlation regimes shift during stress periods, affecting diversification benefits.
+Global macro themes can override individual asset technical setups temporarily.
+Relative strength across asset classes provides context for absolute readings.
+
+### Timing and Catalysts
+Economic data releases can trigger short-term volatility and trend changes.
+Central bank communications often mark inflection points in market direction.
+Earnings seasons bring increased volatility to equity markets.
+Geopolitical events can cause sudden shifts in risk appetite across all assets.
+Seasonal patterns may influence near-term expectations for specific assets.
+Technical levels often coincide with fundamental catalysts for maximum impact.
+
+### Risk Management Framework
+Position sizing should reflect conviction level indicated by DMAS readings.
+Stop-loss placement near key technical levels protects against adverse moves.
+Profit targets based on technical resistance levels optimize risk-reward ratios.
+Correlation awareness prevents unintended concentration in similar positions.
+Volatility-adjusted sizing ensures consistent risk exposure across assets.
+Drawdown limits preserve capital for future opportunities.
+"""
+
+# Combine examples with padding for caching (need 4096+ tokens for Haiku 4.5)
+EXAMPLES = EXAMPLES + EXAMPLES_PADDING
+
 
 def build_prompt(
     asset_data: dict,
