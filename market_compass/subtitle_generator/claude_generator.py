@@ -1,10 +1,6 @@
 """
 Claude API integration for Market Compass subtitle generation.
-
-Uses Claude Haiku to generate unique, contextual subtitles
-based on extracted market facts.
-
-v3.1: Added batch deduplication, Haiku model, prompt caching
+v4: Prompt-focused approach - let Claude identify the story.
 """
 
 import os
@@ -17,154 +13,236 @@ except ImportError:
     ANTHROPIC_AVAILABLE = False
     anthropic = None
 
-from .fact_extractor import extract_facts, format_facts_for_prompt, MarketFacts
-from .style_examples import get_examples_for_rating
-
 # =============================================================================
 # API KEY CONFIGURATION
 # =============================================================================
-# Set your Anthropic API key here for use without environment variables.
-# Get your API key from: https://console.anthropic.com/
-# Cost: ~$0.001 per full Market Compass report (21 assets) with Haiku + caching
-ANTHROPIC_API_KEY = None  # Replace None with your API key: "sk-ant-..."
+ANTHROPIC_API_KEY = None  # Or set via environment variable
 
-# Default model - Haiku is 10x cheaper and sufficient for this task
+# Default model
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
 def get_client(api_key: str = None):
-    """
-    Get Anthropic client.
-
-    Parameters
-    ----------
-    api_key : str, optional
-        API key to use. If not provided, uses:
-        1. The hardcoded ANTHROPIC_API_KEY constant above
-        2. The ANTHROPIC_API_KEY environment variable
-
-    Returns
-    -------
-    anthropic.Anthropic
-        Configured Anthropic client
-    """
+    """Get Anthropic client."""
     if not ANTHROPIC_AVAILABLE:
         raise ImportError(
             "anthropic package not installed. "
             "Install with: pip install anthropic"
         )
 
-    # Priority: parameter > hardcoded constant > environment variable
     key = api_key or ANTHROPIC_API_KEY or os.environ.get("ANTHROPIC_API_KEY")
-
     if not key:
-        raise ValueError(
-            "No Anthropic API key found. Either:\n"
-            "1. Set ANTHROPIC_API_KEY in claude_generator.py, or\n"
-            "2. Set ANTHROPIC_API_KEY environment variable"
-        )
+        raise ValueError("No Anthropic API key found.")
     return anthropic.Anthropic(api_key=key)
 
 
-SYSTEM_PROMPT = """You are a financial writer for Herculis Partners' Market Compass weekly report.
-Your task is to write concise, professional subtitles for technical analysis charts.
+SYSTEM_PROMPT = """You are the technical analyst for Herculis Partners' Market Compass weekly report. Your task is to write ONE subtitle (max 15 words) that captures the key story for each asset.
 
-CRITICAL RULES:
-1. ONE sentence only, maximum 15 words
-2. Use rating-appropriate language:
-   - Bullish: "bullish", "strong", "excellent", "positive" (DMAS ≥70)
-   - Constructive: "constructive", "favorable", "encouraging" (DMAS 55-69) - NEVER use "bullish"
-   - Neutral: "mixed", "balanced", "uncertain", "consolidating" (DMAS 45-54)
-   - Cautious: "cautious", "weak", "concerning", "challenging" (DMAS 30-44)
-   - Bearish: "bearish", "negative", "poor", "weak" (DMAS <30)
-3. ALWAYS mention the most relevant MA level (50d, 100d, or 200d) in relation to price
-4. Reference specific facts provided (MA levels, divergences, etc.)
-5. Match the professional, measured tone of the examples
+## RATING SCALE
+- Bullish: DMAS ≥ 70
+- Constructive: DMAS 55-69
+- Neutral: DMAS 45-54
+- Cautious: DMAS 30-44
+- Bearish: DMAS < 30
+
+## YOUR JOB
+Identify the PRIMARY STORY from the data. What's the one thing that matters most this week?
+
+Possible stories (pick ONE):
+1. **Confirmation** - Tech and momentum aligned, trend intact
+2. **Divergence** - Tech and momentum disagree (mention which leads)
+3. **Change** - DMAS moved significantly WoW (upgrade/downgrade)
+4. **MA Event** - Price crossing, testing, rebounding, or rejected at MA
+5. **Correction** - Pullback within a trend
+6. **Consolidation** - Range-bound, waiting for direction
+7. **Breakdown** - Support lost, picture deteriorating
+8. **Recovery** - Improving from weak levels
+
+## CRITICAL RULES
+1. ONE sentence, maximum 15 words
+2. MA should ONLY be mentioned if there's ACTION (cross, test, rebound, rejection) - roughly 20-30% of subtitles
+3. Use rating-appropriate language:
+   - Bullish: "bullish", "strong", "positive"
+   - Constructive: "constructive", "favorable" (NEVER "bullish")
+   - Cautious: "cautious", "weak"
+   - Bearish: "bearish", "negative"
+4. Focus on what the data suggests for NEXT WEEK
+5. NEVER start with the asset name
 6. Output ONLY the subtitle, nothing else"""
 
 
-def build_prompt(market_facts: MarketFacts) -> str:
-    """Build the user prompt for Claude."""
+EXAMPLES = """
+## REAL EXAMPLES FROM MARKET COMPASS
 
-    facts_text = format_facts_for_prompt(market_facts)
-    examples = get_examples_for_rating(market_facts.rating.value)
+### Bullish (DMAS ≥ 70, both scores high)
+Data: DMAS=85, Tech=70, Mom=100, above all MAs
+→ "The picture remains bullish with strong momentum"
 
-    examples_text = "\n".join(f"  - {ex}" for ex in examples)
+Data: DMAS=78, Tech=65, Mom=91, at ATH
+→ "New all-time highs are supported by strong technical and momentum"
 
-    prompt = f"""Generate a subtitle for this asset's technical analysis chart.
+Data: DMAS=82, Tech=72, Mom=92, above all MAs, continuing trend
+→ "No cloud on the technical horizon"
 
-{facts_text}
+Data: DMAS=75, Tech=62, Mom=88, DMAS stable WoW
+→ "All the technical elements are in place for further gains"
 
-Style examples for {market_facts.rating.value} rating:
-{examples_text}
+### Bullish with Caution (High mom, moderate tech)
+Data: DMAS=72, Tech=52, Mom=92, near resistance
+→ "While momentum is strong, the technical score calls for some caution"
 
-Remember: ONE sentence, maximum 15 words, MUST mention MA position.
-Output only the subtitle:"""
+Data: DMAS=68, Tech=48, Mom=88, approaching 50d MA
+→ "High momentum but technical weakness warrants attention near the 50d MA"
 
-    return prompt
+### Constructive (DMAS 55-69)
+Data: DMAS=62, Tech=58, Mom=66, above 50d MA
+→ "The picture remains constructive with balanced indicators"
+
+Data: DMAS=58, Tech=65, Mom=51, correction from higher levels
+→ "Despite the correction, the setup remains constructive"
+
+Data: DMAS=60, Tech=55, Mom=65, improving from last week
+→ "The technical picture is gradually improving"
+
+### Neutral - Divergence (High tech, low mom)
+Data: DMAS=52, Tech=68, Mom=36, above 50d MA
+→ "Strong technical score is offset by weak momentum"
+
+Data: DMAS=48, Tech=62, Mom=34, consolidating
+→ "High technical reading but poor momentum keeps the picture neutral"
+
+### Neutral - Divergence (Low tech, high mom)
+Data: DMAS=54, Tech=38, Mom=70, below 50d MA
+→ "Strong momentum fails to lift the weak technical picture"
+
+Data: DMAS=50, Tech=42, Mom=58, approaching 50d MA from below
+→ "Momentum may drive a test of the 50d MA resistance"
+
+### Neutral - Consolidation
+Data: DMAS=52, Tech=54, Mom=50, stable WoW, range-bound
+→ "Ongoing consolidation with no clear directional signal"
+
+Data: DMAS=48, Tech=50, Mom=46, at 100d MA
+→ "Trading at a crossroads, waiting for a catalyst"
+
+### Cautious (DMAS 30-44)
+Data: DMAS=38, Tech=42, Mom=34, below 50d MA
+→ "Weak momentum and technicals warrant a cautious stance"
+
+Data: DMAS=42, Tech=48, Mom=36, failed to reclaim 50d MA
+→ "The 50d MA remains a stubborn resistance"
+
+Data: DMAS=35, Tech=38, Mom=32, deteriorating
+→ "The technical picture continues to weaken"
+
+### Bearish (DMAS < 30)
+Data: DMAS=22, Tech=28, Mom=16, below all MAs
+→ "Deeply engulfed in bearish territory with no catalyst in sight"
+
+Data: DMAS=18, Tech=24, Mom=12, deteriorating further
+→ "The bearish setup shows no signs of improvement"
+
+Data: DMAS=25, Tech=32, Mom=18, small bounce
+→ "A small bounce but still far from a trend reversal"
+
+### MA Events (only when there's action)
+Data: DMAS=58, Tech=52, Mom=64, just crossed above 50d MA
+→ "The break above the 50d MA reinforces the constructive outlook"
+
+Data: DMAS=45, Tech=48, Mom=42, rebounded on 100d MA
+→ "Successful rebound on the 100d MA, but needs follow-through"
+
+Data: DMAS=35, Tech=40, Mom=30, just broke below 200d MA
+→ "The break below the 200d MA is a significant technical blow"
+
+Data: DMAS=62, Tech=58, Mom=66, testing 50d MA from above
+→ "Testing the 50d MA support, a key level to hold"
+
+### Change Events (WoW movement)
+Data: DMAS=65 (was 48), Tech=60, Mom=70, surged
+→ "A surge in momentum lifts the outlook to constructive territory"
+
+Data: DMAS=42 (was 58), Tech=45, Mom=39, dropped sharply
+→ "A sharp deterioration in both technical and momentum"
+
+Data: DMAS=70 (was 65), Tech=68, Mom=72, upgraded
+→ "Continued improvement pushes the picture firmly into bullish territory"
+"""
 
 
-def build_prompt_with_context(market_facts: MarketFacts, previous_subtitles: List[str]) -> str:
-    """Build prompt including previously generated subtitles to avoid."""
+def build_prompt(asset_data: dict, previous_subtitles: List[str]) -> str:
+    """Build the user prompt with raw data."""
 
-    facts_text = format_facts_for_prompt(market_facts)
-    examples = get_examples_for_rating(market_facts.rating.value)
-    examples_text = "\n".join(f"  - {ex}" for ex in examples)
+    asset = asset_data["asset_name"]
+    dmas = asset_data["dmas"]
+    tech = asset_data["technical_score"]
+    mom = asset_data["momentum_score"]
 
-    # Add deduplication context if we have previous subtitles
-    dedup_text = ""
+    dmas_prev = asset_data.get("dmas_prev_week")
+    price_vs_50 = asset_data.get("price_vs_50ma_pct", 0)
+    price_vs_100 = asset_data.get("price_vs_100ma_pct", 0)
+    price_vs_200 = asset_data.get("price_vs_200ma_pct", 0)
+    price_vs_50_prev = asset_data.get("price_vs_50ma_pct_prev")
+
+    # Build data block
+    lines = [
+        f"## Generate subtitle for: {asset}",
+        "",
+        f"DMAS: {dmas}",
+        f"Technical Score: {tech}",
+        f"Momentum Score: {mom}",
+    ]
+
+    # Add WoW change if available
+    if dmas_prev is not None:
+        change = dmas - dmas_prev
+        direction = "↑" if change > 0 else "↓" if change < 0 else "→"
+        lines.append(f"DMAS Change: {change:+d} ({direction} from {dmas_prev} last week)")
+
+    # Add MA positions
+    lines.append("")
+    lines.append("MA Positions:")
+
+    # 50d MA with action detection
+    ma_50_action = ""
+    if price_vs_50_prev is not None:
+        if price_vs_50_prev < -1 and price_vs_50 > 1:
+            ma_50_action = " [JUST CROSSED ABOVE]"
+        elif price_vs_50_prev > 1 and price_vs_50 < -1:
+            ma_50_action = " [JUST CROSSED BELOW]"
+        elif abs(price_vs_50_prev) > 3 and abs(price_vs_50) <= 2:
+            ma_50_action = " [TESTING]"
+        elif abs(price_vs_50_prev) <= 2 and price_vs_50 > 3:
+            ma_50_action = " [BOUNCED OFF]"
+        elif abs(price_vs_50_prev) <= 2 and price_vs_50 < -3:
+            ma_50_action = " [REJECTED]"
+
+    lines.append(f"  vs 50d MA: {price_vs_50:+.1f}%{ma_50_action}")
+    lines.append(f"  vs 100d MA: {price_vs_100:+.1f}%")
+    lines.append(f"  vs 200d MA: {price_vs_200:+.1f}%")
+
+    # Add special conditions
+    if asset_data.get("at_ath") or asset_data.get("at_52w_high"):
+        lines.append("  [AT 52-WEEK HIGH]")
+    if asset_data.get("near_52w_low") or asset_data.get("at_52w_low"):
+        lines.append("  [AT 52-WEEK LOW]")
+
+    # Add deduplication context
     if previous_subtitles:
-        recent = previous_subtitles[-5:]  # Last 5 to keep prompt short
-        dedup_text = "\n\nALREADY USED IN THIS REPORT (generate something DIFFERENT):\n"
-        dedup_text += "\n".join(f"  - {s}" for s in recent)
+        lines.append("")
+        lines.append("ALREADY USED (generate something DIFFERENT):")
+        for s in previous_subtitles[-5:]:
+            lines.append(f"  - {s}")
 
-    prompt = f"""Generate a subtitle for this asset's technical analysis chart.
+    lines.append("")
+    lines.append("Output only the subtitle:")
 
-{facts_text}
-
-Style examples for {market_facts.rating.value} rating:
-{examples_text}
-{dedup_text}
-
-Remember: ONE sentence, maximum 15 words, MUST mention MA position, MUST be unique.
-Output only the subtitle:"""
-
-    return prompt
-
-
-def generate_subtitle_with_context(
-    asset_data: dict,
-    previous_subtitles: List[str],
-    client,
-    model: str = DEFAULT_MODEL
-) -> dict:
-    """Generate subtitle with awareness of previously generated ones."""
-
-    market_facts = extract_facts(asset_data)
-    prompt = build_prompt_with_context(market_facts, previous_subtitles)
-
-    message = client.messages.create(
-        model=model,
-        max_tokens=50,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    subtitle = message.content[0].text.strip().strip('"\'')
-    if subtitle and subtitle[-1] not in '.!?':
-        subtitle += '.'
-
-    return {
-        "subtitle": subtitle,
-        "rating": market_facts.rating.value,
-        "facts": market_facts.facts,
-        "primary_condition": market_facts.primary_condition,
-        "tokens_used": message.usage.input_tokens + message.usage.output_tokens,
-    }
+    return "\n".join(lines)
 
 
 def generate_subtitle(
     asset_data: dict,
+    previous_subtitles: List[str] = None,
     client=None,
     model: str = DEFAULT_MODEL,
     api_key: str = None
@@ -175,56 +253,64 @@ def generate_subtitle(
     Parameters
     ----------
     asset_data : dict
-        Asset data dictionary (see fact_extractor.extract_facts)
-    client : anthropic.Anthropic, optional
-        Anthropic client (creates new one if not provided)
-    model : str
-        Model to use (default: claude-haiku-4-20250514)
-    api_key : str, optional
-        API key (uses hardcoded or env var if not provided)
+        Asset data with keys:
+        - asset_name (str)
+        - dmas (int): 0-100
+        - technical_score (int): 0-100
+        - momentum_score (int): 0-100
+        - dmas_prev_week (int): Previous DMAS (optional)
+        - price_vs_50ma_pct (float): % vs 50d MA
+        - price_vs_100ma_pct (float): % vs 100d MA
+        - price_vs_200ma_pct (float): % vs 200d MA
+        - price_vs_50ma_pct_prev (float): Previous week (optional)
+
+    previous_subtitles : list[str], optional
+        Already generated subtitles in this batch (for deduplication)
 
     Returns
     -------
     dict
-        Result with keys:
-        - subtitle (str): Generated subtitle
-        - rating (str): Asset rating
-        - facts (list): Extracted facts
-        - tokens_used (int): Total tokens used
+        Result with subtitle, rating, tokens_used
     """
     if client is None:
         client = get_client(api_key)
 
-    # Extract facts
-    market_facts = extract_facts(asset_data)
+    if previous_subtitles is None:
+        previous_subtitles = []
 
-    # Build prompt
-    prompt = build_prompt(market_facts)
+    # Build user prompt with raw data
+    prompt = build_prompt(asset_data, previous_subtitles)
 
     # Call Claude API
     message = client.messages.create(
         model=model,
-        max_tokens=50,  # Subtitle is short
+        max_tokens=50,
         system=SYSTEM_PROMPT,
         messages=[
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": EXAMPLES + "\n\n" + prompt}
         ]
     )
 
-    subtitle = message.content[0].text.strip()
-
-    # Clean up any quotes or extra punctuation
-    subtitle = subtitle.strip('"\'')
-
-    # Ensure ends with period if not already punctuated
+    subtitle = message.content[0].text.strip().strip('"\'')
     if subtitle and subtitle[-1] not in '.!?':
         subtitle += '.'
 
+    # Determine rating
+    dmas = asset_data["dmas"]
+    if dmas >= 70:
+        rating = "Bullish"
+    elif dmas >= 55:
+        rating = "Constructive"
+    elif dmas >= 45:
+        rating = "Neutral"
+    elif dmas >= 30:
+        rating = "Cautious"
+    else:
+        rating = "Bearish"
+
     return {
         "subtitle": subtitle,
-        "rating": market_facts.rating.value,
-        "facts": market_facts.facts,
-        "primary_condition": market_facts.primary_condition,
+        "rating": rating,
         "tokens_used": message.usage.input_tokens + message.usage.output_tokens,
     }
 
@@ -235,44 +321,26 @@ def generate_batch(
     model: str = DEFAULT_MODEL,
     api_key: str = None
 ) -> List[dict]:
-    """
-    Generate subtitles for multiple assets with deduplication.
+    """Generate subtitles for multiple assets with deduplication."""
 
-    Parameters
-    ----------
-    assets_data : list[dict]
-        List of asset data dictionaries
-    client : anthropic.Anthropic, optional
-        Anthropic client (reused for all calls)
-    model : str
-        Model to use (default: claude-haiku-4-20250514)
-    api_key : str, optional
-        API key (uses hardcoded or env var if not provided)
-
-    Returns
-    -------
-    list[dict]
-        List of results with subtitle, rating, facts for each asset
-    """
     if client is None:
         client = get_client(api_key)
 
     results = []
-    generated_subtitles = []  # Track what's been generated for deduplication
+    generated_subtitles = []
     total_tokens = 0
 
     for asset_data in assets_data:
         try:
-            # Pass previously generated subtitles to avoid repetition
-            result = generate_subtitle_with_context(
+            result = generate_subtitle(
                 asset_data,
-                generated_subtitles,
-                client,
-                model
+                previous_subtitles=generated_subtitles,
+                client=client,
+                model=model
             )
             result["asset_name"] = asset_data["asset_name"]
             results.append(result)
-            generated_subtitles.append(result["subtitle"])  # Track it
+            generated_subtitles.append(result["subtitle"])
             total_tokens += result["tokens_used"]
         except Exception as e:
             print(f"Error generating subtitle for {asset_data.get('asset_name', 'Unknown')}: {e}")
@@ -280,44 +348,28 @@ def generate_batch(
                 "asset_name": asset_data.get("asset_name", "Unknown"),
                 "subtitle": "Technical analysis under review.",
                 "rating": "Neutral",
-                "facts": [],
                 "error": str(e),
                 "tokens_used": 0,
             })
 
-    # Log total usage (Haiku pricing: $0.25/M input, $1.25/M output)
     print(f"Total tokens used: {total_tokens}")
-    print(f"Estimated cost: ${total_tokens * 0.00000025 + total_tokens * 0.00000125:.4f}")
+    # Haiku pricing: $0.80/M input, $4/M output
+    estimated_cost = (total_tokens * 0.0000008) + (total_tokens * 0.000004)
+    print(f"Estimated cost: ${estimated_cost:.4f}")
 
     return results
 
 
 def is_claude_available() -> bool:
-    """
-    Check if Claude API is available and configured.
-
-    Returns
-    -------
-    bool
-        True if anthropic package is installed and API key is set
-    """
+    """Check if Claude API is available and configured."""
     if not ANTHROPIC_AVAILABLE:
         return False
-
-    # Check for API key (hardcoded or environment)
     key = ANTHROPIC_API_KEY or os.environ.get("ANTHROPIC_API_KEY")
     return key is not None
 
 
 def set_api_key(api_key: str):
-    """
-    Set the API key at runtime.
-
-    Parameters
-    ----------
-    api_key : str
-        Your Anthropic API key (starts with "sk-ant-...")
-    """
+    """Set the API key at runtime."""
     global ANTHROPIC_API_KEY
     ANTHROPIC_API_KEY = api_key
 
@@ -334,11 +386,7 @@ def quick_generate(
     api_key: str = None,
     **kwargs
 ) -> str:
-    """
-    Quick subtitle generation with minimal parameters.
-
-    Returns just the subtitle string.
-    """
+    """Quick subtitle generation with minimal parameters."""
     asset_data = {
         "asset_name": asset_name,
         "dmas": dmas,
