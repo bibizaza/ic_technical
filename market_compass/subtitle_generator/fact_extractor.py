@@ -94,84 +94,209 @@ def _get_divergence_fact(momentum: int, technical: int) -> Optional[str]:
         return None  # No significant divergence
 
 
-def _get_ma_position_facts(
+def _classify_ma_distance(pct: float) -> str:
+    """Classify distance from MA into buckets."""
+    if pct > 5:
+        return "FAR_ABOVE"
+    elif pct > 2:
+        return "ABOVE"
+    elif pct > 0.5:
+        return "TESTING_FROM_ABOVE"
+    elif pct >= -0.5:
+        return "AT"
+    elif pct >= -2:
+        return "TESTING_FROM_BELOW"
+    elif pct >= -5:
+        return "BELOW"
+    else:
+        return "FAR_BELOW"
+
+
+def _classify_ma_direction(current: float, previous: float) -> str:
+    """Classify movement direction relative to MA."""
+    delta = current - previous
+
+    # Crosses
+    if previous < -0.5 and current > 0.5:
+        return "BREAKING_ABOVE"
+    if previous > 0.5 and current < -0.5:
+        return "BREAKING_BELOW"
+
+    # Bounces and rejections (was near, now moved)
+    if abs(previous) <= 2 and current > 2 and delta > 1:
+        return "BOUNCING_UP"
+    if abs(previous) <= 2 and current < -2 and delta < -1:
+        return "REJECTED_DOWN"
+
+    # Approaches
+    if current < 0 and delta > 1:
+        return "APPROACHING_UP"
+    if current > 0 and delta < -1:
+        return "APPROACHING_DOWN"
+
+    # Extensions
+    if current > 2 and delta > 1:
+        return "EXTENDING_UP"
+    if current < -2 and delta < -1:
+        return "DRIFTING_DOWN"
+
+    return "STABLE"
+
+
+def _get_ma_fact(
+    ma_period: int,
+    current_pct: float,
+    previous_pct: float
+) -> Optional[str]:
+    """
+    Generate specific MA fact based on position and direction.
+
+    Returns a single, specific fact about this MA.
+    """
+    distance = _classify_ma_distance(current_pct)
+    direction = _classify_ma_direction(current_pct, previous_pct)
+
+    ma = f"{ma_period}d MA"
+
+    # CROSSES - Highest priority, most newsworthy
+    if direction == "BREAKING_ABOVE":
+        return f"Just broke above the {ma}"
+    if direction == "BREAKING_BELOW":
+        return f"Just broke below the {ma}"
+
+    # BOUNCES AND REJECTIONS
+    if direction == "BOUNCING_UP":
+        return f"Successfully bounced off the {ma}"
+    if direction == "REJECTED_DOWN":
+        return f"Rejected at the {ma}, now falling away"
+
+    # TESTING scenarios (within 2%)
+    if distance == "AT":
+        return f"Trading right at the {ma}"
+    if distance == "TESTING_FROM_ABOVE":
+        if direction == "APPROACHING_DOWN":
+            return f"Pulling back to test the {ma} from above"
+        return f"Hovering just above the {ma}"
+    if distance == "TESTING_FROM_BELOW":
+        if direction == "APPROACHING_UP":
+            return f"Approaching the {ma} resistance from below"
+        return f"Struggling just below the {ma}"
+
+    # EXTENDED scenarios
+    if distance == "FAR_ABOVE":
+        if direction == "EXTENDING_UP":
+            return f"Extending gains well above the {ma} (+{current_pct:.1f}%)"
+        return f"Well above the {ma} (+{current_pct:.1f}%)"
+
+    if distance == "FAR_BELOW":
+        if direction == "DRIFTING_DOWN":
+            return f"Drifting further below the {ma} ({current_pct:.1f}%)"
+        return f"Well below the {ma} ({current_pct:.1f}%)"
+
+    # MODERATE distance
+    if distance == "ABOVE":
+        if direction == "APPROACHING_DOWN":
+            return f"Retreating toward the {ma} support"
+        if direction == "EXTENDING_UP":
+            return f"Building distance above the {ma}"
+        return f"Above the {ma} (+{current_pct:.1f}%)"
+
+    if distance == "BELOW":
+        if direction == "APPROACHING_UP":
+            return f"Recovering toward the {ma}"
+        if direction == "DRIFTING_DOWN":
+            return f"Slipping further below the {ma}"
+        return f"Below the {ma} ({current_pct:.1f}%)"
+
+    return None
+
+
+def _get_enhanced_ma_facts(
+    price_vs_50ma: float,
+    price_vs_100ma: float,
+    price_vs_200ma: float,
+    price_vs_50ma_prev: float,
+    price_vs_100ma_prev: float,
+    price_vs_200ma_prev: float
+) -> List[str]:
+    """
+    Extract enhanced MA facts with specific terminology.
+
+    Only includes the MOST RELEVANT MAs to avoid clutter.
+    """
+    facts = []
+
+    # Always include 50d MA fact (most important short-term)
+    fact_50 = _get_ma_fact(50, price_vs_50ma, price_vs_50ma_prev)
+    if fact_50:
+        facts.append(fact_50)
+
+    # Include 100d MA only if:
+    # - Price is between 50d and 100d (sandwich)
+    # - OR there's significant action at 100d (testing/crossing)
+    dist_100 = _classify_ma_distance(price_vs_100ma)
+    dir_100 = _classify_ma_direction(price_vs_100ma, price_vs_100ma_prev)
+
+    between_50_100 = price_vs_50ma < -0.5 and price_vs_100ma > 0.5
+    action_at_100 = dist_100 in ["AT", "TESTING_FROM_ABOVE", "TESTING_FROM_BELOW"] or \
+                    dir_100 in ["BREAKING_ABOVE", "BREAKING_BELOW", "BOUNCING_UP", "REJECTED_DOWN"]
+
+    if between_50_100:
+        facts.append("Caught between 50d MA resistance and 100d MA support")
+    elif action_at_100:
+        fact_100 = _get_ma_fact(100, price_vs_100ma, price_vs_100ma_prev)
+        if fact_100:
+            facts.append(fact_100)
+
+    # Include 200d MA only if:
+    # - Price is near it (testing)
+    # - OR price is below it (critical support lost)
+    # - OR there's crossing action
+    dist_200 = _classify_ma_distance(price_vs_200ma)
+    dir_200 = _classify_ma_direction(price_vs_200ma, price_vs_200ma_prev)
+
+    critical_200 = dist_200 in ["AT", "TESTING_FROM_ABOVE", "TESTING_FROM_BELOW", "BELOW", "FAR_BELOW"] or \
+                   dir_200 in ["BREAKING_ABOVE", "BREAKING_BELOW"]
+
+    if critical_200:
+        fact_200 = _get_ma_fact(200, price_vs_200ma, price_vs_200ma_prev)
+        if fact_200:
+            facts.append(fact_200)
+
+    # Add overall MA alignment summary if relevant
+    all_above = price_vs_50ma > 2 and price_vs_100ma > 2 and price_vs_200ma > 2
+    all_below = price_vs_50ma < -2 and price_vs_100ma < -2 and price_vs_200ma < -2
+
+    if all_above and not any("well above" in f.lower() for f in facts):
+        facts.append("Positioned above all major moving averages")
+    elif all_below and not any("well below" in f.lower() for f in facts):
+        facts.append("Trading below all major moving averages")
+
+    return facts
+
+
+def _get_ma_structure_fact(
     price_vs_50ma: float,
     price_vs_100ma: float,
     price_vs_200ma: float
-) -> List[str]:
-    """Extract MA position facts."""
-    facts = []
+) -> Optional[str]:
+    """Describe the overall MA structure."""
 
-    # 50d MA position
-    if price_vs_50ma > 5:
-        facts.append(f"Well above 50d MA (+{price_vs_50ma:.1f}%)")
-    elif price_vs_50ma > 2:
-        facts.append(f"Above 50d MA (+{price_vs_50ma:.1f}%)")
-    elif price_vs_50ma >= -2:
-        facts.append(f"At the 50d MA ({price_vs_50ma:+.1f}%)")
-    elif price_vs_50ma >= -5:
-        facts.append(f"Below 50d MA ({price_vs_50ma:.1f}%)")
-    else:
-        facts.append(f"Well below 50d MA ({price_vs_50ma:.1f}%)")
+    # Bullish alignment: price > 50 > 100 > 200
+    if price_vs_50ma > 2 and price_vs_100ma > price_vs_200ma > 0:
+        return "Bullish MA alignment supports the trend"
 
-    # 100d MA position (only if different story from 50d)
-    if price_vs_100ma > 2 and price_vs_50ma < -2:
-        facts.append("Between 50d and 100d MA")
-    elif price_vs_100ma >= -2 and price_vs_100ma <= 2:
-        facts.append(f"At the 100d MA ({price_vs_100ma:+.1f}%)")
-    elif price_vs_100ma < -2 and price_vs_50ma < -2:
-        facts.append(f"Below 100d MA ({price_vs_100ma:.1f}%)")
+    # Bearish alignment: price < 50 < 100 < 200
+    if price_vs_50ma < -2 and price_vs_100ma < price_vs_200ma < 0:
+        return "Bearish MA alignment confirms the downtrend"
 
-    # 200d MA position (only if critical)
-    if price_vs_200ma >= -2 and price_vs_200ma <= 2:
-        facts.append(f"Testing the 200d MA ({price_vs_200ma:+.1f}%)")
-    elif price_vs_200ma < -2:
-        facts.append(f"Below 200d MA ({price_vs_200ma:.1f}%)")
+    # Compression: all MAs close together
+    spread = max(price_vs_50ma, price_vs_100ma, price_vs_200ma) - \
+             min(price_vs_50ma, price_vs_100ma, price_vs_200ma)
+    if spread < 5:
+        return "Moving averages are compressed, suggesting potential breakout"
 
-    # All MAs alignment
-    if price_vs_50ma > 2 and price_vs_100ma > 2 and price_vs_200ma > 2:
-        facts.append("Above all major moving averages")
-    elif price_vs_50ma < -2 and price_vs_100ma < -2 and price_vs_200ma < -2:
-        facts.append("Below all major moving averages")
-
-    return facts
-
-
-def _get_ma_dynamics_facts(
-    price_vs_50ma: float,
-    price_vs_50ma_prev: float,
-    price_vs_100ma: float,
-    price_vs_100ma_prev: float
-) -> List[str]:
-    """Extract MA dynamics (movement relative to MAs)."""
-    facts = []
-
-    delta_50 = price_vs_50ma - price_vs_50ma_prev
-    delta_100 = price_vs_100ma - price_vs_100ma_prev
-
-    # 50d MA dynamics
-    if price_vs_50ma_prev < -2 and price_vs_50ma >= -2:
-        facts.append("Just crossed above 50d MA")
-    elif price_vs_50ma_prev >= -2 and price_vs_50ma < -2:
-        facts.append("Just crossed below 50d MA")
-    elif price_vs_50ma < 0 and delta_50 > 2:
-        facts.append("Approaching 50d MA from below")
-    elif price_vs_50ma > 0 and delta_50 < -2:
-        facts.append("Pulling back toward 50d MA")
-    elif price_vs_50ma < -2 and delta_50 < -2:
-        facts.append("Moving further below 50d MA")
-    elif price_vs_50ma > 2 and delta_50 > 2:
-        facts.append("Extending gains above 50d MA")
-
-    # 100d MA dynamics
-    if price_vs_100ma_prev < -2 and price_vs_100ma >= -2:
-        facts.append("Rebounding on 100d MA")
-    elif price_vs_100ma_prev >= -2 and price_vs_100ma < -2:
-        facts.append("Breaking below 100d MA")
-    elif price_vs_100ma >= -2 and price_vs_100ma <= 2 and abs(delta_100) < 1:
-        facts.append("Consolidating at 100d MA")
-
-    return facts
+    return None
 
 
 def _get_dmas_change_fact(dmas: int, dmas_prev: int) -> Optional[str]:
@@ -317,6 +442,7 @@ def extract_facts(asset_data: dict) -> MarketFacts:
     price_vs_200ma = asset_data.get("price_vs_200ma_pct", 0)
     price_vs_50ma_prev = asset_data.get("price_vs_50ma_pct_prev", price_vs_50ma)
     price_vs_100ma_prev = asset_data.get("price_vs_100ma_pct_prev", price_vs_100ma)
+    price_vs_200ma_prev = asset_data.get("price_vs_200ma_pct_prev", price_vs_200ma)
 
     at_52w_high = asset_data.get("at_52w_high", False) or asset_data.get("at_ath", False)
     at_52w_low = asset_data.get("at_52w_low", False) or asset_data.get("near_52w_low", False)
@@ -343,16 +469,17 @@ def extract_facts(asset_data: dict) -> MarketFacts:
     if div_fact:
         facts.append(div_fact)
 
-    # MA position
-    ma_pos_facts = _get_ma_position_facts(price_vs_50ma, price_vs_100ma, price_vs_200ma)
-    facts.extend(ma_pos_facts)
-
-    # MA dynamics
-    ma_dyn_facts = _get_ma_dynamics_facts(
-        price_vs_50ma, price_vs_50ma_prev,
-        price_vs_100ma, price_vs_100ma_prev
+    # ENHANCED MA FACTS (v3.2 - replaces old MA functions)
+    ma_facts = _get_enhanced_ma_facts(
+        price_vs_50ma, price_vs_100ma, price_vs_200ma,
+        price_vs_50ma_prev, price_vs_100ma_prev, price_vs_200ma_prev
     )
-    facts.extend(ma_dyn_facts)
+    facts.extend(ma_facts)
+
+    # MA structure (optional)
+    structure_fact = _get_ma_structure_fact(price_vs_50ma, price_vs_100ma, price_vs_200ma)
+    if structure_fact:
+        facts.append(structure_fact)
 
     # DMAS change
     dmas_chg_fact = _get_dmas_change_fact(dmas, dmas_prev)
