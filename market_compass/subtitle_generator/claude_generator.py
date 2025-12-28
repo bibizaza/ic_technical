@@ -412,6 +412,7 @@ def generate_subtitle(
     message = client.messages.create(
         model=model,
         max_tokens=50,
+        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
         system=[
             {
                 "type": "text",
