@@ -1,6 +1,6 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v4: Prompt-focused approach - let Claude identify the story.
+v4.2: Forward-looking prompt - "What should investors expect next week?"
 """
 
 import os
@@ -36,142 +36,179 @@ def get_client(api_key: str = None):
     return anthropic.Anthropic(api_key=key)
 
 
-SYSTEM_PROMPT = """You are the technical analyst for Herculis Partners' Market Compass weekly report. Your task is to write ONE subtitle (max 15 words) that captures the key story for each asset.
+SYSTEM_PROMPT = """You are the technical analyst for Herculis Partners' Market Compass weekly report.
+
+## YOUR TASK
+Write ONE subtitle (max 15 words) that answers: "What should investors expect for this asset next week?"
 
 ## RATING SCALE
-- Bullish: DMAS ≥ 70
-- Constructive: DMAS 55-69
-- Neutral: DMAS 45-54
-- Cautious: DMAS 30-44
-- Bearish: DMAS < 30
+- Bullish (DMAS ≥70): Expect continuation or new highs
+- Constructive (DMAS 55-69): Positive bias, but watch for confirmation
+- Neutral (DMAS 45-54): Could go either way, wait for catalyst
+- Cautious (DMAS 30-44): Downside risk, defensive stance
+- Bearish (DMAS <30): Expect continued weakness
 
-## YOUR JOB
-Identify the PRIMARY STORY from the data. What's the one thing that matters most this week?
+## FIRST: IDENTIFY THE STORY (do not output this)
 
-Possible stories (pick ONE):
-1. **Confirmation** - Tech and momentum aligned, trend intact
-2. **Divergence** - Tech and momentum disagree (mention which leads)
-3. **Change** - DMAS moved significantly WoW (upgrade/downgrade)
-4. **MA Event** - Price crossing, testing, rebounding, or rejected at MA
-5. **Correction** - Pullback within a trend
-6. **Consolidation** - Range-bound, waiting for direction
-7. **Breakdown** - Support lost, picture deteriorating
-8. **Recovery** - Improving from weak levels
+Before writing, mentally identify which ONE story fits best:
 
-## CRITICAL RULES
-1. ONE sentence, maximum 15 words
-2. MA should ONLY be mentioned if there's ACTION (cross, test, rebound, rejection) - roughly 20-30% of subtitles
-3. Use rating-appropriate language:
-   - Bullish: "bullish", "strong", "positive"
-   - Constructive: "constructive", "favorable" (NEVER "bullish")
-   - Cautious: "cautious", "weak"
-   - Bearish: "bearish", "negative"
-4. Focus on what the data suggests for NEXT WEEK
-5. NEVER start with the asset name
-6. Output ONLY the subtitle, nothing else"""
+1. **TREND CONTINUATION** - Strong aligned scores, expect more of the same
+2. **DIVERGENCE** - Tech vs Mom disagree, one will prevail
+3. **INFLECTION** - Near key level, could break either way
+4. **RECOVERY** - Improving from weakness
+5. **DETERIORATION** - Worsening from strength
+6. **CONSOLIDATION** - Range-bound, waiting for catalyst
+7. **BREAKOUT/BREAKDOWN** - Just crossed key level
+
+## THEN: WRITE FORWARD-LOOKING SUBTITLE
+
+Structure options:
+- "Expect [outcome] as [reason]"
+- "[Condition] suggests [expectation]"
+- "The setup points to [direction] if [condition]"
+- "Watch for [event] which would [implication]"
+
+## RULES
+1. ONE sentence, max 15 words
+2. FORWARD-LOOKING - what's next, not just what is
+3. MA mentioned ONLY if:
+   - Price just crossed it (breakout/breakdown story)
+   - Price is testing it (inflection story)
+   - Price has been stuck at it for weeks (historical context)
+4. Use rating-appropriate language:
+   - Bullish: "expect gains", "rally may continue", "upside"
+   - Constructive: "positive bias", "favorable setup", "potential upside"
+   - Cautious: "downside risk", "defensive", "vulnerable"
+   - Bearish: "expect weakness", "further downside", "no floor"
+5. NEVER start with asset name
+6. Output ONLY the subtitle"""
 
 
 EXAMPLES = """
-## REAL EXAMPLES FROM MARKET COMPASS
+## EXAMPLES BY STORY TYPE
 
-### Bullish (DMAS ≥ 70, both scores high)
-Data: DMAS=85, Tech=70, Mom=100, above all MAs
-→ "The picture remains bullish with strong momentum"
+### TREND CONTINUATION
+When: Strong aligned scores, clear direction, no obstacles
 
-Data: DMAS=78, Tech=65, Mom=91, at ATH
-→ "New all-time highs are supported by strong technical and momentum"
+Data: DMAS=85, Tech=70, Mom=100, above all MAs, DMAS stable
+→ "The rally has room to run with momentum and technicals aligned"
 
-Data: DMAS=82, Tech=72, Mom=92, above all MAs, continuing trend
-→ "No cloud on the technical horizon"
+Data: DMAS=22, Tech=28, Mom=16, below all MAs, DMAS stable
+→ "Expect continued weakness with no catalyst for reversal"
 
-Data: DMAS=75, Tech=62, Mom=88, DMAS stable WoW
-→ "All the technical elements are in place for further gains"
+Data: DMAS=78, Tech=65, Mom=91, 4 weeks of gains
+→ "The bullish trend should persist into the new week"
 
-### Bullish with Caution (High mom, moderate tech)
-Data: DMAS=72, Tech=52, Mom=92, near resistance
-→ "While momentum is strong, the technical score calls for some caution"
 
-Data: DMAS=68, Tech=48, Mom=88, approaching 50d MA
-→ "High momentum but technical weakness warrants attention near the 50d MA"
+### DIVERGENCE
+When: Tech and Mom disagree significantly (>20 point gap)
 
-### Constructive (DMAS 55-69)
-Data: DMAS=62, Tech=58, Mom=66, above 50d MA
-→ "The picture remains constructive with balanced indicators"
+Data: DMAS=52, Tech=68, Mom=36, Tech leading for 3 weeks
+→ "Strong technicals await momentum confirmation to turn constructive"
 
-Data: DMAS=58, Tech=65, Mom=51, correction from higher levels
-→ "Despite the correction, the setup remains constructive"
+Data: DMAS=54, Tech=38, Mom=70, Mom leading for 2 weeks
+→ "High momentum may eventually lift the weak technical picture"
 
-Data: DMAS=60, Tech=55, Mom=65, improving from last week
-→ "The technical picture is gradually improving"
+Data: DMAS=48, Tech=62, Mom=34, divergence widening
+→ "The tech-momentum gap must narrow for a clearer direction"
 
-### Neutral - Divergence (High tech, low mom)
-Data: DMAS=52, Tech=68, Mom=36, above 50d MA
-→ "Strong technical score is offset by weak momentum"
 
-Data: DMAS=48, Tech=62, Mom=34, consolidating
-→ "High technical reading but poor momentum keeps the picture neutral"
+### INFLECTION (at key level)
+When: Price at/near important MA, could go either way
 
-### Neutral - Divergence (Low tech, high mom)
-Data: DMAS=54, Tech=38, Mom=70, below 50d MA
-→ "Strong momentum fails to lift the weak technical picture"
+Data: DMAS=58, Tech=55, Mom=61, testing 50d MA from above
+→ "The 50d MA test will determine if the constructive bias holds"
 
-Data: DMAS=50, Tech=42, Mom=58, approaching 50d MA from below
-→ "Momentum may drive a test of the 50d MA resistance"
+Data: DMAS=45, Tech=48, Mom=42, stuck below 50d MA for 4 weeks
+→ "A break above the stubborn 50d MA resistance would shift outlook"
 
-### Neutral - Consolidation
-Data: DMAS=52, Tech=54, Mom=50, stable WoW, range-bound
-→ "Ongoing consolidation with no clear directional signal"
+Data: DMAS=62, Tech=58, Mom=66, hovering at 50d MA
+→ "Watch the 50d MA - holding it keeps the constructive setup intact"
 
-Data: DMAS=48, Tech=50, Mom=46, at 100d MA
-→ "Trading at a crossroads, waiting for a catalyst"
 
-### Cautious (DMAS 30-44)
-Data: DMAS=38, Tech=42, Mom=34, below 50d MA
-→ "Weak momentum and technicals warrant a cautious stance"
+### RECOVERY
+When: DMAS improving from low levels, or rebounding from correction
 
-Data: DMAS=42, Tech=48, Mom=36, failed to reclaim 50d MA
-→ "The 50d MA remains a stubborn resistance"
+Data: DMAS=55 (was 42), Tech=52, Mom=58, bounced off 100d MA
+→ "The rebound suggests a potential shift toward constructive territory"
 
-Data: DMAS=35, Tech=38, Mom=32, deteriorating
-→ "The technical picture continues to weaken"
+Data: DMAS=48 (was 35), Tech=50, Mom=46, rising from bearish
+→ "Early signs of stabilization, but confirmation needed above 50d MA"
 
-### Bearish (DMAS < 30)
-Data: DMAS=22, Tech=28, Mom=16, below all MAs
-→ "Deeply engulfed in bearish territory with no catalyst in sight"
+Data: DMAS=68 (was 58), Tech=65, Mom=71, resuming after pullback
+→ "The correction appears over, expect resumption of the uptrend"
 
-Data: DMAS=18, Tech=24, Mom=12, deteriorating further
-→ "The bearish setup shows no signs of improvement"
 
-Data: DMAS=25, Tech=32, Mom=18, small bounce
-→ "A small bounce but still far from a trend reversal"
+### DETERIORATION
+When: DMAS falling, conditions worsening
 
-### MA Events (only when there's action)
-Data: DMAS=58, Tech=52, Mom=64, just crossed above 50d MA
-→ "The break above the 50d MA reinforces the constructive outlook"
+Data: DMAS=52 (was 65), Tech=55, Mom=49, slipping
+→ "The picture is fading - watch for further weakness if momentum fails"
 
-Data: DMAS=45, Tech=48, Mom=42, rebounded on 100d MA
-→ "Successful rebound on the 100d MA, but needs follow-through"
+Data: DMAS=38 (was 55), Tech=42, Mom=34, sharp drop
+→ "The swift deterioration may continue until support is found"
 
-Data: DMAS=35, Tech=40, Mom=30, just broke below 200d MA
-→ "The break below the 200d MA is a significant technical blow"
+Data: DMAS=28 (was 42), Tech=32, Mom=24, accelerating down
+→ "No floor in sight as both technicals and momentum collapse"
 
-Data: DMAS=62, Tech=58, Mom=66, testing 50d MA from above
-→ "Testing the 50d MA support, a key level to hold"
 
-### Change Events (WoW movement)
-Data: DMAS=65 (was 48), Tech=60, Mom=70, surged
-→ "A surge in momentum lifts the outlook to constructive territory"
+### CONSOLIDATION
+When: Range-bound, low volatility, waiting for direction
 
-Data: DMAS=42 (was 58), Tech=45, Mom=39, dropped sharply
-→ "A sharp deterioration in both technical and momentum"
+Data: DMAS=50, Tech=52, Mom=48, stable for 3 weeks
+→ "Sideways consolidation continues - await breakout for direction"
 
-Data: DMAS=70 (was 65), Tech=68, Mom=72, upgraded
-→ "Continued improvement pushes the picture firmly into bullish territory"
+Data: DMAS=55, Tech=54, Mom=56, tight range
+→ "Coiling in a tight range suggests a larger move is brewing"
+
+Data: DMAS=48, Tech=50, Mom=46, neutral for 5 weeks
+→ "The extended consolidation will resolve, but timing unclear"
+
+
+### BREAKOUT / BREAKDOWN
+When: Just crossed key level, new trend potentially starting
+
+Data: DMAS=58, Tech=52, Mom=64, just broke above 50d MA
+→ "The 50d MA breakout, if sustained, opens the door to further gains"
+
+Data: DMAS=42, Tech=45, Mom=39, just broke below 50d MA
+→ "The break below 50d MA signals risk of further downside"
+
+Data: DMAS=65, Tech=60, Mom=70, broke above after 4 weeks below
+→ "Finally clearing the 50d MA hurdle - bullish momentum may accelerate"
+
+
+### WITH HISTORICAL CONTEXT
+
+Data: DMAS=45, Tech=50, Mom=40, below 50d MA
+Historical: Below 50d MA for 5 weeks; Cautious for 4 weeks
+→ "Still stuck below the 50d MA - no change in cautious stance"
+
+Data: DMAS=62, Tech=58, Mom=66
+Historical: DMAS improved +15 over past month
+→ "The steady improvement may push the outlook toward bullish"
+
+Data: DMAS=38, Tech=42, Mom=34
+Historical: Bearish for 6 consecutive weeks
+→ "The persistent bearish trend shows no signs of reversal"
+
+
+## BAD EXAMPLES (what NOT to write)
+
+❌ "DMAS is at 52 with technical at 55" (just restating data)
+❌ "The picture is neutral" (no forward look)
+❌ "Below the 50d MA at -3.2%" (data dump, no insight)
+❌ "Strong momentum and weak technical" (divergence but no implication)
+❌ "S&P 500 remains bullish" (starts with asset name)
 """
 
 
-def build_prompt(asset_data: dict, previous_subtitles: List[str]) -> str:
-    """Build the user prompt with raw data."""
+def build_prompt(
+    asset_data: dict,
+    previous_subtitles: List[str],
+    historical_context: Optional[str] = None
+) -> str:
+    """Build forward-looking prompt with context."""
 
     asset = asset_data["asset_name"]
     dmas = asset_data["dmas"]
@@ -184,56 +221,96 @@ def build_prompt(asset_data: dict, previous_subtitles: List[str]) -> str:
     price_vs_200 = asset_data.get("price_vs_200ma_pct", 0)
     price_vs_50_prev = asset_data.get("price_vs_50ma_pct_prev")
 
-    # Build data block
+    # Determine rating
+    if dmas >= 70:
+        rating = "Bullish"
+    elif dmas >= 55:
+        rating = "Constructive"
+    elif dmas >= 45:
+        rating = "Neutral"
+    elif dmas >= 30:
+        rating = "Cautious"
+    else:
+        rating = "Bearish"
+
     lines = [
-        f"## Generate subtitle for: {asset}",
+        f"## Generate forward-looking subtitle for: {asset}",
+        f"## Current Rating: {rating}",
         "",
+        "### Current Scores",
         f"DMAS: {dmas}",
-        f"Technical Score: {tech}",
-        f"Momentum Score: {mom}",
+        f"Technical: {tech}",
+        f"Momentum: {mom}",
     ]
 
-    # Add WoW change if available
+    # WoW change with interpretation
     if dmas_prev is not None:
         change = dmas - dmas_prev
-        direction = "↑" if change > 0 else "↓" if change < 0 else "→"
-        lines.append(f"DMAS Change: {change:+d} ({direction} from {dmas_prev} last week)")
+        if change >= 10:
+            lines.append(f"DMAS Change: +{change} (significant improvement)")
+        elif change >= 5:
+            lines.append(f"DMAS Change: +{change} (improving)")
+        elif change <= -10:
+            lines.append(f"DMAS Change: {change} (significant deterioration)")
+        elif change <= -5:
+            lines.append(f"DMAS Change: {change} (weakening)")
+        elif abs(change) <= 2:
+            lines.append(f"DMAS Change: {change:+d} (stable)")
+        else:
+            lines.append(f"DMAS Change: {change:+d}")
 
-    # Add MA positions
+    # Divergence detection
+    divergence = mom - tech
+    if divergence >= 25:
+        lines.append(f"DIVERGENCE: Momentum leads technical by {divergence} points")
+    elif divergence <= -25:
+        lines.append(f"DIVERGENCE: Technical leads momentum by {-divergence} points")
+
+    # MA positions with action flags
     lines.append("")
-    lines.append("MA Positions:")
+    lines.append("### MA Positions")
 
-    # 50d MA with action detection
-    ma_50_action = ""
+    ma_50_note = ""
     if price_vs_50_prev is not None:
         if price_vs_50_prev < -1 and price_vs_50 > 1:
-            ma_50_action = " [JUST CROSSED ABOVE]"
+            ma_50_note = " >>> JUST BROKE ABOVE"
         elif price_vs_50_prev > 1 and price_vs_50 < -1:
-            ma_50_action = " [JUST CROSSED BELOW]"
-        elif abs(price_vs_50_prev) > 3 and abs(price_vs_50) <= 2:
-            ma_50_action = " [TESTING]"
-        elif abs(price_vs_50_prev) <= 2 and price_vs_50 > 3:
-            ma_50_action = " [BOUNCED OFF]"
-        elif abs(price_vs_50_prev) <= 2 and price_vs_50 < -3:
-            ma_50_action = " [REJECTED]"
+            ma_50_note = " >>> JUST BROKE BELOW"
+        elif abs(price_vs_50) <= 2:
+            ma_50_note = " >>> TESTING"
 
-    lines.append(f"  vs 50d MA: {price_vs_50:+.1f}%{ma_50_action}")
-    lines.append(f"  vs 100d MA: {price_vs_100:+.1f}%")
-    lines.append(f"  vs 200d MA: {price_vs_200:+.1f}%")
+    lines.append(f"vs 50d MA: {price_vs_50:+.1f}%{ma_50_note}")
 
-    # Add special conditions
+    # Only include 100d/200d if relevant
+    if abs(price_vs_100) <= 3 or price_vs_50 < -2:
+        lines.append(f"vs 100d MA: {price_vs_100:+.1f}%")
+    if price_vs_200 < 0 or abs(price_vs_200) <= 3:
+        lines.append(f"vs 200d MA: {price_vs_200:+.1f}%")
+
+    # Special conditions
     if asset_data.get("at_ath") or asset_data.get("at_52w_high"):
-        lines.append("  [AT 52-WEEK HIGH]")
+        lines.append("[AT 52-WEEK HIGH]")
     if asset_data.get("near_52w_low") or asset_data.get("at_52w_low"):
-        lines.append("  [AT 52-WEEK LOW]")
+        lines.append("[AT 52-WEEK LOW]")
 
-    # Add deduplication context
+    # Historical context
+    if historical_context:
+        lines.append("")
+        lines.append("### Historical Context")
+        lines.append(historical_context)
+
+    # Deduplication
     if previous_subtitles:
         lines.append("")
-        lines.append("ALREADY USED (generate something DIFFERENT):")
+        lines.append("### Already used (write something DIFFERENT):")
         for s in previous_subtitles[-5:]:
-            lines.append(f"  - {s}")
+            lines.append(f"- {s}")
 
+    # Final instruction
+    lines.append("")
+    lines.append("### Task")
+    lines.append(f"Write a forward-looking subtitle for {asset}.")
+    lines.append("Answer: What should investors expect next week?")
     lines.append("")
     lines.append("Output only the subtitle:")
 
@@ -245,7 +322,8 @@ def generate_subtitle(
     previous_subtitles: List[str] = None,
     client=None,
     model: str = DEFAULT_MODEL,
-    api_key: str = None
+    api_key: str = None,
+    historical_context: str = None
 ) -> dict:
     """
     Generate subtitle using Claude API.
@@ -267,6 +345,9 @@ def generate_subtitle(
     previous_subtitles : list[str], optional
         Already generated subtitles in this batch (for deduplication)
 
+    historical_context : str, optional
+        Context from history tracker (e.g., "Below 50d MA for 4 weeks")
+
     Returns
     -------
     dict
@@ -279,7 +360,7 @@ def generate_subtitle(
         previous_subtitles = []
 
     # Build user prompt with raw data
-    prompt = build_prompt(asset_data, previous_subtitles)
+    prompt = build_prompt(asset_data, previous_subtitles, historical_context)
 
     # Call Claude API
     message = client.messages.create(
@@ -319,12 +400,22 @@ def generate_batch(
     assets_data: List[dict],
     client=None,
     model: str = DEFAULT_MODEL,
-    api_key: str = None
+    api_key: str = None,
+    use_history: bool = True
 ) -> List[dict]:
     """Generate subtitles for multiple assets with deduplication."""
 
     if client is None:
         client = get_client(api_key)
+
+    # Try to get historical context if enabled
+    history_tracker = None
+    if use_history:
+        try:
+            from .history_tracker import get_tracker
+            history_tracker = get_tracker()
+        except ImportError:
+            pass
 
     results = []
     generated_subtitles = []
@@ -332,11 +423,19 @@ def generate_batch(
 
     for asset_data in assets_data:
         try:
+            # Get historical context if available
+            historical_context = None
+            if history_tracker:
+                historical_context = history_tracker.get_context_for_subtitle(
+                    asset_data["asset_name"]
+                )
+
             result = generate_subtitle(
                 asset_data,
                 previous_subtitles=generated_subtitles,
                 client=client,
-                model=model
+                model=model,
+                historical_context=historical_context
             )
             result["asset_name"] = asset_data["asset_name"]
             results.append(result)
@@ -351,6 +450,26 @@ def generate_batch(
                 "error": str(e),
                 "tokens_used": 0,
             })
+
+    # Save to history after generation
+    if history_tracker and results:
+        try:
+            history_data = []
+            for asset, result in zip(assets_data, results):
+                history_data.append({
+                    "asset_name": asset["asset_name"],
+                    "dmas": asset["dmas"],
+                    "technical_score": asset["technical_score"],
+                    "momentum_score": asset["momentum_score"],
+                    "price_vs_50ma_pct": asset.get("price_vs_50ma_pct", 0),
+                    "price_vs_100ma_pct": asset.get("price_vs_100ma_pct", 0),
+                    "price_vs_200ma_pct": asset.get("price_vs_200ma_pct", 0),
+                    "rating": result.get("rating", "Neutral"),
+                })
+            history_tracker.record_batch(history_data)
+            print(f"Saved {len(history_data)} assets to history")
+        except Exception as e:
+            print(f"Warning: Could not save to history: {e}")
 
     print(f"Total tokens used: {total_tokens}")
     # Haiku pricing: $0.80/M input, $4/M output
