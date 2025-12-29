@@ -1,13 +1,13 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v5.3: Output truncation fix + terminology clarity + 1% MA threshold.
+v5.4: Dynamics vocabulary + truncation fix.
 
 Features:
 - Prompt caching for ~80% cost savings
 - Uniqueness checking with is_too_similar() and retry logic
-- MA asymmetry with 1% threshold (was 5%)
-- Terminology: "setup" = combined tech+momentum (not contradictory)
-- Output truncation to remove Claude's explanations
+- MA asymmetry with 1% threshold
+- Vocabulary: "dynamics/trajectory" = movement, "momentum" = score only
+- Fixed truncation to not cut off valid subtitles
 """
 
 import os
@@ -59,67 +59,78 @@ ABSOLUTE RULES:
    - Cautious → "cautious"
    - Bearish → "bearish"
 
-4. TERMINOLOGY - BE PRECISE:
-   - "technical" = Technical Score (chart structure)
-   - "momentum" = Momentum Score (velocity)
-   - "setup" or "picture" = BOTH combined (the overall view)
+4. CRITICAL VOCABULARY DISTINCTION:
 
-   CRITICAL: "Setup" includes momentum. So:
-   ✓ "Strong technical with weak momentum"
-   ✓ "Mixed setup warrants patience"
-   ✗ "Solid setup with weak momentum" (CONTRADICTORY!)
+   "momentum" = The Momentum Score (a number). Use for:
+   - "strong momentum" (the score is high)
+   - "weak momentum" (the score is low)
+   - "momentum diverges from technical"
 
-5. NO NUMBERS - Use qualitative words only
+   "dynamics/advance/trajectory/thrust" = Overall movement. Use for:
+   - "bullish dynamics extend" (the trend is up)
+   - "powerful advance continues" (price is rising)
+   - "bearish trajectory deepens" (trend is down)
 
-6. NO ASSET NAME REPETITION
+   WRONG: "Bullish momentum drives..." (confusing!)
+   RIGHT: "Bullish dynamics extend with strong momentum"
 
-7. MA RULES (1% threshold):
+5. TERMINOLOGY:
+   - "technical" = Technical Score
+   - "momentum" = Momentum Score
+   - "setup" = Both combined (overall picture)
+
+6. SETUP LOGIC:
+   - If tech and momentum align → use "setup"
+   - If they diverge → describe each: "strong technical offset by weak momentum"
+
+7. NO NUMBERS - Use qualitative words
+
+8. NO ASSET NAME in subtitle
+
+9. MA RULES (1% threshold):
    - Above ALL MAs by >1%: DO NOT mention MAs
-   - Near an MA (within 1%): Can mention the test
+   - Near MA (within 1%): Can mention test
    - Below ANY MA: MUST mention
 
-8. UNIQUENESS:
-   - Different structure from previous subtitles
-   - Different opening word
-   - Vary "trapped/submerged/buried/struggling" for bearish
+10. UNIQUENESS - Different from previous subtitles
 
-9. MAX 1 SUPERLATIVE per sentence
+11. MAX 1 SUPERLATIVE per sentence
 
-Output ONLY the subtitle, nothing else. No quotes, no explanation."""
+Output ONLY the subtitle. No quotes, no period, no explanation."""
 
 
 EXAMPLES = """
-=== BULLISH (far above MAs - don't mention MAs) ===
-"Bullish momentum extends with exceptional setup driving gains"
-"Powerful bullish advance continues with aligned indicators"
-"Robust bullish picture persists with strong momentum thrust"
+=== BULLISH (far above MAs) ===
+"Bullish dynamics surge with exceptional setup driving gains"
+"Powerful advance extends as aligned indicators confirm strength"
+"Bullish trajectory accelerates with robust momentum and solid technical"
 
-=== BULLISH (near MA - can mention) ===
-"Bullish setup holds above 50d MA with solid momentum"
-"Testing 50d MA support, bullish momentum remains intact"
+=== BULLISH (near MA) ===
+"Testing 50d MA, bullish setup holds with strong momentum"
+"Bullish advance pauses at 50d MA with solid technical support"
 
 === CONSTRUCTIVE ===
-"Constructive outlook builds with improving setup and momentum"
-"Solid constructive stance emerges as indicators align"
+"Constructive dynamics build with improving technical and momentum"
+"Constructive outlook firms as setup strengthens near support"
 
 === NEUTRAL ===
-"Neutral stance prevails with mixed signals warranting patience"
-"Mixed indicators maintain neutral bias pending clarity"
+"Neutral stance persists with mixed signals warranting patience"
+"Mixed dynamics maintain neutral bias pending clarity"
 
 === CAUTIOUS ===
-"Cautious positioning advised as setup weakens near support"
-"Fragile momentum keeps cautious stance intact"
+"Cautious trajectory emerges as technical weakens despite momentum"
+"Cautious setup develops with fragile technical near key levels"
 
-=== BEARISH (below MAs - MUST mention) ===
-"Bearish pressure persists, trapped below all moving averages"
-"Submerged below key averages, bearish momentum dominates"
-"Trapped beneath all MAs with weak momentum and poor setup"
+=== BEARISH (below MAs) ===
+"Trapped below all averages, bearish dynamics persist"
+"Submerged beneath key MAs with weak technical and fragile momentum"
+"Bearish trajectory deepens, buried under moving average resistance"
+"Languishing below all MAs with deteriorating setup"
 
 === WHAT NOT TO WRITE ===
+❌ "Bullish momentum drives..." → Use "bullish dynamics" for movement
 ❌ "Oil's bearish trajectory" → Don't repeat asset name
-❌ "exceptional momentum with extraordinary power" → Max 1 superlative
-❌ "strong technical momentum" → Use "setup" not "technicals"
-❌ "Bullish outlook persists." → No period at end
+❌ "exceptional with extraordinary" → Max 1 superlative
 """
 
 # Padding content to reach 4,096 token minimum for Haiku 4.5 caching
@@ -285,7 +296,7 @@ def build_prompt(
     previous_subtitles: List[str],
     historical_context: Optional[str] = None
 ) -> str:
-    """Build prompt with correct terminology, alignment detection, and 1% MA threshold."""
+    """Build prompt with dynamics vocabulary and 1% MA threshold."""
 
     asset_name = asset_data["asset_name"]
     dmas = asset_data["dmas"]
@@ -322,67 +333,68 @@ def build_prompt(
     tech_quality = score_to_quality(technical)
     mom_quality = score_to_quality(momentum)
 
-    # Determine if tech and momentum align
-    if abs(technical - momentum) <= 15:
-        alignment = f"ALIGNED: Both technical ({tech_quality}) and momentum ({mom_quality}) are similar"
+    # Check alignment
+    aligned = abs(technical - momentum) <= 15
+    if aligned:
         setup_quality = score_to_quality((technical + momentum) // 2)
-        score_instruction = f"Use 'setup' freely: '{setup_quality} setup'"
+        alignment_note = f"Tech and momentum ALIGNED → use 'setup': '{setup_quality} setup'"
     else:
-        alignment = f"DIVERGENT: Technical is {tech_quality}, Momentum is {mom_quality}"
-        score_instruction = "Do NOT use 'setup' alone. Say 'strong technical offset by weak momentum' or similar"
+        alignment_note = f"Tech ({tech_quality}) and momentum ({mom_quality}) DIVERGE → describe each separately"
 
     # Extract MA data
     price_vs_50ma = asset_data.get("price_vs_50ma_pct", 0)
     price_vs_100ma = asset_data.get("price_vs_100ma_pct", 0)
     price_vs_200ma = asset_data.get("price_vs_200ma_pct", 0)
 
-    # Determine MA context with 1% threshold (was 5%)
+    # Determine MA context with 1% threshold
     above_all = price_vs_50ma > 1 and price_vs_100ma > 1 and price_vs_200ma > 1
     below_all = price_vs_50ma < -1 and price_vs_100ma < -1 and price_vs_200ma < -1
     near_50 = -1 <= price_vs_50ma <= 1
 
     # Build MA instruction with bearish phrase rotation
     if above_all:
-        ma_instruction = "⚠️ FAR ABOVE all MAs - DO NOT mention MAs at all"
+        ma_note = "FAR ABOVE all MAs → DO NOT mention MAs"
     elif below_all:
-        # Count bearish phrases already used for variety
-        used_phrases = [s for s in previous_subtitles if any(
-            x in s.lower() for x in ["below", "trapped", "submerged", "buried", "beneath"]
-        )]
-        phrase_count = len(used_phrases)
-        if phrase_count == 0:
-            ma_instruction = "Below ALL MAs - use: 'trapped below all moving averages'"
-        elif phrase_count == 1:
-            ma_instruction = "Below ALL MAs - use: 'submerged beneath key averages'"
-        elif phrase_count == 2:
-            ma_instruction = "Below ALL MAs - use: 'buried under moving average resistance'"
-        else:
-            ma_instruction = "Below ALL MAs - use: 'struggling beneath all key levels'"
+        # Rotate phrases
+        bearish_count = sum(1 for s in previous_subtitles if any(
+            w in s.lower() for w in ['trapped', 'submerged', 'buried', 'languishing']
+        ))
+        phrases = [
+            "trapped below all moving averages",
+            "submerged beneath key averages",
+            "buried under moving average resistance",
+            "languishing below all MAs"
+        ]
+        phrase = phrases[bearish_count % len(phrases)]
+        ma_note = f"BELOW ALL MAs → use: '{phrase}'"
     elif near_50:
-        ma_instruction = f"NEAR 50d MA ({price_vs_50ma:+.1f}%) - mention this test"
+        ma_note = f"NEAR 50d MA ({price_vs_50ma:+.1f}%) → mention this test"
     else:
-        ma_instruction = "MAs not critical - do not mention"
+        ma_note = "MAs not critical → do not mention"
 
     # Build uniqueness section
-    uniqueness_section = ""
+    avoid_section = ""
     if previous_subtitles:
-        recent = previous_subtitles[-5:]
-        uniqueness_section = f"""
+        recent = previous_subtitles[-4:]
+        avoid_section = f"""
 
-AVOID THESE (already used):
-{chr(10).join(f'  ✗ "{s}"' for s in recent)}
-Use DIFFERENT structure and opening word."""
+AVOID (already used):
+{chr(10).join(f'✗ "{s}"' for s in recent)}"""
 
-    # Build prompt
+    # Build prompt with vocabulary reminder
     prompt = f"""Asset: {asset_name}
 Rating: {rating}
 Technical: {tech_quality} | Momentum: {mom_quality}
-{alignment}
-{score_instruction}
-{ma_instruction}
-{uniqueness_section}
+{alignment_note}
+{ma_note}
 
-Generate ONE subtitle (max 12 words, no period, no quotes):"""
+VOCABULARY REMINDER:
+- "momentum" = the score (strong/weak momentum)
+- "dynamics/advance/trajectory" = overall movement (bullish dynamics)
+- Do NOT write "bullish momentum" - write "bullish dynamics with strong momentum"
+{avoid_section}
+
+Generate subtitle (max 12 words, no period):"""
 
     return prompt
 
@@ -539,23 +551,35 @@ def generate_subtitle(
         # Get raw response
         raw_subtitle = message.content[0].text.strip()
 
-        # CRITICAL: Truncate at first quote, newline, or explanation
-        # Claude sometimes adds "This subtitle..." or other explanation after
-        subtitle = re.split(r'["\'\n]|This |Let me|I\'ll|Here', raw_subtitle)[0].strip()
+        # First, remove any quotes around the whole thing
+        subtitle = raw_subtitle.strip('"\'')
 
-        # Also remove leading/trailing quotes if present
-        subtitle = subtitle.lstrip('"\'').rstrip('"\'')
+        # FIXED: Only truncate at clear explanation patterns, not mid-sentence
+        # The previous regex was too aggressive and cut off valid content
+        explanation_patterns = [
+            r'\s*This subtitle',
+            r'\s*Let me',
+            r'\s*I\'ll',
+            r'\s*Here\'s',
+            r'\s*Note:',
+            r'\s*\(this',
+            r'\n',  # Newline indicates explanation started
+        ]
 
-        # Remove trailing period
-        subtitle = subtitle.rstrip('.')
+        for pattern in explanation_patterns:
+            match = re.search(pattern, subtitle, re.IGNORECASE)
+            if match:
+                subtitle = subtitle[:match.start()].strip()
+
+        # Remove trailing period and quotes
+        subtitle = subtitle.rstrip('.').rstrip('"\'').strip()
 
         # Enforce max 12 words
         words = subtitle.split()
         if len(words) > 12:
-            words = words[:12]
-            subtitle = ' '.join(words)
-            # Clean up if ends mid-phrase
-            subtitle = subtitle.rstrip(',').rstrip(' and').rstrip(' with').rstrip(' as').strip()
+            subtitle = ' '.join(words[:12])
+            # Clean trailing prepositions/conjunctions
+            subtitle = re.sub(r'\s+(with|and|the|a|an|to|for|of|as)$', '', subtitle, flags=re.IGNORECASE)
 
         # Check uniqueness
         if not is_too_similar(subtitle, previous_subtitles):
