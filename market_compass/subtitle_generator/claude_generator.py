@@ -1,18 +1,18 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v5.5: Professional tone + uncertainty language + MA direction.
+v5.5.1: Added YTD recap subtitle generation for asset classes.
 
 Features:
 - Prompt caching for ~80% cost savings
 - Measured verbs (continues, extends) instead of dramatic (surge, soar)
 - Uncertainty language (potential, likely, suggests)
 - MA direction: support (from above) vs resistance (from below)
-- Adjusted score thresholds for more accurate descriptions
+- YTD recap subtitles for equity, commodities, crypto
 """
 
 import os
 import re
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 try:
     import anthropic
@@ -757,3 +757,219 @@ def quick_generate(
 
     result = generate_subtitle(asset_data, api_key=api_key)
     return result["subtitle"]
+
+
+# =============================================================================
+# YTD RECAP SUBTITLE GENERATION
+# =============================================================================
+
+# Asset class mappings
+ASSET_CLASSES = {
+    'equity': ['SPX', 'CSI 300', 'Nikkei', 'TASI', 'Sensex', 'DAX', 'SMI', 'IBOV', 'Mexbol'],
+    'commodities': ['Gold', 'Silver', 'Platinum', 'Palladium', 'Oil', 'Copper'],
+    'crypto': ['Bitcoin', 'Ethereum', 'Ripple', 'Solana', 'Binance']
+}
+
+# System prompt for recap subtitles
+RECAP_SYSTEM_PROMPT = """You write short, editorial "highlights of the year" subtitles for financial charts.
+
+Style: Narrative, slightly witty, focused on the story not the numbers.
+Length: 8-15 words maximum.
+Tone: Like a financial journalist's one-liner summary.
+
+STYLE EXAMPLES:
+• "Ibov and Sensex have been spared from the global selloff"
+• "Despite the risk off, precious metals are still consolidating"
+• "The crypto drama continues. Only Binance is now positive this year"
+
+RULES:
+- 8-15 words max
+- Editorial/narrative tone, not technical
+- Can be slightly witty or have personality
+- Highlight the most interesting story
+- No period at end unless two sentences
+- Focus on divergences, leaders, laggards, or trends
+
+Output ONLY the subtitle. No quotes, no explanation."""
+
+
+def build_recap_prompt(
+    asset_class: str,
+    perf_data: List[Dict],
+) -> str:
+    """
+    Build prompt for asset class YTD recap subtitle.
+
+    Parameters
+    ----------
+    asset_class : str
+        'equity', 'commodities', or 'crypto'
+    perf_data : list of dict
+        Performance data with keys: asset, ytd_pct, 1w_pct, 1m_pct
+    """
+    # Sort by YTD performance
+    sorted_data = sorted(perf_data, key=lambda x: x.get('ytd_pct', 0), reverse=True)
+
+    # Identify key facts
+    best_ytd = sorted_data[0] if sorted_data else {}
+    worst_ytd = sorted_data[-1] if sorted_data else {}
+
+    # Count positive/negative YTD
+    positive_count = sum(1 for d in sorted_data if d.get('ytd_pct', 0) > 0)
+    negative_count = sum(1 for d in sorted_data if d.get('ytd_pct', 0) < 0)
+    total = len(sorted_data)
+
+    # Best/worst weekly performers
+    best_week = max(sorted_data, key=lambda x: x.get('1w_pct', 0)) if sorted_data else {}
+    worst_week = min(sorted_data, key=lambda x: x.get('1w_pct', 0)) if sorted_data else {}
+
+    # Build performance summary
+    perf_lines = []
+    for d in sorted_data:
+        ytd = d.get('ytd_pct', 0)
+        week = d.get('1w_pct', 0)
+        perf_lines.append(f"  {d.get('asset', 'Unknown')}: YTD {ytd:+.1f}%, 1W {week:+.1f}%")
+    perf_summary = "\n".join(perf_lines)
+
+    # Identify potential narratives
+    narratives = []
+
+    if positive_count == total and total > 0:
+        narratives.append(f"ALL {total} assets positive YTD")
+    elif negative_count == total and total > 0:
+        narratives.append(f"ALL {total} assets negative YTD")
+    elif positive_count == 1:
+        only_positive = [d for d in sorted_data if d.get('ytd_pct', 0) > 0]
+        if only_positive:
+            narratives.append(f"Only {only_positive[0].get('asset')} is positive YTD")
+    elif negative_count == 1:
+        only_negative = [d for d in sorted_data if d.get('ytd_pct', 0) < 0]
+        if only_negative:
+            narratives.append(f"Only {only_negative[0].get('asset')} is negative YTD")
+
+    if best_ytd.get('ytd_pct', 0) > 20:
+        narratives.append(f"{best_ytd.get('asset')} leads with exceptional +{best_ytd.get('ytd_pct', 0):.0f}% YTD")
+
+    if worst_ytd.get('ytd_pct', 0) < -10:
+        narratives.append(f"{worst_ytd.get('asset')} struggles with {worst_ytd.get('ytd_pct', 0):.0f}% YTD")
+
+    # Big weekly moves
+    if abs(best_week.get('1w_pct', 0)) > 5:
+        narratives.append(f"{best_week.get('asset')} jumped {best_week.get('1w_pct', 0):+.1f}% this week")
+    if abs(worst_week.get('1w_pct', 0)) > 5:
+        narratives.append(f"{worst_week.get('asset')} dropped {worst_week.get('1w_pct', 0):.1f}% this week")
+
+    narratives_text = "\n".join(f"  • {n}" for n in narratives) if narratives else "  • Mixed performance across the board"
+
+    # Class-specific tone hints
+    tone_hints = {
+        'equity': "Focus on regional divergences, index leadership, or market regime",
+        'commodities': "Focus on precious metals vs energy, safe-haven flows, or commodity cycles",
+        'crypto': "Focus on the drama, volatility, or divergence between majors and altcoins"
+    }
+
+    prompt = f"""Generate a short "YTD Highlights" subtitle for the {asset_class.upper()} asset class.
+
+PERFORMANCE DATA (sorted best to worst YTD):
+{perf_summary}
+
+KEY OBSERVATIONS:
+{narratives_text}
+
+POSITIVE YTD: {positive_count}/{total} | NEGATIVE YTD: {negative_count}/{total}
+
+TONE: {tone_hints.get(asset_class, 'Editorial, narrative style')}
+
+Generate subtitle:"""
+
+    return prompt
+
+
+def generate_recap_subtitle(
+    asset_class: str,
+    perf_data: List[Dict],
+    client=None,
+    model: str = DEFAULT_MODEL
+) -> str:
+    """
+    Generate a single recap subtitle for an asset class.
+
+    Parameters
+    ----------
+    asset_class : str
+        'equity', 'commodities', or 'crypto'
+    perf_data : list of dict
+        Performance data with keys: asset, ytd_pct, 1w_pct, 1m_pct
+    """
+    if client is None:
+        client = get_client()
+
+    prompt = build_recap_prompt(asset_class, perf_data)
+
+    message = client.messages.create(
+        model=model,
+        max_tokens=50,
+        system=[{
+            "type": "text",
+            "text": RECAP_SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"}
+        }],
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    # Clean subtitle
+    raw = message.content[0].text.strip()
+    subtitle = raw.strip('"\'')
+
+    # Remove any explanation
+    for pattern in [r'\s*This ', r'\s*Note:', r'\n']:
+        match = re.search(pattern, subtitle, re.IGNORECASE)
+        if match:
+            subtitle = subtitle[:match.start()].strip()
+
+    # Remove trailing period unless two sentences
+    if subtitle.count('.') <= 1:
+        subtitle = subtitle.rstrip('.')
+
+    return subtitle
+
+
+def generate_all_recaps(
+    perf_data: Dict[str, List[Dict]],
+    client=None,
+    model: str = DEFAULT_MODEL
+) -> Dict[str, str]:
+    """
+    Generate all 3 recap subtitles.
+
+    Parameters
+    ----------
+    perf_data : dict
+        Keys: 'equity', 'commodities', 'crypto'
+        Values: list of dicts with keys: asset, ytd_pct, 1w_pct, 1m_pct
+
+    Returns
+    -------
+    Dict with keys: 'equity', 'commodities', 'crypto'
+    Values are the generated subtitles
+    """
+    if client is None:
+        client = get_client()
+
+    results = {}
+    print("\n📊 Generating YTD Recap Subtitles...")
+
+    for asset_class in ['equity', 'commodities', 'crypto']:
+        if asset_class in perf_data:
+            subtitle = generate_recap_subtitle(
+                asset_class,
+                perf_data[asset_class],
+                client,
+                model
+            )
+            results[asset_class] = subtitle
+            print(f"   {asset_class.upper()}: {subtitle}")
+        else:
+            results[asset_class] = f"No data available for {asset_class}"
+
+    return results
