@@ -2119,6 +2119,63 @@ def show_upload_page():
                             )
                             subtitle_results[ticker_key] = result
 
+                    # Phase 2.5: Generate YTD recap subtitles for equity, commodities, crypto
+                    status_text.text("Generating YTD recap subtitles...")
+                    try:
+                        from ytd_perf.equity_ytd import get_equity_ytd_series
+                        from ytd_perf.commodity_ytd import get_commodity_ytd_series
+                        from ytd_perf.crypto_ytd import get_crypto_ytd_series
+                        from market_compass.subtitle_generator.claude_generator import generate_all_recaps
+
+                        price_mode = st.session_state.get("price_mode", "Last Price")
+
+                        # Get YTD series for each asset class
+                        eq_tickers = st.session_state.get("selected_eq_tickers", [])
+                        co_tickers = st.session_state.get("selected_co_tickers", [])
+                        cr_tickers = st.session_state.get("selected_cr_tickers", [])
+
+                        df_eq = get_equity_ytd_series(str(analysis_temp_path), tickers=eq_tickers, price_mode=price_mode) if eq_tickers else pd.DataFrame()
+                        df_co = get_commodity_ytd_series(str(analysis_temp_path), tickers=co_tickers, price_mode=price_mode) if co_tickers else pd.DataFrame()
+                        df_cr = get_crypto_ytd_series(str(analysis_temp_path), tickers=cr_tickers, price_mode=price_mode) if cr_tickers else pd.DataFrame()
+
+                        # Helper to extract YTD performance from DataFrame
+                        def extract_ytd_perf(df):
+                            if df.empty:
+                                return []
+                            last_row = df.iloc[-1]
+                            perf_data = []
+                            for col in df.columns:
+                                if col != 'Date':
+                                    ytd_val = last_row[col]
+                                    if pd.notna(ytd_val):
+                                        perf_data.append({
+                                            'asset': col,
+                                            'ytd_pct': float(ytd_val),
+                                            '1w_pct': 0.0,
+                                            '1m_pct': 0.0
+                                        })
+                            return perf_data
+
+                        # Build performance data and generate recaps
+                        perf_data = {
+                            'equity': extract_ytd_perf(df_eq),
+                            'commodities': extract_ytd_perf(df_co),
+                            'crypto': extract_ytd_perf(df_cr)
+                        }
+
+                        # Only generate if we have data
+                        if any(perf_data.values()):
+                            recaps = generate_all_recaps(perf_data)
+                            if 'equity' in recaps:
+                                st.session_state['eq_subtitle'] = recaps['equity']
+                            if 'commodities' in recaps:
+                                st.session_state['co_subtitle'] = recaps['commodities']
+                            if 'crypto' in recaps:
+                                st.session_state['cr_subtitle'] = recaps['crypto']
+                    except Exception as e:
+                        print(f"YTD recap generation failed: {e}")
+                        # Non-fatal - continue with analysis
+
                     progress_bar.progress(0.75)
 
                     # Phase 3: Store results
@@ -2205,7 +2262,6 @@ def show_ytd_update_page():
     from ytd_perf.equity_ytd import get_equity_ytd_series, create_equity_chart
     from ytd_perf.commodity_ytd import get_commodity_ytd_series, create_commodity_chart
     from ytd_perf.crypto_ytd import get_crypto_ytd_series, create_crypto_chart
-    from market_compass.subtitle_generator.claude_generator import generate_all_recaps
 
     prices_df, params_df = load_data(st.session_state["excel_file"])
     # Determine whether to use the last price or the last close using
@@ -2309,72 +2365,22 @@ def show_ytd_update_page():
 
     st.header("YTD Performance Charts")
 
-    # Compute YTD series for all asset classes (needed for both charts and subtitle generation)
+    # Compute YTD series for all asset classes
     price_mode = st.session_state.get("price_mode", "Last Price")
-    df_eq = get_equity_ytd_series(
-        st.session_state["excel_file"], tickers=eq_tickers, price_mode=price_mode
-    )
-    df_co = get_commodity_ytd_series(
-        st.session_state["excel_file"], tickers=co_tickers, price_mode=price_mode
-    )
-    df_cr = get_crypto_ytd_series(
-        st.session_state["excel_file"], tickers=cr_tickers, price_mode=price_mode
-    )
-
-    # Helper function to extract YTD performance from DataFrame
-    def extract_ytd_perf(df):
-        """Extract latest YTD percentages from DataFrame for recap generation."""
-        if df.empty:
-            return []
-        # Get the last row (most recent YTD values)
-        last_row = df.iloc[-1]
-        perf_data = []
-        for col in df.columns:
-            if col != 'Date':
-                ytd_val = last_row[col]
-                if pd.notna(ytd_val):
-                    perf_data.append({
-                        'asset': col,
-                        'ytd_pct': float(ytd_val),
-                        '1w_pct': 0.0,  # Weekly data not available in YTD series
-                        '1m_pct': 0.0
-                    })
-        return perf_data
-
-    # Generate YTD Subtitles button
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("AI Subtitle Generation")
-    if st.sidebar.button("Generate YTD Subtitles", key="gen_ytd_subtitles"):
-        with st.spinner("Generating YTD subtitles with Claude..."):
-            try:
-                # Build performance data dict
-                perf_data = {
-                    'equity': extract_ytd_perf(df_eq),
-                    'commodities': extract_ytd_perf(df_co),
-                    'crypto': extract_ytd_perf(df_cr)
-                }
-
-                # Generate subtitles
-                recaps = generate_all_recaps(perf_data)
-
-                # Update session state with generated subtitles
-                if 'equity' in recaps:
-                    st.session_state['eq_subtitle'] = recaps['equity']
-                if 'commodities' in recaps:
-                    st.session_state['co_subtitle'] = recaps['commodities']
-                if 'crypto' in recaps:
-                    st.session_state['cr_subtitle'] = recaps['crypto']
-
-                st.sidebar.success("Subtitles generated successfully!")
-                st.rerun()  # Refresh to show new subtitles in text inputs
-            except Exception as e:
-                st.sidebar.error(f"Error generating subtitles: {str(e)}")
-
     with st.expander("Equity Chart", expanded=True):
+        df_eq = get_equity_ytd_series(
+            st.session_state["excel_file"], tickers=eq_tickers, price_mode=price_mode
+        )
         st.pyplot(create_equity_chart(df_eq))
     with st.expander("Commodity Chart", expanded=False):
+        df_co = get_commodity_ytd_series(
+            st.session_state["excel_file"], tickers=co_tickers, price_mode=price_mode
+        )
         st.pyplot(create_commodity_chart(df_co))
     with st.expander("Crypto Chart", expanded=False):
+        df_cr = get_crypto_ytd_series(
+            st.session_state["excel_file"], tickers=cr_tickers, price_mode=price_mode
+        )
         st.pyplot(create_crypto_chart(df_cr))
 
     st.sidebar.success("Configure YTD charts, then go to 'Generate Presentation'.")
