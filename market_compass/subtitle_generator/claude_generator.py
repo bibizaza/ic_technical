@@ -1,13 +1,13 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v5.4: Dynamics vocabulary + truncation fix.
+v5.5: Professional tone + uncertainty language + MA direction.
 
 Features:
 - Prompt caching for ~80% cost savings
-- Uniqueness checking with is_too_similar() and retry logic
-- MA asymmetry with 1% threshold
-- Vocabulary: "dynamics/trajectory" = movement, "momentum" = score only
-- Fixed truncation to not cut off valid subtitles
+- Measured verbs (continues, extends) instead of dramatic (surge, soar)
+- Uncertainty language (potential, likely, suggests)
+- MA direction: support (from above) vs resistance (from below)
+- Adjusted score thresholds for more accurate descriptions
 """
 
 import os
@@ -59,78 +59,74 @@ ABSOLUTE RULES:
    - Cautious → "cautious"
    - Bearish → "bearish"
 
-4. CRITICAL VOCABULARY DISTINCTION:
+4. VOCABULARY:
+   - "momentum" = Momentum Score only
+   - "technical" = Technical Score only
+   - "dynamics/trajectory/advance" = overall movement
+   - "setup" = both scores combined
 
-   "momentum" = The Momentum Score (a number). Use for:
-   - "strong momentum" (the score is high)
-   - "weak momentum" (the score is low)
-   - "momentum diverges from technical"
+5. USE MEASURED VERBS (professional tone):
+   GOOD: continues, extends, builds, strengthens, accelerates, advances, holds, confirms
+   AVOID: soars, surges, thunders, explodes, rockets, ignites, unleashes
 
-   "dynamics/advance/trajectory/thrust" = Overall movement. Use for:
-   - "bullish dynamics extend" (the trend is up)
-   - "powerful advance continues" (price is rising)
-   - "bearish trajectory deepens" (trend is down)
+   Example: "Bullish dynamics continue" NOT "Bullish dynamics surge"
 
-   WRONG: "Bullish momentum drives..." (confusing!)
-   RIGHT: "Bullish dynamics extend with strong momentum"
+6. INCLUDE UNCERTAINTY for future direction:
+   Use: "potential", "likely", "points to", "suggests"
+   Example: "pointing to potential further gains"
 
-5. TERMINOLOGY:
-   - "technical" = Technical Score
-   - "momentum" = Momentum Score
-   - "setup" = Both combined (overall picture)
+7. MA TEST DIRECTION:
+   - Above MA, testing from above = "holding above 50d MA support" (positive)
+   - Below MA, testing from below = "facing 50d MA resistance" (needs breakout)
 
-6. SETUP LOGIC:
-   - If tech and momentum align → use "setup"
-   - If they diverge → describe each: "strong technical offset by weak momentum"
-
-7. NO NUMBERS - Use qualitative words
-
-8. NO ASSET NAME in subtitle
-
-9. MA RULES (1% threshold):
-   - Above ALL MAs by >1%: DO NOT mention MAs
-   - Near MA (within 1%): Can mention test
+8. MA VISIBILITY (1% threshold):
+   - Far above ALL MAs (>1%): DO NOT mention MAs
+   - Near MA (within 1%): Mention with correct direction context
    - Below ANY MA: MUST mention
 
-10. UNIQUENESS - Different from previous subtitles
+9. NO NUMBERS, NO ASSET NAME
 
-11. MAX 1 SUPERLATIVE per sentence
+10. UNIQUENESS - Each subtitle must have different structure
 
 Output ONLY the subtitle. No quotes, no period, no explanation."""
 
 
 EXAMPLES = """
-=== BULLISH (far above MAs) ===
-"Bullish dynamics surge with exceptional setup driving gains"
-"Powerful advance extends as aligned indicators confirm strength"
-"Bullish trajectory accelerates with robust momentum and solid technical"
+=== BULLISH (far above MAs - don't mention) ===
+"Bullish dynamics continue with exceptional setup pointing to further gains"
+"Strong momentum confirms bullish trajectory with potential for continuation"
+"Bullish advance extends as aligned indicators suggest further strength"
 
-=== BULLISH (near MA) ===
-"Testing 50d MA, bullish setup holds with strong momentum"
-"Bullish advance pauses at 50d MA with solid technical support"
+=== BULLISH (testing MA support from above) ===
+"Holding above 50d MA support, bullish setup remains intact"
+"Bullish dynamics steady above 50d MA with solid momentum"
+
+=== BULLISH (testing MA resistance from below) ===
+"Facing 50d MA resistance, bullish momentum builds for potential breakout"
+"Approaching 50d MA test with strong momentum suggesting likely break"
 
 === CONSTRUCTIVE ===
-"Constructive dynamics build with improving technical and momentum"
-"Constructive outlook firms as setup strengthens near support"
+"Constructive dynamics develop with improving technical and momentum"
+"Constructive outlook strengthens as setup builds near support"
 
 === NEUTRAL ===
-"Neutral stance persists with mixed signals warranting patience"
-"Mixed dynamics maintain neutral bias pending clarity"
+"Neutral stance holds with mixed signals suggesting patience"
+"Mixed dynamics maintain neutral outlook pending clearer direction"
 
 === CAUTIOUS ===
-"Cautious trajectory emerges as technical weakens despite momentum"
-"Cautious setup develops with fragile technical near key levels"
+"Cautious positioning develops as technical weakens near key levels"
+"Cautious outlook persists with fragile setup facing resistance"
 
 === BEARISH (below MAs) ===
-"Trapped below all averages, bearish dynamics persist"
-"Submerged beneath key MAs with weak technical and fragile momentum"
-"Bearish trajectory deepens, buried under moving average resistance"
-"Languishing below all MAs with deteriorating setup"
+"Trapped below all averages, bearish dynamics likely to persist"
+"Submerged beneath key MAs with weak setup suggesting further pressure"
+"Buried under moving averages, bearish trajectory continues"
+"Languishing below key levels with deteriorating momentum"
 
 === WHAT NOT TO WRITE ===
-❌ "Bullish momentum drives..." → Use "bullish dynamics" for movement
-❌ "Oil's bearish trajectory" → Don't repeat asset name
-❌ "exceptional with extraordinary" → Max 1 superlative
+❌ "Bullish dynamics surge..." → Use measured verbs: "continue", "extend"
+❌ "Momentum soars driving gains" → Too dramatic, use "strengthens"
+❌ "driving massive gains" → Use uncertainty: "pointing to potential gains"
 """
 
 # Padding content to reach 4,096 token minimum for Haiku 4.5 caching
@@ -296,7 +292,7 @@ def build_prompt(
     previous_subtitles: List[str],
     historical_context: Optional[str] = None
 ) -> str:
-    """Build prompt with dynamics vocabulary and 1% MA threshold."""
+    """Build prompt with measured verbs and MA direction."""
 
     asset_name = asset_data["asset_name"]
     dmas = asset_data["dmas"]
@@ -315,18 +311,16 @@ def build_prompt(
     else:
         rating = "Bearish"
 
-    # Convert scores to qualitative descriptors
+    # CORRECTED thresholds
     def score_to_quality(score):
         if score >= 86:
             return "exceptional"
         elif score >= 71:
             return "strong"
-        elif score >= 56:
+        elif score >= 51:
             return "solid"
-        elif score >= 41:
+        elif score >= 31:
             return "mixed"
-        elif score >= 26:
-            return "fragile"
         else:
             return "weak"
 
@@ -337,61 +331,66 @@ def build_prompt(
     aligned = abs(technical - momentum) <= 15
     if aligned:
         setup_quality = score_to_quality((technical + momentum) // 2)
-        alignment_note = f"Tech and momentum ALIGNED → use 'setup': '{setup_quality} setup'"
+        alignment_note = f"ALIGNED → '{setup_quality} setup'"
     else:
-        alignment_note = f"Tech ({tech_quality}) and momentum ({mom_quality}) DIVERGE → describe each separately"
+        alignment_note = f"DIVERGENT → '{tech_quality} technical' vs '{mom_quality} momentum'"
 
     # Extract MA data
     price_vs_50ma = asset_data.get("price_vs_50ma_pct", 0)
     price_vs_100ma = asset_data.get("price_vs_100ma_pct", 0)
     price_vs_200ma = asset_data.get("price_vs_200ma_pct", 0)
 
-    # Determine MA context with 1% threshold
+    # Determine MA context with DIRECTION
     above_all = price_vs_50ma > 1 and price_vs_100ma > 1 and price_vs_200ma > 1
     below_all = price_vs_50ma < -1 and price_vs_100ma < -1 and price_vs_200ma < -1
-    near_50 = -1 <= price_vs_50ma <= 1
 
-    # Build MA instruction with bearish phrase rotation
-    if above_all:
+    # Near 50d MA with direction
+    if 0 < price_vs_50ma <= 1:
+        ma_note = "ABOVE 50d MA, testing SUPPORT → 'holding above 50d MA support'"
+    elif -1 <= price_vs_50ma < 0:
+        ma_note = "BELOW 50d MA, testing RESISTANCE → 'facing 50d MA resistance'"
+    elif above_all:
         ma_note = "FAR ABOVE all MAs → DO NOT mention MAs"
     elif below_all:
         # Rotate phrases
         bearish_count = sum(1 for s in previous_subtitles if any(
-            w in s.lower() for w in ['trapped', 'submerged', 'buried', 'languishing']
+            w in s.lower() for w in ['trapped', 'submerged', 'buried', 'languishing', 'below']
         ))
         phrases = [
             "trapped below all moving averages",
             "submerged beneath key averages",
-            "buried under moving average resistance",
-            "languishing below all MAs"
+            "buried under all MAs",
+            "languishing below key levels"
         ]
         phrase = phrases[bearish_count % len(phrases)]
         ma_note = f"BELOW ALL MAs → use: '{phrase}'"
-    elif near_50:
-        ma_note = f"NEAR 50d MA ({price_vs_50ma:+.1f}%) → mention this test"
     else:
-        ma_note = "MAs not critical → do not mention"
+        ma_note = "MAs not critical → omit"
 
-    # Build uniqueness section
+    # Uniqueness - track structures and openings
     avoid_section = ""
     if previous_subtitles:
         recent = previous_subtitles[-4:]
+        # Extract first 2 words to ensure different openings
+        openings = [' '.join(s.split()[:2]) for s in recent if s]
         avoid_section = f"""
 
-AVOID (already used):
-{chr(10).join(f'✗ "{s}"' for s in recent)}"""
+ALREADY USED (use DIFFERENT structure and opening):
+{chr(10).join(f'✗ "{s}"' for s in recent)}
+Avoid starting with: {', '.join(openings)}"""
 
-    # Build prompt with vocabulary reminder
+    # Build prompt with style rules
     prompt = f"""Asset: {asset_name}
 Rating: {rating}
-Technical: {tech_quality} | Momentum: {mom_quality}
+Technical: {tech_quality} ({technical}) | Momentum: {mom_quality} ({momentum})
 {alignment_note}
 {ma_note}
 
-VOCABULARY REMINDER:
-- "momentum" = the score (strong/weak momentum)
-- "dynamics/advance/trajectory" = overall movement (bullish dynamics)
-- Do NOT write "bullish momentum" - write "bullish dynamics with strong momentum"
+STYLE RULES:
+- Use MEASURED verbs: continues, extends, builds, strengthens, accelerates
+- AVOID dramatic verbs: soars, surges, thunders, explodes
+- Include UNCERTAINTY: "potential gains", "likely to continue", "points to"
+- Keep it professional and measured, not sensational
 {avoid_section}
 
 Generate subtitle (max 12 words, no period):"""
