@@ -5757,6 +5757,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Insert cryptocurrency performance charts
             # ------------------------------------------------------------------
+            update_progress("Processing Crypto performance charts...")
             # Generate the weekly crypto performance bar chart with price-mode adjustment
             crypto_bar_bytes, crypto_used_date = create_weekly_crypto_performance_chart(
                 excel_path_for_ppt,
@@ -5864,6 +5865,7 @@ def show_generate_presentation_page():
             # ------------------------------------------------------------------
             # Insert Commodity performance charts
             # ------------------------------------------------------------------
+            update_progress("Processing Commodity performance charts...")
             # Generate the weekly commodity performance bar chart with price-mode adjustment
             commo_bar_bytes, commo_used_date = create_weekly_commodity_performance_chart(
                 excel_path_for_ppt,
@@ -5895,9 +5897,11 @@ def show_generate_presentation_page():
                 width_cm=19.43,
                 height_cm=10.61,
             )
-        except Exception:
-            # If anything fails, continue without the performance slides
-            pass
+        except Exception as perf_err:
+            # Log the error so we can debug performance chart issues
+            print(f"Performance charts error: {perf_err}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert market breadth (funda breath) table
