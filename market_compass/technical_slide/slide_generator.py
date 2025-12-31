@@ -369,12 +369,17 @@ def insert_technical_analysis_slide(
     """
     # Try to find existing placeholder slide by shape name
     target_slide = None
+    found_shape_name = None
 
-    for slide in prs.slides:
+    print(f"[Technical Nutshell] Searching for placeholder '{placeholder_name}' in {len(prs.slides)} slides...")
+
+    for slide_idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            if placeholder_name.lower() in name_attr:
+            name_attr = getattr(shape, "name", "")
+            if placeholder_name.lower() in name_attr.lower():
                 target_slide = slide
+                found_shape_name = name_attr
+                print(f"[Technical Nutshell] Found placeholder shape '{name_attr}' on slide {slide_idx + 1}")
                 # Remove the placeholder shape
                 sp = shape._element
                 sp.getparent().remove(sp)
@@ -384,11 +389,11 @@ def insert_technical_analysis_slide(
 
     if target_slide:
         # Add content to the existing slide
-        print(f"Found slide with placeholder '{placeholder_name}' - adding tables")
+        print(f"[Technical Nutshell] Adding tables to slide with placeholder '{found_shape_name}'")
         _add_content_to_slide(target_slide, rows, used_date, price_mode)
     else:
         # No placeholder found - create new slide at the end
-        print(f"No placeholder '{placeholder_name}' found - creating new slide")
+        print(f"[Technical Nutshell] No placeholder '{placeholder_name}' found - creating new slide at end")
         generate_technical_analysis_slide(prs, rows, used_date, price_mode)
 
     return prs

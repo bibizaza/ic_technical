@@ -5969,6 +5969,8 @@ def show_generate_presentation_page():
                 "Date"
             ).reset_index(drop=True)
 
+            print(f"[Technical Nutshell] Price data loaded: {len(df_prices_tech)} rows, columns: {list(df_prices_tech.columns)[:10]}...")
+
             # Adjust for price mode
             df_prices_tech_adj, tech_used_date = adjust_prices_for_mode(
                 df_prices_tech, pmode
@@ -6001,6 +6003,8 @@ def show_generate_presentation_page():
                 "binance": st.session_state.get("binance_dmas", 50),
             }
 
+            print(f"[Technical Nutshell] DMAS scores collected: {dmas_scores}")
+
             # Prepare slide data
             rows = prepare_slide_data(
                 df_prices_tech_adj,
@@ -6008,6 +6012,8 @@ def show_generate_presentation_page():
                 str(excel_path_for_ppt),
                 price_mode=pmode,
             )
+
+            print(f"[Technical Nutshell] Prepared {len(rows)} asset rows")
 
             # Insert the slide (finds "technical_nutshell" placeholder)
             if rows:
@@ -6018,9 +6024,9 @@ def show_generate_presentation_page():
                     used_date=tech_used_date,
                     price_mode=pmode,
                 )
-                print(f"Technical Analysis slide generated with {len(rows)} assets")
+                print(f"[Technical Nutshell] Slide generated with {len(rows)} assets")
             else:
-                print("Warning: No assets found for Technical Analysis slide")
+                print("[Technical Nutshell] Warning: No assets found for slide")
 
         except Exception as e:
             print(f"Technical Analysis slide error: {e}")
