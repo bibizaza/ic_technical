@@ -4035,7 +4035,7 @@ def show_generate_presentation_page():
             """Update progress bar and estimated time remaining."""
             nonlocal current_step
             current_step += 1
-            progress = current_step / total_steps
+            progress = min(current_step / total_steps, 1.0)  # Cap at 100%
             progress_bar.progress(progress)
 
             # Calculate elapsed and estimated remaining time
