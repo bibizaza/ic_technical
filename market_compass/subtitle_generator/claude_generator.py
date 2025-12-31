@@ -426,13 +426,25 @@ def build_prompt(
         # Big bounce in bearish context
         correction_note = f"\n⚠️ STRONG REBOUND: +{price_change_1w:.1f}% WoW in weak context. Consider: 'Rebound offers relief but setup fragile'"
 
-    # VOCABULARY ROTATION (v5.6)
+    # VOCABULARY ROTATION (v5.6) - Track ALL superlatives, not just "exceptional"
     vocab_note = ""
-    exceptional_count = sum(1 for s in previous_subtitles if 'exceptional' in s.lower())
-    if exceptional_count >= 2:
-        alternatives = [s for s in EXCEPTIONAL_SYNONYMS if s != "exceptional"]
-        vocab_note += f"\n⚠️ 'Exceptional' used {exceptional_count}x. Use instead: {', '.join(alternatives[:3])}"
+    superlatives = ['exceptional', 'outstanding', 'remarkable', 'impressive', 'powerful', 'robust', 'compelling']
 
+    superlative_counts = {}
+    for word in superlatives:
+        superlative_counts[word] = sum(1 for s in previous_subtitles if word in s.lower())
+
+    # Find least-used superlatives (used < 2 times)
+    available = [w for w in superlatives if superlative_counts.get(w, 0) < 2]
+
+    # If some superlatives are overused, suggest fresh ones
+    if len(available) < len(superlatives):
+        if available:
+            vocab_note += f"\n⚠️ Use fresh superlative: {', '.join(available[:3])}"
+        else:
+            vocab_note += "\n⚠️ All superlatives used 2x+. Vary sentence structure instead."
+
+    # Track "potential gains" phrases
     gains_count = sum(1 for s in previous_subtitles if 'potential' in s.lower() and 'gain' in s.lower())
     if gains_count >= 2:
         alternatives = [p for p in GAINS_PHRASES if 'potential further gains' not in p]
