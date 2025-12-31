@@ -1,7 +1,7 @@
-"""PowerPoint slide generation for Technical Analysis - BULLETPROOF VERSION.
+"""PowerPoint slide generation for Technical Analysis - XML FONT FIX VERSION.
 
-This version explicitly forces font sizes on both paragraph AND runs
-to prevent PowerPoint from defaulting to 11pt.
+This version removes the table style and sets fonts via direct XML manipulation
+to guarantee 9pt font size (python-pptx table styles override cell-level settings).
 """
 
 from datetime import datetime
@@ -12,12 +12,126 @@ from pptx.util import Cm, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.oxml.ns import qn
+from lxml import etree
 
 from .config import (
     COLORS, HEADERS, SLIDE_LAYOUT, TABLE_DIMS,
     FONT_SIZE, FONT_SIZE_HEADER, FONT_SIZE_OUTLOOK
 )
 from .data_prep import AssetRow
+
+
+# ============================================================
+# FONT SIZE IN EMUs (English Metric Units)
+# 1 point = 12700 EMUs
+# In XML 'sz' attribute, we use 100ths of a point
+# ============================================================
+FONT_SIZE_9PT_EMU = 114300   # 9 * 12700
+FONT_SIZE_8PT_EMU = 101600   # 8 * 12700
+
+
+def _remove_table_style(table):
+    """
+    Remove the table style so it doesn't override our font settings.
+    This is the KEY fix for the font size problem.
+    """
+    tbl = table._tbl
+    tblPr = tbl.tblPr
+
+    if tblPr is not None:
+        # Remove tableStyleId if it exists
+        for child in list(tblPr):
+            if 'tableStyleId' in child.tag:
+                tblPr.remove(child)
+                break
+
+
+def _rgb_to_hex(rgb_color: RGBColor) -> str:
+    """Convert RGBColor to hex string for XML."""
+    # RGBColor stores RGB as an integer
+    val = int(rgb_color)
+    r = (val >> 16) & 0xFF
+    g = (val >> 8) & 0xFF
+    b = val & 0xFF
+    return f'{r:02X}{g:02X}{b:02X}'
+
+
+def _set_cell_font_xml(cell, font_size_emu: int, bold: bool = False,
+                       color_hex: str = None, font_name: str = "Calibri"):
+    """
+    Set font size using direct XML manipulation.
+    This GUARANTEES the font size is set correctly.
+
+    Parameters
+    ----------
+    cell : pptx table cell
+    font_size_emu : int - Font size in EMUs (9pt = 114300)
+    bold : bool
+    color_hex : str - Color as hex string (e.g., "1A1A2E")
+    font_name : str - Font family name
+    """
+    # Size in 100ths of a point for XML 'sz' attribute
+    sz_val = str(font_size_emu // 100)
+
+    # Get the text body XML
+    txBody = cell._tc.txBody
+
+    for p in txBody.iterchildren(qn('a:p')):
+        # Set paragraph-level defaults
+        pPr = p.find(qn('a:pPr'))
+        if pPr is None:
+            pPr = etree.SubElement(p, qn('a:pPr'))
+
+        # Add default run properties to paragraph
+        defRPr = pPr.find(qn('a:defRPr'))
+        if defRPr is None:
+            defRPr = etree.SubElement(pPr, qn('a:defRPr'))
+
+        defRPr.set('sz', sz_val)
+        if bold:
+            defRPr.set('b', '1')
+
+        # Set font name
+        latin = defRPr.find(qn('a:latin'))
+        if latin is None:
+            latin = etree.SubElement(defRPr, qn('a:latin'))
+        latin.set('typeface', font_name)
+
+        # Set color on default run properties
+        if color_hex:
+            solidFill = defRPr.find(qn('a:solidFill'))
+            if solidFill is not None:
+                defRPr.remove(solidFill)
+            solidFill = etree.SubElement(defRPr, qn('a:solidFill'))
+            srgbClr = etree.SubElement(solidFill, qn('a:srgbClr'))
+            srgbClr.set('val', color_hex)
+
+        # Also set on each run (r element)
+        for r in p.iterchildren(qn('a:r')):
+            rPr = r.find(qn('a:rPr'))
+            if rPr is None:
+                rPr = etree.Element(qn('a:rPr'))
+                rPr.set('lang', 'en-US')
+                r.insert(0, rPr)
+
+            rPr.set('sz', sz_val)
+            if bold:
+                rPr.set('b', '1')
+
+            # Set font name on run
+            latin = rPr.find(qn('a:latin'))
+            if latin is None:
+                latin = etree.SubElement(rPr, qn('a:latin'))
+            latin.set('typeface', font_name)
+
+            if color_hex:
+                solidFill = rPr.find(qn('a:solidFill'))
+                if solidFill is not None:
+                    rPr.remove(solidFill)
+                solidFill = etree.SubElement(rPr, qn('a:solidFill'))
+                srgbClr = etree.SubElement(solidFill, qn('a:srgbClr'))
+                srgbClr.set('val', color_hex)
 
 
 def _normalize_widths(widths: list, total_width: float) -> list:
@@ -29,13 +143,16 @@ def _normalize_widths(widths: list, total_width: float) -> list:
 
 def _create_and_format_cell(table, row_idx: int, col_idx: int, text: str,
                             bg_color: RGBColor, text_color: RGBColor,
-                            font_size: int, bold: bool = False,
+                            font_size_emu: int, bold: bool = False,
                             align: str = "center"):
     """
-    Create and FULLY format a single cell.
+    Create and format a cell with XML-level font control.
 
-    CRITICAL: Sets font size on BOTH paragraph AND runs to prevent
-    PowerPoint from defaulting to 11pt.
+    This function:
+    1. Sets background color
+    2. Sets text content
+    3. Sets alignment and vertical anchor
+    4. Forces font size via XML manipulation
     """
     cell = table.cell(row_idx, col_idx)
 
@@ -46,41 +163,30 @@ def _create_and_format_cell(table, row_idx: int, col_idx: int, text: str,
     # Set text
     cell.text = str(text)
 
-    # Vertical centering
-    cell.vertical_anchor = MSO_ANCHOR.MIDDLE
-
-    # Get paragraph
-    para = cell.text_frame.paragraphs[0]
-
     # Alignment
+    para = cell.text_frame.paragraphs[0]
     if align == "center":
         para.alignment = PP_ALIGN.CENTER
     else:
         para.alignment = PP_ALIGN.LEFT
 
+    # Vertical centering
+    cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+
     # Remove paragraph spacing
     para.space_before = Pt(0)
     para.space_after = Pt(0)
 
-    # FORCE FONT SIZE - Set on paragraph level
-    para.font.size = Pt(font_size)
-    para.font.bold = bold
-    para.font.color.rgb = text_color
-    para.font.name = "Calibri"
-
-    # BELT AND SUSPENDERS - Also set on all runs
-    for run in para.runs:
-        run.font.size = Pt(font_size)
-        run.font.bold = bold
-        run.font.color.rgb = text_color
-        run.font.name = "Calibri"
+    # FORCE FONT SIZE VIA XML - This is the critical fix
+    color_hex = _rgb_to_hex(text_color)
+    _set_cell_font_xml(cell, font_size_emu, bold, color_hex)
 
     return cell
 
 
 def _create_table(slide, rows: List[AssetRow], asset_class: str):
     """
-    Create a single table for an asset class with BULLETPROOF formatting.
+    Create a single table for an asset class with XML font fix.
 
     Parameters
     ----------
@@ -112,6 +218,9 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
     )
     table = table_shape.table
 
+    # *** CRITICAL: REMOVE TABLE STYLE ***
+    _remove_table_style(table)
+
     # Set column widths - normalize to fit exact table width
     col_widths = _normalize_widths(dims["col_widths"], dims["width"])
     for i, w in enumerate(col_widths):
@@ -136,7 +245,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=header,
             bg_color=COLORS["header_bg"],
             text_color=COLORS["header_text"],
-            font_size=FONT_SIZE_HEADER,
+            font_size_emu=FONT_SIZE_9PT_EMU,
             bold=True,
             align="left" if col_idx == 0 else "center"
         )
@@ -152,7 +261,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=asset_row.name,
             bg_color=bg_color,
             text_color=COLORS["neutral_text"],
-            font_size=FONT_SIZE,
+            font_size_emu=FONT_SIZE_9PT_EMU,
             align="left"
         )
 
@@ -162,7 +271,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=asset_row.market_cap,
             bg_color=bg_color,
             text_color=COLORS["neutral_text"],
-            font_size=FONT_SIZE
+            font_size_emu=FONT_SIZE_9PT_EMU
         )
 
         # Column 2: RSI (color coded)
@@ -179,7 +288,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=str(rsi_val),
             bg_color=bg_color,
             text_color=rsi_color,
-            font_size=FONT_SIZE
+            font_size_emu=FONT_SIZE_9PT_EMU
         )
 
         # Column 3: vs 50d MA (color coded)
@@ -192,7 +301,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=ma_text,
             bg_color=bg_color,
             text_color=ma_color,
-            font_size=FONT_SIZE
+            font_size_emu=FONT_SIZE_9PT_EMU
         )
 
         # Column 4: DMAS (INTEGER, color coded)
@@ -209,7 +318,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=str(dmas_val),
             bg_color=bg_color,
             text_color=dmas_color,
-            font_size=FONT_SIZE,
+            font_size_emu=FONT_SIZE_9PT_EMU,
             bold=True
         )
 
@@ -226,7 +335,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=asset_row.outlook,
             bg_color=outlook_bg,
             text_color=outlook_text,
-            font_size=FONT_SIZE_OUTLOOK,
+            font_size_emu=FONT_SIZE_8PT_EMU,
             bold=True
         )
 
@@ -273,7 +382,7 @@ def _add_content_to_slide(
     suffix = " Close" if price_mode.lower() == "last close" else ""
     p.text = f"Source: Bloomberg, Herculis Group | Data as of {date_str}{suffix}"
 
-    # Force font on footer too
+    # Set footer font
     p.font.size = Pt(8)
     p.font.name = "Calibri"
     p.font.color.rgb = COLORS["light_gray"]
@@ -292,7 +401,7 @@ def generate_technical_analysis_slide(
 ):
     """
     Generate the Technical Analysis In A Nutshell slide (creates new slide).
-    Uses TWO-COLUMN layout with BULLETPROOF formatting.
+    Uses TWO-COLUMN layout with XML font fix.
     """
     # Use blank layout
     slide_layout = prs.slide_layouts[6]  # Blank
@@ -322,11 +431,6 @@ def generate_technical_analysis_slide(
     p.font.italic = True
     p.font.name = "Calibri"
     p.font.color.rgb = COLORS["neutral_text"]
-    for run in p.runs:
-        run.font.size = Pt(28)
-        run.font.italic = True
-        run.font.name = "Calibri"
-        run.font.color.rgb = COLORS["neutral_text"]
 
     # Subtitle
     subtitle_top = layout.get("subtitle_top", layout["title_top"] + 1.5)
@@ -340,10 +444,6 @@ def generate_technical_analysis_slide(
     p.font.size = Pt(14)
     p.font.name = "Calibri"
     p.font.color.rgb = COLORS["gray_text"]
-    for run in p.runs:
-        run.font.size = Pt(14)
-        run.font.name = "Calibri"
-        run.font.color.rgb = COLORS["gray_text"]
 
     # Add content (tables)
     _add_content_to_slide(slide, rows, used_date, price_mode)
