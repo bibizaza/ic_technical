@@ -5946,6 +5946,87 @@ def show_generate_presentation_page():
             pass
 
         # ------------------------------------------------------------------
+        # Technical Analysis In A Nutshell slide
+        # ------------------------------------------------------------------
+        update_progress("Generating Technical Analysis slide...")
+        try:
+            from market_compass.technical_slide import (
+                prepare_slide_data,
+                generate_technical_analysis_slide,
+            )
+            import pandas as pd
+
+            # Read price data for the slide
+            df_prices_tech = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+            df_prices_tech = df_prices_tech.drop(index=0)
+            df_prices_tech = df_prices_tech[
+                df_prices_tech[df_prices_tech.columns[0]] != "DATES"
+            ]
+            df_prices_tech["Date"] = pd.to_datetime(
+                df_prices_tech[df_prices_tech.columns[0]], errors="coerce"
+            )
+            df_prices_tech = df_prices_tech.dropna(subset=["Date"]).sort_values(
+                "Date"
+            ).reset_index(drop=True)
+
+            # Adjust for price mode
+            df_prices_tech_adj, tech_used_date = adjust_prices_for_mode(
+                df_prices_tech, pmode
+            )
+
+            # Collect DMAS scores from session state
+            dmas_scores = {
+                # Equity
+                "spx": st.session_state.get("spx_dmas", 50),
+                "csi": st.session_state.get("csi_dmas", 50),
+                "nikkei": st.session_state.get("nikkei_dmas", 50),
+                "tasi": st.session_state.get("tasi_dmas", 50),
+                "sensex": st.session_state.get("sensex_dmas", 50),
+                "dax": st.session_state.get("dax_dmas", 50),
+                "smi": st.session_state.get("smi_dmas", 50),
+                "ibov": st.session_state.get("ibov_dmas", 50),
+                "mexbol": st.session_state.get("mexbol_dmas", 50),
+                # Commodity
+                "gold": st.session_state.get("gold_dmas", 50),
+                "silver": st.session_state.get("silver_dmas", 50),
+                "platinum": st.session_state.get("platinum_dmas", 50),
+                "palladium": st.session_state.get("palladium_dmas", 50),
+                "oil": st.session_state.get("oil_dmas", 50),
+                "copper": st.session_state.get("copper_dmas", 50),
+                # Crypto
+                "bitcoin": st.session_state.get("bitcoin_dmas", 50),
+                "ethereum": st.session_state.get("ethereum_dmas", 50),
+                "ripple": st.session_state.get("ripple_dmas", 50),
+                "solana": st.session_state.get("solana_dmas", 50),
+                "binance": st.session_state.get("binance_dmas", 50),
+            }
+
+            # Prepare slide data
+            rows = prepare_slide_data(
+                df_prices_tech_adj,
+                dmas_scores,
+                str(excel_path_for_ppt),
+                price_mode=pmode,
+            )
+
+            # Generate the slide
+            if rows:
+                generate_technical_analysis_slide(
+                    prs,
+                    rows,
+                    used_date=tech_used_date,
+                    price_mode=pmode,
+                )
+                print(f"Technical Analysis slide generated with {len(rows)} assets")
+            else:
+                print("Warning: No assets found for Technical Analysis slide")
+
+        except Exception as e:
+            print(f"Technical Analysis slide error: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # ------------------------------------------------------------------
         # Enforce Calibri font on all table shapes
         # ------------------------------------------------------------------
         # The weekly performance tables and other tables inserted into the
