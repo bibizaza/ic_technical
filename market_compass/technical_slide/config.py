@@ -74,7 +74,6 @@ COLORS = {
 # =============================================================================
 
 # Table dimensions in centimeters (from manual testing)
-# Each table has: left, top, width, height, rows (header + data)
 TABLE_DIMS = {
     "equity": {
         "left": 1.13,
@@ -82,6 +81,8 @@ TABLE_DIMS = {
         "width": 11.91,
         "height": 8.53,
         "rows": 10,  # 1 header + 9 data rows
+        "header_height": 0.68,
+        "first_col_width": 2.98,
     },
     "commodities": {
         "left": 13.25,
@@ -89,6 +90,8 @@ TABLE_DIMS = {
         "width": 11.91,
         "height": 4.45,
         "rows": 7,  # 1 header + 6 data rows
+        "header_height": 0.68,
+        "first_col_width": 2.2,
     },
     "crypto": {
         "left": 13.25,
@@ -96,17 +99,19 @@ TABLE_DIMS = {
         "width": 11.91,
         "height": 3.81,
         "rows": 6,  # 1 header + 5 data rows
+        "header_height": 0.68,
+        "first_col_width": 2.2,
     },
 }
 
-# Column width ratios (will be scaled to table width)
-# 6 columns: Asset Name, Mkt Cap, RSI, vs 50d, DMAS, Outlook
-COL_WIDTH_RATIOS = [0.25, 0.15, 0.12, 0.15, 0.13, 0.20]  # Total: 1.0
+# Column width ratios for columns 2-6 (MktCap, RSI, vs50d, DMAS, Outlook)
+# First column width is specified in TABLE_DIMS as first_col_width
+OTHER_COL_RATIOS = [0.18, 0.12, 0.16, 0.14, 0.22]  # Applied to remaining width
 
 # Font sizes
-HEADER_FONT_SIZE = 8
-DATA_FONT_SIZE = 8
-OUTLOOK_FONT_SIZE = 7
+HEADER_FONT_SIZE = 9
+DATA_FONT_SIZE = 9
+OUTLOOK_FONT_SIZE = 8
 
 # Headers per asset class (first column name varies)
 HEADERS = {
@@ -117,7 +122,8 @@ HEADERS = {
 
 # Title and footer positions in centimeters
 SLIDE_LAYOUT = {
-    "title_left": 1.14,
-    "title_top": 0.76,
-    "footer_y": 18.0,
+    "title_left": 1.5,
+    "title_top": 1.5,
+    "subtitle_top": 3.0,
+    "footer_y": 18.5,
 }

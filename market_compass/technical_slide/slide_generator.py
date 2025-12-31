@@ -10,7 +10,7 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
 from .config import (
-    COLORS, COL_WIDTH_RATIOS, HEADERS,
+    COLORS, OTHER_COL_RATIOS, HEADERS,
     SLIDE_LAYOUT, TABLE_DIMS, HEADER_FONT_SIZE, DATA_FONT_SIZE, OUTLOOK_FONT_SIZE
 )
 from .data_prep import AssetRow
@@ -81,15 +81,24 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
     )
     table = table_shape.table
 
-    # Calculate column widths based on ratios
-    table_width_cm = dims["width"]
-    for i, ratio in enumerate(COL_WIDTH_RATIOS):
-        table.columns[i].width = Cm(table_width_cm * ratio)
+    # Set first column width (from config)
+    first_col_width = dims.get("first_col_width", 2.98)
+    table.columns[0].width = Cm(first_col_width)
 
-    # Calculate row height
-    row_height_cm = dims["height"] / n_rows
-    for row in table.rows:
-        row.height = Cm(row_height_cm)
+    # Distribute remaining width to other columns based on ratios
+    remaining_width = dims["width"] - first_col_width
+    for i, ratio in enumerate(OTHER_COL_RATIOS):
+        table.columns[i + 1].width = Cm(remaining_width * ratio)
+
+    # Set row heights: header row uses header_height, data rows split remaining
+    header_height = dims.get("header_height", 0.68)
+    data_row_height = (dims["height"] - header_height) / (n_rows - 1) if n_rows > 1 else header_height
+
+    for i, row in enumerate(table.rows):
+        if i == 0:
+            row.height = Cm(header_height)
+        else:
+            row.height = Cm(data_row_height)
 
     # ----- HEADER ROW -----
     headers = HEADERS.get(asset_class, HEADERS["equity"])
@@ -208,23 +217,23 @@ def _add_content_to_slide(
 
     # ----- FOOTER -----
     footer = slide.shapes.add_textbox(
-        Cm(0.76), Cm(layout["footer_y"]),
+        Cm(1.0), Cm(layout["footer_y"]),
         Cm(20), Cm(0.5)
     )
     tf = footer.text_frame
     p = tf.paragraphs[0]
 
     if used_date:
-        date_str = used_date.strftime("%d/%m/%Y")
+        date_str = used_date.strftime("%B %d, %Y")
     else:
-        date_str = datetime.now().strftime("%d/%m/%Y")
+        date_str = datetime.now().strftime("%B %d, %Y")
 
     suffix = " Close" if price_mode.lower() == "last close" else ""
     p.text = f"Source: Bloomberg, Herculis Group | Data as of {date_str}{suffix}"
 
     if p.runs:
         run = p.runs[0]
-        run.font.size = Pt(7)
+        run.font.size = Pt(8)
         run.font.name = "Calibri"
         run.font.color.rgb = COLORS["light_gray"]
 
@@ -248,8 +257,8 @@ def generate_technical_analysis_slide(
     # Gold accent bar
     accent = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
-        Cm(0.76), Cm(layout["title_top"]),
-        Cm(0.13), Cm(1.4)
+        Cm(1.0), Cm(layout["title_top"]),
+        Cm(0.15), Cm(1.8)
     )
     accent.fill.solid()
     accent.fill.fore_color.rgb = COLORS["gold_accent"]
@@ -258,29 +267,30 @@ def generate_technical_analysis_slide(
     # Title
     title_box = slide.shapes.add_textbox(
         Cm(layout["title_left"]), Cm(layout["title_top"]),
-        Cm(15), Cm(0.9)
+        Cm(15), Cm(1.2)
     )
     tf = title_box.text_frame
     p = tf.paragraphs[0]
     p.text = "Technical Analysis In A Nutshell"
     if p.runs:
         run = p.runs[0]
-        run.font.size = Pt(20)
+        run.font.size = Pt(28)
         run.font.italic = True
         run.font.name = "Calibri"
         run.font.color.rgb = COLORS["neutral_text"]
 
     # Subtitle
+    subtitle_top = layout.get("subtitle_top", layout["title_top"] + 1.5)
     subtitle_box = slide.shapes.add_textbox(
-        Cm(layout["title_left"]), Cm(layout["title_top"] + 0.9),
-        Cm(15), Cm(0.64)
+        Cm(layout["title_left"]), Cm(subtitle_top),
+        Cm(15), Cm(0.8)
     )
     tf = subtitle_box.text_frame
     p = tf.paragraphs[0]
     p.text = "HERA Score and Herculis' view for the main market indexes"
     if p.runs:
         run = p.runs[0]
-        run.font.size = Pt(10)
+        run.font.size = Pt(14)
         run.font.name = "Calibri"
         run.font.color.rgb = COLORS["gray_text"]
 
