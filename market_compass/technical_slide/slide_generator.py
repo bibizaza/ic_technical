@@ -42,6 +42,7 @@ def _set_cell_text(
         run = paragraph.runs[0]
         run.font.size = Pt(font_size)
         run.font.bold = bold
+        run.font.name = "Calibri"
         if color:
             run.font.color.rgb = color
 
@@ -185,7 +186,77 @@ def _add_section_label(slide, text: str, left: float, top: float):
         run.font.size = Pt(11)
         run.font.italic = True
         run.font.underline = True
+        run.font.name = "Calibri"
         run.font.color.rgb = COLORS["neutral_text"]
+
+
+def _add_content_to_slide(
+    slide,
+    rows: List[AssetRow],
+    used_date: Optional[datetime] = None,
+    price_mode: str = "Last Price"
+):
+    """
+    Add Technical Analysis content to an existing slide.
+
+    Parameters
+    ----------
+    slide : pptx.slide.Slide
+        The slide to add content to
+    rows : List[AssetRow]
+        Prepared asset data
+    used_date : datetime, optional
+        Date for the data source footnote
+    price_mode : str
+        "Last Price" or "Last Close"
+    """
+    layout = SLIDE_LAYOUT
+
+    # Equity section
+    _add_section_label(slide, "Equity", layout["title_left"], layout["equity_top"])
+    _create_table_section(
+        slide, rows, "equity",
+        layout["title_left"], layout["equity_top"],
+        layout["table_width"]
+    )
+
+    # Commodities section
+    _add_section_label(slide, "Commodities", layout["title_left"], layout["commodities_top"])
+    _create_table_section(
+        slide, rows, "commodities",
+        layout["title_left"], layout["commodities_top"],
+        layout["table_width"]
+    )
+
+    # Crypto section
+    _add_section_label(slide, "Crypto", layout["title_left"], layout["crypto_top"])
+    _create_table_section(
+        slide, rows, "crypto",
+        layout["title_left"], layout["crypto_top"],
+        layout["table_width"]
+    )
+
+    # Footer
+    footer = slide.shapes.add_textbox(
+        Inches(layout["title_left"]), Inches(layout["footer_top"]),
+        Inches(8), Inches(0.2)
+    )
+    tf = footer.text_frame
+    p = tf.paragraphs[0]
+
+    if used_date:
+        date_str = used_date.strftime("%d/%m/%Y")
+    else:
+        date_str = datetime.now().strftime("%d/%m/%Y")
+
+    suffix = " Close" if price_mode.lower() == "last close" else ""
+    p.text = f"Source: Bloomberg, Herculis Group | Data as of {date_str}{suffix}"
+
+    if p.runs:
+        run = p.runs[0]
+        run.font.size = Pt(8)
+        run.font.name = "Calibri"
+        run.font.color.rgb = COLORS["light_gray"]
 
 
 def generate_technical_analysis_slide(
@@ -195,7 +266,7 @@ def generate_technical_analysis_slide(
     price_mode: str = "Last Price"
 ):
     """
-    Generate the Technical Analysis In A Nutshell slide.
+    Generate the Technical Analysis In A Nutshell slide (creates new slide).
 
     Parameters
     ----------
@@ -241,6 +312,7 @@ def generate_technical_analysis_slide(
         run = p.runs[0]
         run.font.size = Pt(22)
         run.font.italic = True
+        run.font.name = "Calibri"
         run.font.color.rgb = COLORS["neutral_text"]
 
     # Subtitle
@@ -254,52 +326,11 @@ def generate_technical_analysis_slide(
     if p.runs:
         run = p.runs[0]
         run.font.size = Pt(11)
+        run.font.name = "Calibri"
         run.font.color.rgb = COLORS["gray_text"]
 
-    # Equity section
-    _add_section_label(slide, "Equity", layout["title_left"], layout["equity_top"])
-    _create_table_section(
-        slide, rows, "equity",
-        layout["title_left"], layout["equity_top"],
-        layout["table_width"]
-    )
-
-    # Commodities section
-    _add_section_label(slide, "Commodities", layout["title_left"], layout["commodities_top"])
-    _create_table_section(
-        slide, rows, "commodities",
-        layout["title_left"], layout["commodities_top"],
-        layout["table_width"]
-    )
-
-    # Crypto section
-    _add_section_label(slide, "Crypto", layout["title_left"], layout["crypto_top"])
-    _create_table_section(
-        slide, rows, "crypto",
-        layout["title_left"], layout["crypto_top"],
-        layout["table_width"]
-    )
-
-    # Footer
-    footer = slide.shapes.add_textbox(
-        Inches(layout["title_left"]), Inches(layout["footer_top"]),
-        Inches(8), Inches(0.2)
-    )
-    tf = footer.text_frame
-    p = tf.paragraphs[0]
-
-    if used_date:
-        date_str = used_date.strftime("%d/%m/%Y")
-    else:
-        date_str = datetime.now().strftime("%d/%m/%Y")
-
-    suffix = " Close" if price_mode.lower() == "last close" else ""
-    p.text = f"Source: Bloomberg, Herculis Group | Data as of {date_str}{suffix}"
-
-    if p.runs:
-        run = p.runs[0]
-        run.font.size = Pt(8)
-        run.font.color.rgb = COLORS["light_gray"]
+    # Add content (tables, etc.)
+    _add_content_to_slide(slide, rows, used_date, price_mode)
 
     return slide
 
@@ -307,15 +338,16 @@ def generate_technical_analysis_slide(
 def insert_technical_analysis_slide(
     prs: Presentation,
     rows: List[AssetRow],
-    placeholder_name: str = "tech_analysis_nutshell",
+    placeholder_name: str = "technical_nutshell",
     used_date: Optional[datetime] = None,
     price_mode: str = "Last Price"
 ) -> Presentation:
     """
-    Insert the Technical Analysis slide into an existing presentation.
+    Insert the Technical Analysis content into an existing presentation.
 
-    Finds the slide with the matching placeholder and replaces it,
-    or appends a new slide if not found.
+    Finds the slide with the matching placeholder (by shape name) and
+    adds the tables to that slide. If no placeholder is found, creates
+    a new slide at the end.
 
     Parameters
     ----------
@@ -324,7 +356,7 @@ def insert_technical_analysis_slide(
     rows : List[AssetRow]
         Prepared asset data
     placeholder_name : str
-        Name of placeholder to find in template
+        Name of placeholder shape to find in template (default: "technical_nutshell")
     used_date : datetime, optional
         Date for data source footnote
     price_mode : str
@@ -335,44 +367,28 @@ def insert_technical_analysis_slide(
     Presentation
         Modified presentation
     """
-    # Try to find existing placeholder slide
+    # Try to find existing placeholder slide by shape name
     target_slide = None
-    target_idx = None
 
-    for idx, slide in enumerate(prs.slides):
+    for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
             if placeholder_name.lower() in name_attr:
                 target_slide = slide
-                target_idx = idx
+                # Remove the placeholder shape
+                sp = shape._element
+                sp.getparent().remove(sp)
                 break
-            if shape.has_text_frame:
-                text_lower = (shape.text or "").strip().lower()
-                if f"[{placeholder_name}]" in text_lower:
-                    target_slide = slide
-                    target_idx = idx
-                    break
         if target_slide:
             break
 
     if target_slide:
-        # Remove the placeholder shape and add content to existing slide
-        for shape in list(target_slide.shapes):
-            name_attr = getattr(shape, "name", "").lower()
-            if placeholder_name.lower() in name_attr:
-                sp = shape._element
-                sp.getparent().remove(sp)
-            elif shape.has_text_frame:
-                text_lower = (shape.text or "").strip().lower()
-                if f"[{placeholder_name}]" in text_lower:
-                    sp = shape._element
-                    sp.getparent().remove(sp)
-
-        # Add content to existing slide
-        # (For now, just generate a new slide - can be enhanced later)
-        generate_technical_analysis_slide(prs, rows, used_date, price_mode)
+        # Add content to the existing slide
+        print(f"Found slide with placeholder '{placeholder_name}' - adding tables")
+        _add_content_to_slide(target_slide, rows, used_date, price_mode)
     else:
-        # No placeholder found - add new slide at the end
+        # No placeholder found - create new slide at the end
+        print(f"No placeholder '{placeholder_name}' found - creating new slide")
         generate_technical_analysis_slide(prs, rows, used_date, price_mode)
 
     return prs

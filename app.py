@@ -5952,7 +5952,7 @@ def show_generate_presentation_page():
         try:
             from market_compass.technical_slide import (
                 prepare_slide_data,
-                generate_technical_analysis_slide,
+                insert_technical_analysis_slide,
             )
             import pandas as pd
 
@@ -6009,11 +6009,12 @@ def show_generate_presentation_page():
                 price_mode=pmode,
             )
 
-            # Generate the slide
+            # Insert the slide (finds "technical_nutshell" placeholder)
             if rows:
-                generate_technical_analysis_slide(
+                insert_technical_analysis_slide(
                     prs,
                     rows,
+                    placeholder_name="technical_nutshell",
                     used_date=tech_used_date,
                     price_mode=pmode,
                 )
