@@ -82,7 +82,7 @@ TABLE_DIMS = {
         "height": 8.53,
         "rows": 10,  # 1 header + 9 data rows
         "header_height": 0.68,
-        "first_col_width": 2.98,
+        "col_widths": [2.5, 1.8, 1.0, 1.3, 1.1, 2.0],  # Will be normalized
     },
     "commodities": {
         "left": 13.25,
@@ -91,7 +91,7 @@ TABLE_DIMS = {
         "height": 4.45,
         "rows": 7,  # 1 header + 6 data rows
         "header_height": 0.68,
-        "first_col_width": 2.2,
+        "col_widths": [2.3, 1.6, 1.0, 1.4, 1.1, 2.0],
     },
     "crypto": {
         "left": 13.25,
@@ -100,18 +100,14 @@ TABLE_DIMS = {
         "height": 3.81,
         "rows": 6,  # 1 header + 5 data rows
         "header_height": 0.68,
-        "first_col_width": 2.2,
+        "col_widths": [2.0, 1.6, 1.0, 1.4, 1.1, 2.0],
     },
 }
 
-# Column width ratios for columns 2-6 (MktCap, RSI, vs50d, DMAS, Outlook)
-# First column width is specified in TABLE_DIMS as first_col_width
-OTHER_COL_RATIOS = [0.18, 0.12, 0.16, 0.14, 0.22]  # Applied to remaining width
-
-# Font sizes
-HEADER_FONT_SIZE = 9
-DATA_FONT_SIZE = 9
-OUTLOOK_FONT_SIZE = 8
+# Font sizes - CRITICAL: Must be explicitly set on both paragraph AND runs
+FONT_SIZE = 9       # All data cells
+FONT_SIZE_HEADER = 9
+FONT_SIZE_OUTLOOK = 8
 
 # Headers per asset class (first column name varies)
 HEADERS = {
@@ -125,5 +121,5 @@ SLIDE_LAYOUT = {
     "title_left": 1.5,
     "title_top": 1.5,
     "subtitle_top": 3.0,
-    "footer_y": 18.5,
+    "footer_y": 18.0,
 }

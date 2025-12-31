@@ -1,4 +1,8 @@
-"""PowerPoint slide generation for Technical Analysis - Two Column Layout."""
+"""PowerPoint slide generation for Technical Analysis - BULLETPROOF VERSION.
+
+This version explicitly forces font sizes on both paragraph AND runs
+to prevent PowerPoint from defaulting to 11pt.
+"""
 
 from datetime import datetime
 from typing import List, Optional
@@ -10,46 +14,73 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
 from .config import (
-    COLORS, OTHER_COL_RATIOS, HEADERS,
-    SLIDE_LAYOUT, TABLE_DIMS, HEADER_FONT_SIZE, DATA_FONT_SIZE, OUTLOOK_FONT_SIZE
+    COLORS, HEADERS, SLIDE_LAYOUT, TABLE_DIMS,
+    FONT_SIZE, FONT_SIZE_HEADER, FONT_SIZE_OUTLOOK
 )
 from .data_prep import AssetRow
 
 
-def _format_cell_text(cell, text: str, align: str = "center", size: int = 8,
-                      color: RGBColor = None, bold: bool = False):
-    """Helper to format cell text with vertical centering."""
+def _normalize_widths(widths: list, total_width: float) -> list:
+    """Normalize column widths to match total table width exactly."""
+    current_sum = sum(widths)
+    factor = total_width / current_sum
+    return [w * factor for w in widths]
+
+
+def _create_and_format_cell(table, row_idx: int, col_idx: int, text: str,
+                            bg_color: RGBColor, text_color: RGBColor,
+                            font_size: int, bold: bool = False,
+                            align: str = "center"):
+    """
+    Create and FULLY format a single cell.
+
+    CRITICAL: Sets font size on BOTH paragraph AND runs to prevent
+    PowerPoint from defaulting to 11pt.
+    """
+    cell = table.cell(row_idx, col_idx)
+
+    # Background color
+    cell.fill.solid()
+    cell.fill.fore_color.rgb = bg_color
+
+    # Set text
     cell.text = str(text)
 
     # Vertical centering
     cell.vertical_anchor = MSO_ANCHOR.MIDDLE
 
-    p = cell.text_frame.paragraphs[0]
+    # Get paragraph
+    para = cell.text_frame.paragraphs[0]
 
+    # Alignment
     if align == "center":
-        p.alignment = PP_ALIGN.CENTER
-    elif align == "left":
-        p.alignment = PP_ALIGN.LEFT
-    elif align == "right":
-        p.alignment = PP_ALIGN.RIGHT
+        para.alignment = PP_ALIGN.CENTER
+    else:
+        para.alignment = PP_ALIGN.LEFT
 
-    p.space_before = Pt(0)
-    p.space_after = Pt(0)
+    # Remove paragraph spacing
+    para.space_before = Pt(0)
+    para.space_after = Pt(0)
 
-    if p.runs:
-        run = p.runs[0]
-        run.font.size = Pt(size)
+    # FORCE FONT SIZE - Set on paragraph level
+    para.font.size = Pt(font_size)
+    para.font.bold = bold
+    para.font.color.rgb = text_color
+    para.font.name = "Calibri"
+
+    # BELT AND SUSPENDERS - Also set on all runs
+    for run in para.runs:
+        run.font.size = Pt(font_size)
         run.font.bold = bold
+        run.font.color.rgb = text_color
         run.font.name = "Calibri"
-        if color:
-            run.font.color.rgb = color
-        else:
-            run.font.color.rgb = COLORS["neutral_text"]
+
+    return cell
 
 
 def _create_table(slide, rows: List[AssetRow], asset_class: str):
     """
-    Create a single table for an asset class using exact cm dimensions.
+    Create a single table for an asset class with BULLETPROOF formatting.
 
     Parameters
     ----------
@@ -81,16 +112,12 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
     )
     table = table_shape.table
 
-    # Set first column width (from config)
-    first_col_width = dims.get("first_col_width", 2.98)
-    table.columns[0].width = Cm(first_col_width)
+    # Set column widths - normalize to fit exact table width
+    col_widths = _normalize_widths(dims["col_widths"], dims["width"])
+    for i, w in enumerate(col_widths):
+        table.columns[i].width = Cm(w)
 
-    # Distribute remaining width to other columns based on ratios
-    remaining_width = dims["width"] - first_col_width
-    for i, ratio in enumerate(OTHER_COL_RATIOS):
-        table.columns[i + 1].width = Cm(remaining_width * ratio)
-
-    # Set row heights: header row uses header_height, data rows split remaining
+    # Set row heights
     header_height = dims.get("header_height", 0.68)
     data_row_height = (dims["height"] - header_height) / (n_rows - 1) if n_rows > 1 else header_height
 
@@ -104,15 +131,14 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
     headers = HEADERS.get(asset_class, HEADERS["equity"])
 
     for col_idx, header in enumerate(headers):
-        cell = table.cell(0, col_idx)
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = COLORS["header_bg"]
-        _format_cell_text(
-            cell, header,
-            align="left" if col_idx == 0 else "center",
-            size=HEADER_FONT_SIZE,
-            color=COLORS["header_text"],
-            bold=True
+        _create_and_format_cell(
+            table, 0, col_idx,
+            text=header,
+            bg_color=COLORS["header_bg"],
+            text_color=COLORS["header_text"],
+            font_size=FONT_SIZE_HEADER,
+            bold=True,
+            align="left" if col_idx == 0 else "center"
         )
 
     # ----- DATA ROWS -----
@@ -121,42 +147,55 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
         bg_color = COLORS["row_white"] if row_idx % 2 == 1 else COLORS["row_grey"]
 
         # Column 0: Asset Name
-        cell = table.cell(row_idx, 0)
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = bg_color
-        _format_cell_text(cell, asset_row.name, align="left", size=DATA_FONT_SIZE)
+        _create_and_format_cell(
+            table, row_idx, 0,
+            text=asset_row.name,
+            bg_color=bg_color,
+            text_color=COLORS["neutral_text"],
+            font_size=FONT_SIZE,
+            align="left"
+        )
 
         # Column 1: Market Cap
-        cell = table.cell(row_idx, 1)
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = bg_color
-        _format_cell_text(cell, asset_row.market_cap, align="center", size=DATA_FONT_SIZE)
+        _create_and_format_cell(
+            table, row_idx, 1,
+            text=asset_row.market_cap,
+            bg_color=bg_color,
+            text_color=COLORS["neutral_text"],
+            font_size=FONT_SIZE
+        )
 
         # Column 2: RSI (color coded)
-        cell = table.cell(row_idx, 2)
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = bg_color
         rsi_val = int(asset_row.rsi)
-        rsi_color = COLORS["neutral_text"]
         if rsi_val > 70:
             rsi_color = COLORS["negative"]  # Overbought
         elif rsi_val < 30:
             rsi_color = COLORS["positive"]  # Oversold
-        _format_cell_text(cell, str(rsi_val), align="center", size=DATA_FONT_SIZE, color=rsi_color)
+        else:
+            rsi_color = COLORS["neutral_text"]
+
+        _create_and_format_cell(
+            table, row_idx, 2,
+            text=str(rsi_val),
+            bg_color=bg_color,
+            text_color=rsi_color,
+            font_size=FONT_SIZE
+        )
 
         # Column 3: vs 50d MA (color coded)
-        cell = table.cell(row_idx, 3)
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = bg_color
         ma_val = asset_row.vs_50d_ma
         ma_text = f"{ma_val:+.1f}%"
         ma_color = COLORS["positive"] if ma_val >= 0 else COLORS["negative"]
-        _format_cell_text(cell, ma_text, align="center", size=DATA_FONT_SIZE, color=ma_color)
+
+        _create_and_format_cell(
+            table, row_idx, 3,
+            text=ma_text,
+            bg_color=bg_color,
+            text_color=ma_color,
+            font_size=FONT_SIZE
+        )
 
         # Column 4: DMAS (INTEGER, color coded)
-        cell = table.cell(row_idx, 4)
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = bg_color
         dmas_val = int(asset_row.dmas)
         if dmas_val >= 55:
             dmas_color = COLORS["positive"]
@@ -164,25 +203,32 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             dmas_color = COLORS["negative"]
         else:
             dmas_color = COLORS["neutral_text"]
-        _format_cell_text(cell, str(dmas_val), align="center", size=DATA_FONT_SIZE,
-                          color=dmas_color, bold=True)
+
+        _create_and_format_cell(
+            table, row_idx, 4,
+            text=str(dmas_val),
+            bg_color=bg_color,
+            text_color=dmas_color,
+            font_size=FONT_SIZE,
+            bold=True
+        )
 
         # Column 5: Outlook (colored background)
-        cell = table.cell(row_idx, 5)
         outlook_lower = asset_row.outlook.lower()
         bg_key = f"outlook_{outlook_lower}_bg"
         text_key = f"outlook_{outlook_lower}_text"
 
-        if bg_key in COLORS:
-            cell.fill.solid()
-            cell.fill.fore_color.rgb = COLORS[bg_key]
-        else:
-            cell.fill.solid()
-            cell.fill.fore_color.rgb = bg_color
+        outlook_bg = COLORS.get(bg_key, bg_color)
+        outlook_text = COLORS.get(text_key, COLORS["neutral_text"])
 
-        text_color = COLORS.get(text_key, COLORS["neutral_text"])
-        _format_cell_text(cell, asset_row.outlook, align="center",
-                          size=OUTLOOK_FONT_SIZE, color=text_color, bold=True)
+        _create_and_format_cell(
+            table, row_idx, 5,
+            text=asset_row.outlook,
+            bg_color=outlook_bg,
+            text_color=outlook_text,
+            font_size=FONT_SIZE_OUTLOOK,
+            bold=True
+        )
 
 
 def _add_content_to_slide(
@@ -206,13 +252,9 @@ def _add_content_to_slide(
 
     print(f"[Technical Nutshell] Equity: {len(equity_rows)}, Commo: {len(commo_rows)}, Crypto: {len(crypto_rows)}")
 
-    # ----- LEFT COLUMN: EQUITY -----
+    # ----- CREATE TABLES -----
     _create_table(slide, equity_rows, asset_class="equity")
-
-    # ----- RIGHT COLUMN: COMMODITIES -----
     _create_table(slide, commo_rows, asset_class="commodities")
-
-    # ----- RIGHT COLUMN: CRYPTO (below commodities) -----
     _create_table(slide, crypto_rows, asset_class="crypto")
 
     # ----- FOOTER -----
@@ -231,8 +273,12 @@ def _add_content_to_slide(
     suffix = " Close" if price_mode.lower() == "last close" else ""
     p.text = f"Source: Bloomberg, Herculis Group | Data as of {date_str}{suffix}"
 
-    if p.runs:
-        run = p.runs[0]
+    # Force font on footer too
+    p.font.size = Pt(8)
+    p.font.name = "Calibri"
+    p.font.color.rgb = COLORS["light_gray"]
+
+    for run in p.runs:
         run.font.size = Pt(8)
         run.font.name = "Calibri"
         run.font.color.rgb = COLORS["light_gray"]
@@ -246,7 +292,7 @@ def generate_technical_analysis_slide(
 ):
     """
     Generate the Technical Analysis In A Nutshell slide (creates new slide).
-    Uses TWO-COLUMN layout with exact cm dimensions.
+    Uses TWO-COLUMN layout with BULLETPROOF formatting.
     """
     # Use blank layout
     slide_layout = prs.slide_layouts[6]  # Blank
@@ -272,8 +318,11 @@ def generate_technical_analysis_slide(
     tf = title_box.text_frame
     p = tf.paragraphs[0]
     p.text = "Technical Analysis In A Nutshell"
-    if p.runs:
-        run = p.runs[0]
+    p.font.size = Pt(28)
+    p.font.italic = True
+    p.font.name = "Calibri"
+    p.font.color.rgb = COLORS["neutral_text"]
+    for run in p.runs:
         run.font.size = Pt(28)
         run.font.italic = True
         run.font.name = "Calibri"
@@ -287,9 +336,11 @@ def generate_technical_analysis_slide(
     )
     tf = subtitle_box.text_frame
     p = tf.paragraphs[0]
-    p.text = "HERA Score and Herculis' view for the main market indexes"
-    if p.runs:
-        run = p.runs[0]
+    p.text = "DMAS Score and Technical Outlook for the main market indexes"
+    p.font.size = Pt(14)
+    p.font.name = "Calibri"
+    p.font.color.rgb = COLORS["gray_text"]
+    for run in p.runs:
         run.font.size = Pt(14)
         run.font.name = "Calibri"
         run.font.color.rgb = COLORS["gray_text"]
