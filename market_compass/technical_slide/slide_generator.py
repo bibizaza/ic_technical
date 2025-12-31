@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from pptx import Presentation
 from pptx.util import Inches, Pt, Cm
-from pptx.dml.color import RgbColor
+from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
 
@@ -13,7 +13,7 @@ from .config import COLORS, COLUMN_WIDTHS, HEADERS, SLIDE_LAYOUT
 from .data_prep import AssetRow
 
 
-def _set_cell_fill(cell, color: RgbColor):
+def _set_cell_fill(cell, color: RGBColor):
     """Set cell background color."""
     cell.fill.solid()
     cell.fill.fore_color.rgb = color
@@ -24,7 +24,7 @@ def _set_cell_text(
     text: str,
     font_size: int = 10,
     bold: bool = False,
-    color: RgbColor = None,
+    color: RGBColor = None,
     align: str = "center"
 ):
     """Set cell text with formatting."""
