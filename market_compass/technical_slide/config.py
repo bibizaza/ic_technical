@@ -46,7 +46,7 @@ COLORS = {
 
     # Data row backgrounds (alternating)
     "row_white": RGBColor(255, 255, 255),    # White
-    "row_grey": RGBColor(245, 245, 245),     # Light grey #F5F5F5
+    "row_grey": RGBColor(248, 248, 248),     # Very light grey #F8F8F8
 
     # Value colors
     "positive": RGBColor(22, 163, 74),       # #16A34A - Green
@@ -70,29 +70,45 @@ COLORS = {
 }
 
 # =============================================================================
-# TABLE LAYOUT - COMPACT
+# TWO-COLUMN TABLE LAYOUT
 # =============================================================================
 
-# Column widths in inches (compact)
-COLUMN_WIDTHS = [1.0, 0.6, 0.4, 0.6, 0.5, 0.7]  # Total ~3.8 inches
+# Column widths in inches
+# Left column (Equity): wider first column for longer names
+COL_WIDTHS_LEFT = [1.1, 0.55, 0.35, 0.5, 0.4, 0.65]   # Total: 3.55"
+# Right column (Commodities, Crypto): slightly narrower
+COL_WIDTHS_RIGHT = [0.9, 0.5, 0.35, 0.5, 0.4, 0.65]   # Total: 3.3"
 
-# Headers per asset class
+# Row height
+ROW_HEIGHT = 0.22  # inches
+
+# Font sizes
+HEADER_FONT_SIZE = 8
+DATA_FONT_SIZE = 8
+OUTLOOK_FONT_SIZE = 7
+
+# Headers per asset class (first column name varies)
 HEADERS = {
-    "equity": ["Index", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
+    "equity": ["Equity", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
     "commodities": ["Commodity", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
-    "crypto": ["Asset", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
+    "crypto": ["Crypto", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
 }
 
-# Slide positions (in inches) - COMPACT layout
+# Slide positions (in inches) - TWO COLUMN LAYOUT
 SLIDE_LAYOUT = {
-    "title_left": 0.4,
-    "title_top": 0.2,
-    "table_width": 3.8,
-    "row_height": 0.22,           # Compact row height
-    "header_font_size": 8,        # Smaller header font
-    "data_font_size": 9,          # Smaller data font
-    "equity_top": 0.85,           # After title + section label
-    "commodities_top": 3.35,      # After equity table
-    "crypto_top": 5.15,           # After commodities table
-    "footer_top": 6.6,
+    # Title area
+    "title_left": 0.45,
+    "title_top": 0.3,
+
+    # Left column (Equity)
+    "left_table_x": 0.3,
+    "left_table_y": 1.0,
+
+    # Right column (Commodities + Crypto)
+    "right_table_x": 4.1,
+    "right_commo_y": 1.0,
+    "right_crypto_gap": 0.15,  # Gap between commo and crypto tables
+
+    # Footer
+    "footer_y": 7.1,
 }
