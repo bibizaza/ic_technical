@@ -4,22 +4,26 @@ from datetime import datetime
 from typing import List, Optional
 
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Cm, Pt
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
 from .config import (
-    COLORS, COL_WIDTHS_LEFT, COL_WIDTHS_RIGHT, HEADERS,
-    SLIDE_LAYOUT, ROW_HEIGHT, HEADER_FONT_SIZE, DATA_FONT_SIZE, OUTLOOK_FONT_SIZE
+    COLORS, COL_WIDTH_RATIOS, HEADERS,
+    SLIDE_LAYOUT, TABLE_DIMS, HEADER_FONT_SIZE, DATA_FONT_SIZE, OUTLOOK_FONT_SIZE
 )
 from .data_prep import AssetRow
 
 
 def _format_cell_text(cell, text: str, align: str = "center", size: int = 8,
                       color: RGBColor = None, bold: bool = False):
-    """Helper to format cell text."""
+    """Helper to format cell text with vertical centering."""
     cell.text = str(text)
+
+    # Vertical centering
+    cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+
     p = cell.text_frame.paragraphs[0]
 
     if align == "center":
@@ -43,10 +47,9 @@ def _format_cell_text(cell, text: str, align: str = "center", size: int = 8,
             run.font.color.rgb = COLORS["neutral_text"]
 
 
-def _create_table(slide, rows: List[AssetRow], left: float, top: float,
-                  col_widths: List[float], asset_class: str):
+def _create_table(slide, rows: List[AssetRow], asset_class: str):
     """
-    Create a single table for an asset class.
+    Create a single table for an asset class using exact cm dimensions.
 
     Parameters
     ----------
@@ -54,41 +57,39 @@ def _create_table(slide, rows: List[AssetRow], left: float, top: float,
         The slide to add the table to
     rows : List[AssetRow]
         Asset rows (already filtered by asset class)
-    left, top : float
-        Position in inches
-    col_widths : List[float]
-        Column widths in inches
     asset_class : str
         "equity", "commodities", or "crypto"
-
-    Returns
-    -------
-    float
-        The Y position of the bottom of this table (for stacking)
     """
     if not rows:
         print(f"[Technical Nutshell] No rows for asset class '{asset_class}'")
-        return top
+        return
+
+    # Get dimensions from config
+    dims = TABLE_DIMS.get(asset_class)
+    if not dims:
+        print(f"[Technical Nutshell] No dimensions for asset class '{asset_class}'")
+        return
 
     n_rows = len(rows) + 1  # +1 for header
     n_cols = 6
-    table_width = sum(col_widths)
 
-    # Create table
+    # Create table with exact cm dimensions
     table_shape = slide.shapes.add_table(
         n_rows, n_cols,
-        Inches(left), Inches(top),
-        Inches(table_width), Inches(ROW_HEIGHT * n_rows)
+        Cm(dims["left"]), Cm(dims["top"]),
+        Cm(dims["width"]), Cm(dims["height"])
     )
     table = table_shape.table
 
-    # Set column widths
-    for i, w in enumerate(col_widths):
-        table.columns[i].width = Inches(w)
+    # Calculate column widths based on ratios
+    table_width_cm = dims["width"]
+    for i, ratio in enumerate(COL_WIDTH_RATIOS):
+        table.columns[i].width = Cm(table_width_cm * ratio)
 
-    # Set all row heights
+    # Calculate row height
+    row_height_cm = dims["height"] / n_rows
     for row in table.rows:
-        row.height = Inches(ROW_HEIGHT)
+        row.height = Cm(row_height_cm)
 
     # ----- HEADER ROW -----
     headers = HEADERS.get(asset_class, HEADERS["equity"])
@@ -174,10 +175,6 @@ def _create_table(slide, rows: List[AssetRow], left: float, top: float,
         _format_cell_text(cell, asset_row.outlook, align="center",
                           size=OUTLOOK_FONT_SIZE, color=text_color, bold=True)
 
-    # Return the bottom Y position of this table
-    table_bottom = top + (ROW_HEIGHT * n_rows)
-    return table_bottom
-
 
 def _add_content_to_slide(
     slide,
@@ -201,37 +198,18 @@ def _add_content_to_slide(
     print(f"[Technical Nutshell] Equity: {len(equity_rows)}, Commo: {len(commo_rows)}, Crypto: {len(crypto_rows)}")
 
     # ----- LEFT COLUMN: EQUITY -----
-    _create_table(
-        slide, equity_rows,
-        left=layout["left_table_x"],
-        top=layout["left_table_y"],
-        col_widths=COL_WIDTHS_LEFT,
-        asset_class="equity"
-    )
+    _create_table(slide, equity_rows, asset_class="equity")
 
     # ----- RIGHT COLUMN: COMMODITIES -----
-    commo_bottom = _create_table(
-        slide, commo_rows,
-        left=layout["right_table_x"],
-        top=layout["right_commo_y"],
-        col_widths=COL_WIDTHS_RIGHT,
-        asset_class="commodities"
-    )
+    _create_table(slide, commo_rows, asset_class="commodities")
 
     # ----- RIGHT COLUMN: CRYPTO (below commodities) -----
-    crypto_top = commo_bottom + layout["right_crypto_gap"]
-    _create_table(
-        slide, crypto_rows,
-        left=layout["right_table_x"],
-        top=crypto_top,
-        col_widths=COL_WIDTHS_RIGHT,
-        asset_class="crypto"
-    )
+    _create_table(slide, crypto_rows, asset_class="crypto")
 
     # ----- FOOTER -----
     footer = slide.shapes.add_textbox(
-        Inches(0.3), Inches(layout["footer_y"]),
-        Inches(8), Inches(0.2)
+        Cm(0.76), Cm(layout["footer_y"]),
+        Cm(20), Cm(0.5)
     )
     tf = footer.text_frame
     p = tf.paragraphs[0]
@@ -259,7 +237,7 @@ def generate_technical_analysis_slide(
 ):
     """
     Generate the Technical Analysis In A Nutshell slide (creates new slide).
-    Uses TWO-COLUMN layout.
+    Uses TWO-COLUMN layout with exact cm dimensions.
     """
     # Use blank layout
     slide_layout = prs.slide_layouts[6]  # Blank
@@ -270,8 +248,8 @@ def generate_technical_analysis_slide(
     # Gold accent bar
     accent = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
-        Inches(0.3), Inches(layout["title_top"]),
-        Inches(0.05), Inches(0.55)
+        Cm(0.76), Cm(layout["title_top"]),
+        Cm(0.13), Cm(1.4)
     )
     accent.fill.solid()
     accent.fill.fore_color.rgb = COLORS["gold_accent"]
@@ -279,8 +257,8 @@ def generate_technical_analysis_slide(
 
     # Title
     title_box = slide.shapes.add_textbox(
-        Inches(layout["title_left"]), Inches(layout["title_top"]),
-        Inches(6), Inches(0.35)
+        Cm(layout["title_left"]), Cm(layout["title_top"]),
+        Cm(15), Cm(0.9)
     )
     tf = title_box.text_frame
     p = tf.paragraphs[0]
@@ -294,8 +272,8 @@ def generate_technical_analysis_slide(
 
     # Subtitle
     subtitle_box = slide.shapes.add_textbox(
-        Inches(layout["title_left"]), Inches(layout["title_top"] + 0.35),
-        Inches(6), Inches(0.25)
+        Cm(layout["title_left"]), Cm(layout["title_top"] + 0.9),
+        Cm(15), Cm(0.64)
     )
     tf = subtitle_box.text_frame
     p = tf.paragraphs[0]

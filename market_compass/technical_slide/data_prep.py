@@ -195,33 +195,76 @@ def prepare_slide_data(
     # Get market caps
     equity_mkt_caps = get_equity_market_caps(excel_path)
 
+    # Comprehensive key mappings for DMAS lookup
+    # Maps display_name -> list of possible DMAS keys
+    dmas_key_aliases = {
+        # Equity
+        "S&P 500": ["spx", "SPX", "s&p 500", "S&P 500", "sp500", "SPX Index"],
+        "CSI 300": ["csi", "CSI", "csi300", "CSI 300", "SHSZ300 Index"],
+        "Nikkei 225": ["nikkei", "NIKKEI", "nikkei225", "Nikkei 225", "NKY Index"],
+        "TASI": ["tasi", "TASI", "SASEIDX Index"],
+        "Sensex": ["sensex", "SENSEX", "SENSEX Index"],
+        "DAX": ["dax", "DAX", "DAX Index"],
+        "SMI": ["smi", "SMI", "SMI Index"],
+        "Mexbol": ["mexbol", "MEXBOL", "MEXBOL Index"],
+        "IBOV": ["ibov", "IBOV", "IBOV Index"],
+        # Commodities
+        "Gold": ["gold", "GOLD", "GC", "GCA Comdty"],
+        "Silver": ["silver", "SILVER", "SI", "SIA Comdty"],
+        "Platinum": ["platinum", "PLATINUM", "XPT Comdty"],
+        "Palladium": ["palladium", "PALLADIUM", "XPD Curncy"],
+        "Oil (WTI)": ["oil", "OIL", "wti", "WTI", "CL1 Comdty"],
+        "Copper": ["copper", "COPPER", "LP1 Comdty"],
+        # Crypto
+        "Bitcoin": ["bitcoin", "BITCOIN", "btc", "BTC", "XBTUSD Curncy"],
+        "Ethereum": ["ethereum", "ETHEREUM", "eth", "ETH", "XETUSD Curncy"],
+        "Ripple": ["ripple", "RIPPLE", "xrp", "XRP", "XRPUSD Curncy"],
+        "Solana": ["solana", "SOLANA", "sol", "SOL", "XSOUSD Curncy"],
+        "Binance": ["binance", "BINANCE", "bnb", "BNB", "XBIUSD Curncy"],
+    }
+
     # Helper to get DMAS from various key formats
-    def get_dmas(ticker_key: str, display_name: str) -> int:
-        # Try various key formats
-        for key in [ticker_key, ticker_key.lower(), display_name, display_name.lower()]:
+    def get_dmas(ticker_key: str, display_name: str, bloomberg_ticker: str) -> int:
+        # Build list of keys to try
+        keys_to_try = []
+
+        # Add aliases for this asset if available
+        if display_name in dmas_key_aliases:
+            keys_to_try.extend(dmas_key_aliases[display_name])
+
+        # Add standard variations
+        keys_to_try.extend([
+            ticker_key,
+            ticker_key.lower(),
+            ticker_key.upper(),
+            display_name,
+            display_name.lower(),
+            display_name.upper(),
+            bloomberg_ticker,
+            bloomberg_ticker.split()[0],  # First word of ticker (e.g., "SPX" from "SPX Index")
+            bloomberg_ticker.split()[0].lower(),
+        ])
+
+        # Try all keys
+        for key in keys_to_try:
             if key in dmas_scores:
                 raw_val = dmas_scores[key]
-                # Ensure integer
-                return int(round(raw_val)) if isinstance(raw_val, (int, float)) else 50
+                result = int(round(raw_val)) if isinstance(raw_val, (int, float)) else 50
+                print(f"[DMAS] Found '{display_name}' with key '{key}' = {result}")
+                return result
+
+        print(f"[DMAS] ⚠️ No match for '{display_name}', tried keys: {keys_to_try[:5]}...")
         return 50  # Default neutral
 
     # EQUITY
     for display_name, ticker in EQUITY_ASSETS:
         prices = _get_price_series(prices_df, ticker)
         if prices is None or len(prices) < 50:
+            print(f"[Technical Nutshell] Skipping {display_name}: insufficient price data")
             continue
 
         ticker_key = display_name.lower().replace(" ", "_").replace("&", "")
-        # Map common variations
-        key_map = {
-            "s_p_500": "spx",
-            "csi_300": "csi",
-            "nikkei_225": "nikkei",
-            "dax": "dax",
-        }
-        ticker_key = key_map.get(ticker_key, ticker_key.split("_")[0] if "_" in ticker_key else ticker_key)
-
-        dmas = get_dmas(ticker_key, display_name)
+        dmas = get_dmas(ticker_key, display_name, ticker)
 
         rows.append(AssetRow(
             name=display_name,
@@ -238,16 +281,11 @@ def prepare_slide_data(
     for display_name, ticker in COMMO_ASSETS:
         prices = _get_price_series(prices_df, ticker)
         if prices is None or len(prices) < 50:
+            print(f"[Technical Nutshell] Skipping {display_name}: insufficient price data")
             continue
 
         ticker_key = display_name.lower().replace(" ", "_").replace("(", "").replace(")", "")
-        # Map common variations
-        key_map = {
-            "oil_wti": "oil",
-        }
-        ticker_key = key_map.get(ticker_key, ticker_key)
-
-        dmas = get_dmas(ticker_key, display_name)
+        dmas = get_dmas(ticker_key, display_name, ticker)
 
         rows.append(AssetRow(
             name=display_name,
@@ -264,10 +302,11 @@ def prepare_slide_data(
     for display_name, ticker in CRYPTO_ASSETS:
         prices = _get_price_series(prices_df, ticker)
         if prices is None or len(prices) < 50:
+            print(f"[Technical Nutshell] Skipping {display_name}: insufficient price data")
             continue
 
         ticker_key = display_name.lower()
-        dmas = get_dmas(ticker_key, display_name)
+        dmas = get_dmas(ticker_key, display_name, ticker)
 
         rows.append(AssetRow(
             name=display_name,

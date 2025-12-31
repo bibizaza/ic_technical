@@ -70,17 +70,38 @@ COLORS = {
 }
 
 # =============================================================================
-# TWO-COLUMN TABLE LAYOUT
+# TWO-COLUMN TABLE LAYOUT - EXACT CENTIMETER DIMENSIONS
 # =============================================================================
 
-# Column widths in inches
-# Left column (Equity): wider first column for longer names
-COL_WIDTHS_LEFT = [1.1, 0.55, 0.35, 0.5, 0.4, 0.65]   # Total: 3.55"
-# Right column (Commodities, Crypto): slightly narrower
-COL_WIDTHS_RIGHT = [0.9, 0.5, 0.35, 0.5, 0.4, 0.65]   # Total: 3.3"
+# Table dimensions in centimeters (from manual testing)
+# Each table has: left, top, width, height, rows (header + data)
+TABLE_DIMS = {
+    "equity": {
+        "left": 1.13,
+        "top": 5.67,
+        "width": 11.91,
+        "height": 8.53,
+        "rows": 10,  # 1 header + 9 data rows
+    },
+    "commodities": {
+        "left": 13.25,
+        "top": 5.69,
+        "width": 11.91,
+        "height": 4.45,
+        "rows": 7,  # 1 header + 6 data rows
+    },
+    "crypto": {
+        "left": 13.25,
+        "top": 10.41,
+        "width": 11.91,
+        "height": 3.81,
+        "rows": 6,  # 1 header + 5 data rows
+    },
+}
 
-# Row height
-ROW_HEIGHT = 0.22  # inches
+# Column width ratios (will be scaled to table width)
+# 6 columns: Asset Name, Mkt Cap, RSI, vs 50d, DMAS, Outlook
+COL_WIDTH_RATIOS = [0.25, 0.15, 0.12, 0.15, 0.13, 0.20]  # Total: 1.0
 
 # Font sizes
 HEADER_FONT_SIZE = 8
@@ -94,21 +115,9 @@ HEADERS = {
     "crypto": ["Crypto", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
 }
 
-# Slide positions (in inches) - TWO COLUMN LAYOUT
+# Title and footer positions in centimeters
 SLIDE_LAYOUT = {
-    # Title area
-    "title_left": 0.45,
-    "title_top": 0.3,
-
-    # Left column (Equity)
-    "left_table_x": 0.3,
-    "left_table_y": 1.0,
-
-    # Right column (Commodities + Crypto)
-    "right_table_x": 4.1,
-    "right_commo_y": 1.0,
-    "right_crypto_gap": 0.15,  # Gap between commo and crypto tables
-
-    # Footer
-    "footer_y": 7.1,
+    "title_left": 1.14,
+    "title_top": 0.76,
+    "footer_y": 18.0,
 }
