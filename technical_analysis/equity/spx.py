@@ -573,6 +573,11 @@ def insert_spx_technical_chart_with_callout(
         cache_key="spx_main_callout",  # Phase 2: Use cached chart if available
     )
 
+    # Skip chart insertion if no image was generated (empty data)
+    if not img_bytes:
+        print("Warning: SPX chart image could not be generated (empty data)")
+        return prs
+
     # Locate the slide containing the 'spx' placeholder or text
     target_slide = None
     for slide in prs.slides:

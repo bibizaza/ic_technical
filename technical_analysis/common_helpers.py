@@ -1290,7 +1290,8 @@ def generate_range_callout_chart_image(
     plt.rcParams['font.family'] = 'sans-serif'
     plt.rcParams['font.sans-serif'] = ['Calibri', 'Arial', 'Helvetica', 'DejaVu Sans']
 
-    if df_full.empty:
+    if df_full is None or df_full.empty:
+        print("Warning: generate_range_callout_chart_image received empty DataFrame")
         return b""
 
     # Restrict to the configured lookback window for plotting
