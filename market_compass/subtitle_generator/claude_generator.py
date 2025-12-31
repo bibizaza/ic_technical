@@ -1,6 +1,6 @@
 """
 Claude API integration for Market Compass subtitle generation.
-v5.5.1: Added YTD recap subtitle generation for asset classes.
+v5.6: Vocabulary rotation + correction detection + dynamic year.
 
 Features:
 - Prompt caching for ~80% cost savings
@@ -8,10 +8,13 @@ Features:
 - Uncertainty language (potential, likely, suggests)
 - MA direction: support (from above) vs resistance (from below)
 - YTD recap subtitles for equity, commodities, crypto
+- Vocabulary rotation to prevent overuse of "exceptional", "potential gains"
+- WoW correction detection for significant price moves
 """
 
 import os
 import re
+from datetime import datetime
 from typing import Optional, List, Dict
 
 try:
@@ -28,6 +31,28 @@ ANTHROPIC_API_KEY = None  # Or set via environment variable
 
 # Default model
 DEFAULT_MODEL = "claude-3-5-haiku-20241022"
+
+# =============================================================================
+# VOCABULARY ROTATION (v5.6)
+# =============================================================================
+EXCEPTIONAL_SYNONYMS = [
+    "exceptional",
+    "outstanding",
+    "remarkable",
+    "impressive",
+    "excellent",
+    "powerful",
+    "robust"
+]
+
+GAINS_PHRASES = [
+    "potential further gains",
+    "likely continued advance",
+    "suggesting further upside",
+    "pointing to additional strength",
+    "with room to extend",
+    "targeting higher levels"
+]
 
 
 def get_client(api_key: str = None):
@@ -59,11 +84,21 @@ ABSOLUTE RULES:
    - Cautious → "cautious"
    - Bearish → "bearish"
 
-4. VOCABULARY:
-   - "momentum" = Momentum Score only
-   - "technical" = Technical Score only
-   - "dynamics/trajectory/advance" = overall movement
-   - "setup" = both scores combined
+4. VOCABULARY - CRITICAL DISTINCTION:
+
+   "momentum" = ONLY the Momentum Score (a number, weak/strong)
+   "dynamics/trajectory/advance" = overall movement direction
+   "technical" = Technical Score only
+   "setup" = both scores combined
+
+   ❌ WRONG: "Bullish momentum continues" (confusing!)
+   ✅ RIGHT: "Bullish dynamics continue with strong momentum"
+
+   The word "momentum" should always have a qualifier:
+   - "strong momentum" ✓
+   - "weak momentum" ✓
+   - "solid momentum" ✓
+   - "bullish momentum" ✗ (use "bullish dynamics" instead)
 
 5. USE MEASURED VERBS (professional tone):
    GOOD: continues, extends, builds, strengthens, accelerates, advances, holds, confirms
@@ -123,7 +158,18 @@ EXAMPLES = """
 "Buried under moving averages, bearish trajectory continues"
 "Languishing below key levels with deteriorating momentum"
 
+=== CORRECTION IN BULLISH CONTEXT ===
+"Despite the correction, bullish setup remains intact with strong foundation"
+"Pullback offers entry point as underlying dynamics stay bullish"
+"Weekly retreat doesn't derail the bullish trajectory"
+
+=== REBOUND IN BEARISH CONTEXT ===
+"Rebound offers temporary relief but bearish pressure likely to resume"
+"Short-term bounce within persistent bearish structure"
+"Relief rally but cautious outlook persists amid weak setup"
+
 === WHAT NOT TO WRITE ===
+❌ "Bullish momentum continues" → Use "Bullish dynamics continue with strong momentum"
 ❌ "Bullish dynamics surge..." → Use measured verbs: "continue", "extend"
 ❌ "Momentum soars driving gains" → Too dramatic, use "strengthens"
 ❌ "driving massive gains" → Use uncertainty: "pointing to potential gains"
@@ -292,12 +338,13 @@ def build_prompt(
     previous_subtitles: List[str],
     historical_context: Optional[str] = None
 ) -> str:
-    """Build prompt with measured verbs and MA direction."""
+    """Build prompt with correction detection, vocabulary rotation, and MA direction."""
 
     asset_name = asset_data["asset_name"]
     dmas = asset_data["dmas"]
     technical = asset_data["technical_score"]
     momentum = asset_data["momentum_score"]
+    price_change_1w = asset_data.get("price_change_1w_pct", 0)
 
     # Get rating
     if dmas >= 70:
@@ -367,6 +414,30 @@ def build_prompt(
     else:
         ma_note = "MAs not critical → omit"
 
+    # CORRECTION DETECTION (v5.6)
+    correction_note = ""
+    if price_change_1w <= -3 and dmas >= 70:
+        # Significant weekly drop but still bullish
+        correction_note = f"\n⚠️ CORRECTION: Price dropped {price_change_1w:.1f}% WoW but DMAS still bullish. Consider: 'Despite the correction, setup remains bullish'"
+    elif price_change_1w <= -5:
+        # Big drop
+        correction_note = f"\n⚠️ SIGNIFICANT DROP: {price_change_1w:.1f}% WoW. Consider mentioning the pullback."
+    elif price_change_1w >= 5 and dmas < 50:
+        # Big bounce in bearish context
+        correction_note = f"\n⚠️ STRONG REBOUND: +{price_change_1w:.1f}% WoW in weak context. Consider: 'Rebound offers relief but setup fragile'"
+
+    # VOCABULARY ROTATION (v5.6)
+    vocab_note = ""
+    exceptional_count = sum(1 for s in previous_subtitles if 'exceptional' in s.lower())
+    if exceptional_count >= 2:
+        alternatives = [s for s in EXCEPTIONAL_SYNONYMS if s != "exceptional"]
+        vocab_note += f"\n⚠️ 'Exceptional' used {exceptional_count}x. Use instead: {', '.join(alternatives[:3])}"
+
+    gains_count = sum(1 for s in previous_subtitles if 'potential' in s.lower() and 'gain' in s.lower())
+    if gains_count >= 2:
+        alternatives = [p for p in GAINS_PHRASES if 'potential further gains' not in p]
+        vocab_note += f"\n⚠️ 'Potential gains' used {gains_count}x. Use instead: '{alternatives[0]}' or '{alternatives[1]}'"
+
     # Uniqueness - track structures and openings
     avoid_section = ""
     if previous_subtitles:
@@ -383,10 +454,14 @@ Avoid starting with: {', '.join(openings)}"""
     prompt = f"""Asset: {asset_name}
 Rating: {rating}
 Technical: {tech_quality} ({technical}) | Momentum: {mom_quality} ({momentum})
+Weekly price change: {price_change_1w:+.1f}%
 {alignment_note}
 {ma_note}
+{correction_note}
+{vocab_note}
 
 STYLE RULES:
+- Use "dynamics/trajectory" for overall movement, "momentum" only with qualifier (strong/weak/solid)
 - Use MEASURED verbs: continues, extends, builds, strengthens, accelerates
 - AVOID dramatic verbs: soars, surges, thunders, explodes
 - Include UNCERTAINTY: "potential gains", "likely to continue", "points to"
@@ -868,7 +943,12 @@ def build_recap_prompt(
         'crypto': "Focus on the drama, volatility, or divergence between majors and altcoins"
     }
 
+    # Get current year dynamically (v5.6)
+    current_year = datetime.now().year
+
     prompt = f"""Generate a short "YTD Highlights" subtitle for the {asset_class.upper()} asset class.
+
+IMPORTANT: The current year is {current_year}. If you mention a year, use "{current_year}" not any other year.
 
 PERFORMANCE DATA (sorted best to worst YTD):
 {perf_summary}
