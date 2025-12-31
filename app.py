@@ -5717,10 +5717,13 @@ def show_generate_presentation_page():
                 width_cm=19.43,
                 height_cm=10.61,
             )
+        except Exception as e:
+            print(f"Equity performance charts error: {e}")
 
-            # ------------------------------------------------------------------
-            # Insert FX performance charts
-            # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Insert FX performance charts
+        # ------------------------------------------------------------------
+        try:
             update_progress("Processing FX performance charts...")
             # Generate the weekly FX performance bar chart with price-mode adjustment
             fx_bar_bytes, fx_used_date = create_weekly_fx_performance_chart(
@@ -5753,10 +5756,13 @@ def show_generate_presentation_page():
                 width_cm=19.43,
                 height_cm=10.61,
             )
+        except Exception as e:
+            print(f"FX performance charts error: {e}")
 
-            # ------------------------------------------------------------------
-            # Insert cryptocurrency performance charts
-            # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Insert cryptocurrency performance charts
+        # ------------------------------------------------------------------
+        try:
             update_progress("Processing Crypto performance charts...")
             # Generate the weekly crypto performance bar chart with price-mode adjustment
             crypto_bar_bytes, crypto_used_date = create_weekly_crypto_performance_chart(
@@ -5789,10 +5795,13 @@ def show_generate_presentation_page():
                 width_cm=19.43,
                 height_cm=10.61,
             )
+        except Exception as e:
+            print(f"Crypto performance charts error: {e}")
 
-            # ------------------------------------------------------------------
-            # Insert Rates performance charts
-            # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Insert Rates performance charts
+        # ------------------------------------------------------------------
+        try:
             update_progress("Processing Rates performance charts...")
             # Generate the weekly rates performance bar chart with price-mode adjustment
             rates_bar_bytes, rates_used_date = create_weekly_rates_performance_chart(
@@ -5825,10 +5834,13 @@ def show_generate_presentation_page():
                 width_cm=19.43,
                 height_cm=10.61,
             )
+        except Exception as e:
+            print(f"Rates performance charts error: {e}")
 
-            # ------------------------------------------------------------------
-            # Insert Credit performance charts
-            # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Insert Credit performance charts
+        # ------------------------------------------------------------------
+        try:
             update_progress("Processing Credit performance charts...")
             # Generate the weekly credit performance bar chart with price-mode adjustment
             credit_bar_bytes, credit_used_date = create_weekly_credit_performance_chart(
@@ -5861,10 +5873,13 @@ def show_generate_presentation_page():
                 width_cm=19.43,
                 height_cm=10.61,
             )
+        except Exception as e:
+            print(f"Credit performance charts error: {e}")
 
-            # ------------------------------------------------------------------
-            # Insert Commodity performance charts
-            # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Insert Commodity performance charts
+        # ------------------------------------------------------------------
+        try:
             update_progress("Processing Commodity performance charts...")
             # Generate the weekly commodity performance bar chart with price-mode adjustment
             commo_bar_bytes, commo_used_date = create_weekly_commodity_performance_chart(
@@ -5897,11 +5912,8 @@ def show_generate_presentation_page():
                 width_cm=19.43,
                 height_cm=10.61,
             )
-        except Exception as perf_err:
-            # Log the error so we can debug performance chart issues
-            print(f"Performance charts error: {perf_err}")
-            import traceback
-            traceback.print_exc()
+        except Exception as e:
+            print(f"Commodity performance charts error: {e}")
 
         # ------------------------------------------------------------------
         # Insert market breadth (funda breath) table
