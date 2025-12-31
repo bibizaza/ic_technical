@@ -200,7 +200,9 @@ def prepare_slide_data(
         # Try various key formats
         for key in [ticker_key, ticker_key.lower(), display_name, display_name.lower()]:
             if key in dmas_scores:
-                return dmas_scores[key]
+                raw_val = dmas_scores[key]
+                # Ensure integer
+                return int(round(raw_val)) if isinstance(raw_val, (int, float)) else 50
         return 50  # Default neutral
 
     # EQUITY

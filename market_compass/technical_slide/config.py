@@ -36,13 +36,17 @@ CRYPTO_ASSETS = [
 ]
 
 # =============================================================================
-# COLOR DEFINITIONS
+# COLOR DEFINITIONS - Clean white/grey style
 # =============================================================================
 
 COLORS = {
     # Header styling
     "header_bg": RGBColor(27, 58, 90),       # #1B3A5A - Navy blue
     "header_text": RGBColor(255, 255, 255),  # White
+
+    # Data row backgrounds (alternating)
+    "row_white": RGBColor(255, 255, 255),    # White
+    "row_grey": RGBColor(245, 245, 245),     # Light grey #F5F5F5
 
     # Value colors
     "positive": RGBColor(22, 163, 74),       # #16A34A - Green
@@ -66,26 +70,29 @@ COLORS = {
 }
 
 # =============================================================================
-# TABLE LAYOUT
+# TABLE LAYOUT - COMPACT
 # =============================================================================
 
-# Column widths in inches
-COLUMN_WIDTHS = [1.3, 0.7, 0.5, 0.8, 0.6, 0.9]  # Total ~4.8 inches
+# Column widths in inches (compact)
+COLUMN_WIDTHS = [1.0, 0.6, 0.4, 0.6, 0.5, 0.7]  # Total ~3.8 inches
 
 # Headers per asset class
 HEADERS = {
-    "equity": ["Index", "Mkt Cap", "RSI", "vs 50d MA", "DMAS", "Outlook"],
-    "commodities": ["Commodity", "Mkt Cap", "RSI", "vs 50d MA", "DMAS", "Outlook"],
-    "crypto": ["Asset", "Mkt Cap", "RSI", "vs 50d MA", "DMAS", "Outlook"],
+    "equity": ["Index", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
+    "commodities": ["Commodity", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
+    "crypto": ["Asset", "Mkt Cap", "RSI", "vs 50d", "DMAS", "Outlook"],
 }
 
-# Slide positions (in inches)
+# Slide positions (in inches) - COMPACT layout
 SLIDE_LAYOUT = {
-    "title_left": 0.5,
-    "title_top": 0.3,
-    "table_width": 4.8,
-    "equity_top": 1.2,
-    "commodities_top": 3.7,
-    "crypto_top": 5.6,
-    "footer_top": 7.2,
+    "title_left": 0.4,
+    "title_top": 0.2,
+    "table_width": 3.8,
+    "row_height": 0.22,           # Compact row height
+    "header_font_size": 8,        # Smaller header font
+    "data_font_size": 9,          # Smaller data font
+    "equity_top": 0.85,           # After title + section label
+    "commodities_top": 3.35,      # After equity table
+    "crypto_top": 5.15,           # After commodities table
+    "footer_top": 6.6,
 }

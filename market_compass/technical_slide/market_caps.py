@@ -70,37 +70,86 @@ def get_equity_market_caps(excel_path: str) -> Dict[str, str]:
     try:
         df = pd.read_excel(excel_path, sheet_name="market_cap")
 
-        # Find the market cap column
+        print(f"[Market Cap] Columns found: {df.columns.tolist()}")
+        print(f"[Market Cap] First 3 rows:\n{df.head(3)}")
+
+        # Find the market cap column (flexible matching)
         mkt_cap_col = None
         for col in df.columns:
-            if "#market_cap" in str(col).lower() or "market_cap" in str(col).lower():
+            col_str = str(col).lower()
+            if "market" in col_str or "cap" in col_str or col_str == "#market_cap":
                 mkt_cap_col = col
+                print(f"[Market Cap] Found market cap column: '{col}'")
                 break
 
         if mkt_cap_col is None:
-            # Try column B (index 1)
+            # Try column B (index 1) as fallback
             if len(df.columns) > 1:
                 mkt_cap_col = df.columns[1]
+                print(f"[Market Cap] Using column B as fallback: '{mkt_cap_col}'")
             else:
-                print("Warning: Could not find market_cap column")
+                print("[Market Cap] ❌ Could not find market_cap column")
                 return {}
 
-        # Build mapping
+        # Find the asset name column (first column or has "name"/"index"/"ticker" in it)
+        name_col = df.columns[0]  # Default to first column
+        for col in df.columns:
+            col_str = str(col).lower()
+            if "name" in col_str or "index" in col_str or "ticker" in col_str:
+                name_col = col
+                break
+
+        print(f"[Market Cap] Using name column: '{name_col}', market cap column: '{mkt_cap_col}'")
+
+        # Build mapping with flexible name matching
         market_caps = {}
-        name_col = df.columns[0]  # First column = asset names
+
+        # Name mapping for display names
+        name_mapping = {
+            "spx index": "S&P 500",
+            "s&p 500": "S&P 500",
+            "shsz300 index": "CSI 300",
+            "csi 300": "CSI 300",
+            "nky index": "Nikkei 225",
+            "nikkei 225": "Nikkei 225",
+            "saseidx index": "TASI",
+            "tasi": "TASI",
+            "sensex index": "Sensex",
+            "sensex": "Sensex",
+            "dax index": "DAX",
+            "dax": "DAX",
+            "smi index": "SMI",
+            "smi": "SMI",
+            "mexbol index": "Mexbol",
+            "mexbol": "Mexbol",
+            "ibov index": "IBOV",
+            "ibov": "IBOV",
+        }
 
         for _, row in df.iterrows():
             asset_name = str(row[name_col]).strip()
-            if pd.isna(asset_name) or asset_name == "":
+            if pd.isna(asset_name) or asset_name == "" or asset_name == "nan":
                 continue
 
             mkt_cap_value = row[mkt_cap_col]
-            market_caps[asset_name] = format_market_cap(mkt_cap_value)
+            formatted_cap = format_market_cap(mkt_cap_value)
 
+            # Store both original name and mapped display name
+            market_caps[asset_name] = formatted_cap
+
+            # Also store with display name mapping
+            asset_lower = asset_name.lower()
+            if asset_lower in name_mapping:
+                display_name = name_mapping[asset_lower]
+                market_caps[display_name] = formatted_cap
+
+        print(f"[Market Cap] ✅ Loaded {len(market_caps)} market caps: {list(market_caps.keys())[:5]}...")
         return market_caps
 
     except Exception as e:
-        print(f"Warning: Could not read market caps from Excel: {e}")
+        print(f"[Market Cap] ❌ Error reading market caps: {e}")
+        import traceback
+        traceback.print_exc()
         return {}
 
 

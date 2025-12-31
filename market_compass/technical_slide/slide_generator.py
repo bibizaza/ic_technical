@@ -22,7 +22,7 @@ def _set_cell_fill(cell, color: RGBColor):
 def _set_cell_text(
     cell,
     text: str,
-    font_size: int = 10,
+    font_size: int = 9,
     bold: bool = False,
     color: RGBColor = None,
     align: str = "center"
@@ -56,40 +56,21 @@ def _create_table_section(
     width: float
 ):
     """
-    Create a table section for an asset class.
-
-    Parameters
-    ----------
-    slide : pptx.slide.Slide
-        The slide to add the table to
-    rows : List[AssetRow]
-        All asset rows (will be filtered by asset_class)
-    asset_class : str
-        "equity", "commodities", or "crypto"
-    left : float
-        Left position in inches
-    top : float
-        Top position in inches
-    width : float
-        Table width in inches
-
-    Returns
-    -------
-    pptx.table.Table
-        The created table
+    Create a compact table section for an asset class with alternating row colors.
     """
     # Filter rows for this asset class
     class_rows = [r for r in rows if r.asset_class == asset_class]
 
     if not class_rows:
+        print(f"[Technical Nutshell] No rows for asset class '{asset_class}'")
         return None
 
     # Table dimensions
     n_rows = len(class_rows) + 1  # +1 for header
     n_cols = 6
 
-    # Row height
-    row_height = 0.28
+    # Row height from config
+    row_height = SLIDE_LAYOUT.get("row_height", 0.22)
 
     # Add table
     table_shape = slide.shapes.add_table(
@@ -103,56 +84,77 @@ def _create_table_section(
     for i, w in enumerate(COLUMN_WIDTHS):
         table.columns[i].width = Inches(w)
 
+    # Set row heights
+    for row in table.rows:
+        row.height = Inches(row_height)
+
     # Header row
     headers = HEADERS.get(asset_class, HEADERS["equity"])
+    header_font_size = SLIDE_LAYOUT.get("header_font_size", 8)
 
     for i, header in enumerate(headers):
         cell = table.cell(0, i)
         _set_cell_fill(cell, COLORS["header_bg"])
         _set_cell_text(
             cell, header,
-            font_size=9,
+            font_size=header_font_size,
             bold=True,
             color=COLORS["header_text"],
             align="left" if i == 0 else "center"
         )
 
-    # Data rows
+    # Data rows with alternating white/grey background
+    data_font_size = SLIDE_LAYOUT.get("data_font_size", 9)
+
     for row_idx, asset_row in enumerate(class_rows, start=1):
+        # Alternating background color
+        bg_color = COLORS["row_white"] if row_idx % 2 == 1 else COLORS["row_grey"]
+
         # Column 0: Asset Name
         cell = table.cell(row_idx, 0)
-        _set_cell_text(cell, asset_row.name, font_size=10, align="left")
+        _set_cell_fill(cell, bg_color)
+        _set_cell_text(cell, asset_row.name, font_size=data_font_size, align="left",
+                       color=COLORS["neutral_text"])
 
         # Column 1: Market Cap
         cell = table.cell(row_idx, 1)
-        _set_cell_text(cell, asset_row.market_cap, font_size=10)
+        _set_cell_fill(cell, bg_color)
+        _set_cell_text(cell, asset_row.market_cap, font_size=data_font_size,
+                       color=COLORS["neutral_text"])
 
-        # Column 2: RSI
+        # Column 2: RSI (color coded)
         cell = table.cell(row_idx, 2)
+        _set_cell_fill(cell, bg_color)
+        rsi_val = int(asset_row.rsi)
         rsi_color = COLORS["neutral_text"]
-        if asset_row.rsi > 70:
+        if rsi_val > 70:
             rsi_color = COLORS["negative"]  # Overbought
-        elif asset_row.rsi < 30:
+        elif rsi_val < 30:
             rsi_color = COLORS["positive"]  # Oversold
-        _set_cell_text(cell, str(int(asset_row.rsi)), font_size=10, color=rsi_color)
+        _set_cell_text(cell, str(rsi_val), font_size=data_font_size, color=rsi_color)
 
-        # Column 3: vs 50d MA
+        # Column 3: vs 50d MA (color coded)
         cell = table.cell(row_idx, 3)
-        ma_text = f"{asset_row.vs_50d_ma:+.2f}%"
-        ma_color = COLORS["positive"] if asset_row.vs_50d_ma >= 0 else COLORS["negative"]
-        _set_cell_text(cell, ma_text, font_size=10, color=ma_color)
+        _set_cell_fill(cell, bg_color)
+        ma_val = asset_row.vs_50d_ma
+        ma_text = f"{ma_val:+.1f}%"
+        ma_color = COLORS["positive"] if ma_val >= 0 else COLORS["negative"]
+        _set_cell_text(cell, ma_text, font_size=data_font_size, color=ma_color)
 
-        # Column 4: DMAS
+        # Column 4: DMAS (INTEGER, color coded)
         cell = table.cell(row_idx, 4)
-        if asset_row.dmas >= 55:
+        _set_cell_fill(cell, bg_color)
+        dmas_val = int(asset_row.dmas)  # Ensure integer
+        if dmas_val >= 55:
             dmas_color = COLORS["positive"]
-        elif asset_row.dmas < 45:
+        elif dmas_val < 45:
             dmas_color = COLORS["negative"]
         else:
             dmas_color = COLORS["neutral_text"]
-        _set_cell_text(cell, str(asset_row.dmas), font_size=10, bold=True, color=dmas_color)
+        _set_cell_text(cell, str(dmas_val), font_size=data_font_size,
+                       bold=True, color=dmas_color)
 
-        # Column 5: Outlook
+        # Column 5: Outlook (colored background)
         cell = table.cell(row_idx, 5)
         outlook_lower = asset_row.outlook.lower()
         bg_key = f"outlook_{outlook_lower}_bg"
@@ -160,14 +162,15 @@ def _create_table_section(
 
         if bg_key in COLORS:
             _set_cell_fill(cell, COLORS[bg_key])
-        if text_key in COLORS:
-            _set_cell_text(
-                cell, asset_row.outlook,
-                font_size=9, bold=True,
-                color=COLORS[text_key]
-            )
         else:
-            _set_cell_text(cell, asset_row.outlook, font_size=9, bold=True)
+            _set_cell_fill(cell, bg_color)
+
+        text_color = COLORS.get(text_key, COLORS["neutral_text"])
+        _set_cell_text(
+            cell, asset_row.outlook,
+            font_size=8, bold=True,
+            color=text_color
+        )
 
     return table
 
@@ -175,15 +178,15 @@ def _create_table_section(
 def _add_section_label(slide, text: str, left: float, top: float):
     """Add an underlined section label."""
     label = slide.shapes.add_textbox(
-        Inches(left), Inches(top - 0.28),
-        Inches(2), Inches(0.25)
+        Inches(left), Inches(top - 0.25),
+        Inches(2), Inches(0.22)
     )
     tf = label.text_frame
     p = tf.paragraphs[0]
     p.text = text
     if p.runs:
         run = p.runs[0]
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.italic = True
         run.font.underline = True
         run.font.name = "Calibri"
@@ -198,17 +201,6 @@ def _add_content_to_slide(
 ):
     """
     Add Technical Analysis content to an existing slide.
-
-    Parameters
-    ----------
-    slide : pptx.slide.Slide
-        The slide to add content to
-    rows : List[AssetRow]
-        Prepared asset data
-    used_date : datetime, optional
-        Date for the data source footnote
-    price_mode : str
-        "Last Price" or "Last Close"
     """
     layout = SLIDE_LAYOUT
 
@@ -267,22 +259,6 @@ def generate_technical_analysis_slide(
 ):
     """
     Generate the Technical Analysis In A Nutshell slide (creates new slide).
-
-    Parameters
-    ----------
-    prs : Presentation
-        PowerPoint presentation object
-    rows : List[AssetRow]
-        Prepared asset data
-    used_date : datetime, optional
-        Date for the data source footnote
-    price_mode : str
-        "Last Price" or "Last Close"
-
-    Returns
-    -------
-    pptx.slide.Slide
-        The generated slide
     """
     # Use blank layout
     slide_layout = prs.slide_layouts[6]  # Blank
@@ -293,8 +269,8 @@ def generate_technical_analysis_slide(
     # Gold accent bar
     accent = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
-        Inches(layout["title_left"] - 0.1), Inches(layout["title_top"]),
-        Inches(0.05), Inches(0.6)
+        Inches(layout["title_left"] - 0.08), Inches(layout["title_top"]),
+        Inches(0.04), Inches(0.5)
     )
     accent.fill.solid()
     accent.fill.fore_color.rgb = COLORS["gold_accent"]
@@ -303,29 +279,29 @@ def generate_technical_analysis_slide(
     # Title
     title_box = slide.shapes.add_textbox(
         Inches(layout["title_left"]), Inches(layout["title_top"]),
-        Inches(6), Inches(0.35)
+        Inches(5), Inches(0.3)
     )
     tf = title_box.text_frame
     p = tf.paragraphs[0]
     p.text = "Technical Analysis In A Nutshell"
     if p.runs:
         run = p.runs[0]
-        run.font.size = Pt(22)
+        run.font.size = Pt(18)
         run.font.italic = True
         run.font.name = "Calibri"
         run.font.color.rgb = COLORS["neutral_text"]
 
     # Subtitle
     subtitle_box = slide.shapes.add_textbox(
-        Inches(layout["title_left"]), Inches(layout["title_top"] + 0.38),
-        Inches(6), Inches(0.25)
+        Inches(layout["title_left"]), Inches(layout["title_top"] + 0.32),
+        Inches(5), Inches(0.2)
     )
     tf = subtitle_box.text_frame
     p = tf.paragraphs[0]
     p.text = "HERA Score and Herculis' view for the main market indexes"
     if p.runs:
         run = p.runs[0]
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.name = "Calibri"
         run.font.color.rgb = COLORS["gray_text"]
 
@@ -348,24 +324,6 @@ def insert_technical_analysis_slide(
     Finds the slide with the matching placeholder (by shape name) and
     adds the tables to that slide. If no placeholder is found, creates
     a new slide at the end.
-
-    Parameters
-    ----------
-    prs : Presentation
-        PowerPoint presentation object
-    rows : List[AssetRow]
-        Prepared asset data
-    placeholder_name : str
-        Name of placeholder shape to find in template (default: "technical_nutshell")
-    used_date : datetime, optional
-        Date for data source footnote
-    price_mode : str
-        "Last Price" or "Last Close"
-
-    Returns
-    -------
-    Presentation
-        Modified presentation
     """
     # Try to find existing placeholder slide by shape name
     target_slide = None
