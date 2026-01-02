@@ -42,7 +42,7 @@ TABLES_HTML_TEMPLATE = '''
 
         /* Fixed row heights for balanced table heights */
         .left-column tbody tr {
-            height: {{ 58 * scale }}px;  /* Equity: 9 data rows */
+            height: {{ 59.5 * scale }}px;  /* Equity: 9 data rows */
         }
 
         .right-column table:first-child tbody tr {
