@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 import requests
-from typing import Dict
+from typing import Dict, Optional
 from dotenv import load_dotenv
 
 # Find project root and load .env from there
@@ -11,11 +11,13 @@ _THIS_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _THIS_DIR.parent.parent  # market_compass/technical_slide -> market_compass -> ic_technical
 _ENV_PATH = _PROJECT_ROOT / ".env"
 
-load_dotenv(_ENV_PATH)
-
-# API Configuration
-CMC_API_KEY = os.getenv("COINMARKETCAP_API_KEY")
 CMC_BASE_URL = "https://pro-api.coinmarketcap.com/v1"
+
+
+def _get_api_key() -> Optional[str]:
+    """Get API key fresh from .env file each time."""
+    load_dotenv(_ENV_PATH, override=True)
+    return os.getenv("COINMARKETCAP_API_KEY")
 
 # Mapping of our asset names to CoinMarketCap symbols
 CRYPTO_SYMBOLS = {
@@ -48,8 +50,9 @@ def fetch_crypto_market_caps() -> Dict[str, str]:
     Dict[str, str]
         Mapping of asset name to formatted market cap (e.g., {"Bitcoin": "1.2 T"})
     """
-    if not CMC_API_KEY:
-        print("[CoinMarketCap] WARNING: API key not found, using placeholder")
+    api_key = _get_api_key()
+    if not api_key:
+        print(f"[CoinMarketCap] WARNING: API key not found in {_ENV_PATH}, using placeholder")
         return {name: "—" for name in CRYPTO_SYMBOLS.keys()}
 
     # Build comma-separated symbol list
@@ -57,7 +60,7 @@ def fetch_crypto_market_caps() -> Dict[str, str]:
 
     url = f"{CMC_BASE_URL}/cryptocurrency/quotes/latest"
     headers = {
-        "X-CMC_PRO_API_KEY": CMC_API_KEY,
+        "X-CMC_PRO_API_KEY": api_key,
         "Accept": "application/json",
     }
     params = {
@@ -125,12 +128,13 @@ def get_crypto_market_cap(name: str) -> str:
     if not symbol:
         return "—"
 
-    if not CMC_API_KEY:
+    api_key = _get_api_key()
+    if not api_key:
         return "—"
 
     url = f"{CMC_BASE_URL}/cryptocurrency/quotes/latest"
     headers = {
-        "X-CMC_PRO_API_KEY": CMC_API_KEY,
+        "X-CMC_PRO_API_KEY": api_key,
         "Accept": "application/json",
     }
     params = {
