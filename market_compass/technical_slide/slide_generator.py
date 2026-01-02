@@ -1,10 +1,9 @@
-"""Technical Analysis slide generator - HTML tables to image with FIXED dimensions.
+"""Technical Analysis slide generator - HIGH RESOLUTION.
 
-Renders the 3 tables (Equity, Commodity, Crypto) as an image and inserts
-into the existing slide at FIXED position and size.
+Renders the 3 tables (Equity, Commodity, Crypto) as a high-resolution image
+and inserts into the existing slide at FIXED position and size.
 
-The slide template already has: title, subtitle, logo, header bar, footer.
-We just need the tables.
+Uses 2x scale factor for crisp output when PowerPoint scales down.
 """
 
 import tempfile
@@ -23,14 +22,21 @@ from .data_prep import AssetRow
 
 
 # ============================================================
-# FIXED DIMENSIONS - DO NOT CHANGE
+# RESOLUTION SETTINGS
 # ============================================================
 
-# HTML image size (pixels) - maintains aspect ratio with PowerPoint placement
-IMAGE_WIDTH_PX = 1200
-IMAGE_HEIGHT_PX = 585
+# Scale factor for crisp output (2x = retina quality)
+SCALE_FACTOR = 2
 
-# PowerPoint placement (cm) - from user testing
+# Base dimensions (logical size)
+BASE_WIDTH = 1200
+BASE_HEIGHT = 650  # Increased to fit all rows
+
+# Actual render size (scaled up for quality)
+IMAGE_WIDTH_PX = BASE_WIDTH * SCALE_FACTOR   # 2400
+IMAGE_HEIGHT_PX = BASE_HEIGHT * SCALE_FACTOR  # 1300
+
+# PowerPoint placement (cm)
 PPTX_LEFT = 0.91
 PPTX_TOP = 4.98
 PPTX_WIDTH = 24.03
@@ -81,7 +87,7 @@ def _prepare_row(row: AssetRow) -> dict:
 
 
 def _generate_tables_html(rows: List[AssetRow]) -> str:
-    """Generate HTML for tables only."""
+    """Generate HTML for tables with scaled dimensions."""
     equity = [_prepare_row(r) for r in rows if r.asset_class == "equity"]
     commodity = [_prepare_row(r) for r in rows if r.asset_class == "commodities"]
     crypto = [_prepare_row(r) for r in rows if r.asset_class == "crypto"]
@@ -93,11 +99,14 @@ def _generate_tables_html(rows: List[AssetRow]) -> str:
         equity_rows=equity,
         commodity_rows=commodity,
         crypto_rows=crypto,
+        width=IMAGE_WIDTH_PX,
+        height=IMAGE_HEIGHT_PX,
+        scale=SCALE_FACTOR,
     )
 
 
 def _html_to_png(html: str, output_path: str) -> str:
-    """Convert HTML to PNG with fixed dimensions."""
+    """Convert HTML to high-resolution PNG."""
     with tempfile.TemporaryDirectory() as tmpdir:
         hti = Html2Image(
             output_path=tmpdir,
@@ -118,9 +127,9 @@ def insert_technical_analysis_slide(
     price_mode: str = "Last Price"
 ) -> Presentation:
     """
-    Generate tables as image and insert at FIXED position.
+    Generate high-resolution tables image and insert into slide.
 
-    Uses fixed dimensions regardless of placeholder size.
+    Uses 2x scale factor for crisp output when PowerPoint scales down.
 
     Parameters
     ----------
@@ -141,6 +150,7 @@ def insert_technical_analysis_slide(
         The modified presentation
     """
     print(f"[Technical Nutshell] Generating HTML tables with {len(rows)} assets...")
+    print(f"[Technical Nutshell] Resolution: {IMAGE_WIDTH_PX}x{IMAGE_HEIGHT_PX}px ({SCALE_FACTOR}x scale)")
 
     # Generate HTML
     html = _generate_tables_html(rows)
@@ -149,7 +159,7 @@ def insert_technical_analysis_slide(
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         img_path = f.name
 
-    print(f"[Technical Nutshell] Converting to image ({IMAGE_WIDTH_PX}x{IMAGE_HEIGHT_PX}px)...")
+    print(f"[Technical Nutshell] Rendering image...")
     _html_to_png(html, img_path)
 
     # Find slide with placeholder
@@ -174,7 +184,7 @@ def insert_technical_analysis_slide(
         print(f"[Technical Nutshell] No placeholder found, creating new slide")
         target_slide = prs.slides.add_slide(prs.slide_layouts[6])
 
-    # Insert image at FIXED position and size
+    # Insert image at fixed position
     target_slide.shapes.add_picture(
         img_path,
         left=Cm(PPTX_LEFT),
@@ -183,10 +193,10 @@ def insert_technical_analysis_slide(
         height=Cm(PPTX_HEIGHT)
     )
 
-    # Cleanup temp file
+    # Cleanup
     Path(img_path).unlink(missing_ok=True)
 
-    print(f"[Technical Nutshell] ✅ Tables inserted at ({PPTX_LEFT}, {PPTX_TOP}) cm, size ({PPTX_WIDTH} x {PPTX_HEIGHT}) cm")
+    print(f"[Technical Nutshell] ✅ High-res tables inserted at ({PPTX_LEFT}, {PPTX_TOP}) cm")
 
     return prs
 

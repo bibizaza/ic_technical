@@ -1,4 +1,4 @@
-"""HTML template for Technical Analysis tables - balanced heights."""
+"""HTML template for Technical Analysis tables - HIGH RESOLUTION."""
 
 TABLES_HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -15,85 +15,68 @@ TABLES_HTML_TEMPLATE = '''
         body {
             font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
             background: #FFFFFF;
-            width: 1200px;
-            height: 585px;
+            width: {{ width }}px;
+            height: {{ height }}px;
             padding: 0;
         }
 
         .tables-container {
             display: flex;
-            gap: 20px;
+            gap: {{ 20 * scale }}px;
             width: 100%;
             height: 100%;
         }
 
-        /* LEFT: Equity - full height */
         .left-column {
-            width: 580px;
+            width: {{ 580 * scale }}px;
             flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
         }
 
-        .left-column table {
-            flex: 1;
-        }
-
-        /* RIGHT: Commodity + Crypto stacked */
         .right-column {
-            width: 580px;
+            width: {{ 580 * scale }}px;
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
-            gap: 8px;
-        }
-
-        /* Commodity gets ~55% of right column, Crypto gets ~45% */
-        .right-column table:first-child {
-            flex: 6;
-        }
-
-        .right-column table:last-child {
-            flex: 5;
+            gap: {{ 10 * scale }}px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            font-size: {{ 12 * scale }}px;
+            box-shadow: 0 {{ 1 * scale }}px {{ 3 * scale }}px rgba(0,0,0,0.08);
         }
 
         th {
             background: #1B3A5A;
             color: #FFFFFF;
             font-weight: 600;
-            padding: 10px 8px;
+            padding: {{ 8 * scale }}px {{ 8 * scale }}px;
             text-align: center;
             border: none;
         }
 
         th:first-child {
             text-align: left;
-            padding-left: 12px;
-            width: 90px;
+            padding-left: {{ 12 * scale }}px;
+            width: {{ 90 * scale }}px;
         }
 
         th:nth-child(5) {
-            width: 95px;
+            width: {{ 95 * scale }}px;
         }
 
         td {
-            padding: 8px 8px;
+            padding: {{ 7 * scale }}px {{ 8 * scale }}px;
             text-align: center;
-            border-bottom: 1px solid #E8E8E8;
+            border-bottom: {{ 1 * scale }}px solid #E8E8E8;
         }
 
         td:first-child {
             text-align: left;
-            padding-left: 12px;
+            padding-left: {{ 12 * scale }}px;
             font-weight: 500;
-            width: 90px;
+            width: {{ 90 * scale }}px;
         }
 
         tr:nth-child(odd) td { background: #FFFFFF; }
@@ -105,33 +88,33 @@ TABLES_HTML_TEMPLATE = '''
         .rsi-overbought { color: #DC2626; font-weight: 600; }
         .rsi-oversold { color: #16A34A; font-weight: 600; }
 
-        .dmas-cell { padding: 6px 8px; }
+        .dmas-cell { padding: {{ 5 * scale }}px {{ 8 * scale }}px; }
 
         .dmas-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: {{ 6 * scale }}px;
         }
 
         .dmas-gauge {
-            width: 50px;
-            height: 6px;
+            width: {{ 50 * scale }}px;
+            height: {{ 6 * scale }}px;
             background: #E5E7EB;
-            border-radius: 3px;
+            border-radius: {{ 3 * scale }}px;
             overflow: hidden;
             flex-shrink: 0;
         }
 
         .dmas-fill {
             height: 100%;
-            border-radius: 3px;
+            border-radius: {{ 3 * scale }}px;
         }
 
         .dmas-value {
             font-weight: 700;
-            font-size: 12px;
-            min-width: 24px;
+            font-size: {{ 12 * scale }}px;
+            min-width: {{ 24 * scale }}px;
             text-align: right;
         }
 
@@ -142,12 +125,12 @@ TABLES_HTML_TEMPLATE = '''
         .dmas-fill.bearish { background: linear-gradient(90deg, #EF4444, #DC2626); }
 
         .outlook {
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: {{ 4 * scale }}px {{ 8 * scale }}px;
+            border-radius: {{ 4 * scale }}px;
             font-weight: 600;
-            font-size: 10px;
+            font-size: {{ 10 * scale }}px;
             display: inline-block;
-            min-width: 70px;
+            min-width: {{ 70 * scale }}px;
         }
 
         .outlook-bullish { background: #DCFCE7; color: #166534; }
@@ -159,7 +142,7 @@ TABLES_HTML_TEMPLATE = '''
 </head>
 <body>
     <div class="tables-container">
-        <!-- LEFT: EQUITY (full height, 9 rows) -->
+        <!-- LEFT: EQUITY -->
         <div class="left-column">
             <table>
                 <thead>
@@ -192,7 +175,7 @@ TABLES_HTML_TEMPLATE = '''
             </table>
         </div>
 
-        <!-- RIGHT: COMMODITY (6 rows) + CRYPTO (5 rows) -->
+        <!-- RIGHT: COMMODITY + CRYPTO -->
         <div class="right-column">
             <table>
                 <thead>
