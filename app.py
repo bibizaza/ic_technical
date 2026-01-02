@@ -1977,15 +1977,30 @@ def show_upload_page():
         else:
             st.sidebar.warning("⚠️ Claude API not configured - using pattern-based subtitles")
 
+        # CoinMarketCap API key input (for users without .env file)
+        st.sidebar.markdown("---")
+        st.sidebar.caption("🪙 **CoinMarketCap API** (for live crypto market caps)")
+        cmc_key_input = st.sidebar.text_input(
+            "API Key",
+            value=st.session_state.get("cmc_api_key", ""),
+            type="password",
+            help="Paste your CoinMarketCap API key here. Get one free at coinmarketcap.com/api",
+            key="cmc_key_input"
+        )
+        if cmc_key_input:
+            st.session_state["cmc_api_key"] = cmc_key_input
+
         # Test CoinMarketCap API button
         if st.sidebar.button("🪙 Fetch Crypto Mkt Cap", help="Test CoinMarketCap API - fetches live market caps"):
             with st.spinner("Fetching crypto market caps..."):
                 try:
                     from market_compass.technical_slide.crypto_data import fetch_crypto_market_caps
-                    crypto_caps = fetch_crypto_market_caps()
+                    # Pass API key from session state if available
+                    api_key_override = st.session_state.get("cmc_api_key")
+                    crypto_caps = fetch_crypto_market_caps(api_key=api_key_override)
 
                     if all(v == "—" for v in crypto_caps.values()):
-                        st.sidebar.error("❌ API returned no data. Check API key in .env")
+                        st.sidebar.error("❌ API returned no data. Check API key.")
                     else:
                         st.sidebar.success("✅ CoinMarketCap API working!")
                         for name, cap in crypto_caps.items():

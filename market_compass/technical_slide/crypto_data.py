@@ -41,18 +41,25 @@ def _format_market_cap(value: float) -> str:
         return f"{value:,.0f}"
 
 
-def fetch_crypto_market_caps() -> Dict[str, str]:
+def fetch_crypto_market_caps(api_key: Optional[str] = None) -> Dict[str, str]:
     """
     Fetch market caps for all crypto assets from CoinMarketCap.
+
+    Parameters
+    ----------
+    api_key : str, optional
+        API key override. If not provided, reads from .env file.
 
     Returns
     -------
     Dict[str, str]
         Mapping of asset name to formatted market cap (e.g., {"Bitcoin": "1.2 T"})
     """
-    api_key = _get_api_key()
+    # Use provided key or fall back to .env
     if not api_key:
-        print(f"[CoinMarketCap] WARNING: API key not found in {_ENV_PATH}, using placeholder")
+        api_key = _get_api_key()
+    if not api_key:
+        print(f"[CoinMarketCap] WARNING: API key not found, using placeholder")
         return {name: "—" for name in CRYPTO_SYMBOLS.keys()}
 
     # Build comma-separated symbol list
