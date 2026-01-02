@@ -56,17 +56,21 @@ COLORS = {
     "gray_text": RGBColor(102, 102, 102),    # #666666 - Gray
     "light_gray": RGBColor(136, 136, 136),   # #888888 - Light gray
 
-    # Outlook backgrounds and text colors
-    "outlook_bullish_bg": RGBColor(220, 252, 231),       # #DCFCE7
-    "outlook_bullish_text": RGBColor(22, 101, 52),       # #166534
-    "outlook_constructive_bg": RGBColor(236, 252, 203),  # #ECFCCB
-    "outlook_constructive_text": RGBColor(63, 98, 18),   # #3F6212
-    "outlook_neutral_bg": RGBColor(254, 249, 195),       # #FEF9C3
-    "outlook_neutral_text": RGBColor(133, 77, 14),       # #854D0E
-    "outlook_cautious_bg": RGBColor(255, 237, 213),      # #FFEDD5
-    "outlook_cautious_text": RGBColor(194, 65, 12),      # #C2410C
-    "outlook_bearish_bg": RGBColor(254, 226, 226),       # #FEE2E2
-    "outlook_bearish_text": RGBColor(220, 38, 38),       # #DC2626
+    # Outlook backgrounds and text colors - MORE EXPRESSIVE
+    "outlook_bullish_bg": RGBColor(187, 247, 208),       # Brighter green
+    "outlook_bullish_text": RGBColor(20, 83, 45),        # Dark green
+
+    "outlook_constructive_bg": RGBColor(217, 249, 157),  # Bright lime
+    "outlook_constructive_text": RGBColor(54, 83, 20),   # Dark lime
+
+    "outlook_neutral_bg": RGBColor(254, 240, 138),       # Bright yellow
+    "outlook_neutral_text": RGBColor(113, 63, 18),       # Dark amber
+
+    "outlook_cautious_bg": RGBColor(254, 215, 170),      # Bright orange
+    "outlook_cautious_text": RGBColor(154, 52, 18),      # Dark orange
+
+    "outlook_bearish_bg": RGBColor(254, 202, 202),       # Bright red
+    "outlook_bearish_text": RGBColor(153, 27, 27),       # Dark red
 }
 
 # =============================================================================

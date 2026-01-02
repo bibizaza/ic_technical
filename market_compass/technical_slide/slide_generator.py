@@ -1,7 +1,10 @@
-"""PowerPoint slide generation for Technical Analysis - XML FONT FIX VERSION.
+"""PowerPoint slide generation for Technical Analysis - AGGRESSIVE FONT FIX VERSION.
 
-This version removes the table style and sets fonts via direct XML manipulation
-to guarantee 9pt font size (python-pptx table styles override cell-level settings).
+This version uses aggressive XML manipulation to GUARANTEE:
+- 9pt font size on all cells
+- White text on headers
+- Proper colors on all cells
+- Clean borders
 """
 
 from datetime import datetime
@@ -23,115 +26,155 @@ from .data_prep import AssetRow
 
 
 # ============================================================
-# FONT SIZE IN EMUs (English Metric Units)
-# 1 point = 12700 EMUs
-# In XML 'sz' attribute, we use 100ths of a point
+# XML HELPER FUNCTIONS
 # ============================================================
-FONT_SIZE_9PT_EMU = 114300   # 9 * 12700
-FONT_SIZE_8PT_EMU = 101600   # 8 * 12700
+
+def _set_font_element(parent, font_name: str):
+    """Add font element to parent XML node."""
+    # Remove existing font elements
+    for child in list(parent):
+        if 'latin' in child.tag or 'cs' in child.tag or 'ea' in child.tag:
+            parent.remove(child)
+
+    # Add new font elements
+    latin = etree.SubElement(parent, qn('a:latin'))
+    latin.set('typeface', font_name)
+
+    cs = etree.SubElement(parent, qn('a:cs'))
+    cs.set('typeface', font_name)
+
+
+def _set_color_element(parent, color_hex: str):
+    """Add solid fill color to parent XML node."""
+    # Remove existing solidFill
+    for child in list(parent):
+        if 'solidFill' in child.tag:
+            parent.remove(child)
+
+    # Add new solidFill with srgbClr
+    solidFill = etree.SubElement(parent, qn('a:solidFill'))
+    srgbClr = etree.SubElement(solidFill, qn('a:srgbClr'))
+    srgbClr.set('val', color_hex)
 
 
 def _remove_table_style(table):
     """
-    Remove the table style so it doesn't override our font settings.
-    This is the KEY fix for the font size problem.
+    AGGRESSIVELY remove table style to prevent font override.
+    Removes all style children and disables banding/special formatting.
     """
     tbl = table._tbl
     tblPr = tbl.tblPr
 
     if tblPr is not None:
-        # Remove tableStyleId if it exists
+        # Remove all children that could affect styling
         for child in list(tblPr):
-            if 'tableStyleId' in child.tag:
-                tblPr.remove(child)
-                break
+            tblPr.remove(child)
+
+        # Set first row and banding off
+        tblPr.set('firstRow', '0')
+        tblPr.set('bandRow', '0')
+        tblPr.set('firstCol', '0')
+        tblPr.set('lastRow', '0')
+        tblPr.set('lastCol', '0')
+        tblPr.set('bandCol', '0')
 
 
 def _rgb_to_hex(rgb_color: RGBColor) -> str:
     """Convert RGBColor to hex string for XML."""
-    # RGBColor is a tuple-like object with (r, g, b) components
-    # Access via indexing: rgb_color[0]=R, rgb_color[1]=G, rgb_color[2]=B
     r = rgb_color[0]
     g = rgb_color[1]
     b = rgb_color[2]
     return f'{r:02X}{g:02X}{b:02X}'
 
 
-def _set_cell_font_xml(cell, font_size_emu: int, bold: bool = False,
+def _set_cell_font_xml(cell, font_size_pt: int, bold: bool = False,
                        color_hex: str = None, font_name: str = "Calibri"):
     """
-    Set font size using direct XML manipulation.
-    This GUARANTEES the font size is set correctly.
+    Set font using AGGRESSIVE XML manipulation.
+    Sets font on: defRPr, endParaRPr, AND each rPr.
 
     Parameters
     ----------
     cell : pptx table cell
-    font_size_emu : int - Font size in EMUs (9pt = 114300)
+    font_size_pt : int - Font size in points (e.g., 9)
     bold : bool
-    color_hex : str - Color as hex string (e.g., "1A1A2E")
+    color_hex : str - Color as hex string (e.g., "FFFFFF")
     font_name : str - Font family name
     """
     # Size in 100ths of a point for XML 'sz' attribute
-    sz_val = str(font_size_emu // 100)
+    sz_val = str(font_size_pt * 100)  # 9pt -> '900'
 
-    # Get the text body XML
     txBody = cell._tc.txBody
 
     for p in txBody.iterchildren(qn('a:p')):
-        # Set paragraph-level defaults
+        # === 1. Paragraph properties (pPr) ===
         pPr = p.find(qn('a:pPr'))
         if pPr is None:
             pPr = etree.SubElement(p, qn('a:pPr'))
 
-        # Add default run properties to paragraph
+        # === 2. Default run properties (defRPr) ===
         defRPr = pPr.find(qn('a:defRPr'))
         if defRPr is None:
             defRPr = etree.SubElement(pPr, qn('a:defRPr'))
 
+        # Set size and bold
         defRPr.set('sz', sz_val)
-        if bold:
-            defRPr.set('b', '1')
+        defRPr.set('b', '1' if bold else '0')
 
-        # Set font name
-        latin = defRPr.find(qn('a:latin'))
-        if latin is None:
-            latin = etree.SubElement(defRPr, qn('a:latin'))
-        latin.set('typeface', font_name)
+        # Set font
+        _set_font_element(defRPr, font_name)
 
-        # Set color on default run properties
+        # Set color
         if color_hex:
-            solidFill = defRPr.find(qn('a:solidFill'))
-            if solidFill is not None:
-                defRPr.remove(solidFill)
-            solidFill = etree.SubElement(defRPr, qn('a:solidFill'))
-            srgbClr = etree.SubElement(solidFill, qn('a:srgbClr'))
-            srgbClr.set('val', color_hex)
+            _set_color_element(defRPr, color_hex)
 
-        # Also set on each run (r element)
+        # === 3. End paragraph run properties (endParaRPr) ===
+        endParaRPr = p.find(qn('a:endParaRPr'))
+        if endParaRPr is None:
+            endParaRPr = etree.SubElement(p, qn('a:endParaRPr'))
+
+        endParaRPr.set('lang', 'en-US')
+        endParaRPr.set('sz', sz_val)
+        endParaRPr.set('b', '1' if bold else '0')
+        _set_font_element(endParaRPr, font_name)
+        if color_hex:
+            _set_color_element(endParaRPr, color_hex)
+
+        # === 4. Each run (r) ===
         for r in p.iterchildren(qn('a:r')):
             rPr = r.find(qn('a:rPr'))
             if rPr is None:
                 rPr = etree.Element(qn('a:rPr'))
-                rPr.set('lang', 'en-US')
                 r.insert(0, rPr)
 
+            rPr.set('lang', 'en-US')
             rPr.set('sz', sz_val)
-            if bold:
-                rPr.set('b', '1')
+            rPr.set('b', '1' if bold else '0')
+            rPr.set('dirty', '0')
 
-            # Set font name on run
-            latin = rPr.find(qn('a:latin'))
-            if latin is None:
-                latin = etree.SubElement(rPr, qn('a:latin'))
-            latin.set('typeface', font_name)
-
+            _set_font_element(rPr, font_name)
             if color_hex:
-                solidFill = rPr.find(qn('a:solidFill'))
-                if solidFill is not None:
-                    rPr.remove(solidFill)
-                solidFill = etree.SubElement(rPr, qn('a:solidFill'))
-                srgbClr = etree.SubElement(solidFill, qn('a:srgbClr'))
-                srgbClr.set('val', color_hex)
+                _set_color_element(rPr, color_hex)
+
+
+def _set_thin_borders(cell, color_hex: str = "E5E5E5"):
+    """Set thin gray borders on cell."""
+    tc = cell._tc
+    tcPr = tc.tcPr
+    if tcPr is None:
+        tcPr = etree.SubElement(tc, qn('a:tcPr'))
+
+    for border in ['lnL', 'lnR', 'lnT', 'lnB']:
+        ln = tcPr.find(qn(f'a:{border}'))
+        if ln is not None:
+            tcPr.remove(ln)
+
+        ln = etree.SubElement(tcPr, qn(f'a:{border}'))
+        ln.set('w', '6350')  # 0.5pt in EMUs
+
+        solidFill = etree.SubElement(ln, qn('a:solidFill'))
+        srgbClr = etree.SubElement(solidFill, qn('a:srgbClr'))
+        srgbClr.set('val', color_hex)
 
 
 def _normalize_widths(widths: list, total_width: float) -> list:
@@ -143,16 +186,13 @@ def _normalize_widths(widths: list, total_width: float) -> list:
 
 def _create_and_format_cell(table, row_idx: int, col_idx: int, text: str,
                             bg_color: RGBColor, text_color: RGBColor,
-                            font_size_emu: int, bold: bool = False,
+                            font_size_pt: int = 9, bold: bool = False,
                             align: str = "center"):
     """
-    Create and format a cell with XML-level font control.
+    Create and format a cell with GUARANTEED font settings.
 
-    This function:
-    1. Sets background color
-    2. Sets text content
-    3. Sets alignment and vertical anchor
-    4. Forces font size via XML manipulation
+    Uses aggressive XML manipulation to ensure font size and color
+    are applied correctly, overriding any table style defaults.
     """
     cell = table.cell(row_idx, col_idx)
 
@@ -165,37 +205,34 @@ def _create_and_format_cell(table, row_idx: int, col_idx: int, text: str,
 
     # Alignment
     para = cell.text_frame.paragraphs[0]
-    if align == "center":
-        para.alignment = PP_ALIGN.CENTER
-    else:
-        para.alignment = PP_ALIGN.LEFT
+    para.alignment = PP_ALIGN.CENTER if align == "center" else PP_ALIGN.LEFT
 
     # Vertical centering
     cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+
+    # Remove margins for tighter layout
+    cell.text_frame.margin_left = Pt(2)
+    cell.text_frame.margin_right = Pt(2)
+    cell.text_frame.margin_top = Pt(0)
+    cell.text_frame.margin_bottom = Pt(0)
 
     # Remove paragraph spacing
     para.space_before = Pt(0)
     para.space_after = Pt(0)
 
-    # FORCE FONT SIZE VIA XML - This is the critical fix
+    # FORCE FONT VIA XML - This is the critical fix
     color_hex = _rgb_to_hex(text_color)
-    _set_cell_font_xml(cell, font_size_emu, bold, color_hex)
+    _set_cell_font_xml(cell, font_size_pt, bold, color_hex)
+
+    # Set thin borders for clean look
+    _set_thin_borders(cell, "E5E5E5")
 
     return cell
 
 
 def _create_table(slide, rows: List[AssetRow], asset_class: str):
     """
-    Create a single table for an asset class with XML font fix.
-
-    Parameters
-    ----------
-    slide : pptx.slide.Slide
-        The slide to add the table to
-    rows : List[AssetRow]
-        Asset rows (already filtered by asset class)
-    asset_class : str
-        "equity", "commodities", or "crypto"
+    Create a single table for an asset class with aggressive XML font fix.
     """
     print(f"[DEBUG _create_table] Called with asset_class='{asset_class}', rows count={len(rows)}")
 
@@ -224,7 +261,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
     )
     table = table_shape.table
 
-    # *** CRITICAL: REMOVE TABLE STYLE ***
+    # *** CRITICAL: REMOVE TABLE STYLE FIRST ***
     _remove_table_style(table)
 
     # Set column widths - normalize to fit exact table width
@@ -253,8 +290,8 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             table, 0, col_idx,
             text=header,
             bg_color=COLORS["header_bg"],
-            text_color=COLORS["header_text"],
-            font_size_emu=FONT_SIZE_9PT_EMU,
+            text_color=COLORS["header_text"],  # WHITE
+            font_size_pt=9,
             bold=True,
             align="left" if col_idx == 0 else "center"
         )
@@ -270,7 +307,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=asset_row.name,
             bg_color=bg_color,
             text_color=COLORS["neutral_text"],
-            font_size_emu=FONT_SIZE_9PT_EMU,
+            font_size_pt=9,
             align="left"
         )
 
@@ -280,7 +317,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=asset_row.market_cap,
             bg_color=bg_color,
             text_color=COLORS["neutral_text"],
-            font_size_emu=FONT_SIZE_9PT_EMU
+            font_size_pt=9
         )
 
         # Column 2: RSI (color coded)
@@ -297,7 +334,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=str(rsi_val),
             bg_color=bg_color,
             text_color=rsi_color,
-            font_size_emu=FONT_SIZE_9PT_EMU
+            font_size_pt=9
         )
 
         # Column 3: vs 50d MA (color coded)
@@ -310,7 +347,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=ma_text,
             bg_color=bg_color,
             text_color=ma_color,
-            font_size_emu=FONT_SIZE_9PT_EMU
+            font_size_pt=9
         )
 
         # Column 4: DMAS (INTEGER, color coded)
@@ -327,7 +364,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=str(dmas_val),
             bg_color=bg_color,
             text_color=dmas_color,
-            font_size_emu=FONT_SIZE_9PT_EMU,
+            font_size_pt=9,
             bold=True
         )
 
@@ -344,7 +381,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
             text=asset_row.outlook,
             bg_color=outlook_bg,
             text_color=outlook_text,
-            font_size_emu=FONT_SIZE_8PT_EMU,
+            font_size_pt=8,
             bold=True
         )
 
@@ -416,7 +453,7 @@ def generate_technical_analysis_slide(
 ):
     """
     Generate the Technical Analysis In A Nutshell slide (creates new slide).
-    Uses TWO-COLUMN layout with XML font fix.
+    Uses TWO-COLUMN layout with aggressive XML font fix.
     """
     # Use blank layout
     slide_layout = prs.slide_layouts[6]  # Blank
