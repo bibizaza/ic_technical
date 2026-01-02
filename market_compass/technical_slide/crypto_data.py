@@ -1,12 +1,17 @@
 """CoinMarketCap API integration for crypto market cap data."""
 
 import os
+from pathlib import Path
 import requests
 from typing import Dict
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Find project root and load .env from there
+_THIS_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _THIS_DIR.parent.parent  # market_compass/technical_slide -> market_compass -> ic_technical
+_ENV_PATH = _PROJECT_ROOT / ".env"
+
+load_dotenv(_ENV_PATH)
 
 # API Configuration
 CMC_API_KEY = os.getenv("COINMARKETCAP_API_KEY")
