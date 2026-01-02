@@ -87,6 +87,7 @@ docker-compose.override.yml
 .env
 .env.*
 *.pem
+.streamlit/secrets.toml
 
 # ──────────────  Misc  ──────────────
 # npm / yarn if you add React assets inside Dash

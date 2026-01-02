@@ -15,7 +15,16 @@ CMC_BASE_URL = "https://pro-api.coinmarketcap.com/v1"
 
 
 def _get_api_key() -> Optional[str]:
-    """Get API key fresh from .env file each time."""
+    """Get API key from Streamlit secrets, then .env as fallback."""
+    # Try Streamlit secrets first (for deployed apps)
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets') and "COINMARKETCAP_API_KEY" in st.secrets:
+            return st.secrets["COINMARKETCAP_API_KEY"]
+    except Exception:
+        pass
+
+    # Fall back to .env file
     load_dotenv(_ENV_PATH, override=True)
     return os.getenv("COINMARKETCAP_API_KEY")
 
