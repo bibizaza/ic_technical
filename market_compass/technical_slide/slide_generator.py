@@ -81,10 +81,7 @@ def _remove_table_style(table):
 
 def _rgb_to_hex(rgb_color: RGBColor) -> str:
     """Convert RGBColor to hex string for XML."""
-    r = rgb_color[0]
-    g = rgb_color[1]
-    b = rgb_color[2]
-    return f'{r:02X}{g:02X}{b:02X}'
+    return str(rgb_color)
 
 
 def _set_cell_font_xml(cell, font_size_pt: int, bold: bool = False,
