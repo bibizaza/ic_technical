@@ -196,7 +196,16 @@ def prepare_slide_data(
     equity_mkt_caps = get_equity_market_caps(excel_path)
 
     # Fetch live crypto market caps from CoinMarketCap API
-    crypto_market_caps = fetch_crypto_market_caps()
+    # Check session state first (cached from Run Full Analysis)
+    try:
+        import streamlit as st
+        if "crypto_market_caps" in st.session_state:
+            crypto_market_caps = st.session_state["crypto_market_caps"]
+            print("[Technical Nutshell] Using cached crypto market caps from session")
+        else:
+            crypto_market_caps = fetch_crypto_market_caps()
+    except Exception:
+        crypto_market_caps = fetch_crypto_market_caps()
 
     # Comprehensive key mappings for DMAS lookup
     # Maps display_name -> list of possible DMAS keys

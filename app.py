@@ -2005,6 +2005,16 @@ def show_upload_page():
                         CLAUDE_GEN_AVAILABLE,
                     )
 
+                    # Fetch live crypto market caps from CoinMarketCap
+                    try:
+                        from market_compass.technical_slide.crypto_data import fetch_crypto_market_caps
+                        crypto_caps = fetch_crypto_market_caps()
+                        if not all(v == "—" for v in crypto_caps.values()):
+                            st.session_state["crypto_market_caps"] = crypto_caps
+                            st.sidebar.success("🪙 Crypto market caps fetched")
+                    except Exception as e:
+                        print(f"[CoinMarketCap] Error in full analysis: {e}")
+
                     # Save Excel to temp file
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
                         tmp.write(excel_file.getbuffer())
