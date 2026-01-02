@@ -49,11 +49,11 @@ def _remove_table_style(table):
 
 def _rgb_to_hex(rgb_color: RGBColor) -> str:
     """Convert RGBColor to hex string for XML."""
-    # RGBColor stores RGB as an integer
-    val = int(rgb_color)
-    r = (val >> 16) & 0xFF
-    g = (val >> 8) & 0xFF
-    b = val & 0xFF
+    # RGBColor is a tuple-like object with (r, g, b) components
+    # Access via indexing: rgb_color[0]=R, rgb_color[1]=G, rgb_color[2]=B
+    r = rgb_color[0]
+    g = rgb_color[1]
+    b = rgb_color[2]
     return f'{r:02X}{g:02X}{b:02X}'
 
 
