@@ -1977,6 +1977,22 @@ def show_upload_page():
         else:
             st.sidebar.warning("⚠️ Claude API not configured - using pattern-based subtitles")
 
+        # Test CoinMarketCap API button
+        if st.sidebar.button("🪙 Fetch Crypto Mkt Cap", help="Test CoinMarketCap API - fetches live market caps"):
+            with st.spinner("Fetching crypto market caps..."):
+                try:
+                    from market_compass.technical_slide.crypto_data import fetch_crypto_market_caps
+                    crypto_caps = fetch_crypto_market_caps()
+
+                    if all(v == "—" for v in crypto_caps.values()):
+                        st.sidebar.error("❌ API returned no data. Check API key in .env")
+                    else:
+                        st.sidebar.success("✅ CoinMarketCap API working!")
+                        for name, cap in crypto_caps.items():
+                            st.sidebar.write(f"  {name}: **{cap}**")
+                except Exception as e:
+                    st.sidebar.error(f"❌ Error: {str(e)[:100]}")
+
         if st.sidebar.button("🚀 Run Full Analysis", type="primary", help="Compute technical scores, assessments, and subtitles for all assets"):
             with st.spinner("Running analysis for all assets..."):
                 try:
