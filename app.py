@@ -2027,6 +2027,16 @@ def show_upload_page():
                     df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
                     df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
 
+                    # Calculate commodity market caps from reserves × spot price
+                    try:
+                        from market_compass.technical_slide.commodity_data import calculate_all_commodity_market_caps
+                        commo_caps = calculate_all_commodity_market_caps(df_prices)
+                        if not all(v == "—" for v in commo_caps.values()):
+                            st.session_state["commodity_market_caps"] = commo_caps
+                            st.sidebar.success("⚡ Commodity market caps calculated")
+                    except Exception as e:
+                        print(f"[Commodity] Error in full analysis: {e}")
+
                     # Asset mapping: ticker_key -> (Bloomberg ticker, display name)
                     asset_map = {
                         # Equity

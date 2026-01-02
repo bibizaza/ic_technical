@@ -36,6 +36,34 @@ CRYPTO_ASSETS = [
 ]
 
 # =============================================================================
+# COMMODITY RESERVES (for market cap calculation)
+# Market Cap = Above-Ground Reserves × Current Price
+# =============================================================================
+
+# Above-ground reserves in TONNES
+# Sources: World Gold Council, Silver Institute, WPIC
+COMMODITY_RESERVES_TONNES = {
+    "Gold": 215_000,          # World Gold Council estimate
+    "Silver": 1_700_000,      # Silver Institute (above-ground)
+    "Platinum": 8_000,        # World Platinum Investment Council
+    "Palladium": 10_000,      # Industry estimates
+    "Copper": None,           # Not applicable (industrial commodity)
+    "Oil (WTI)": None,        # Not applicable (consumption commodity)
+}
+
+# Conversion: 1 tonne = 32,150.7 troy ounces
+TROY_OZ_PER_TONNE = 32_150.7
+
+# Bloomberg tickers for commodity SPOT prices (per troy oz)
+# These are used to get the latest price from the Excel
+COMMODITY_SPOT_TICKERS = {
+    "Gold": "XAU Curncy",
+    "Silver": "XAG Curncy",
+    "Platinum": "XPT Curncy",
+    "Palladium": "XPD Curncy",
+}
+
+# =============================================================================
 # COLOR DEFINITIONS - Clean white/grey style
 # =============================================================================
 

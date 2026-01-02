@@ -6,11 +6,9 @@ import pandas as pd
 import numpy as np
 
 from .config import EQUITY_ASSETS, COMMO_ASSETS, CRYPTO_ASSETS
-from .market_caps import (
-    get_equity_market_caps,
-    COMMO_MARKET_CAPS,
-)
+from .market_caps import get_equity_market_caps
 from .crypto_data import fetch_crypto_market_caps
+from .commodity_data import calculate_all_commodity_market_caps
 
 
 @dataclass
@@ -207,6 +205,17 @@ def prepare_slide_data(
     except Exception:
         crypto_market_caps = fetch_crypto_market_caps()
 
+    # Calculate commodity market caps from reserves × spot price
+    # Check session state first (cached from Run Full Analysis)
+    try:
+        if "commodity_market_caps" in st.session_state:
+            commodity_market_caps = st.session_state["commodity_market_caps"]
+            print("[Technical Nutshell] Using cached commodity market caps from session")
+        else:
+            commodity_market_caps = calculate_all_commodity_market_caps(prices_df)
+    except Exception:
+        commodity_market_caps = calculate_all_commodity_market_caps(prices_df)
+
     # Comprehensive key mappings for DMAS lookup
     # Maps display_name -> list of possible DMAS keys
     dmas_key_aliases = {
@@ -302,7 +311,7 @@ def prepare_slide_data(
         rows.append(AssetRow(
             name=display_name,
             ticker=ticker,
-            market_cap=COMMO_MARKET_CAPS.get(display_name, "—"),
+            market_cap=commodity_market_caps.get(display_name, "—"),
             rsi=int(calculate_rsi(prices)),
             vs_50d_ma=calculate_vs_ma(prices, 50),
             dmas=dmas,
