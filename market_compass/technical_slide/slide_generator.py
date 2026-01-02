@@ -1,7 +1,7 @@
-"""Technical Analysis slide generator - HTML tables to image.
+"""Technical Analysis slide generator - HTML tables to image with FIXED dimensions.
 
 Renders the 3 tables (Equity, Commodity, Crypto) as an image and inserts
-into the existing slide at the technical_nutshell placeholder position.
+into the existing slide at FIXED position and size.
 
 The slide template already has: title, subtitle, logo, header bar, footer.
 We just need the tables.
@@ -22,9 +22,19 @@ from .html_template import TABLES_HTML_TEMPLATE
 from .data_prep import AssetRow
 
 
-# Image dimensions (pixels) - tables only
-IMAGE_WIDTH = 1180
-IMAGE_HEIGHT = 480
+# ============================================================
+# FIXED DIMENSIONS - DO NOT CHANGE
+# ============================================================
+
+# HTML image size (pixels) - maintains aspect ratio with PowerPoint placement
+IMAGE_WIDTH_PX = 1200
+IMAGE_HEIGHT_PX = 585
+
+# PowerPoint placement (cm) - from user testing
+PPTX_LEFT = 0.91
+PPTX_TOP = 4.98
+PPTX_WIDTH = 24.03
+PPTX_HEIGHT = 11.74
 
 
 def _get_rsi_class(rsi: int) -> str:
@@ -87,9 +97,12 @@ def _generate_tables_html(rows: List[AssetRow]) -> str:
 
 
 def _html_to_png(html: str, output_path: str) -> str:
-    """Convert HTML to PNG using html2image."""
+    """Convert HTML to PNG with fixed dimensions."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        hti = Html2Image(output_path=tmpdir, size=(IMAGE_WIDTH, IMAGE_HEIGHT))
+        hti = Html2Image(
+            output_path=tmpdir,
+            size=(IMAGE_WIDTH_PX, IMAGE_HEIGHT_PX)
+        )
         hti.screenshot(html_str=html, save_as="tables.png")
 
         shutil.move(str(Path(tmpdir) / "tables.png"), output_path)
@@ -105,7 +118,9 @@ def insert_technical_analysis_slide(
     price_mode: str = "Last Price"
 ) -> Presentation:
     """
-    Generate tables as image and insert at placeholder position.
+    Generate tables as image and insert at FIXED position.
+
+    Uses fixed dimensions regardless of placeholder size.
 
     Parameters
     ----------
@@ -114,7 +129,7 @@ def insert_technical_analysis_slide(
     rows : List[AssetRow]
         List of asset rows with data
     placeholder_name : str
-        Name of the placeholder shape to find and replace
+        Name of the placeholder shape to find and remove
     used_date : datetime, optional
         Date to display (not used in tables-only mode)
     price_mode : str
@@ -134,12 +149,11 @@ def insert_technical_analysis_slide(
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         img_path = f.name
 
-    print(f"[Technical Nutshell] Converting to image...")
+    print(f"[Technical Nutshell] Converting to image ({IMAGE_WIDTH_PX}x{IMAGE_HEIGHT_PX}px)...")
     _html_to_png(html, img_path)
 
-    # Find placeholder
+    # Find slide with placeholder
     target_slide = None
-    placeholder_shape = None
 
     print(f"[Technical Nutshell] Searching for placeholder '{placeholder_name}'...")
 
@@ -148,8 +162,10 @@ def insert_technical_analysis_slide(
             name = getattr(shape, "name", "")
             if placeholder_name.lower() in name.lower():
                 target_slide = slide
-                placeholder_shape = shape
                 print(f"[Technical Nutshell] Found on slide {slide_idx + 1}")
+                # Remove placeholder shape
+                sp = shape._element
+                sp.getparent().remove(sp)
                 break
         if target_slide:
             break
@@ -157,32 +173,20 @@ def insert_technical_analysis_slide(
     if not target_slide:
         print(f"[Technical Nutshell] No placeholder found, creating new slide")
         target_slide = prs.slides.add_slide(prs.slide_layouts[6])
-        # Default position
-        left, top, width, height = Cm(1), Cm(4), Cm(23), Cm(12)
-    else:
-        # Get placeholder position and size
-        left = placeholder_shape.left
-        top = placeholder_shape.top
-        width = placeholder_shape.width
-        height = placeholder_shape.height
 
-        # Remove placeholder
-        sp = placeholder_shape._element
-        sp.getparent().remove(sp)
-
-    # Insert image at placeholder position
+    # Insert image at FIXED position and size
     target_slide.shapes.add_picture(
         img_path,
-        left=left,
-        top=top,
-        width=width,
-        height=height
+        left=Cm(PPTX_LEFT),
+        top=Cm(PPTX_TOP),
+        width=Cm(PPTX_WIDTH),
+        height=Cm(PPTX_HEIGHT)
     )
 
-    # Cleanup
+    # Cleanup temp file
     Path(img_path).unlink(missing_ok=True)
 
-    print(f"[Technical Nutshell] ✅ Tables inserted successfully")
+    print(f"[Technical Nutshell] ✅ Tables inserted at ({PPTX_LEFT}, {PPTX_TOP}) cm, size ({PPTX_WIDTH} x {PPTX_HEIGHT}) cm")
 
     return prs
 

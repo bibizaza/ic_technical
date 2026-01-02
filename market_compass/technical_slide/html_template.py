@@ -1,4 +1,4 @@
-"""HTML template for Technical Analysis tables only."""
+"""HTML template for Technical Analysis tables - balanced heights."""
 
 TABLES_HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -14,9 +14,9 @@ TABLES_HTML_TEMPLATE = '''
 
         body {
             font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
-            background: transparent;
-            width: 1180px;
-            height: 480px;
+            background: #FFFFFF;
+            width: 1200px;
+            height: 585px;
             padding: 0;
         }
 
@@ -27,23 +27,40 @@ TABLES_HTML_TEMPLATE = '''
             height: 100%;
         }
 
+        /* LEFT: Equity - full height */
         .left-column {
-            width: 570px;
-            flex-shrink: 0;
-        }
-
-        .right-column {
-            width: 570px;
+            width: 580px;
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+        }
+
+        .left-column table {
+            flex: 1;
+        }
+
+        /* RIGHT: Commodity + Crypto stacked */
+        .right-column {
+            width: 580px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        /* Commodity gets ~55% of right column, Crypto gets ~45% */
+        .right-column table:first-child {
+            flex: 6;
+        }
+
+        .right-column table:last-child {
+            flex: 5;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
+            font-size: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
 
@@ -51,32 +68,32 @@ TABLES_HTML_TEMPLATE = '''
             background: #1B3A5A;
             color: #FFFFFF;
             font-weight: 600;
-            padding: 7px 6px;
+            padding: 10px 8px;
             text-align: center;
             border: none;
         }
 
         th:first-child {
             text-align: left;
-            padding-left: 10px;
-            width: 80px;
+            padding-left: 12px;
+            width: 90px;
         }
 
         th:nth-child(5) {
-            width: 85px;
+            width: 95px;
         }
 
         td {
-            padding: 5px 6px;
+            padding: 8px 8px;
             text-align: center;
             border-bottom: 1px solid #E8E8E8;
         }
 
         td:first-child {
             text-align: left;
-            padding-left: 10px;
+            padding-left: 12px;
             font-weight: 500;
-            width: 80px;
+            width: 90px;
         }
 
         tr:nth-child(odd) td { background: #FFFFFF; }
@@ -88,18 +105,18 @@ TABLES_HTML_TEMPLATE = '''
         .rsi-overbought { color: #DC2626; font-weight: 600; }
         .rsi-oversold { color: #16A34A; font-weight: 600; }
 
-        .dmas-cell { padding: 4px 6px; }
+        .dmas-cell { padding: 6px 8px; }
 
         .dmas-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 5px;
+            gap: 6px;
         }
 
         .dmas-gauge {
-            width: 45px;
-            height: 5px;
+            width: 50px;
+            height: 6px;
             background: #E5E7EB;
             border-radius: 3px;
             overflow: hidden;
@@ -113,8 +130,8 @@ TABLES_HTML_TEMPLATE = '''
 
         .dmas-value {
             font-weight: 700;
-            font-size: 11px;
-            min-width: 20px;
+            font-size: 12px;
+            min-width: 24px;
             text-align: right;
         }
 
@@ -125,12 +142,12 @@ TABLES_HTML_TEMPLATE = '''
         .dmas-fill.bearish { background: linear-gradient(90deg, #EF4444, #DC2626); }
 
         .outlook {
-            padding: 3px 5px;
+            padding: 4px 8px;
             border-radius: 4px;
             font-weight: 600;
-            font-size: 9px;
+            font-size: 10px;
             display: inline-block;
-            min-width: 65px;
+            min-width: 70px;
         }
 
         .outlook-bullish { background: #DCFCE7; color: #166534; }
@@ -142,7 +159,7 @@ TABLES_HTML_TEMPLATE = '''
 </head>
 <body>
     <div class="tables-container">
-        <!-- LEFT: EQUITY -->
+        <!-- LEFT: EQUITY (full height, 9 rows) -->
         <div class="left-column">
             <table>
                 <thead>
@@ -175,7 +192,7 @@ TABLES_HTML_TEMPLATE = '''
             </table>
         </div>
 
-        <!-- RIGHT: COMMODITY + CRYPTO -->
+        <!-- RIGHT: COMMODITY (6 rows) + CRYPTO (5 rows) -->
         <div class="right-column">
             <table>
                 <thead>
