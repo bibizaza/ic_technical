@@ -25,8 +25,8 @@ from .data_prep import AssetRow
 # RESOLUTION SETTINGS
 # ============================================================
 
-# Scale factor for crisp output (2x = retina quality)
-SCALE_FACTOR = 2
+# Scale factor for crisp output (3x = ultra crisp)
+SCALE_FACTOR = 3
 
 # Base dimensions (logical size)
 BASE_WIDTH = 1200

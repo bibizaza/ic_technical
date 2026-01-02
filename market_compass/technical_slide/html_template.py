@@ -40,6 +40,19 @@ TABLES_HTML_TEMPLATE = '''
             gap: {{ 10 * scale }}px;
         }
 
+        /* Fixed row heights for balanced table heights */
+        .left-column tr {
+            height: {{ 58 * scale }}px;  /* Equity: 10 rows × 58px = 580px */
+        }
+
+        .right-column table:first-child tr {
+            height: {{ 43 * scale }}px;  /* Commodity: 7 rows × 43px = 301px */
+        }
+
+        .right-column table:last-child tr {
+            height: {{ 43 * scale }}px;  /* Crypto: 6 rows × 43px = 258px */
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
