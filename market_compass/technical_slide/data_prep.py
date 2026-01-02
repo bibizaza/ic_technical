@@ -9,8 +9,8 @@ from .config import EQUITY_ASSETS, COMMO_ASSETS, CRYPTO_ASSETS
 from .market_caps import (
     get_equity_market_caps,
     COMMO_MARKET_CAPS,
-    CRYPTO_MARKET_CAPS,
 )
+from .crypto_data import fetch_crypto_market_caps
 
 
 @dataclass
@@ -195,6 +195,9 @@ def prepare_slide_data(
     # Get market caps
     equity_mkt_caps = get_equity_market_caps(excel_path)
 
+    # Fetch live crypto market caps from CoinMarketCap API
+    crypto_market_caps = fetch_crypto_market_caps()
+
     # Comprehensive key mappings for DMAS lookup
     # Maps display_name -> list of possible DMAS keys
     dmas_key_aliases = {
@@ -311,7 +314,7 @@ def prepare_slide_data(
         rows.append(AssetRow(
             name=display_name,
             ticker=ticker,
-            market_cap=CRYPTO_MARKET_CAPS.get(display_name, "—"),
+            market_cap=crypto_market_caps.get(display_name, "—"),
             rsi=int(calculate_rsi(prices)),
             vs_50d_ma=calculate_vs_ma(prices, 50),
             dmas=dmas,

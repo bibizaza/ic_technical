@@ -84,7 +84,7 @@ htmlcov/
 # ──────────────  Containers / CI  ──────────────
 docker-compose.override.yml
 *.local.yml
-.env                # comment out if you keep env-files under VC
+.env
 .env.*
 *.pem
 
