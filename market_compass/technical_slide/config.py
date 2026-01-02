@@ -54,12 +54,12 @@ COMMODITY_RESERVES_TONNES = {
 # Conversion: 1 tonne = 32,150.7 troy ounces
 TROY_OZ_PER_TONNE = 32_150.7
 
-# Bloomberg tickers for commodity SPOT prices (per troy oz)
-# These are used to get the latest price from the Excel
+# Bloomberg tickers for commodity prices (per troy oz)
+# Same tickers used in COMMO_ASSETS
 COMMODITY_SPOT_TICKERS = {
-    "Gold": "XAU Curncy",
-    "Silver": "XAG Curncy",
-    "Platinum": "XPT Curncy",
+    "Gold": "GCA Comdty",
+    "Silver": "SIA Comdty",
+    "Platinum": "XPT Comdty",
     "Palladium": "XPD Curncy",
 }
 
