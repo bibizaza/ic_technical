@@ -197,6 +197,8 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
     asset_class : str
         "equity", "commodities", or "crypto"
     """
+    print(f"[DEBUG _create_table] Called with asset_class='{asset_class}', rows count={len(rows)}")
+
     if not rows:
         print(f"[Technical Nutshell] No rows for asset class '{asset_class}'")
         return
@@ -207,8 +209,12 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
         print(f"[Technical Nutshell] No dimensions for asset class '{asset_class}'")
         return
 
+    print(f"[DEBUG _create_table] dims={dims}")
+
     n_rows = len(rows) + 1  # +1 for header
     n_cols = 6
+
+    print(f"[DEBUG _create_table] Creating table: {n_rows} rows x {n_cols} cols")
 
     # Create table with exact cm dimensions
     table_shape = slide.shapes.add_table(
@@ -223,6 +229,7 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
 
     # Set column widths - normalize to fit exact table width
     col_widths = _normalize_widths(dims["col_widths"], dims["width"])
+    print(f"[DEBUG _create_table] col_widths={col_widths}")
     for i, w in enumerate(col_widths):
         table.columns[i].width = Cm(w)
 
@@ -238,8 +245,10 @@ def _create_table(slide, rows: List[AssetRow], asset_class: str):
 
     # ----- HEADER ROW -----
     headers = HEADERS.get(asset_class, HEADERS["equity"])
+    print(f"[DEBUG _create_table] HEADERS for '{asset_class}': {headers} (len={len(headers)})")
 
     for col_idx, header in enumerate(headers):
+        print(f"[DEBUG _create_table] Creating header cell [{col_idx}]: '{header}'")
         _create_and_format_cell(
             table, 0, col_idx,
             text=header,
@@ -354,12 +363,18 @@ def _add_content_to_slide(
     """
     layout = SLIDE_LAYOUT
 
+    print(f"[DEBUG _add_content_to_slide] Total rows received: {len(rows)}")
+    for i, r in enumerate(rows):
+        print(f"[DEBUG _add_content_to_slide] Row {i}: name='{r.name}', asset_class='{r.asset_class}'")
+
     # Filter rows by asset class
     equity_rows = [r for r in rows if r.asset_class == "equity"]
     commo_rows = [r for r in rows if r.asset_class == "commodities"]
     crypto_rows = [r for r in rows if r.asset_class == "crypto"]
 
     print(f"[Technical Nutshell] Equity: {len(equity_rows)}, Commo: {len(commo_rows)}, Crypto: {len(crypto_rows)}")
+    print(f"[DEBUG] HEADERS keys available: {list(HEADERS.keys())}")
+    print(f"[DEBUG] TABLE_DIMS keys available: {list(TABLE_DIMS.keys())}")
 
     # ----- CREATE TABLES -----
     _create_table(slide, equity_rows, asset_class="equity")

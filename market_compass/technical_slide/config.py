@@ -123,3 +123,42 @@ SLIDE_LAYOUT = {
     "subtitle_top": 3.0,
     "footer_y": 18.0,
 }
+
+
+# ============================================================
+# CONFIG VALIDATION TEST
+# ============================================================
+if __name__ == "__main__":
+    print("=== TECHNICAL SLIDE CONFIG TEST ===")
+    print(f"\nHEADERS keys: {list(HEADERS.keys())}")
+    for k, v in HEADERS.items():
+        print(f"  {k}: {len(v)} items - {v}")
+
+    print(f"\nTABLE_DIMS keys: {list(TABLE_DIMS.keys())}")
+    for k, v in TABLE_DIMS.items():
+        print(f"  {k}: left={v['left']}, top={v['top']}, col_widths={v['col_widths']}")
+
+    # Validation checks
+    errors = []
+    if len(HEADERS) != 3:
+        errors.append(f"HEADERS should have 3 keys, has {len(HEADERS)}")
+    if len(TABLE_DIMS) != 3:
+        errors.append(f"TABLE_DIMS should have 3 keys, has {len(TABLE_DIMS)}")
+
+    for asset_class in ["equity", "commodities", "crypto"]:
+        if asset_class not in HEADERS:
+            errors.append(f"HEADERS missing '{asset_class}'")
+        elif len(HEADERS[asset_class]) != 6:
+            errors.append(f"HEADERS['{asset_class}'] should have 6 items, has {len(HEADERS[asset_class])}")
+
+        if asset_class not in TABLE_DIMS:
+            errors.append(f"TABLE_DIMS missing '{asset_class}'")
+        elif len(TABLE_DIMS[asset_class].get("col_widths", [])) != 6:
+            errors.append(f"TABLE_DIMS['{asset_class}']['col_widths'] should have 6 items")
+
+    if errors:
+        print("\n❌ CONFIG ERRORS:")
+        for e in errors:
+            print(f"  - {e}")
+    else:
+        print("\n✅ Config looks correct!")
