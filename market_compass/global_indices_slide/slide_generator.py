@@ -21,15 +21,15 @@ from .html_template import GLOBAL_INDICES_HTML_TEMPLATE
 
 SCALE_FACTOR = 3
 BASE_WIDTH = 903
-BASE_HEIGHT = 400  # Increased to fit all 9 rows + border
+BASE_HEIGHT = 315  # Compact table fits in smaller height
 COMBINED_WIDTH_PX = BASE_WIDTH * SCALE_FACTOR   # 2709
-COMBINED_HEIGHT_PX = BASE_HEIGHT * SCALE_FACTOR  # 1200
+COMBINED_HEIGHT_PX = BASE_HEIGHT * SCALE_FACTOR  # 945
 
 # PowerPoint placement (cm)
 COMBINED_LEFT_CM = 0.91
 COMBINED_TOP_CM = 7.29
 COMBINED_WIDTH_CM = 24.03
-COMBINED_HEIGHT_CM = 9.5
+COMBINED_HEIGHT_CM = 8.36
 
 
 # =============================================================================

@@ -33,14 +33,14 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
             width: 100%;
             height: 100%;
             border-collapse: collapse;
-            font-size: {{ 8 * scale }}px;
+            font-size: {{ 7 * scale }}px;
         }
 
         th {
             background: #1B3A5A;
             color: #FFFFFF;
             font-weight: 600;
-            padding: {{ 5 * scale }}px {{ 4 * scale }}px;
+            padding: {{ 4 * scale }}px {{ 4 * scale }}px;
             text-align: center;
             border: none;
         }
@@ -58,7 +58,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
         }
 
         td {
-            padding: {{ 4 * scale }}px {{ 4 * scale }}px;
+            padding: {{ 3 * scale }}px {{ 4 * scale }}px;
             text-align: center;
             border-bottom: {{ 1 * scale }}px solid #E8E8E8;
             background: #FFFFFF;
@@ -92,7 +92,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
 
         /* ========== BREADTH: PROGRESS BAR STYLING ========== */
         .pct-cell {
-            padding: {{ 3 * scale }}px {{ 4 * scale }}px;
+            padding: {{ 2 * scale }}px {{ 4 * scale }}px;
         }
 
         .pct-container {
@@ -104,7 +104,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
 
         .pct-gauge {
             width: {{ 35 * scale }}px;
-            height: {{ 5 * scale }}px;
+            height: {{ 4 * scale }}px;
             background: #E5E7EB;
             border-radius: {{ 3 * scale }}px;
             overflow: hidden;
@@ -118,7 +118,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
 
         .pct-value {
             font-weight: 600;
-            font-size: {{ 8 * scale }}px;
+            font-size: {{ 7 * scale }}px;
             min-width: {{ 24 * scale }}px;
             text-align: right;
         }
@@ -153,7 +153,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
 
         .dot-value {
             font-weight: 600;
-            font-size: {{ 8 * scale }}px;
+            font-size: {{ 7 * scale }}px;
         }
 
         .dot.good { background: #22C55E; }
