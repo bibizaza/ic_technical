@@ -6089,6 +6089,25 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
+        # Fundamental Rank slide
+        # ------------------------------------------------------------------
+        update_progress("Generating Fundamental Rank slide...")
+        try:
+            from market_compass.fundamental_slide import generate_fundamental_slide
+
+            prs = generate_fundamental_slide(
+                prs,
+                excel_path=str(excel_path_for_ppt),
+                slide_title="Global Indices Insight",
+            )
+            print("[Fundamental Rank] Slide generation complete")
+
+        except Exception as e:
+            print(f"Fundamental Rank slide error: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # ------------------------------------------------------------------
         # Enforce Calibri font on all table shapes
         # ------------------------------------------------------------------
         # The weekly performance tables and other tables inserted into the
