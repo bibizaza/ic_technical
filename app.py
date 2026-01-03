@@ -6070,6 +6070,25 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
+        # Breadth Rank slide
+        # ------------------------------------------------------------------
+        update_progress("Generating Breadth Rank slide...")
+        try:
+            from market_compass.breadth_slide import generate_breadth_slide
+
+            prs = generate_breadth_slide(
+                prs,
+                excel_path=str(excel_path_for_ppt),
+                placeholder_name="breadth_rank",
+            )
+            print("[Breadth Rank] Slide generation complete")
+
+        except Exception as e:
+            print(f"Breadth Rank slide error: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # ------------------------------------------------------------------
         # Enforce Calibri font on all table shapes
         # ------------------------------------------------------------------
         # The weekly performance tables and other tables inserted into the
