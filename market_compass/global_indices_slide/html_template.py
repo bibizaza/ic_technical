@@ -31,16 +31,23 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
         /* Table styling */
         table {
             width: 100%;
-            height: 100%;
             border-collapse: collapse;
             font-size: {{ 7 * scale }}px;
+        }
+
+        tr {
+            height: {{ 28 * scale }}px;
+        }
+
+        th, td {
+            padding: 0 {{ 4 * scale }}px;
+            vertical-align: middle;
         }
 
         th {
             background: #1B3A5A;
             color: #FFFFFF;
             font-weight: 600;
-            padding: {{ 4 * scale }}px {{ 4 * scale }}px;
             text-align: center;
             border: none;
         }
@@ -58,7 +65,6 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
         }
 
         td {
-            padding: {{ 3 * scale }}px {{ 4 * scale }}px;
             text-align: center;
             border-bottom: {{ 1 * scale }}px solid #E8E8E8;
             background: #FFFFFF;
@@ -92,7 +98,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
 
         /* ========== BREADTH: PROGRESS BAR STYLING ========== */
         .pct-cell {
-            padding: {{ 2 * scale }}px {{ 4 * scale }}px;
+            padding: 0 {{ 4 * scale }}px;
         }
 
         .pct-container {
