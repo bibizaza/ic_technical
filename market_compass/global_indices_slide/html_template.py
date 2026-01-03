@@ -177,7 +177,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
         <table>
             <thead>
                 <tr>
-                    <th>Index</th>
+                    <th>Market</th>
                     <th class="rank-col">Rank</th>
                     <th>Above Both MAs</th>
                     <th>Above 20D MA</th>
@@ -218,7 +218,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
         <table>
             <thead>
                 <tr>
-                    <th></th>
+                    <th>Market</th>
                     <th class="rank-col">Rank</th>
                     <th>RV</th>
                     <th>Grw</th>
