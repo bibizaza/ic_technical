@@ -227,10 +227,13 @@ def _html_to_png(html: str, output_path: str) -> str:
 def insert_breadth_rank(
     prs: Presentation,
     rows: List[BreadthRow],
-    placeholder_name: str = "breadth_rank"
+    slide_title: str = "Global Indices Insight"
 ) -> Presentation:
     """
     Insert Breadth Rank table into PowerPoint slide.
+
+    Finds the slide by title text and inserts the table at a fixed position.
+    Does NOT remove any shapes - just adds the image.
 
     Parameters
     ----------
@@ -238,8 +241,8 @@ def insert_breadth_rank(
         PowerPoint presentation object
     rows : List[BreadthRow]
         List of breadth data rows
-    placeholder_name : str
-        Name of placeholder shape to find
+    slide_title : str
+        Title text to search for to find the correct slide
 
     Returns
     -------
@@ -262,27 +265,25 @@ def insert_breadth_rank(
 
     _html_to_png(html, img_path)
 
-    # Find placeholder - EXACT MATCH to avoid removing slide title
+    # Find slide by title text (safer than placeholder removal)
     target_slide = None
 
     for slide_idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
-            name = getattr(shape, "name", "")
-            if name.lower() == placeholder_name.lower():
-                target_slide = slide
-                print(f"[Breadth Rank] Found placeholder '{name}' on slide {slide_idx + 1}")
-                sp = shape._element
-                sp.getparent().remove(sp)
-                break
+            if hasattr(shape, "text") and shape.text:
+                if slide_title.lower() in shape.text.lower():
+                    target_slide = slide
+                    print(f"[Breadth Rank] Found slide with '{slide_title}' at index {slide_idx + 1}")
+                    break
         if target_slide:
             break
 
     if not target_slide:
-        print(f"[Breadth Rank] No placeholder '{placeholder_name}' found")
+        print(f"[Breadth Rank] No slide with title '{slide_title}' found")
         Path(img_path).unlink(missing_ok=True)
         return prs
 
-    # Insert image
+    # Insert image at FIXED position - don't remove any shapes
     target_slide.shapes.add_picture(
         img_path,
         left=Cm(BREADTH_LEFT_CM),
@@ -302,7 +303,7 @@ def insert_breadth_rank(
 def generate_breadth_slide(
     prs: Presentation,
     excel_path: str,
-    placeholder_name: str = "breadth_rank"
+    slide_title: str = "Global Indices Insight"
 ) -> Presentation:
     """
     Generate Breadth Rank slide from Excel data.
@@ -313,8 +314,8 @@ def generate_breadth_slide(
         PowerPoint presentation object
     excel_path : str
         Path to Excel file with helper_breadth sheet
-    placeholder_name : str
-        Name of placeholder shape to find
+    slide_title : str
+        Title text to search for to find the correct slide
 
     Returns
     -------
@@ -329,4 +330,4 @@ def generate_breadth_slide(
         return prs
 
     # Insert into slide
-    return insert_breadth_rank(prs, rows, placeholder_name)
+    return insert_breadth_rank(prs, rows, slide_title)

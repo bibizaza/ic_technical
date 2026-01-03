@@ -6079,7 +6079,7 @@ def show_generate_presentation_page():
             prs = generate_breadth_slide(
                 prs,
                 excel_path=str(excel_path_for_ppt),
-                placeholder_name="funda_breadth",
+                slide_title="Global Indices Insight",
             )
             print("[Breadth Rank] Slide generation complete")
 
