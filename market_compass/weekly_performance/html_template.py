@@ -1,0 +1,197 @@
+"""HTML template for Weekly Performance chart."""
+
+WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: {{ 10 * scale }}px;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 4 * scale }}px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            height: {{ 32 * scale }}px;
+            padding: 0 {{ 10 * scale }}px;
+            border-radius: {{ 4 * scale }}px;
+        }
+
+        .row:nth-child(odd) {
+            background: #F8FAFC;
+        }
+
+        /* Top performer - gold accent */
+        .row.top-performer {
+            background: linear-gradient(90deg, #FEF9E7 0%, #FFFEF5 100%);
+            border-left: {{ 3 * scale }}px solid #C9A227;
+        }
+
+        .row.top-performer .market-name {
+            color: #92710C;
+            font-weight: 600;
+        }
+
+        /* Worst performer - red accent */
+        .row.worst-performer {
+            background: linear-gradient(90deg, #FEF2F2 0%, #FFFAFA 100%);
+            border-left: {{ 3 * scale }}px solid #EF4444;
+        }
+
+        .row.worst-performer .market-name {
+            color: #B91C1C;
+        }
+
+        /* Market info */
+        .market-info {
+            width: {{ 110 * scale }}px;
+            display: flex;
+            align-items: center;
+            gap: {{ 8 * scale }}px;
+        }
+
+        .flag {
+            font-size: {{ 14 * scale }}px;
+        }
+
+        .market-name {
+            font-size: {{ 10 * scale }}px;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        /* Bar container */
+        .bar-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            padding: 0 {{ 15 * scale }}px;
+            position: relative;
+        }
+
+        .bar-track {
+            width: 100%;
+            height: {{ 5 * scale }}px;
+            background: #F1F5F9;
+            border-radius: {{ 3 * scale }}px;
+            position: relative;
+        }
+
+        /* Center line (zero axis) */
+        .center-line {
+            position: absolute;
+            left: 50%;
+            top: {{ -4 * scale }}px;
+            bottom: {{ -4 * scale }}px;
+            width: {{ 2 * scale }}px;
+            background: #CBD5E1;
+            border-radius: {{ 1 * scale }}px;
+            z-index: 1;
+        }
+
+        /* Bars */
+        .bar {
+            position: absolute;
+            height: {{ 12 * scale }}px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+
+        .bar.positive {
+            left: 50%;
+            background: linear-gradient(90deg, #4ADE80, #16A34A);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(34, 197, 94, 0.25);
+            border-radius: 0 {{ 6 * scale }}px {{ 6 * scale }}px 0;
+        }
+
+        .bar.negative {
+            right: 50%;
+            background: linear-gradient(270deg, #F87171, #DC2626);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(239, 68, 68, 0.25);
+            border-radius: {{ 6 * scale }}px 0 0 {{ 6 * scale }}px;
+        }
+
+        /* Performance value */
+        .performance {
+            width: {{ 55 * scale }}px;
+            text-align: right;
+            font-size: {{ 11 * scale }}px;
+            font-weight: 700;
+        }
+
+        .performance.positive { color: #16A34A; }
+        .performance.negative { color: #DC2626; }
+        .performance.zero { color: #64748B; }
+
+        /* Scale */
+        .scale {
+            display: flex;
+            justify-content: center;
+            padding: {{ 8 * scale }}px 0 0 0;
+            margin-left: {{ 110 * scale }}px;
+            margin-right: {{ 55 * scale }}px;
+        }
+
+        .scale-inner {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 {{ 15 * scale }}px;
+            font-size: {{ 7 * scale }}px;
+            color: #94A3B8;
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-container">
+        {% for row in rows %}
+        <div class="row {{ row.highlight_class }}">
+            <div class="market-info">
+                <span class="flag">{{ row.flag }}</span>
+                <span class="market-name">{{ row.name }}</span>
+            </div>
+            <div class="bar-container">
+                <div class="bar-track">
+                    <div class="center-line"></div>
+                    {% if row.value != 0 %}
+                    <div class="bar {{ row.bar_class }}" style="width: {{ row.bar_width }}%;"></div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="performance {{ row.value_class }}">{{ row.formatted_value }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="scale">
+        <div class="scale-inner">
+            <span>{{ scale_min }}</span>
+            <span>{{ scale_mid_low }}</span>
+            <span>0</span>
+            <span>{{ scale_mid_high }}</span>
+            <span>{{ scale_max }}</span>
+        </div>
+    </div>
+</body>
+</html>
+'''
