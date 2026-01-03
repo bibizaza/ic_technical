@@ -82,7 +82,7 @@ GLOBAL_INDICES_HTML_TEMPLATE = '''
 
         /* Last row - bottom border */
         tr:last-child td {
-            border-bottom: {{ 2 * scale }}px solid #1B3A5A;
+            border-bottom: {{ 1 * scale }}px solid #1B3A5A;
         }
 
         /* Rank cell - GOLD tint */
