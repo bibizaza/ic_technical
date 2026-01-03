@@ -262,13 +262,13 @@ def insert_breadth_rank(
 
     _html_to_png(html, img_path)
 
-    # Find placeholder
+    # Find placeholder - EXACT MATCH to avoid removing slide title
     target_slide = None
 
     for slide_idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
             name = getattr(shape, "name", "")
-            if placeholder_name.lower() in name.lower():
+            if name.lower() == placeholder_name.lower():
                 target_slide = slide
                 print(f"[Breadth Rank] Found placeholder '{name}' on slide {slide_idx + 1}")
                 sp = shape._element

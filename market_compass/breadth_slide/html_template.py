@@ -14,26 +14,17 @@ BREADTH_HTML_TEMPLATE = '''
 
         body {
             font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
-            background: #FFFFFF;
+            background: transparent;
             width: {{ width }}px;
             height: {{ height }}px;
-            padding: {{ 8 * scale }}px;
-        }
-
-        /* Section title */
-        .section-title {
-            font-size: {{ 14 * scale }}px;
-            font-weight: 400;
-            color: #0D9488;
-            margin-bottom: {{ 8 * scale }}px;
-            text-decoration: underline;
-            text-decoration-color: #0D9488;
-            text-underline-offset: {{ 3 * scale }}px;
+            padding: 0;
+            margin: 0;
         }
 
         /* Table styling */
         table {
             width: 100%;
+            height: 100%;
             border-collapse: collapse;
             font-size: {{ 9 * scale }}px;
         }
@@ -138,7 +129,6 @@ BREADTH_HTML_TEMPLATE = '''
     </style>
 </head>
 <body>
-    <div class="section-title">Breadth Rank</div>
     <table>
         <thead>
             <tr>
