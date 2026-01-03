@@ -37,7 +37,7 @@ BREADTH_HEIGHT_CM = 8.76
 
 # Map tickers to display names
 INDEX_NAME_MAP = {
-    "SPX Index": "U.S. - Large Cap",
+    "SPX Index": "U.S.",
     "SHSZ300 Index": "China",
     "NKY Index": "Japan",
     "SASEIDX Index": "Saudi Arabia",
