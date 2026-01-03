@@ -483,13 +483,19 @@ def insert_global_indices(
         return prs
 
     # Insert image at fixed position
-    target_slide.shapes.add_picture(
+    pic = target_slide.shapes.add_picture(
         img_path,
         left=Cm(COMBINED_LEFT_CM),
         top=Cm(COMBINED_TOP_CM),
         width=Cm(COMBINED_WIDTH_CM),
         height=Cm(COMBINED_HEIGHT_CM)
     )
+
+    # Send to back (behind other elements like footnote)
+    spTree = target_slide.shapes._spTree
+    sp = pic._element
+    spTree.remove(sp)
+    spTree.insert(2, sp)  # Index 2 = back (0 and 1 are reserved)
 
     # Cleanup
     Path(img_path).unlink(missing_ok=True)
