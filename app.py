@@ -6070,40 +6070,21 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Breadth Rank slide
+        # Global Indices Insight slide (combined Breadth & Fundamental)
         # ------------------------------------------------------------------
-        update_progress("Generating Breadth Rank slide...")
+        update_progress("Generating Global Indices slide...")
         try:
-            from market_compass.breadth_slide import generate_breadth_slide
+            from market_compass.global_indices_slide import generate_global_indices_slide
 
-            prs = generate_breadth_slide(
+            prs = generate_global_indices_slide(
                 prs,
                 excel_path=str(excel_path_for_ppt),
                 slide_title="Global Indices Insight",
             )
-            print("[Breadth Rank] Slide generation complete")
+            print("[Global Indices] Slide generation complete")
 
         except Exception as e:
-            print(f"Breadth Rank slide error: {e}")
-            import traceback
-            traceback.print_exc()
-
-        # ------------------------------------------------------------------
-        # Fundamental Rank slide
-        # ------------------------------------------------------------------
-        update_progress("Generating Fundamental Rank slide...")
-        try:
-            from market_compass.fundamental_slide import generate_fundamental_slide
-
-            prs = generate_fundamental_slide(
-                prs,
-                excel_path=str(excel_path_for_ppt),
-                slide_title="Global Indices Insight",
-            )
-            print("[Fundamental Rank] Slide generation complete")
-
-        except Exception as e:
-            print(f"Fundamental Rank slide error: {e}")
+            print(f"Global Indices slide error: {e}")
             import traceback
             traceback.print_exc()
 
