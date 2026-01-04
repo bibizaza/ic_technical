@@ -353,10 +353,11 @@ def create_weekly_performance_chart(
         "scale_max": f"+{scale_max}%",
     }
 
-    # Generate HTML
+    # Generate HTML - PNG must be 3x scale for crisp rendering
+    # Target: 17.31cm × 10cm in PowerPoint
     SCALE_FACTOR = 3
-    width_px = 2550  # ~22.5cm at 3x
-    height_px = 1200  # ~10.5cm at 3x
+    width_px = int(17.31 * 37.8 * SCALE_FACTOR)  # = 1963 px
+    height_px = int(10 * 37.8 * SCALE_FACTOR)     # = 1134 px
 
     template = Template(WEEKLY_PERFORMANCE_HTML_TEMPLATE)
     html = template.render(
@@ -691,8 +692,8 @@ def insert_equity_performance_bar_slide(
     *,
     left_cm: float = 3.47,
     top_cm: float = 5.28,
-    width_cm: float = 17.35,
-    height_cm: Optional[float] = None,
+    width_cm: float = 17.31,
+    height_cm: Optional[float] = 10.0,
 ) -> Presentation:
     """Insert the weekly performance bar chart and source footnote into its designated slide.
 
