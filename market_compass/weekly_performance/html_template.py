@@ -384,7 +384,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         .chart-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 2 * scale }}px;
+            gap: {{ 1 * scale }}px;
         }
 
         /* Country group header */
@@ -392,8 +392,8 @@ BONDS_RATES_HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             gap: {{ 6 * scale }}px;
-            padding: {{ 5 * scale }}px {{ 10 * scale }}px;
-            margin-top: {{ 4 * scale }}px;
+            padding: {{ 4 * scale }}px {{ 10 * scale }}px;
+            margin-top: {{ 3 * scale }}px;
             background: #F8FAFC;
             border-left: {{ 3 * scale }}px solid #1B3A5A;
             border-radius: 0 {{ 4 * scale }}px {{ 4 * scale }}px 0;
@@ -419,7 +419,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         .row {
             display: flex;
             align-items: center;
-            height: {{ 24 * scale }}px;
+            height: {{ 20 * scale }}px;
             padding: 0 {{ 10 * scale }}px 0 {{ 24 * scale }}px;
         }
 
@@ -467,7 +467,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         /* Bars - INVERTED COLORS */
         .bar {
             position: absolute;
-            height: {{ 10 * scale }}px;
+            height: {{ 8 * scale }}px;
             top: 50%;
             transform: translateY(-50%);
             z-index: 2;
@@ -523,7 +523,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
             display: flex;
             justify-content: center;
             gap: {{ 25 * scale }}px;
-            padding: {{ 10 * scale }}px 0 0 0;
+            padding: {{ 6 * scale }}px 0 0 0;
             font-size: {{ 8 * scale }}px;
             color: #64748B;
         }
