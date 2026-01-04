@@ -298,7 +298,7 @@ def create_weekly_performance_chart(
     excel_path: Union[str, pathlib.Path],
     ticker_mapping: Dict[str, str] | None = None,
     *,
-    width_cm: float = 16.89,
+    width_cm: float = 17.02,
     height_cm: float = 13.0,
     price_mode: str = "Last Price",
 ) -> Tuple[bytes, Optional[pd.Timestamp]]:
@@ -649,9 +649,9 @@ def insert_rates_performance_bar_slide(
     used_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
     *,
-    left_cm: float = 4.26,
-    top_cm: float = 3.22,
-    width_cm: float = 16.89,
+    left_cm: float = 3.35,
+    top_cm: float = 4.6,
+    width_cm: float = 17.02,
     height_cm: float = 11.66,
 ) -> Presentation:
     """Insert the weekly rates bar chart and source footnote into its designated slide.
