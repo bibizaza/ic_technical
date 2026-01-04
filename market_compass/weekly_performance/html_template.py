@@ -630,7 +630,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         .header-row {
             display: flex;
             align-items: center;
-            padding: {{ 5 * scale }}px 0;
+            padding: {{ 3 * scale }}px 0;
         }
 
         .header-row .market-col {
@@ -640,14 +640,14 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         .header-row .period-col {
             flex: 1;
             text-align: center;
-            font-size: {{ 8 * scale }}px;
+            font-size: {{ 7 * scale }}px;
             font-weight: 600;
             color: #1B3A5A;
         }
 
         .header-row .period-col.ytd {
             flex: 1.3;
-            font-size: {{ 9 * scale }}px;
+            font-size: {{ 8 * scale }}px;
             font-weight: 700;
             color: #1B3A5A;
             margin-right: {{ 10 * scale }}px;
@@ -658,8 +658,8 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             gap: {{ 5 * scale }}px;
-            padding: {{ 4 * scale }}px {{ 8 * scale }}px;
-            margin-top: {{ 3 * scale }}px;
+            padding: {{ 3 * scale }}px {{ 6 * scale }}px;
+            margin-top: {{ 2 * scale }}px;
             background: #F8FAFC;
             border-left: {{ 2 * scale }}px solid #1B3A5A;
             border-radius: 0 {{ 3 * scale }}px {{ 3 * scale }}px 0;
@@ -670,11 +670,11 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .country-header .flag {
-            font-size: {{ 11 * scale }}px;
+            font-size: {{ 9 * scale }}px;
         }
 
         .country-header .country-name {
-            font-size: {{ 8 * scale }}px;
+            font-size: {{ 7 * scale }}px;
             font-weight: 700;
             color: #1B3A5A;
             text-transform: uppercase;
@@ -697,7 +697,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .tenor-label {
-            font-size: {{ 8 * scale }}px;
+            font-size: {{ 7 * scale }}px;
             font-weight: 500;
             color: #64748B;
         }
@@ -705,12 +705,12 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         /* Value cells */
         .value-cell {
             flex: 1;
-            height: {{ 22 * scale }}px;
+            height: {{ 18 * scale }}px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: {{ 4 * scale }}px;
-            font-size: {{ 7 * scale }}px;
+            border-radius: {{ 3 * scale }}px;
+            font-size: {{ 6 * scale }}px;
             font-weight: 600;
             color: #FFFFFF;
             text-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -719,11 +719,11 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
-            height: {{ 26 * scale }}px;
-            font-size: {{ 9 * scale }}px;
+            height: {{ 20 * scale }}px;
+            font-size: {{ 7 * scale }}px;
             font-weight: 700;
             margin-right: {{ 10 * scale }}px;
-            border-radius: {{ 5 * scale }}px;
+            border-radius: {{ 4 * scale }}px;
             box-shadow: 0 {{ 3 * scale }}px {{ 8 * scale }}px rgba(0,0,0,0.15), 0 {{ 1 * scale }}px {{ 3 * scale }}px rgba(0,0,0,0.1);
         }
 
