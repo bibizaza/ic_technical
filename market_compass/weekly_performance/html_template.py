@@ -195,3 +195,161 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
+
+# =============================================================================
+# HISTORICAL PERFORMANCE HEATMAP TEMPLATE
+# =============================================================================
+
+HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: {{ 10 * scale }}px;
+        }
+
+        .table-container {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 3 * scale }}px;
+        }
+
+        /* Header row */
+        .header-row {
+            display: flex;
+            align-items: center;
+            padding: {{ 6 * scale }}px 0;
+        }
+
+        .header-row .market-col {
+            width: {{ 110 * scale }}px;
+        }
+
+        .header-row .period-col {
+            flex: 1;
+            text-align: center;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 600;
+            color: #1B3A5A;
+        }
+
+        .header-row .period-col.ytd {
+            flex: 1.3;
+            font-size: {{ 10 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            margin-right: {{ 12 * scale }}px;
+        }
+
+        /* Data rows */
+        .data-row {
+            display: flex;
+            align-items: center;
+            gap: {{ 3 * scale }}px;
+        }
+
+        .market-col {
+            width: {{ 110 * scale }}px;
+            display: flex;
+            align-items: center;
+            gap: {{ 6 * scale }}px;
+            padding-right: {{ 8 * scale }}px;
+        }
+
+        .flag {
+            font-size: {{ 12 * scale }}px;
+        }
+
+        .market-name {
+            font-size: {{ 9 * scale }}px;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        /* Value cells */
+        .value-cell {
+            flex: 1;
+            height: {{ 30 * scale }}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: {{ 5 * scale }}px;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 600;
+            color: #FFFFFF;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* YTD column - emphasized */
+        .value-cell.ytd {
+            flex: 1.3;
+            height: {{ 34 * scale }}px;
+            font-size: {{ 11 * scale }}px;
+            font-weight: 700;
+            margin-right: {{ 12 * scale }}px;
+            border-radius: {{ 6 * scale }}px;
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(0,0,0,0.08);
+        }
+
+        /* Color scale - Positive (green) - 5 levels */
+        .positive-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
+        .positive-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
+        .positive-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .positive-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .positive-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+
+        /* Color scale - Negative (red) - 5 levels */
+        .negative-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
+        .negative-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
+        .negative-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .negative-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .negative-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+
+        /* Neutral (near zero) */
+        .neutral { background: #F1F5F9; color: #64748B; text-shadow: none; }
+    </style>
+</head>
+<body>
+    <div class="table-container">
+        <!-- Header -->
+        <div class="header-row">
+            <div class="market-col"></div>
+            <div class="period-col ytd">YTD</div>
+            <div class="period-col">1M</div>
+            <div class="period-col">3M</div>
+            <div class="period-col">6M</div>
+            <div class="period-col">12M</div>
+        </div>
+
+        {% for row in rows %}
+        <div class="data-row">
+            <div class="market-col">
+                <span class="flag">{{ row.flag }}</span>
+                <span class="market-name">{{ row.name }}</span>
+            </div>
+            <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
+            <div class="value-cell {{ row.m1_class }}">{{ row.m1_formatted }}</div>
+            <div class="value-cell {{ row.m3_class }}">{{ row.m3_formatted }}</div>
+            <div class="value-cell {{ row.m6_class }}">{{ row.m6_formatted }}</div>
+            <div class="value-cell {{ row.m12_class }}">{{ row.m12_formatted }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
+'''

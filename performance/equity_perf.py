@@ -416,68 +416,111 @@ def create_historical_performance_table(
         the PNG data for the heatmap and ``used_date`` is the effective
         date in the adjusted price series.
     """
-    default_mapping = {
-        "SPX Index": "S&P 500",
-        "IBOV Index": "Bovespa",
-        "MEXBOL Index": "Mexican Bolsa",
-        "SMI Index": "Swiss Market Index",
-        "SHSZ300 Index": "Shenzhen CSI 300",
-        "NKY Index": "Nikkei 225",
-        "SENSEX Index": "Sensex",
-        "DAX Index": "DAX 30",
-        "SASEIDX Index": "TASI (Saudi Index)",
+    import tempfile
+    from pathlib import Path
+    from jinja2 import Template
+    from html2image import Html2Image
+    from market_compass.weekly_performance.html_template import HISTORICAL_PERFORMANCE_HTML_TEMPLATE
+
+    # Index mapping with display names and flags
+    INDEX_CONFIG = {
+        "SPX Index": {"name": "S&P 500", "flag": "\U0001F1FA\U0001F1F8"},
+        "DAX Index": {"name": "Dax", "flag": "\U0001F1E9\U0001F1EA"},
+        "SMI Index": {"name": "SMI", "flag": "\U0001F1E8\U0001F1ED"},
+        "NKY Index": {"name": "Nikkei 225", "flag": "\U0001F1EF\U0001F1F5"},
+        "SHSZ300 Index": {"name": "CSI 300", "flag": "\U0001F1E8\U0001F1F3"},
+        "SENSEX Index": {"name": "Sensex", "flag": "\U0001F1EE\U0001F1F3"},
+        "IBOV Index": {"name": "Bovespa", "flag": "\U0001F1E7\U0001F1F7"},
+        "MEXBOL Index": {"name": "Mexbol", "flag": "\U0001F1F2\U0001F1FD"},
+        "SASEIDX Index": {"name": "TASI", "flag": "\U0001F1F8\U0001F1E6"},
     }
-    mapping = ticker_mapping or default_mapping
-    tickers = list(mapping.keys())
+
+    tickers = list(INDEX_CONFIG.keys())
+
     # Load data and adjust according to price mode
     df = _load_price_data(excel_path, tickers)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
-    perf = _build_returns_table(df_adj, mapping)
+
+    # Build returns
+    default_mapping = {k: v["name"] for k, v in INDEX_CONFIG.items()}
+    perf = _build_returns_table(df_adj, default_mapping)
+
+    # Get returns and sort by YTD descending
     heat_df = perf[["Name", "YTD", "1M", "3M", "6M", "12M"]].dropna().sort_values("YTD", ascending=False).reset_index(drop=True)
-    n_rows = len(heat_df)
-    cols = ["YTD", "1M", "3M", "6M", "12M"]
-    color_array = np.zeros((n_rows, len(cols), 4))
-    for j, col in enumerate(cols):
-        col_vals = heat_df[col].astype(float).values
-        pos_vals = col_vals[col_vals > 0]
-        neg_vals = col_vals[col_vals < 0]
-        max_pos = pos_vals.max() if len(pos_vals) > 0 else 0.0
-        min_neg = neg_vals.min() if len(neg_vals) > 0 else 0.0
-        for i, val in enumerate(col_vals):
-            color_array[i, j] = _colour_for_value(float(val), max_pos, min_neg)
-    # Create figure and axis
-    fig, ax = plt.subplots(figsize=(width, height))
-    ax.imshow(color_array, aspect="auto")
-    # Add text
-    for i in range(n_rows):
-        for j, col in enumerate(cols):
-            val = heat_df.iloc[i][col]
-            ax.text(
-                j,
-                i,
-                f"{val:.1f}%",
-                ha="center",
-                va="center",
-                fontsize=9,
-                fontweight="bold",
-                color="black",
-            )
-    ax.set_xticks(range(len(cols)))
-    ax.set_xticklabels(cols, fontsize=12, fontweight="bold")
-    ax.xaxis.set_ticks_position("top")
-    ax.xaxis.set_label_position("top")
-    ax.set_yticks(range(n_rows))
-    ax.set_yticklabels(heat_df["Name"], fontsize=9)
-    ax.tick_params(axis="y", length=0)
-    ax.tick_params(axis="x", length=0)
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    fig.subplots_adjust(left=0.5)
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue(), used_date
+
+    def get_color_class(value: float) -> str:
+        """Determine color class based on value magnitude."""
+        val = value / 100  # Convert from percentage to decimal
+        if -0.01 <= val <= 0.01:
+            return "neutral"
+        abs_val = abs(val)
+        prefix = "positive" if val > 0 else "negative"
+        if abs_val <= 0.05:
+            level = 1
+        elif abs_val <= 0.10:
+            level = 2
+        elif abs_val <= 0.20:
+            level = 3
+        elif abs_val <= 0.30:
+            level = 4
+        else:
+            level = 5
+        return f"{prefix}-{level}"
+
+    def format_percentage(value: float) -> str:
+        """Format value as percentage string."""
+        return f"{value:.1f}%"
+
+    # Prepare rows for HTML template
+    rows = []
+    for _, row in heat_df.iterrows():
+        name = row["Name"]
+
+        # Find flag for this name
+        flag = ""
+        for ticker, config in INDEX_CONFIG.items():
+            if config["name"] == name:
+                flag = config["flag"]
+                break
+
+        rows.append({
+            "name": name,
+            "flag": flag,
+            "ytd_formatted": format_percentage(row["YTD"]),
+            "ytd_class": get_color_class(row["YTD"]),
+            "m1_formatted": format_percentage(row["1M"]),
+            "m1_class": get_color_class(row["1M"]),
+            "m3_formatted": format_percentage(row["3M"]),
+            "m3_class": get_color_class(row["3M"]),
+            "m6_formatted": format_percentage(row["6M"]),
+            "m6_class": get_color_class(row["6M"]),
+            "m12_formatted": format_percentage(row["12M"]),
+            "m12_class": get_color_class(row["12M"]),
+        })
+
+    # Generate HTML
+    SCALE_FACTOR = 3
+    width_px = 2200  # ~19.4cm at 3x
+    height_px = 1200  # ~10.6cm at 3x
+
+    template = Template(HISTORICAL_PERFORMANCE_HTML_TEMPLATE)
+    html = template.render(
+        rows=rows,
+        width=width_px,
+        height=height_px,
+        scale=SCALE_FACTOR,
+    )
+
+    # Convert to PNG
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hti = Html2Image(output_path=tmpdir, size=(width_px, height_px))
+        hti.screenshot(html_str=html, save_as="historical_perf.png")
+
+        img_path = Path(tmpdir) / "historical_perf.png"
+        with open(img_path, "rb") as f:
+            png_bytes = f.read()
+
+    return png_bytes, used_date
 
 
 ###############################################################################
