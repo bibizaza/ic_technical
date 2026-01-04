@@ -592,3 +592,189 @@ BONDS_RATES_HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
+
+# =============================================================================
+# GOVERNMENT BONDS HISTORICAL PERFORMANCE HEATMAP TEMPLATE
+# =============================================================================
+
+BONDS_HISTORICAL_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: {{ 8 * scale }}px;
+        }
+
+        .table-container {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 1 * scale }}px;
+        }
+
+        /* Header row */
+        .header-row {
+            display: flex;
+            align-items: center;
+            padding: {{ 5 * scale }}px 0;
+        }
+
+        .header-row .market-col {
+            width: {{ 100 * scale }}px;
+        }
+
+        .header-row .period-col {
+            flex: 1;
+            text-align: center;
+            font-size: {{ 8 * scale }}px;
+            font-weight: 600;
+            color: #1B3A5A;
+        }
+
+        .header-row .period-col.ytd {
+            flex: 1.3;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            margin-right: {{ 10 * scale }}px;
+        }
+
+        /* Country group header */
+        .country-header {
+            display: flex;
+            align-items: center;
+            gap: {{ 5 * scale }}px;
+            padding: {{ 4 * scale }}px {{ 8 * scale }}px;
+            margin-top: {{ 3 * scale }}px;
+            background: #F8FAFC;
+            border-left: {{ 2 * scale }}px solid #1B3A5A;
+            border-radius: 0 {{ 3 * scale }}px {{ 3 * scale }}px 0;
+        }
+
+        .country-header:first-of-type {
+            margin-top: 0;
+        }
+
+        .country-header .flag {
+            font-size: {{ 11 * scale }}px;
+        }
+
+        .country-header .country-name {
+            font-size: {{ 8 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Data rows */
+        .data-row {
+            display: flex;
+            align-items: center;
+            gap: {{ 2 * scale }}px;
+            padding-left: {{ 16 * scale }}px;
+        }
+
+        .tenor-col {
+            width: {{ 84 * scale }}px;
+            display: flex;
+            align-items: center;
+            padding-right: {{ 6 * scale }}px;
+        }
+
+        .tenor-label {
+            font-size: {{ 8 * scale }}px;
+            font-weight: 500;
+            color: #64748B;
+        }
+
+        /* Value cells */
+        .value-cell {
+            flex: 1;
+            height: {{ 22 * scale }}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: {{ 4 * scale }}px;
+            font-size: {{ 7 * scale }}px;
+            font-weight: 600;
+            color: #FFFFFF;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* YTD column - emphasized */
+        .value-cell.ytd {
+            flex: 1.3;
+            height: {{ 26 * scale }}px;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 700;
+            margin-right: {{ 10 * scale }}px;
+            border-radius: {{ 5 * scale }}px;
+            box-shadow: 0 {{ 3 * scale }}px {{ 8 * scale }}px rgba(0,0,0,0.15), 0 {{ 1 * scale }}px {{ 3 * scale }}px rgba(0,0,0,0.1);
+        }
+
+        /* Color scale - INVERTED for rates */
+        /* Rates DOWN = Good = Green (5 levels) */
+        .green-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
+        .green-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
+        .green-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .green-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .green-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+
+        /* Rates UP = Bad = Red (5 levels) */
+        .red-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
+        .red-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
+        .red-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .red-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .red-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+    </style>
+</head>
+<body>
+    <div class="table-container">
+        <!-- Header -->
+        <div class="header-row">
+            <div class="market-col"></div>
+            <div class="period-col ytd">YTD</div>
+            <div class="period-col">1M</div>
+            <div class="period-col">3M</div>
+            <div class="period-col">6M</div>
+            <div class="period-col">12M</div>
+        </div>
+
+        {% for country in countries %}
+        <!-- {{ country.name }} -->
+        <div class="country-header">
+            <span class="flag">{{ country.flag }}</span>
+            <span class="country-name">{{ country.name }}</span>
+        </div>
+        {% for tenor in country.tenors %}
+        <div class="data-row">
+            <div class="tenor-col">
+                <span class="tenor-label">{{ tenor.label }}</span>
+            </div>
+            <div class="value-cell ytd {{ tenor.ytd_class }}">{{ tenor.ytd_formatted }}</div>
+            <div class="value-cell {{ tenor.m1_class }}">{{ tenor.m1_formatted }}</div>
+            <div class="value-cell {{ tenor.m3_class }}">{{ tenor.m3_formatted }}</div>
+            <div class="value-cell {{ tenor.m6_class }}">{{ tenor.m6_formatted }}</div>
+            <div class="value-cell {{ tenor.m12_class }}">{{ tenor.m12_formatted }}</div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+</body>
+</html>
+'''

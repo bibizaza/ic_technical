@@ -63,7 +63,7 @@ from pptx import Presentation
 from pptx.util import Cm
 
 from utils import adjust_prices_for_mode
-from market_compass.weekly_performance.html_template import BONDS_RATES_HTML_TEMPLATE
+from market_compass.weekly_performance.html_template import BONDS_RATES_HTML_TEMPLATE, BONDS_HISTORICAL_HTML_TEMPLATE
 
 # Scale factor for high-resolution rendering
 SCALE_FACTOR = 3
@@ -426,32 +426,74 @@ def create_weekly_performance_chart(
     return image_bytes, used_date
 
 
+def _get_rates_color_class(value_bps: float) -> str:
+    """Determine color class based on yield change in bps.
+
+    INVERTED: rates down = green (good), rates up = red (bad)
+
+    Thresholds (in bps):
+    - level 1: 0-10 bps
+    - level 2: 10-25 bps
+    - level 3: 25-50 bps
+    - level 4: 50-75 bps
+    - level 5: >75 bps
+    """
+    abs_val = abs(value_bps)
+
+    # INVERTED: negative change (rates down) = green
+    if value_bps <= 0:
+        prefix = "green"
+    else:
+        prefix = "red"
+
+    if abs_val <= 10:
+        level = 1
+    elif abs_val <= 25:
+        level = 2
+    elif abs_val <= 50:
+        level = 3
+    elif abs_val <= 75:
+        level = 4
+    else:
+        level = 5
+
+    return f"{prefix}-{level}"
+
+
+def _format_bps(value_bps: float) -> str:
+    """Format value as bps string with sign."""
+    if value_bps >= 0:
+        return f"+{value_bps:.0f}"
+    else:
+        return f"{value_bps:.0f}"
+
+
 def create_historical_performance_table(
     excel_path: Union[str, pathlib.Path],
     ticker_mapping: Dict[str, str] | None = None,
     *,
-    width: float = 14.0,
-    height: float = 6.0,
+    width_cm: float = 17.02,
+    height_cm: float = 13.0,
     price_mode: str = "Last Price",
 ) -> Tuple[bytes, Optional[pd.Timestamp]]:
-    """Generate a heatmap table of yield changes with price‑mode adjustment.
+    """Generate a heatmap table of yield changes using HTML template.
 
     This helper reads the yield data, optionally adjusts it according to
-    ``price_mode``, computes changes for multiple horizons, sorts the
-    table by YTD change (descending) and constructs a heatmap where
-    positive values map to red and negative values to green.  The
-    effective date used for the computations is returned along with the
-    PNG data.
+    ``price_mode``, computes changes for multiple horizons, grouped by
+    country (US, EUR, JP, CN).
+
+    Uses INVERTED color logic for bond rates:
+    - Negative change (rates down) = GREEN (bullish)
+    - Positive change (rates up) = RED (bearish)
 
     Parameters
     ----------
     excel_path : str or pathlib.Path
         Path to the Excel workbook containing the yield series.
     ticker_mapping : dict, optional
-        Mapping from ticker codes to display names.  If not provided,
-        sensible defaults are used.
-    width, height : float
-        Dimensions of the generated figure in inches.
+        Not used in new implementation, kept for API compatibility.
+    width_cm, height_cm : float
+        Dimensions of the generated figure in centimeters.
     price_mode : str, default ``"Last Price"``
         Either ``"Last Price"`` or ``"Last Close"``.  Determines how
         yield data is adjusted prior to computing changes and which
@@ -464,70 +506,73 @@ def create_historical_performance_table(
         the PNG data for the heatmap and ``used_date`` is the effective
         date in the adjusted yield series.
     """
-    default_mapping = {
-        "USGG2YR Index": "US - 2Y",
-        "USGG10YR Index": "US - 10Y",
-        "USGG30YR Index": "US - 30Y",
-        "GECU2YR Index": "EUR - 2Y",
-        "GECU10YR Index": "EUR - 10Y",
-        "GECU30YR Index": "EUR - 30Y",
-        "GCNY2YR Index": "CN - 2Y",
-        "GCNY10YR Index": "CN - 10Y",
-        "GCNY30YR Index": "CN - 30Y",
-        "GJGB2 Index": "JP - 2Y",
-        "GJGB10 Index": "JP - 10Y",
-        "GJGB30 Index": "JP - 30Y",
-    }
-    mapping = ticker_mapping or default_mapping
-    tickers = list(mapping.keys())
+    # Build flat ticker mapping from country config
+    flat_mapping = {}
+    for country in COUNTRY_CONFIG:
+        for ticker, label in country["tickers"].items():
+            flat_mapping[ticker] = f"{country['name']} - {label}"
+
+    tickers = list(flat_mapping.keys())
     df = _load_price_data(excel_path, tickers)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
-    perf = _build_returns_table(df_adj, mapping)
-    heat_df = perf[["Name", "YTD", "1M", "3M", "6M", "12M"]].dropna().sort_values("YTD", ascending=False).reset_index(drop=True)
-    n_rows = len(heat_df)
-    cols = ["YTD", "1M", "3M", "6M", "12M"]
-    # Build colour array: positive values map to red, negative to green
-    color_array = np.zeros((n_rows, len(cols), 4))
-    for j, col in enumerate(cols):
-        col_vals = heat_df[col].astype(float).values
-        pos_vals = col_vals[col_vals > 0]
-        neg_vals = col_vals[col_vals < 0]
-        max_pos = pos_vals.max() if len(pos_vals) > 0 else 0.0
-        min_neg = neg_vals.min() if len(neg_vals) > 0 else 0.0
-        for i, val in enumerate(col_vals):
-            color_array[i, j] = _colour_for_value_rates(float(val), max_pos, min_neg)
-    fig, ax = plt.subplots(figsize=(width, height))
-    ax.imshow(color_array, aspect="auto")
-    # Add text: show change in bps with sign
-    for i in range(n_rows):
-        for j, col in enumerate(cols):
-            val = heat_df.iloc[i][col]
-            ax.text(
-                j,
-                i,
-                f"{val:+.1f}",
-                ha="center",
-                va="center",
-                fontsize=9,
-                fontweight="bold",
-                color="black",
-            )
-    ax.set_xticks(range(len(cols)))
-    ax.set_xticklabels(cols, fontsize=12, fontweight="bold")
-    ax.xaxis.set_ticks_position("top")
-    ax.xaxis.set_label_position("top")
-    ax.set_yticks(range(n_rows))
-    ax.set_yticklabels(heat_df["Name"], fontsize=9)
-    ax.tick_params(axis="y", length=0)
-    ax.tick_params(axis="x", length=0)
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    fig.subplots_adjust(left=0.5)
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue(), used_date
+    perf = _build_returns_table(df_adj, flat_mapping)
+
+    # Build country data for template
+    countries = []
+    for country in COUNTRY_CONFIG:
+        tenors = []
+        for ticker, label in country["tickers"].items():
+            if ticker in perf.index:
+                row = perf.loc[ticker]
+                ytd = row.get("YTD", 0) if pd.notna(row.get("YTD")) else 0
+                m1 = row.get("1M", 0) if pd.notna(row.get("1M")) else 0
+                m3 = row.get("3M", 0) if pd.notna(row.get("3M")) else 0
+                m6 = row.get("6M", 0) if pd.notna(row.get("6M")) else 0
+                m12 = row.get("12M", 0) if pd.notna(row.get("12M")) else 0
+
+                tenors.append({
+                    "label": label,
+                    "ytd_formatted": _format_bps(ytd),
+                    "ytd_class": _get_rates_color_class(ytd),
+                    "m1_formatted": _format_bps(m1),
+                    "m1_class": _get_rates_color_class(m1),
+                    "m3_formatted": _format_bps(m3),
+                    "m3_class": _get_rates_color_class(m3),
+                    "m6_formatted": _format_bps(m6),
+                    "m6_class": _get_rates_color_class(m6),
+                    "m12_formatted": _format_bps(m12),
+                    "m12_class": _get_rates_color_class(m12),
+                })
+
+        if tenors:
+            countries.append({
+                "name": country["name"],
+                "flag": country["flag"],
+                "tenors": tenors,
+            })
+
+    # Calculate pixel dimensions (37.8 px per cm at 96 DPI)
+    width_px = int(width_cm * 37.8 * SCALE_FACTOR)
+    height_px = int(height_cm * 37.8 * SCALE_FACTOR)
+
+    # Generate HTML
+    template = Template(BONDS_HISTORICAL_HTML_TEMPLATE)
+    html = template.render(
+        countries=countries,
+        width=width_px,
+        height=height_px,
+        scale=SCALE_FACTOR,
+    )
+
+    # Convert to PNG
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hti = Html2Image(output_path=tmpdir, size=(width_px, height_px))
+        hti.screenshot(html_str=html, save_as="rates_historical.png")
+        with open(Path(tmpdir) / "rates_historical.png", "rb") as f:
+            image_bytes = f.read()
+
+    print(f"[Rates Historical] Generated heatmap: {width_px}x{height_px}px")
+    return image_bytes, used_date
 
 
 ###############################################################################
@@ -685,16 +730,17 @@ def insert_rates_performance_histo_slide(
     used_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
     *,
-    left_cm: float = 0.0,
-    top_cm: float = 3.22,
-    width_cm: float = 25.0,
-    height_cm: float = 11.66,
+    left_cm: float = 3.35,
+    top_cm: float = 4.6,
+    width_cm: float = 17.02,
 ) -> Presentation:
     """Insert the rates historical performance heatmap and source footnote into its slide.
 
     The slide is identified by a shape named ``rates_perf_histo`` (or
     containing ``[rates_perf_histo]``).  A source footnote is written
     into ``rates_1w_source2`` or a shape containing ``[rates_1w_source2]``.
+
+    Height is auto-calculated to maintain aspect ratio.
     """
     return _insert_dashboard_to_placeholder(
         prs,
@@ -703,7 +749,7 @@ def insert_rates_performance_histo_slide(
         left_cm=left_cm,
         top_cm=top_cm,
         width_cm=width_cm,
-        height_cm=height_cm,
+        height_cm=None,  # Auto-scale to maintain aspect ratio
         used_date=used_date,
         price_mode=price_mode,
         source_placeholder_names=["rates_1w_source2"],
