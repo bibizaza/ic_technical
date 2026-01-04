@@ -33,29 +33,17 @@ from market_compass.weekly_performance.html_template import CORP_BONDS_WEEKLY_HT
 # Scale factor for PNG generation
 SCALE_FACTOR = 3
 
-# Corporate bond configuration
+# Corporate bond configuration - uses Bloomberg index tickers from data_prices sheet
 # Maps ticker to (display_name, flag, credit_type)
 CORP_BOND_CONFIG = {
     # Investment Grade
-    "LQD US Equity": {"name": "US IG Corp", "flag": "\U0001F1FA\U0001F1F8", "credit": "IG"},
-    "IEAC LN Equity": {"name": "EUR IG Corp", "flag": "\U0001F1EA\U0001F1FA", "credit": "IG"},
-    "EMB US Equity": {"name": "EM IG Corp", "flag": "\U0001F30D", "credit": "IG"},
-    # High Yield
-    "HYG US Equity": {"name": "US HY Corp", "flag": "\U0001F1FA\U0001F1F8", "credit": "HY"},
-    "IHYG LN Equity": {"name": "EUR HY Corp", "flag": "\U0001F1EA\U0001F1FA", "credit": "HY"},
-    "EMHY US Equity": {"name": "EM HY Corp", "flag": "\U0001F30D", "credit": "HY"},
-}
-
-# Alternative tickers (Bloomberg index tickers)
-CORP_BOND_CONFIG_ALT = {
-    # IG
     "LUACTRUU Index": {"name": "US IG Corp", "flag": "\U0001F1FA\U0001F1F8", "credit": "IG"},
-    "LP06TREU Index": {"name": "EUR IG Corp", "flag": "\U0001F1EA\U0001F1FA", "credit": "IG"},
-    "EMUSTRUU Index": {"name": "EM IG Corp", "flag": "\U0001F30D", "credit": "IG"},
-    # HY
+    "LECPTREU Index": {"name": "EUR IG Corp", "flag": "\U0001F1EA\U0001F1FA", "credit": "IG"},
+    "JPEIESGE Index": {"name": "EM IG Corp", "flag": "\U0001F30D", "credit": "IG"},
+    # High Yield
     "LF98TRUU Index": {"name": "US HY Corp", "flag": "\U0001F1FA\U0001F1F8", "credit": "HY"},
-    "LP01TREU Index": {"name": "EUR HY Corp", "flag": "\U0001F1EA\U0001F1FA", "credit": "HY"},
-    "EMHYTRUU Index": {"name": "EM HY Corp", "flag": "\U0001F30D", "credit": "HY"},
+    "IBOXXMJA Index": {"name": "EUR HY Corp", "flag": "\U0001F1EA\U0001F1FA", "credit": "HY"},
+    "JPEIEMHY Index": {"name": "EM HY Corp", "flag": "\U0001F30D", "credit": "HY"},
 }
 
 
@@ -165,9 +153,7 @@ def create_weekly_performance_chart(
         (png_bytes, used_date) where png_bytes is the chart image and
         used_date is the effective date used.
     """
-    # Merge both config dictionaries
-    all_config = {**CORP_BOND_CONFIG, **CORP_BOND_CONFIG_ALT}
-    tickers = list(all_config.keys())
+    tickers = list(CORP_BOND_CONFIG.keys())
 
     # Load and adjust prices
     df = _load_price_data(excel_path, tickers)
@@ -175,16 +161,15 @@ def create_weekly_performance_chart(
 
     # Build rows with weekly returns
     rows: List[CorpBondRow] = []
-    seen_names = set()
 
-    for ticker, config in all_config.items():
+    for ticker, config in CORP_BOND_CONFIG.items():
         if ticker not in df_adj.columns:
-            continue
-        if config["name"] in seen_names:
+            print(f"[Corp Bonds Weekly] DEBUG: Ticker {ticker} not found in data")
             continue
 
         weekly_ret = _compute_weekly_return(df_adj, ticker)
         if pd.isna(weekly_ret):
+            print(f"[Corp Bonds Weekly] DEBUG: Ticker {ticker} has NaN weekly return")
             continue
 
         rows.append(CorpBondRow(
@@ -193,7 +178,9 @@ def create_weekly_performance_chart(
             credit_type=config["credit"],
             value=weekly_ret,
         ))
-        seen_names.add(config["name"])
+        print(f"[Corp Bonds Weekly] DEBUG: {config['name']}: {weekly_ret * 100:.2f}%")
+
+    print(f"[Corp Bonds Weekly] DEBUG: Total bonds found: {len(rows)}")
 
     if not rows:
         # Return empty image if no data
