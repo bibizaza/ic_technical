@@ -461,7 +461,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
             width: {{ 2 * scale }}px;
             background: #CBD5E1;
             border-radius: {{ 1 * scale }}px;
-            z-index: 1;
+            z-index: 10;
         }
 
         /* Bars - INVERTED COLORS */
@@ -475,7 +475,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
 
         /* Rates UP = Bad = Red (extends right) */
         .bar.rates-up {
-            left: 50%;
+            left: calc(50% + 1px);
             background: linear-gradient(90deg, #F87171, #DC2626);
             box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(239, 68, 68, 0.25);
             border-radius: 0 {{ 5 * scale }}px {{ 5 * scale }}px 0;
@@ -483,7 +483,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
 
         /* Rates DOWN = Good = Green (extends left) */
         .bar.rates-down {
-            right: 50%;
+            right: calc(50% + 1px);
             background: linear-gradient(270deg, #4ADE80, #16A34A);
             box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(34, 197, 94, 0.25);
             border-radius: {{ 5 * scale }}px 0 0 {{ 5 * scale }}px;
@@ -518,14 +518,9 @@ BONDS_RATES_HTML_TEMPLATE = '''
             color: #94A3B8;
         }
 
-        /* Legend */
+        /* Legend - hidden to save vertical space */
         .legend {
-            display: flex;
-            justify-content: center;
-            gap: {{ 25 * scale }}px;
-            padding: {{ 6 * scale }}px 0 0 0;
-            font-size: {{ 8 * scale }}px;
-            color: #64748B;
+            display: none;
         }
 
         .legend-item {
