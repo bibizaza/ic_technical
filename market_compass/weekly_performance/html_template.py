@@ -384,7 +384,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         .chart-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 3 * scale }}px;
+            gap: {{ 2 * scale }}px;
         }
 
         /* Country group header */
@@ -392,8 +392,8 @@ BONDS_RATES_HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             gap: {{ 6 * scale }}px;
-            padding: {{ 6 * scale }}px {{ 10 * scale }}px;
-            margin-top: {{ 6 * scale }}px;
+            padding: {{ 5 * scale }}px {{ 10 * scale }}px;
+            margin-top: {{ 4 * scale }}px;
             background: #F8FAFC;
             border-left: {{ 3 * scale }}px solid #1B3A5A;
             border-radius: 0 {{ 4 * scale }}px {{ 4 * scale }}px 0;
@@ -419,7 +419,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         .row {
             display: flex;
             align-items: center;
-            height: {{ 28 * scale }}px;
+            height: {{ 24 * scale }}px;
             padding: 0 {{ 10 * scale }}px 0 {{ 24 * scale }}px;
         }
 
