@@ -652,12 +652,13 @@ def insert_corp_bonds_historical_slide(
         return prs
 
     # Insert picture at hardcoded PowerPoint dimensions
-    # width=17.02cm, left=3.35cm, top=4.6cm
+    # Corporate Bonds Historical - centered vertically (same left as Weekly)
+    # width=17.02cm, left=3.21cm, top=5.0cm
     stream = io.BytesIO(image_bytes)
     pic = target_slide.shapes.add_picture(
         stream,
-        left=Cm(3.35),
-        top=Cm(4.6),
+        left=Cm(3.21),
+        top=Cm(5.0),
         width=Cm(17.02),
     )
 
@@ -673,7 +674,7 @@ def insert_corp_bonds_historical_slide(
         suffix = " Close" if price_mode.lower() == "last close" else ""
         source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
 
-        source_names = ["credit_histo_source", "corp_bonds_histo_source"]
+        source_names = ["credit_1w_source2", "credit_histo_source", "corp_bonds_histo_source"]
         source_candidates = [n.lower() for n in source_names]
         source_patterns = [f"[{n}]" for n in source_candidates]
 

@@ -1014,14 +1014,14 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         .table-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 3 * scale }}px;
+            gap: {{ 2 * scale }}px;
         }
 
         /* Header row */
         .header-row {
             display: flex;
             align-items: center;
-            padding: {{ 6 * scale }}px 0;
+            padding: {{ 4 * scale }}px 0;
         }
 
         .header-row .market-col {
@@ -1048,7 +1048,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         .data-row {
             display: flex;
             align-items: center;
-            gap: {{ 3 * scale }}px;
+            gap: {{ 2 * scale }}px;
         }
 
         .market-col {
@@ -1089,7 +1089,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         /* Value cells */
         .value-cell {
             flex: 1;
-            height: {{ 30 * scale }}px;
+            height: {{ 26 * scale }}px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1103,7 +1103,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
-            height: {{ 34 * scale }}px;
+            height: {{ 30 * scale }}px;
             font-size: {{ 11 * scale }}px;
             font-weight: 700;
             margin-right: {{ 12 * scale }}px;
