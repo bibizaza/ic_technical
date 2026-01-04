@@ -241,22 +241,23 @@ def create_weekly_performance_chart(
         "scale_max": f"+{scale_max:.1f}%",
     }
 
-    # Generate HTML
-    width_px = int(width_cm * 37.8 * SCALE_FACTOR)
-    height_px = int(height_cm * 37.8 * SCALE_FACTOR)
+    # Generate HTML - use EXACT hardcoded dimensions
+    # DO NOT recalculate these values
+    PNG_WIDTH_PX = 1963
+    PNG_HEIGHT_PX = 1134
 
     template = Template(CORP_BONDS_WEEKLY_HTML_TEMPLATE)
     html = template.render(
         rows=prepared_rows,
-        width=width_px,
-        height=height_px,
+        width=PNG_WIDTH_PX,
+        height=PNG_HEIGHT_PX,
         scale=SCALE_FACTOR,
         **scale_values,
     )
 
-    # Convert to PNG
+    # Convert to PNG at EXACT size
     with tempfile.TemporaryDirectory() as tmpdir:
-        hti = Html2Image(output_path=tmpdir, size=(width_px, height_px))
+        hti = Html2Image(output_path=tmpdir, size=(1963, 1134))
         hti.screenshot(html_str=html, save_as="corp_bonds_weekly.png")
 
         img_path = Path(tmpdir) / "corp_bonds_weekly.png"
@@ -324,14 +325,15 @@ def insert_corp_bonds_performance_slide(
         print("[Corp Bonds Weekly] WARNING: Slide not found")
         return prs
 
-    # Insert picture
+    # Insert picture at EXACT hardcoded PowerPoint dimensions
+    # DO NOT modify these values
     stream = io.BytesIO(image_bytes)
     pic = target_slide.shapes.add_picture(
         stream,
-        left=Cm(left_cm),
-        top=Cm(top_cm),
-        width=Cm(width_cm),
-        height=Cm(height_cm),
+        left=Cm(3.35),
+        top=Cm(4.6),
+        width=Cm(17.31),
+        height=Cm(10.0),
     )
 
     # Send to back

@@ -804,14 +804,14 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         .chart-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 3 * scale }}px;
+            gap: {{ 6 * scale }}px;
         }
 
         /* Data rows */
         .row {
             display: flex;
             align-items: center;
-            height: {{ 30 * scale }}px;
+            height: {{ 38 * scale }}px;
             padding: 0 {{ 10 * scale }}px;
             border-radius: {{ 5 * scale }}px;
         }
@@ -878,7 +878,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
 
         .bar-track {
             width: 100%;
-            height: {{ 5 * scale }}px;
+            height: {{ 7 * scale }}px;
             background: #F1F5F9;
             border-radius: {{ 3 * scale }}px;
             position: relative;
@@ -899,7 +899,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         /* Bars */
         .bar {
             position: absolute;
-            height: {{ 10 * scale }}px;
+            height: {{ 14 * scale }}px;
             top: 50%;
             transform: translateY(-50%);
             z-index: 2;
