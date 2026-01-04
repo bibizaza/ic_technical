@@ -2166,13 +2166,14 @@ def show_upload_page():
                         price_mode = st.session_state.get("price_mode", "Last Price")
 
                         # Get YTD series for each asset class
+                        # Note: Empty tickers list means include all tickers (fixed in ytd_perf modules)
                         eq_tickers = st.session_state.get("selected_eq_tickers", [])
                         co_tickers = st.session_state.get("selected_co_tickers", [])
                         cr_tickers = st.session_state.get("selected_cr_tickers", [])
 
-                        df_eq = get_equity_ytd_series(str(analysis_temp_path), tickers=eq_tickers, price_mode=price_mode) if eq_tickers else pd.DataFrame()
-                        df_co = get_commodity_ytd_series(str(analysis_temp_path), tickers=co_tickers, price_mode=price_mode) if co_tickers else pd.DataFrame()
-                        df_cr = get_crypto_ytd_series(str(analysis_temp_path), tickers=cr_tickers, price_mode=price_mode) if cr_tickers else pd.DataFrame()
+                        df_eq = get_equity_ytd_series(str(analysis_temp_path), tickers=eq_tickers, price_mode=price_mode)
+                        df_co = get_commodity_ytd_series(str(analysis_temp_path), tickers=co_tickers, price_mode=price_mode)
+                        df_cr = get_crypto_ytd_series(str(analysis_temp_path), tickers=cr_tickers, price_mode=price_mode)
 
                         # Helper to extract YTD performance from DataFrame
                         def extract_ytd_perf(df):
