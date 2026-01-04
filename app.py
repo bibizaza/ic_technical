@@ -1634,16 +1634,14 @@ try:
     from performance.corp_bonds_perf import (
         create_weekly_performance_chart as create_weekly_credit_performance_chart,
         insert_corp_bonds_performance_slide as insert_credit_performance_bar_slide,
-    )
-    from performance.credit_perf import (
-        create_historical_performance_table as create_historical_credit_performance_table,
-        insert_credit_performance_histo_slide,
+        create_historical_performance_chart as create_historical_credit_performance_chart,
+        insert_corp_bonds_historical_slide as insert_credit_performance_histo_slide,
     )
 except Exception:
     # If Credit module not available, define no-op placeholders
     def create_weekly_credit_performance_chart(*args, **kwargs):  # type: ignore
         return (b"", None)
-    def create_historical_credit_performance_table(*args, **kwargs):  # type: ignore
+    def create_historical_credit_performance_chart(*args, **kwargs):  # type: ignore
         return (b"", None)
     def insert_credit_performance_bar_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
         return prs
@@ -5896,7 +5894,7 @@ def show_generate_presentation_page():
             )
 
             # Generate the credit historical performance heatmap with price-mode adjustment
-            credit_histo_bytes, credit_used_date2 = create_historical_credit_performance_table(
+            credit_histo_bytes, credit_used_date2 = create_historical_credit_performance_chart(
                 excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
@@ -5905,10 +5903,6 @@ def show_generate_presentation_page():
                 credit_histo_bytes,
                 used_date=credit_used_date2,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
-                left_cm=2.16,
-                top_cm=4.70,
-                width_cm=19.43,
-                height_cm=10.61,
             )
         except Exception as e:
             print(f"Credit performance charts error: {e}")
