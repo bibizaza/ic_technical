@@ -5733,8 +5733,8 @@ def show_generate_presentation_page():
                 bar_bytes,
                 used_date=perf_used_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
-                left_cm=1.63,
-                top_cm=4.73,
+                left_cm=1.66,
+                top_cm=5.28,
                 width_cm=22.48,
                 height_cm=10.61,
             )
