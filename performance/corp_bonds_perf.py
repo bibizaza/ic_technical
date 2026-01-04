@@ -315,7 +315,7 @@ def insert_corp_bonds_performance_slide(
     """
     # Find target slide
     target_slide = None
-    placeholder_names = ["corp_bonds_perf_1w", "corp_bonds_weekly"]
+    placeholder_names = ["credit_perf_1w", "corp_bonds_perf_1w", "corp_bonds_weekly"]
     name_candidates = [n.lower() for n in placeholder_names]
     pattern_candidates = [f"[{n}]" for n in name_candidates]
 
@@ -359,7 +359,7 @@ def insert_corp_bonds_performance_slide(
         suffix = " Close" if price_mode.lower() == "last close" else ""
         source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
 
-        source_names = ["corp_bonds_1w_source"]
+        source_names = ["credit_1w_source", "corp_bonds_1w_source"]
         source_candidates = [n.lower() for n in source_names]
         source_patterns = [f"[{n}]" for n in source_candidates]
 
