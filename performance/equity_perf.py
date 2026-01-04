@@ -632,7 +632,14 @@ def _insert_dashboard_to_placeholder(
     width = Cm(width_cm)
     height = Cm(height_cm)
     stream = io.BytesIO(image_bytes)
-    target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    pic = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    # Send to back (behind other elements like footnote)
+    spTree = target_slide.shapes._spTree
+    sp = pic._element
+    spTree.remove(sp)
+    spTree.insert(2, sp)  # Index 2 = back (0 and 1 are reserved)
+
     # Insert source footnote if a date is available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
