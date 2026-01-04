@@ -193,8 +193,11 @@ def get_equity_ytd_series(
         current year.
     """
     prices_df, params_df, _ = _load_prices_and_params(file_path, price_mode)
-    now = datetime.now()
-    year_start = datetime(now.year, 1, 1)
+    # Use the year from the data, not from the current system date
+    # This handles cases where data ends in a previous year (e.g., Dec 31, 2025)
+    max_date = prices_df["Date"].max()
+    data_year = max_date.year if pd.notna(max_date) else datetime.now().year
+    year_start = datetime(data_year, 1, 1)
     # Filter data from the start of the year
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
     # Filter parameter rows to equities

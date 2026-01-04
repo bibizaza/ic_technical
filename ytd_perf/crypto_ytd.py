@@ -118,8 +118,11 @@ def get_crypto_ytd_series(
     prices_df, params_df = load_data(file_path)
     # Adjust price data according to price mode
     prices_df, _ = adjust_prices_for_mode(prices_df, price_mode)
-    now = datetime.now()
-    year_start = datetime(now.year, 1, 1)
+    # Use the year from the data, not from the current system date
+    # This handles cases where data ends in a previous year (e.g., Dec 31, 2025)
+    max_date = prices_df["Date"].max()
+    data_year = max_date.year if pd.notna(max_date) else datetime.now().year
+    year_start = datetime(data_year, 1, 1)
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
     crypto_params = params_df[params_df["Asset Class"] == "Crypto"].copy()
     if tickers:  # Only filter if tickers list is non-empty
