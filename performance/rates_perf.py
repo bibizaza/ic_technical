@@ -48,16 +48,65 @@ from __future__ import annotations
 
 import io
 import pathlib
+import shutil
+import tempfile
+from pathlib import Path
 from typing import Dict, List, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
 import pandas as pd
+from jinja2 import Template
+from html2image import Html2Image
 from pptx import Presentation
 from pptx.util import Cm
 
 from utils import adjust_prices_for_mode
+from market_compass.weekly_performance.html_template import BONDS_RATES_HTML_TEMPLATE
+
+# Scale factor for high-resolution rendering
+SCALE_FACTOR = 3
+
+# Country configuration for bonds rates chart
+COUNTRY_CONFIG = [
+    {
+        "name": "United States",
+        "flag": "\U0001F1FA\U0001F1F8",  # US flag
+        "tickers": {
+            "USGG2YR Index": "2Y",
+            "USGG10YR Index": "10Y",
+            "USGG30YR Index": "30Y",
+        }
+    },
+    {
+        "name": "Eurozone",
+        "flag": "\U0001F1EA\U0001F1FA",  # EU flag
+        "tickers": {
+            "GECU2YR Index": "2Y",
+            "GECU10YR Index": "10Y",
+            "GECU30YR Index": "30Y",
+        }
+    },
+    {
+        "name": "Japan",
+        "flag": "\U0001F1EF\U0001F1F5",  # JP flag
+        "tickers": {
+            "GJGB2 Index": "2Y",
+            "GJGB10 Index": "10Y",
+            "GJGB30 Index": "30Y",
+        }
+    },
+    {
+        "name": "China",
+        "flag": "\U0001F1E8\U0001F1F3",  # CN flag
+        "tickers": {
+            "GCNY2YR Index": "2Y",
+            "GCNY10YR Index": "10Y",
+            "GCNY30YR Index": "30Y",
+        }
+    },
+]
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -224,34 +273,54 @@ def _build_returns_table(
 # Figure generation functions
 ###############################################################################
 
+def _calculate_rates_scale(max_abs_value: float) -> dict:
+    """Calculate nice scale values for rates chart (in bps)."""
+    if max_abs_value <= 5:
+        scale_max = 5
+    elif max_abs_value <= 10:
+        scale_max = 10
+    elif max_abs_value <= 20:
+        scale_max = 20
+    elif max_abs_value <= 50:
+        scale_max = 50
+    else:
+        scale_max = int(max_abs_value / 10) * 10 + 10
+
+    return {
+        "scale_min": f"-{scale_max} bps",
+        "scale_mid_low": f"-{scale_max // 2} bps",
+        "scale_mid_high": f"+{scale_max // 2} bps",
+        "scale_max": f"+{scale_max} bps",
+    }
+
+
 def create_weekly_performance_chart(
     excel_path: Union[str, pathlib.Path],
     ticker_mapping: Dict[str, str] | None = None,
     *,
-    width: float = 14.0,
-    height: float = 5.0,
+    width_cm: float = 22.0,
+    height_cm: float = 13.0,
     price_mode: str = "Last Price",
 ) -> Tuple[bytes, Optional[pd.Timestamp]]:
-    """Generate a bar chart of 1‑week yield changes with price‑mode adjustment.
+    """Generate a bar chart of 1‑week yield changes using HTML template.
 
     This helper reads the specified Excel file, optionally adjusts the yield
     history according to the selected ``price_mode`` (``"Last Price"`` vs
     ``"Last Close"``), computes 1‑week changes for the configured rate
-    tickers, sorts them in descending order (most positive yield increase
-    at the top) and constructs a horizontal bar chart.  A positive
-    change (rising yields) is depicted in red; a negative change (falling
-    yields) is depicted in green.  The effective date used for the
-    calculations is returned along with the PNG data.
+    tickers grouped by country (US, EUR, JP, CN).
+
+    Uses INVERTED color logic for bond rates:
+    - Positive change (rising yields) = RED (bearish)
+    - Negative change (falling yields) = GREEN (bullish)
 
     Parameters
     ----------
     excel_path : str or pathlib.Path
         Path to the Excel workbook containing the yield series.
     ticker_mapping : dict, optional
-        Mapping from ticker codes to display names.  If not provided,
-        sensible defaults are used.
-    width, height : float
-        Dimensions of the generated figure in inches.
+        Not used in new implementation, kept for API compatibility.
+    width_cm, height_cm : float
+        Dimensions of the generated figure in centimeters.
     price_mode : str, default ``"Last Price"``
         One of ``"Last Price"`` or ``"Last Close"``.  Determines whether
         intraday yields are used or the most recent row is dropped if it
@@ -264,68 +333,97 @@ def create_weekly_performance_chart(
         the PNG data for the bar chart and ``used_date`` is the effective
         date in the adjusted yield series.
     """
-    default_mapping = {
-        "USGG2YR Index": "US - 2Y",
-        "USGG10YR Index": "US - 10Y",
-        "USGG30YR Index": "US - 30Y",
-        "GECU2YR Index": "EUR - 2Y",
-        "GECU10YR Index": "EUR - 10Y",
-        "GECU30YR Index": "EUR - 30Y",
-        "GCNY2YR Index": "CN - 2Y",
-        "GCNY10YR Index": "CN - 10Y",
-        "GCNY30YR Index": "CN - 30Y",
-        "GJGB2 Index": "JP - 2Y",
-        "GJGB10 Index": "JP - 10Y",
-        "GJGB30 Index": "JP - 30Y",
-    }
-    mapping = ticker_mapping or default_mapping
-    tickers = list(mapping.keys())
+    # Build flat ticker mapping from country config
+    flat_mapping = {}
+    for country in COUNTRY_CONFIG:
+        for ticker, label in country["tickers"].items():
+            flat_mapping[ticker] = f"{country['name']} - {label}"
+
+    tickers = list(flat_mapping.keys())
     df = _load_price_data(excel_path, tickers)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
-    perf = _build_returns_table(df_adj, mapping)
-    bar_df = perf[["Name", "1W"]].dropna().sort_values("1W", ascending=False).reset_index(drop=True)
-    fig, ax = plt.subplots(figsize=(width, height))
-    # Colour mapping: positive yield change → red, negative → green
-    bar_colors = ["#C70039" if x > 0 else "#2E8B57" for x in bar_df["1W"]]
-    bars = ax.barh(bar_df["Name"], bar_df["1W"], color=bar_colors)
-    # Add labels in bps with sign
-    # Determine a small offset for label placement relative to bar length.  A fixed
-    # offset (e.g. ±5) was causing labels to drift far from the bar for small
-    # values.  Use a modest constant (e.g. 0.2) to keep the label close to the
-    # bar end, with the sign matching the direction of the bar.
-    label_offset = 0.2
-    for bar in bars:
-        width_val = bar.get_width()
-        x_pos = width_val + (label_offset if width_val > 0 else -label_offset)
-        # Display one decimal place for bps to capture partial basis points (e.g. +9.7 bps)
-        ax.text(
-            x_pos,
-            bar.get_y() + bar.get_height() / 2.0,
-            f"{width_val:+.1f} bps",
-            va="center",
-            ha="left" if width_val > 0 else "right",
-            fontweight="bold",
-            color="black",
-        )
-    ax.axvline(0.0, color="grey", linewidth=0.8, linestyle="--")
-    ax.set_xticks([])
-    ax.set_yticks(range(len(bar_df)))
-    ax.set_yticklabels(bar_df["Name"], fontsize=10)
-    ax.invert_yaxis()
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    ax.tick_params(axis="y", length=0)
-    # Provide extra space; values in bps may be large
-    min_val = min(bar_df["1W"].min(), 0)
-    max_val = bar_df["1W"].max()
-    margin = (max_val - min_val) * 0.2
-    ax.set_xlim(min_val - margin, max_val + margin)
-    fig.subplots_adjust(left=0.4)
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue(), used_date
+    perf = _build_returns_table(df_adj, flat_mapping)
+
+    # Calculate max absolute value for bar scaling
+    all_changes = []
+    for country in COUNTRY_CONFIG:
+        for ticker in country["tickers"].keys():
+            if ticker in perf.index:
+                change = perf.loc[ticker, "1W"]
+                if pd.notna(change):
+                    all_changes.append(abs(change))
+
+    max_abs_value = max(all_changes) if all_changes else 10
+    max_abs_value = max(max_abs_value, 5)  # Minimum 5 bps scale
+
+    # Build country data for template
+    countries = []
+    for country in COUNTRY_CONFIG:
+        tenors = []
+        for ticker, label in country["tickers"].items():
+            if ticker in perf.index:
+                change = perf.loc[ticker, "1W"]
+                if pd.notna(change):
+                    # Bar width as percentage of half the chart
+                    bar_width = abs(change) / max_abs_value * 48
+                    bar_width = min(bar_width, 48)
+
+                    # Determine bar class (inverted: up = red, down = green)
+                    if change > 0:
+                        bar_class = "rates-up"
+                        value_class = "rates-up"
+                        formatted = f"+{change:.1f} bps"
+                    elif change < 0:
+                        bar_class = "rates-down"
+                        value_class = "rates-down"
+                        formatted = f"{change:.1f} bps"
+                    else:
+                        bar_class = ""
+                        value_class = ""
+                        formatted = "0.0 bps"
+
+                    tenors.append({
+                        "label": label,
+                        "change": change,
+                        "bar_class": bar_class,
+                        "bar_width": bar_width,
+                        "value_class": value_class,
+                        "formatted_change": formatted,
+                    })
+
+        if tenors:
+            countries.append({
+                "name": country["name"],
+                "flag": country["flag"],
+                "tenors": tenors,
+            })
+
+    # Calculate pixel dimensions (37.8 px per cm at 96 DPI)
+    width_px = int(width_cm * 37.8 * SCALE_FACTOR)
+    height_px = int(height_cm * 37.8 * SCALE_FACTOR)
+
+    # Calculate scale
+    scale_values = _calculate_rates_scale(max_abs_value)
+
+    # Generate HTML
+    template = Template(BONDS_RATES_HTML_TEMPLATE)
+    html = template.render(
+        countries=countries,
+        width=width_px,
+        height=height_px,
+        scale=SCALE_FACTOR,
+        **scale_values,
+    )
+
+    # Convert to PNG
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hti = Html2Image(output_path=tmpdir, size=(width_px, height_px))
+        hti.screenshot(html_str=html, save_as="rates_chart.png")
+        with open(Path(tmpdir) / "rates_chart.png", "rb") as f:
+            image_bytes = f.read()
+
+    print(f"[Rates Performance] Generated chart: {width_px}x{height_px}px")
+    return image_bytes, used_date
 
 
 def create_historical_performance_table(
@@ -498,7 +596,14 @@ def _insert_dashboard_to_placeholder(
     width = Cm(width_cm)
     height = Cm(height_cm)
     stream = io.BytesIO(image_bytes)
-    target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    pic = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    # Send picture to back (behind other elements like footnote)
+    spTree = target_slide.shapes._spTree
+    sp = pic._element
+    spTree.remove(sp)
+    spTree.insert(2, sp)  # Index 2 = back (0 and 1 are reserved)
+
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
         suffix = " Close" if price_mode.lower() == "last close" else ""

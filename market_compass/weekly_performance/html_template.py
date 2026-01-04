@@ -353,3 +353,247 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
+
+# =============================================================================
+# GOVERNMENT BONDS RATES TEMPLATE
+# =============================================================================
+
+BONDS_RATES_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: {{ 10 * scale }}px;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 3 * scale }}px;
+        }
+
+        /* Country group header */
+        .country-header {
+            display: flex;
+            align-items: center;
+            gap: {{ 6 * scale }}px;
+            padding: {{ 6 * scale }}px {{ 10 * scale }}px;
+            margin-top: {{ 6 * scale }}px;
+            background: #F8FAFC;
+            border-left: {{ 3 * scale }}px solid #1B3A5A;
+            border-radius: 0 {{ 4 * scale }}px {{ 4 * scale }}px 0;
+        }
+
+        .country-header:first-child {
+            margin-top: 0;
+        }
+
+        .country-header .flag {
+            font-size: {{ 14 * scale }}px;
+        }
+
+        .country-header .country-name {
+            font-size: {{ 10 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Data rows */
+        .row {
+            display: flex;
+            align-items: center;
+            height: {{ 28 * scale }}px;
+            padding: 0 {{ 10 * scale }}px 0 {{ 24 * scale }}px;
+        }
+
+        .row:nth-child(odd) {
+            background: rgba(248, 250, 252, 0.5);
+        }
+
+        /* Tenor label */
+        .tenor {
+            width: {{ 45 * scale }}px;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 500;
+            color: #64748B;
+        }
+
+        /* Bar container */
+        .bar-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            padding: 0 {{ 12 * scale }}px;
+            position: relative;
+        }
+
+        .bar-track {
+            width: 100%;
+            height: {{ 5 * scale }}px;
+            background: #F1F5F9;
+            border-radius: {{ 3 * scale }}px;
+            position: relative;
+        }
+
+        /* Center line (zero axis) */
+        .center-line {
+            position: absolute;
+            left: 50%;
+            top: {{ -3 * scale }}px;
+            bottom: {{ -3 * scale }}px;
+            width: {{ 2 * scale }}px;
+            background: #CBD5E1;
+            border-radius: {{ 1 * scale }}px;
+            z-index: 1;
+        }
+
+        /* Bars - INVERTED COLORS */
+        .bar {
+            position: absolute;
+            height: {{ 10 * scale }}px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+
+        /* Rates UP = Bad = Red (extends right) */
+        .bar.rates-up {
+            left: 50%;
+            background: linear-gradient(90deg, #F87171, #DC2626);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(239, 68, 68, 0.25);
+            border-radius: 0 {{ 5 * scale }}px {{ 5 * scale }}px 0;
+        }
+
+        /* Rates DOWN = Good = Green (extends left) */
+        .bar.rates-down {
+            right: 50%;
+            background: linear-gradient(270deg, #4ADE80, #16A34A);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(34, 197, 94, 0.25);
+            border-radius: {{ 5 * scale }}px 0 0 {{ 5 * scale }}px;
+        }
+
+        /* Performance value */
+        .performance {
+            width: {{ 55 * scale }}px;
+            text-align: right;
+            font-size: {{ 10 * scale }}px;
+            font-weight: 700;
+        }
+
+        .performance.rates-up { color: #DC2626; }
+        .performance.rates-down { color: #16A34A; }
+
+        /* Scale */
+        .scale {
+            display: flex;
+            justify-content: center;
+            padding: {{ 8 * scale }}px 0 0 0;
+            margin-left: {{ 69 * scale }}px;
+            margin-right: {{ 55 * scale }}px;
+        }
+
+        .scale-inner {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 {{ 12 * scale }}px;
+            font-size: {{ 7 * scale }}px;
+            color: #94A3B8;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: {{ 25 * scale }}px;
+            padding: {{ 10 * scale }}px 0 0 0;
+            font-size: {{ 8 * scale }}px;
+            color: #64748B;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: {{ 5 * scale }}px;
+        }
+
+        .legend-bar {
+            width: {{ 16 * scale }}px;
+            height: {{ 5 * scale }}px;
+            border-radius: {{ 3 * scale }}px;
+        }
+
+        .legend-bar.green {
+            background: linear-gradient(90deg, #4ADE80, #16A34A);
+        }
+
+        .legend-bar.red {
+            background: linear-gradient(90deg, #F87171, #DC2626);
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-container">
+        {% for country in countries %}
+        <!-- {{ country.name }} -->
+        <div class="country-header">
+            <span class="flag">{{ country.flag }}</span>
+            <span class="country-name">{{ country.name }}</span>
+        </div>
+        {% for tenor in country.tenors %}
+        <div class="row">
+            <div class="tenor">{{ tenor.label }}</div>
+            <div class="bar-container">
+                <div class="bar-track">
+                    <div class="center-line"></div>
+                    {% if tenor.change != 0 %}
+                    <div class="bar {{ tenor.bar_class }}" style="width: {{ tenor.bar_width }}%;"></div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="performance {{ tenor.value_class }}">{{ tenor.formatted_change }}</div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+
+    <div class="scale">
+        <div class="scale-inner">
+            <span>{{ scale_min }}</span>
+            <span>{{ scale_mid_low }}</span>
+            <span>0</span>
+            <span>{{ scale_mid_high }}</span>
+            <span>{{ scale_max }}</span>
+        </div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-bar green"></div>
+            Rates down (bullish)
+        </div>
+        <div class="legend-item">
+            <div class="legend-bar red"></div>
+            Rates up (bearish)
+        </div>
+    </div>
+</body>
+</html>
+'''
