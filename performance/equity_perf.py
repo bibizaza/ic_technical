@@ -449,12 +449,11 @@ def create_historical_performance_table(
     heat_df = perf[["Name", "YTD", "1M", "3M", "6M", "12M"]].dropna().sort_values("YTD", ascending=False).reset_index(drop=True)
 
     def get_color_class(value: float) -> str:
-        """Determine color class based on value magnitude."""
+        """Determine color class based on value magnitude. All values show green or red."""
         val = value / 100  # Convert from percentage to decimal
-        if -0.01 <= val <= 0.01:
-            return "neutral"
+        # Always green (positive) or red (negative) - no neutral
+        prefix = "positive" if val >= 0 else "negative"
         abs_val = abs(val)
-        prefix = "positive" if val > 0 else "negative"
         if abs_val <= 0.05:
             level = 1
         elif abs_val <= 0.10:

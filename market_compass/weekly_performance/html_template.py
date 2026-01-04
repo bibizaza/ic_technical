@@ -303,7 +303,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
             font-weight: 700;
             margin-right: {{ 12 * scale }}px;
             border-radius: {{ 6 * scale }}px;
-            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
         }
 
         /* Color scale - Positive (green) - 5 levels */
