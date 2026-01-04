@@ -5849,10 +5849,9 @@ def show_generate_presentation_page():
                 rates_bar_bytes,
                 used_date=rates_used_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
-                left_cm=1.63,
-                top_cm=4.73,
-                width_cm=22.48,
-                height_cm=10.61,
+                left_cm=3.35,
+                top_cm=4.6,
+                width_cm=17.02,
             )
 
             # Generate the rates historical performance heatmap with price-mode adjustment
