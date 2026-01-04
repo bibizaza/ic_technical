@@ -326,14 +326,14 @@ def insert_corp_bonds_performance_slide(
         return prs
 
     # Insert picture at EXACT hardcoded PowerPoint dimensions
+    # Corporate Bonds - adjusted position (fewer rows = lower on slide)
     # DO NOT modify these values
     stream = io.BytesIO(image_bytes)
     pic = target_slide.shapes.add_picture(
         stream,
-        left=Cm(3.35),
-        top=Cm(4.6),
+        left=Cm(3.21),
+        top=Cm(5.81),
         width=Cm(17.31),
-        height=Cm(10.0),
     )
 
     # Send to back
