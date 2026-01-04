@@ -1631,10 +1631,12 @@ except Exception:
 
 # Import Credit performance functions
 try:
-    from performance.credit_perf import (
+    from performance.corp_bonds_perf import (
         create_weekly_performance_chart as create_weekly_credit_performance_chart,
+        insert_corp_bonds_performance_slide as insert_credit_performance_bar_slide,
+    )
+    from performance.credit_perf import (
         create_historical_performance_table as create_historical_credit_performance_table,
-        insert_credit_performance_bar_slide,
         insert_credit_performance_histo_slide,
     )
 except Exception:
