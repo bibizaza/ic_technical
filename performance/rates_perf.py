@@ -564,7 +564,7 @@ def _insert_dashboard_to_placeholder(
     left_cm: float,
     top_cm: float,
     width_cm: float,
-    height_cm: float,
+    height_cm: Optional[float] = None,
     used_date: Optional[pd.Timestamp],
     price_mode: str,
     source_placeholder_names: List[str],
@@ -594,9 +594,12 @@ def _insert_dashboard_to_placeholder(
     left = Cm(left_cm)
     top = Cm(top_cm)
     width = Cm(width_cm)
-    height = Cm(height_cm)
     stream = io.BytesIO(image_bytes)
-    pic = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    # Only specify width; let height auto-scale to maintain aspect ratio
+    if height_cm is not None:
+        pic = target_slide.shapes.add_picture(stream, left, top, width=width, height=Cm(height_cm))
+    else:
+        pic = target_slide.shapes.add_picture(stream, left, top, width=width)
 
     # Send picture to back (behind other elements like footnote)
     spTree = target_slide.shapes._spTree
@@ -652,7 +655,6 @@ def insert_rates_performance_bar_slide(
     left_cm: float = 3.35,
     top_cm: float = 4.6,
     width_cm: float = 17.02,
-    height_cm: float = 11.66,
 ) -> Presentation:
     """Insert the weekly rates bar chart and source footnote into its designated slide.
 
@@ -660,6 +662,8 @@ def insert_rates_performance_bar_slide(
     ``rates_perf_1w`` (or containing ``[rates_perf_1week]``).  The chart
     is inserted at the specified coordinates and a source footnote is
     written into ``rates_1w_source`` or a shape containing ``[rates_1w_source]``.
+
+    Height is auto-calculated to maintain aspect ratio.
     """
     return _insert_dashboard_to_placeholder(
         prs,
@@ -668,7 +672,7 @@ def insert_rates_performance_bar_slide(
         left_cm=left_cm,
         top_cm=top_cm,
         width_cm=width_cm,
-        height_cm=height_cm,
+        height_cm=None,  # Auto-scale to maintain aspect ratio
         used_date=used_date,
         price_mode=price_mode,
         source_placeholder_names=["rates_1w_source"],
