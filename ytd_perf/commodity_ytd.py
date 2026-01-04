@@ -124,7 +124,7 @@ def get_commodity_ytd_series(
     year_start = datetime(now.year, 1, 1)
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
     commo_params = params_df[params_df["Asset Class"] == "Commodity"].copy()
-    if tickers is not None:
+    if tickers:  # Only filter if tickers list is non-empty
         commo_params = commo_params[commo_params["Tickers"].isin(tickers)]
     result = pd.DataFrame()
     result["Date"] = current_year_df["Date"]

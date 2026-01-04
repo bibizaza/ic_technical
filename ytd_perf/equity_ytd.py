@@ -199,7 +199,7 @@ def get_equity_ytd_series(
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
     # Filter parameter rows to equities
     eq_params = params_df[params_df["Asset Class"] == "Equity"].copy()
-    if tickers is not None:
+    if tickers:  # Only filter if tickers list is non-empty
         eq_params = eq_params[eq_params["Tickers"].isin(tickers)]
     result = pd.DataFrame()
     result["Date"] = current_year_df["Date"].reset_index(drop=True)
