@@ -250,63 +250,133 @@ def create_weekly_performance_chart(
         the PNG data for the bar chart and ``used_date`` is the effective
         date in the adjusted price series.
     """
-    default_mapping = {
-        "SPX Index": "S&P 500",
-        "IBOV Index": "Bovespa",
-        "MEXBOL Index": "Mexican Bolsa",
-        "SMI Index": "Swiss Market Index",
-        "SHSZ300 Index": "Shenzhen CSI 300",
-        "NKY Index": "Nikkei 225",
-        "SENSEX Index": "Sensex",
-        "DAX Index": "DAX 30",
-        "SASEIDX Index": "TASI (Saudi Index)",
+    import tempfile
+    from pathlib import Path
+    from jinja2 import Template
+    from html2image import Html2Image
+    from market_compass.weekly_performance.html_template import WEEKLY_PERFORMANCE_HTML_TEMPLATE
+
+    # Index mapping with display names and flags
+    INDEX_CONFIG = {
+        "SPX Index": {"name": "S&P 500", "flag": "\U0001F1FA\U0001F1F8"},
+        "DAX Index": {"name": "Dax", "flag": "\U0001F1E9\U0001F1EA"},
+        "SMI Index": {"name": "SMI", "flag": "\U0001F1E8\U0001F1ED"},
+        "NKY Index": {"name": "Nikkei 225", "flag": "\U0001F1EF\U0001F1F5"},
+        "SHSZ300 Index": {"name": "CSI 300", "flag": "\U0001F1E8\U0001F1F3"},
+        "SENSEX Index": {"name": "Sensex", "flag": "\U0001F1EE\U0001F1F3"},
+        "IBOV Index": {"name": "Bovespa", "flag": "\U0001F1E7\U0001F1F7"},
+        "MEXBOL Index": {"name": "Mexbol", "flag": "\U0001F1F2\U0001F1FD"},
+        "SASEIDX Index": {"name": "TASI", "flag": "\U0001F1F8\U0001F1E6"},
     }
-    mapping = ticker_mapping or default_mapping
-    tickers = list(mapping.keys())
+
+    tickers = list(INDEX_CONFIG.keys())
+
     # Load data and adjust according to price mode
     df = _load_price_data(excel_path, tickers)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
-    perf = _build_returns_table(df_adj, mapping)
-    # Build bar chart data sorted by performance descending
+
+    # Build returns
+    default_mapping = {k: v["name"] for k, v in INDEX_CONFIG.items()}
+    perf = _build_returns_table(df_adj, default_mapping)
+
+    # Get 1W returns and sort descending
     bar_df = perf[["Name", "1W"]].dropna().sort_values("1W", ascending=False).reset_index(drop=True)
-    # Create figure and axis
-    fig, ax = plt.subplots(figsize=(width, height))
-    bar_colors = ["#2E8B57" if x > 0 else "#C70039" for x in bar_df["1W"]]
-    bars = ax.barh(bar_df["Name"], bar_df["1W"], color=bar_colors)
-    # Add labels
-    for bar in bars:
-        width_val = bar.get_width()
-        x_pos = width_val + (0.1 if width_val > 0 else -0.1)
-        ax.text(
-            x_pos,
-            bar.get_y() + bar.get_height() / 2.0,
-            f"{width_val:.1f}%",
-            va="center",
-            ha="left" if width_val > 0 else "right",
-            fontweight="bold",
-            color="black",
-        )
-    # Style chart
-    ax.axvline(0.0, color="grey", linewidth=0.8, linestyle="--")
-    ax.set_xticks([])
-    ax.set_yticks(range(len(bar_df)))
-    ax.set_yticklabels(bar_df["Name"], fontsize=10)
-    ax.invert_yaxis()
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    ax.tick_params(axis="y", length=0)
-    # Provide extra horizontal space so bars do not overlap names
-    min_val = min(bar_df["1W"].min(), 0)
-    max_val = bar_df["1W"].max()
-    margin = (max_val - min_val) * 0.2
-    ax.set_xlim(min_val - margin, max_val + margin)
-    fig.subplots_adjust(left=0.4)
-    # Export to PNG
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue(), used_date
+
+    # Prepare rows for HTML template
+    rows = []
+    max_abs_value = max(abs(bar_df["1W"].max()), abs(bar_df["1W"].min())) if len(bar_df) > 0 else 1
+    max_abs_value = max(max_abs_value, 1.0)  # At least 1%
+
+    for i, row in bar_df.iterrows():
+        name = row["Name"]
+        value = row["1W"] / 100  # Convert percentage to decimal
+
+        # Find flag for this name
+        flag = ""
+        for ticker, config in INDEX_CONFIG.items():
+            if config["name"] == name:
+                flag = config["flag"]
+                break
+
+        # Determine highlight class
+        highlight_class = ""
+        if i == 0 and value > 0:
+            highlight_class = "top-performer"
+        elif i == len(bar_df) - 1 and value < 0:
+            highlight_class = "worst-performer"
+
+        # Bar width as percentage of half the chart
+        bar_width = abs(value) / (max_abs_value / 100) * 50
+        bar_width = min(bar_width, 48)
+
+        # Value classes
+        if value > 0:
+            bar_class = "positive"
+            value_class = "positive"
+            formatted_value = f"+{value * 100:.1f}%"
+        elif value < 0:
+            bar_class = "negative"
+            value_class = "negative"
+            formatted_value = f"{value * 100:.1f}%"
+        else:
+            bar_class = ""
+            value_class = "zero"
+            formatted_value = "0.0%"
+
+        rows.append({
+            "name": name,
+            "flag": flag,
+            "value": value,
+            "highlight_class": highlight_class,
+            "bar_class": bar_class,
+            "bar_width": bar_width,
+            "value_class": value_class,
+            "formatted_value": formatted_value,
+        })
+
+    # Calculate scale
+    if max_abs_value <= 1:
+        scale_max = 1
+    elif max_abs_value <= 2:
+        scale_max = 2
+    elif max_abs_value <= 5:
+        scale_max = 5
+    elif max_abs_value <= 10:
+        scale_max = 10
+    else:
+        scale_max = int(max_abs_value) + 5
+
+    scale_values = {
+        "scale_min": f"-{scale_max}%",
+        "scale_mid_low": f"-{scale_max // 2}%",
+        "scale_mid_high": f"+{scale_max // 2}%",
+        "scale_max": f"+{scale_max}%",
+    }
+
+    # Generate HTML
+    SCALE_FACTOR = 3
+    width_px = 2550  # ~22.5cm at 3x
+    height_px = 1200  # ~10.5cm at 3x
+
+    template = Template(WEEKLY_PERFORMANCE_HTML_TEMPLATE)
+    html = template.render(
+        rows=rows,
+        width=width_px,
+        height=height_px,
+        scale=SCALE_FACTOR,
+        **scale_values,
+    )
+
+    # Convert to PNG
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hti = Html2Image(output_path=tmpdir, size=(width_px, height_px))
+        hti.screenshot(html_str=html, save_as="weekly_perf.png")
+
+        img_path = Path(tmpdir) / "weekly_perf.png"
+        with open(img_path, "rb") as f:
+            png_bytes = f.read()
+
+    return png_bytes, used_date
 
 
 def create_historical_performance_table(
