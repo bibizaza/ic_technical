@@ -5736,6 +5736,7 @@ def show_generate_presentation_page():
                 left_cm=3.47,
                 top_cm=5.28,
                 width_cm=17.35,
+                height_cm=10,
             )
             # Generate the historical performance heatmap with price-mode adjustment
             histo_bytes, histo_used_date = create_historical_performance_table(
