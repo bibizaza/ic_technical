@@ -105,7 +105,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
             width: {{ 2 * scale }}px;
             background: #CBD5E1;
             border-radius: {{ 1 * scale }}px;
-            z-index: 1;
+            z-index: 10;
         }
 
         /* Bars */
@@ -118,14 +118,14 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .bar.positive {
-            left: 50%;
+            left: calc(50% + 1px);
             background: linear-gradient(90deg, #4ADE80, #16A34A);
             box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(34, 197, 94, 0.25);
             border-radius: 0 {{ 6 * scale }}px {{ 6 * scale }}px 0;
         }
 
         .bar.negative {
-            right: 50%;
+            right: calc(50% + 1px);
             background: linear-gradient(270deg, #F87171, #DC2626);
             box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(239, 68, 68, 0.25);
             border-radius: {{ 6 * scale }}px 0 0 {{ 6 * scale }}px;

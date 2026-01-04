@@ -558,7 +558,7 @@ def _insert_dashboard_to_placeholder(
     left_cm: float,
     top_cm: float,
     width_cm: float,
-    height_cm: float,
+    height_cm: Optional[float] = None,
     used_date: Optional[pd.Timestamp],
     price_mode: str,
     source_placeholder_names: List[str],
@@ -629,9 +629,12 @@ def _insert_dashboard_to_placeholder(
     left = Cm(left_cm)
     top = Cm(top_cm)
     width = Cm(width_cm)
-    height = Cm(height_cm)
     stream = io.BytesIO(image_bytes)
-    pic = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    # Only specify width; let height auto-scale to maintain aspect ratio
+    if height_cm is not None:
+        pic = target_slide.shapes.add_picture(stream, left, top, width=width, height=Cm(height_cm))
+    else:
+        pic = target_slide.shapes.add_picture(stream, left, top, width=width)
 
     # Send to back (behind other elements like footnote)
     spTree = target_slide.shapes._spTree
@@ -686,10 +689,10 @@ def insert_equity_performance_bar_slide(
     used_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
     *,
-    left_cm: float = 0.0,
-    top_cm: float = 3.22,
-    width_cm: float = 25.0,
-    height_cm: float = 11.66,
+    left_cm: float = 3.47,
+    top_cm: float = 5.28,
+    width_cm: float = 17.35,
+    height_cm: Optional[float] = None,
 ) -> Presentation:
     """Insert the weekly performance bar chart and source footnote into its designated slide.
 
