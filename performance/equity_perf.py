@@ -1012,26 +1012,33 @@ def create_equity_ytd_evolution_chart(
 
     # Convert HTML to PNG using Playwright (waits for Chart.js to render)
     png_bytes = None
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page(viewport={
-            'width': EQUITY_YTD_PNG_WIDTH_PX,
-            'height': EQUITY_YTD_PNG_HEIGHT_PX
-        })
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={
+                'width': EQUITY_YTD_PNG_WIDTH_PX,
+                'height': EQUITY_YTD_PNG_HEIGHT_PX
+            })
 
-        # Load HTML content
-        page.set_content(html_content)
+            # Load HTML content - use data URL to ensure proper loading
+            page.set_content(html_content, wait_until='networkidle')
 
-        # Wait for Chart.js to signal rendering complete
-        try:
-            page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
-        except Exception:
-            # Fallback: just wait a bit if selector times out
-            page.wait_for_timeout(2000)
+            # Wait for Chart.js to signal rendering complete
+            try:
+                page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
+                print("[DEBUG] Chart.js rendering complete")
+            except Exception as e:
+                print(f"[DEBUG] Chart ready selector timeout, using fallback wait: {e}")
+                page.wait_for_timeout(3000)
 
-        # Take screenshot
-        png_bytes = page.screenshot()
-        browser.close()
+            # Take screenshot
+            png_bytes = page.screenshot()
+            print(f"[DEBUG] Screenshot taken, size: {len(png_bytes)} bytes")
+            browser.close()
+    except Exception as e:
+        print(f"[ERROR] Playwright failed: {e}")
+        import traceback
+        traceback.print_exc()
 
     return png_bytes, used_date
 
