@@ -1160,10 +1160,12 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
 # Commodities Weekly Performance HTML template
 COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
         * {
             margin: 0;
             padding: 0;
@@ -1171,180 +1173,195 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
         }
 
         body {
-            font-family: 'Calibri', 'Arial', sans-serif;
-            background: transparent;
-            padding: {{ 20 * scale }}px;
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
             width: {{ width }}px;
             height: {{ height }}px;
+            padding: {{ 10 * scale }}px;
         }
 
         .chart-container {
             display: flex;
             flex-direction: column;
             gap: {{ 1 * scale }}px;
-            height: 100%;
         }
 
-        .category-section {
-            display: flex;
-            flex-direction: column;
-            gap: {{ 1 * scale }}px;
-        }
-
+        /* Category group header - matches country-header */
         .category-header {
             display: flex;
             align-items: center;
-            gap: {{ 8 * scale }}px;
-            padding: {{ 3 * scale }}px {{ 8 * scale }}px;
-            margin-top: {{ 2 * scale }}px;
+            gap: {{ 6 * scale }}px;
+            padding: {{ 4 * scale }}px {{ 10 * scale }}px;
+            margin-top: {{ 3 * scale }}px;
             background: #F8FAFC;
             border-left: {{ 3 * scale }}px solid #1B3A5A;
             border-radius: 0 {{ 4 * scale }}px {{ 4 * scale }}px 0;
         }
 
-        .category-section:first-child .category-header {
+        .category-header:first-child {
             margin-top: 0;
         }
 
-        .category-icon {
-            font-size: {{ 9 * scale }}px;
+        .category-header .icon {
+            font-size: {{ 14 * scale }}px;
         }
 
-        .category-name {
-            font-size: {{ 7 * scale }}px;
-            font-weight: 600;
+        .category-header .category-name {
+            font-size: {{ 10 * scale }}px;
+            font-weight: 700;
             color: #1B3A5A;
             text-transform: uppercase;
-            letter-spacing: {{ 0.5 * scale }}px;
+            letter-spacing: 0.5px;
         }
 
-        .commodity-row {
+        /* Data rows - matches tenor rows */
+        .row {
             display: flex;
             align-items: center;
-            gap: {{ 8 * scale }}px;
-            padding: {{ 2 * scale }}px {{ 8 * scale }}px;
-            height: {{ 18 * scale }}px;
+            height: {{ 20 * scale }}px;
+            padding: 0 {{ 10 * scale }}px 0 {{ 24 * scale }}px;
         }
 
-        .commodity-row.top-performer {
-            background: linear-gradient(90deg, rgba(201, 162, 39, 0.1), transparent);
-            border-left: {{ 3 * scale }}px solid #C9A227;
+        .row:nth-child(odd) {
+            background: rgba(248, 250, 252, 0.5);
         }
 
-        .commodity-row.worst-performer {
-            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1), transparent);
-            border-left: {{ 3 * scale }}px solid #EF4444;
-        }
-
-        .commodity-icon {
-            font-size: {{ 14 * scale }}px;
-            width: {{ 20 * scale }}px;
-            text-align: center;
-        }
-
-        .commodity-name {
-            font-size: {{ 12 * scale }}px;
-            font-weight: 500;
-            color: #333;
+        /* Commodity label - matches tenor */
+        .commodity-info {
+            display: flex;
+            align-items: center;
+            gap: {{ 6 * scale }}px;
             width: {{ 110 * scale }}px;
         }
 
+        .commodity-info .icon {
+            font-size: {{ 12 * scale }}px;
+        }
+
+        .commodity-info .name {
+            font-size: {{ 9 * scale }}px;
+            font-weight: 500;
+            color: #64748B;
+        }
+
+        /* Bar container */
         .bar-container {
             flex: 1;
             display: flex;
             align-items: center;
-            height: {{ 14 * scale }}px;
+            padding: 0 {{ 12 * scale }}px;
             position: relative;
-            padding: 0 {{ 15 * scale }}px;
         }
 
         .bar-track {
-            position: absolute;
             width: 100%;
-            height: {{ 7 * scale }}px;
-            background: #f0f0f0;
+            height: {{ 5 * scale }}px;
+            background: #F1F5F9;
             border-radius: {{ 3 * scale }}px;
+            position: relative;
         }
 
-        .bar-center {
+        /* Center line (zero axis) */
+        .center-line {
             position: absolute;
             left: 50%;
-            top: 0;
-            bottom: 0;
-            width: {{ 1 * scale }}px;
-            background: #999;
+            top: {{ -3 * scale }}px;
+            bottom: {{ -3 * scale }}px;
+            width: {{ 2 * scale }}px;
+            background: #CBD5E1;
+            border-radius: {{ 1 * scale }}px;
+            z-index: 10;
         }
 
+        /* Bars */
         .bar {
             position: absolute;
-            height: {{ 14 * scale }}px;
-            border-radius: {{ 3 * scale }}px;
-            min-width: {{ 2 * scale }}px;
+            height: {{ 8 * scale }}px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
         }
 
         .bar.positive {
-            left: 50%;
+            left: calc(50% + 1px);
             background: linear-gradient(90deg, #4ADE80, #16A34A);
-            opacity: 1;
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(34, 197, 94, 0.25);
+            border-radius: 0 {{ 5 * scale }}px {{ 5 * scale }}px 0;
         }
 
         .bar.negative {
-            right: 50%;
+            right: calc(50% + 1px);
+            background: linear-gradient(270deg, #F87171, #DC2626);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(239, 68, 68, 0.25);
+            border-radius: {{ 5 * scale }}px 0 0 {{ 5 * scale }}px;
         }
 
-        /* Color classes for positive performance - vibrant greens */
-        .positive-1 { background: linear-gradient(90deg, #4ADE80, #22C55E); }
-        .positive-2 { background: linear-gradient(90deg, #22C55E, #16A34A); }
-        .positive-3 { background: linear-gradient(90deg, #16A34A, #15803D); }
-        .positive-4 { background: linear-gradient(90deg, #15803D, #166534); }
-        .positive-5 { background: linear-gradient(90deg, #166534, #14532D); }
-
-        /* Color classes for negative performance */
-        .negative-1 { background: linear-gradient(270deg, #ffcdd2, #ef9a9a); }
-        .negative-2 { background: linear-gradient(270deg, #ef9a9a, #e57373); }
-        .negative-3 { background: linear-gradient(270deg, #e57373, #ef5350); }
-        .negative-4 { background: linear-gradient(270deg, #ef5350, #f44336); }
-        .negative-5 { background: linear-gradient(270deg, #f44336, #e53935); }
-
-        .value-label {
-            font-size: {{ 11 * scale }}px;
-            font-weight: 600;
-            color: #333;
-            width: {{ 50 * scale }}px;
+        /* Performance value */
+        .performance {
+            width: {{ 55 * scale }}px;
             text-align: right;
+            font-size: {{ 10 * scale }}px;
+            font-weight: 700;
         }
 
-        .value-label.positive-value {
-            color: #2e7d32;
+        .performance.positive { color: #16A34A; }
+        .performance.negative { color: #DC2626; }
+
+        /* Scale */
+        .scale {
+            display: flex;
+            justify-content: center;
+            padding: {{ 8 * scale }}px 0 0 0;
+            margin-left: {{ 134 * scale }}px;
+            margin-right: {{ 55 * scale }}px;
         }
 
-        .value-label.negative-value {
-            color: #c62828;
+        .scale-inner {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 {{ 12 * scale }}px;
+            font-size: {{ 7 * scale }}px;
+            color: #94A3B8;
         }
     </style>
 </head>
 <body>
     <div class="chart-container">
         {% for category in categories %}
-        <div class="category-section">
-            <div class="category-header">
-                <span class="category-icon">{{ category.icon }}</span>
-                <span class="category-name">{{ category.name }}</span>
+        <!-- {{ category.name }} -->
+        <div class="category-header">
+            <span class="icon">{{ category.icon }}</span>
+            <span class="category-name">{{ category.name }}</span>
+        </div>
+        {% for item in category.commodities %}
+        <div class="row">
+            <div class="commodity-info">
+                <span class="icon">{{ item.icon }}</span>
+                <span class="name">{{ item.name }}</span>
             </div>
-            {% for item in category.commodities %}
-            <div class="commodity-row {{ item.highlight_class }}">
-                <span class="commodity-icon">{{ item.icon }}</span>
-                <span class="commodity-name">{{ item.name }}</span>
-                <div class="bar-container">
-                    <div class="bar-track"></div>
-                    <div class="bar-center"></div>
-                    <div class="bar {{ item.bar_direction }} {{ item.color_class }}" style="width: {{ item.bar_width }}%;"></div>
+            <div class="bar-container">
+                <div class="bar-track">
+                    <div class="center-line"></div>
+                    {% if item.value != 0 %}
+                    <div class="bar {{ item.bar_class }}" style="width: {{ item.bar_width }}%;"></div>
+                    {% endif %}
                 </div>
-                <span class="value-label {{ item.value_class }}">{{ item.formatted_value }}</span>
             </div>
-            {% endfor %}
+            <div class="performance {{ item.value_class }}">{{ item.formatted_value }}</div>
         </div>
         {% endfor %}
+        {% endfor %}
+    </div>
+
+    <div class="scale">
+        <div class="scale-inner">
+            <span>{{ scale_min }}</span>
+            <span>{{ scale_mid_low }}</span>
+            <span>0</span>
+            <span>{{ scale_mid_high }}</span>
+            <span>{{ scale_max }}</span>
+        </div>
     </div>
 </body>
 </html>

@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import io
 import pathlib
-from dataclasses import dataclass
 from typing import Dict, List, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
@@ -549,37 +548,6 @@ PPT_TOP_CM = 4.6
 HTML_SCALE = 3
 
 
-@dataclass
-class CommodityItem:
-    """Data for a single commodity row."""
-    name: str
-    icon: str
-    value: float
-    formatted_value: str
-    bar_direction: str
-    bar_width: float
-    color_class: str
-    value_class: str
-    highlight_class: str
-
-
-def _get_commodity_color_class(value: float) -> str:
-    """Return CSS class for bar color based on value intensity."""
-    abs_val = abs(value)
-    if abs_val < 1:
-        intensity = 1
-    elif abs_val < 2:
-        intensity = 2
-    elif abs_val < 4:
-        intensity = 3
-    elif abs_val < 6:
-        intensity = 4
-    else:
-        intensity = 5
-    prefix = "positive" if value >= 0 else "negative"
-    return f"{prefix}-{intensity}"
-
-
 def _format_commodity_percentage(value: float) -> str:
     """Format percentage with sign."""
     return f"{value:+.1f}%"
@@ -615,17 +583,10 @@ def create_weekly_html_performance_chart(
         except Exception:
             returns_dict[ticker] = float("nan")
 
-    # Find top and worst performers across all commodities
-    all_returns = [(ticker, returns_dict.get(ticker, float("nan"))) for ticker in all_tickers]
-    valid_returns = [(t, r) for t, r in all_returns if not pd.isna(r)]
-
-    top_ticker = max(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
-    worst_ticker = min(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
-
     # Calculate max absolute value for bar scaling (minimum 5%)
-    max_abs_value = max((abs(r) for _, r in valid_returns), default=5.0)
+    valid_returns = [r for r in returns_dict.values() if not pd.isna(r)]
+    max_abs_value = max((abs(r) for r in valid_returns), default=5.0)
     max_abs_value = max(max_abs_value, 5.0)  # At least 5%
-    print(f"DEBUG: max_abs_value = {max_abs_value}")
 
     # Build category data for template
     categories_data = []
@@ -639,34 +600,28 @@ def create_weekly_html_performance_chart(
 
             # Calculate bar width as percentage of max (48% max to leave margin)
             bar_width = abs(value) / max_abs_value * 48
-            print(f"DEBUG: {item['name']} value={value:.2f}% bar_width={bar_width:.1f}%")
 
-            # Determine highlight class
-            highlight_class = ""
-            if ticker == top_ticker:
-                highlight_class = "top-performer"
-            elif ticker == worst_ticker:
-                highlight_class = "worst-performer"
+            items_data.append({
+                "name": item["name"],
+                "icon": item["icon"],
+                "value": value,
+                "formatted_value": _format_commodity_percentage(value),
+                "bar_class": "positive" if value >= 0 else "negative",
+                "bar_width": bar_width,
+                "value_class": "positive" if value >= 0 else "negative",
+            })
 
-            commodity_item = CommodityItem(
-                name=item["name"],
-                icon=item["icon"],
-                value=value,
-                formatted_value=_format_commodity_percentage(value),
-                bar_direction="positive" if value >= 0 else "negative",
-                bar_width=bar_width,
-                color_class=_get_commodity_color_class(value),
-                value_class="positive-value" if value >= 0 else "negative-value",
-                highlight_class=highlight_class,
-            )
-            items_data.append(commodity_item)
-
-        items_as_dicts = [vars(item) for item in items_data]
         categories_data.append({
             "name": cat["name"],
             "icon": cat["icon"],
-            "commodities": items_as_dicts,
+            "commodities": items_data,
         })
+
+    # Calculate scale labels
+    scale_max = max_abs_value
+    scale_min = -max_abs_value
+    scale_mid_high = max_abs_value / 2
+    scale_mid_low = -max_abs_value / 2
 
     # Render HTML template
     template = Template(COMMODITIES_WEEKLY_HTML_TEMPLATE)
@@ -675,6 +630,10 @@ def create_weekly_html_performance_chart(
         width=PNG_WIDTH_PX,
         height=PNG_HEIGHT_PX,
         categories=categories_data,
+        scale_max=f"+{scale_max:.0f}%",
+        scale_min=f"{scale_min:.0f}%",
+        scale_mid_high=f"+{scale_mid_high:.0f}%",
+        scale_mid_low=f"{scale_mid_low:.0f}%",
     )
 
     # Convert HTML to PNG
