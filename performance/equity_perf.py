@@ -42,7 +42,9 @@ Usage example::
 from __future__ import annotations
 
 import io
+import os
 import pathlib
+from datetime import datetime
 from typing import Dict, List, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
@@ -51,8 +53,11 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
+from jinja2 import Template
+from html2image import Html2Image
 
 from utils import adjust_prices_for_mode
+from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -789,3 +794,261 @@ def insert_equity_performance_histo_slide(
         price_mode=price_mode,
         source_placeholder_names=["equity_1w_source2"],
     )
+
+
+# =============================================================================
+# EQUITY YTD EVOLUTION CHART (Chart.js Line Chart)
+# =============================================================================
+
+# Index configuration with Bloomberg tickers and colors from directive
+EQUITY_YTD_CONFIG = {
+    "IBOV Index": {"name": "Ibov", "color": "#9333EA"},
+    "MEXBOL Index": {"name": "Mexbol", "color": "#06B6D4"},
+    "NKY Index": {"name": "Nikkei 225", "color": "#10B981"},
+    "DAX Index": {"name": "Dax", "color": "#DC2626"},
+    "SHSZ300 Index": {"name": "CSI 300", "color": "#F97316"},
+    "SPX Index": {"name": "S&P 500", "color": "#3B82F6"},
+    "SMI Index": {"name": "SMI", "color": "#1B3A5A"},
+    "SENSEX Index": {"name": "Sensex", "color": "#22D3EE"},
+    "SASEIDX Index": {"name": "TASI", "color": "#9CA3AF"},
+}
+
+# Chart dimensions (hardcoded)
+EQUITY_YTD_PNG_WIDTH_PX = 2700
+EQUITY_YTD_PNG_HEIGHT_PX = 1500
+EQUITY_YTD_PPT_WIDTH_CM = 23.0
+EQUITY_YTD_PPT_LEFT_CM = 0.5
+EQUITY_YTD_PPT_TOP_CM = 4.0
+EQUITY_YTD_HTML_SCALE = 3
+
+
+def _get_ytd_year(data_end_date: pd.Timestamp) -> int:
+    """Determine which year to show as YTD based on data end date.
+
+    The YTD year is simply the year of the last data point.
+    """
+    return data_end_date.year
+
+
+def _get_chart_title(data_end_date: pd.Timestamp) -> str:
+    """Generate chart title with correct year."""
+    year = _get_ytd_year(data_end_date)
+    return f"YTD {year} Performance of Equity Indices (%)"
+
+
+def _compute_ytd_series(
+    df: pd.DataFrame,
+    ticker: str,
+) -> Tuple[List[str], List[float]]:
+    """Compute YTD performance series for a ticker.
+
+    Returns:
+        Tuple of (month labels, YTD performance values)
+    """
+    if ticker not in df.columns:
+        return [], []
+
+    # Get the year of the last data point
+    last_date = df["Date"].max()
+    year = last_date.year
+
+    # Get start of year price
+    start_of_year = pd.Timestamp(year=year, month=1, day=1)
+    df_year = df[df["Date"] >= start_of_year].copy()
+
+    if len(df_year) == 0:
+        return [], []
+
+    # Get first available price of the year (baseline)
+    baseline_price = df_year[ticker].iloc[0]
+    if pd.isna(baseline_price) or baseline_price == 0:
+        return [], []
+
+    # Group by month and get last price of each month
+    df_year["Month"] = df_year["Date"].dt.month
+    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+    labels = []
+    values = []
+
+    for month in range(1, 13):
+        month_data = df_year[df_year["Month"] == month]
+        if len(month_data) > 0:
+            last_price = month_data[ticker].iloc[-1]
+            if not pd.isna(last_price):
+                ytd_return = (last_price - baseline_price) / baseline_price * 100
+                labels.append(month_names[month - 1])
+                values.append(round(ytd_return, 1))
+
+    return labels, values
+
+
+def create_equity_ytd_evolution_chart(
+    excel_path: Union[str, pathlib.Path],
+    *,
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate HTML-based Equity YTD Evolution line chart.
+
+    Features:
+    - 9 equity indices with smooth lines
+    - Dynamic year in title based on data
+    - Label collision avoidance at end of lines
+    - Emphasized zero line
+    - Connector lines for adjusted labels
+
+    Returns:
+        Tuple of (PNG bytes, effective date used for computation)
+    """
+    # Get all tickers from configuration
+    tickers = list(EQUITY_YTD_CONFIG.keys())
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+
+    if used_date is None:
+        used_date = df_adj["Date"].max()
+
+    # Get chart title with correct year
+    chart_title = _get_chart_title(used_date)
+
+    # Compute YTD series for each index
+    all_labels = []
+    datasets = []
+
+    for ticker, config in EQUITY_YTD_CONFIG.items():
+        labels, values = _compute_ytd_series(df_adj, ticker)
+        if labels and values:
+            # Track the longest label list
+            if len(labels) > len(all_labels):
+                all_labels = labels
+
+            datasets.append({
+                "label": config["name"],
+                "data": values,
+                "borderColor": config["color"],
+                "backgroundColor": "transparent",
+            })
+
+    # Ensure all datasets have the same length (pad with None if needed)
+    max_len = len(all_labels)
+    for dataset in datasets:
+        while len(dataset["data"]) < max_len:
+            dataset["data"].append(None)
+
+    # Render HTML template
+    template = Template(EQUITY_YTD_EVOLUTION_HTML_TEMPLATE)
+    html_content = template.render(
+        width=EQUITY_YTD_PNG_WIDTH_PX,
+        height=EQUITY_YTD_PNG_HEIGHT_PX,
+        scale=EQUITY_YTD_HTML_SCALE,
+        chart_title=chart_title,
+        labels=all_labels,
+        datasets=datasets,
+    )
+
+    # Convert HTML to PNG
+    hti = Html2Image(size=(EQUITY_YTD_PNG_WIDTH_PX, EQUITY_YTD_PNG_HEIGHT_PX))
+    hti.screenshot(html_str=html_content, save_as="equity_ytd_temp.png")
+
+    # Read the generated PNG
+    with open("equity_ytd_temp.png", "rb") as f:
+        png_bytes = f.read()
+
+    # Clean up temp file
+    try:
+        os.remove("equity_ytd_temp.png")
+    except Exception:
+        pass
+
+    return png_bytes, used_date
+
+
+def insert_equity_ytd_evolution_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """Insert the Equity YTD Evolution chart into PowerPoint."""
+    if not image_bytes:
+        return prs
+
+    # Find target slide by placeholder name
+    target_slide = None
+    placeholder_names = ["ytd_eq_perf"]
+    name_candidates = [n.lower() for n in placeholder_names]
+    pattern_candidates = [f"[{n}]" for n in name_candidates]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in name_candidates:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower in [p.lower() for p in pattern_candidates]:
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print("[Equity YTD Evolution] ERROR: Slide not found")
+        return prs
+
+    # Insert chart image with exact hardcoded dimensions
+    left = Cm(EQUITY_YTD_PPT_LEFT_CM)
+    top = Cm(EQUITY_YTD_PPT_TOP_CM)
+    width = Cm(EQUITY_YTD_PPT_WIDTH_CM)
+
+    stream = io.BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width)
+
+    # Send picture to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[Equity YTD Evolution] Chart inserted at ({EQUITY_YTD_PPT_LEFT_CM}, {EQUITY_YTD_PPT_TOP_CM}) cm")
+
+    # Update source placeholder if date available
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_candidates = ["ytd_eq_perf_source"]
+        source_patterns = [f"[{n}]" for n in source_candidates]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in [n.lower() for n in source_candidates]:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    return prs

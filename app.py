@@ -1589,6 +1589,8 @@ from performance.equity_perf import (
     create_historical_performance_table,
     insert_equity_performance_bar_slide,
     insert_equity_performance_histo_slide,
+    create_equity_ytd_evolution_chart,
+    insert_equity_ytd_evolution_slide,
 )
 
 # Import FX performance functions
@@ -5789,6 +5791,18 @@ def show_generate_presentation_page():
                 top_cm=4.70,
                 width_cm=19.43,
                 height_cm=10.61,
+            )
+
+            # Generate the Equity YTD Evolution chart (Chart.js line chart)
+            ytd_evo_bytes, ytd_evo_date = create_equity_ytd_evolution_chart(
+                excel_path_for_ppt,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_equity_ytd_evolution_slide(
+                prs,
+                ytd_evo_bytes,
+                used_date=ytd_evo_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
             )
         except Exception as e:
             print(f"Equity performance charts error: {e}")

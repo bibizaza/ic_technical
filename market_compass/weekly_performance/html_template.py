@@ -2242,3 +2242,259 @@ CRYPTO_HISTORICAL_HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
+
+# =============================================================================
+# EQUITY YTD EVOLUTION CHART TEMPLATE (Chart.js Line Chart)
+# =============================================================================
+
+EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: {{ 15 * scale }}px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .chart-title {
+            text-align: center;
+            font-size: {{ 14 * scale }}px;
+            font-weight: 600;
+            color: #1B3A5A;
+            margin-bottom: {{ 10 * scale }}px;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: calc(100% - {{ 30 * scale }}px);
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-wrapper">
+        <div class="chart-title">{{ chart_title }}</div>
+        <div class="chart-container">
+            <canvas id="ytdChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const labels = {{ labels | tojson }};
+        const datasets = {{ datasets | tojson }};
+        const scale = {{ scale }};
+
+        // ============================================
+        // LABEL COLLISION AVOIDANCE ALGORITHM
+        // ============================================
+        function resolveOverlaps(labels, minGap) {
+            // Sort by y position (top to bottom)
+            labels.sort((a, b) => a.y - b.y);
+
+            // Push down overlapping labels
+            for (let i = 1; i < labels.length; i++) {
+                const prev = labels[i - 1];
+                const curr = labels[i];
+                const gap = curr.y - prev.y;
+
+                if (gap < minGap) {
+                    curr.y = prev.y + minGap;
+                    curr.adjusted = true;
+                }
+            }
+
+            return labels;
+        }
+
+        // ============================================
+        // CHART CONFIGURATION
+        // ============================================
+        const ctx = document.getElementById('ytdChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets.map(d => ({
+                    ...d,
+                    borderWidth: 2.5 * scale / 3,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    tension: 0.3,
+                    fill: false,
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: 'rgba(27, 58, 90, 0.9)',
+                        titleFont: { family: 'Calibri', size: 10 * scale },
+                        bodyFont: { family: 'Calibri', size: 9 * scale },
+                        padding: 8 * scale,
+                        cornerRadius: 4 * scale,
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                const sign = value >= 0 ? '+' : '';
+                                return `${context.dataset.label}: ${sign}${value.toFixed(1)}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: true,
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            font: { family: 'Calibri', size: 9 * scale, weight: '500' },
+                            color: '#64748B'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: true,
+                            color: function(context) {
+                                if (context.tick.value === 0) {
+                                    return 'rgba(27, 58, 90, 0.3)';
+                                }
+                                return 'rgba(0, 0, 0, 0.05)';
+                            },
+                            lineWidth: function(context) {
+                                if (context.tick.value === 0) {
+                                    return 2;
+                                }
+                                return 1;
+                            },
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            font: { family: 'Calibri', size: 9 * scale, weight: '500' },
+                            color: '#64748B',
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                },
+                layout: {
+                    padding: {
+                        right: 110 * scale
+                    }
+                }
+            },
+            plugins: [{
+                id: 'endLabelsNoOverlap',
+                afterDraw: function(chart) {
+                    const ctx = chart.ctx;
+                    const minGap = 16 * scale;
+
+                    // Collect label positions
+                    let labelData = [];
+
+                    chart.data.datasets.forEach((dataset, i) => {
+                        const meta = chart.getDatasetMeta(i);
+                        const lastPoint = meta.data[meta.data.length - 1];
+
+                        if (lastPoint) {
+                            const value = dataset.data[dataset.data.length - 1];
+                            const sign = value >= 0 ? '+' : '';
+                            const label = `${dataset.label}: ${sign}${value.toFixed(1)}%`;
+
+                            labelData.push({
+                                x: lastPoint.x,
+                                y: lastPoint.y,
+                                originalY: lastPoint.y,
+                                label: label,
+                                color: dataset.borderColor,
+                                adjusted: false
+                            });
+                        }
+                    });
+
+                    // Resolve overlaps
+                    labelData = resolveOverlaps(labelData, minGap);
+
+                    // Draw labels
+                    const fontSize = 9 * scale;
+                    labelData.forEach(item => {
+                        ctx.save();
+                        ctx.font = `600 ${fontSize}px Calibri`;
+                        const textWidth = ctx.measureText(item.label).width;
+                        const labelX = item.x + 10 * scale;
+                        const labelY = item.y;
+                        const pillHeight = 14 * scale;
+                        const pillPadding = 4 * scale;
+
+                        // Draw connector line if adjusted
+                        if (item.adjusted) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = item.color + '60';
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([2 * scale, 2 * scale]);
+                            ctx.moveTo(item.x + 2, item.originalY);
+                            ctx.lineTo(labelX - 2, labelY);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
+                        // Draw background pill
+                        ctx.fillStyle = item.color + '15';
+                        ctx.beginPath();
+                        ctx.roundRect(
+                            labelX - pillPadding,
+                            labelY - pillHeight/2,
+                            textWidth + pillPadding * 2.5,
+                            pillHeight,
+                            3 * scale
+                        );
+                        ctx.fill();
+
+                        // Draw border
+                        ctx.strokeStyle = item.color + '30';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+
+                        // Draw text
+                        ctx.fillStyle = item.color;
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(item.label, labelX, labelY);
+                        ctx.restore();
+                    });
+                }
+            }]
+        });
+    </script>
+</body>
+</html>
+'''
