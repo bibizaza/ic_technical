@@ -1938,14 +1938,14 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
         .chart-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 4 * scale }}px;
+            gap: {{ 3 * scale }}px;
         }
 
         /* Data rows */
         .row {
             display: flex;
             align-items: center;
-            height: {{ 32 * scale }}px;
+            height: {{ 28 * scale }}px;
             padding: 0 {{ 10 * scale }}px;
             border-radius: {{ 5 * scale }}px;
         }
@@ -2011,7 +2011,7 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
         /* Bars */
         .bar {
             position: absolute;
-            height: {{ 12 * scale }}px;
+            height: {{ 10 * scale }}px;
             top: 50%;
             transform: translateY(-50%);
             z-index: 2;
@@ -2021,14 +2021,14 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
             left: calc(50% + 1px);
             background: linear-gradient(90deg, #4ADE80, #16A34A);
             box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(34, 197, 94, 0.25);
-            border-radius: 0 {{ 6 * scale }}px {{ 6 * scale }}px 0;
+            border-radius: 0 {{ 5 * scale }}px {{ 5 * scale }}px 0;
         }
 
         .bar.negative {
             right: calc(50% + 1px);
             background: linear-gradient(270deg, #F87171, #DC2626);
             box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(239, 68, 68, 0.25);
-            border-radius: {{ 6 * scale }}px 0 0 {{ 6 * scale }}px;
+            border-radius: {{ 5 * scale }}px 0 0 {{ 5 * scale }}px;
         }
 
         /* Performance value */
