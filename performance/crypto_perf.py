@@ -54,8 +54,11 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
+from jinja2 import Template
+from html2image import Html2Image
 
 from utils import adjust_prices_for_mode
+from market_compass.weekly_performance.html_template import CRYPTO_WEEKLY_HTML_TEMPLATE
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -691,3 +694,234 @@ def insert_crypto_performance_histo_slide(
         price_mode=price_mode,
         source_placeholder_names=["crypto_1w_source2"],
     )
+
+
+# =============================================================================
+# HTML-BASED CRYPTO WEEKLY PERFORMANCE CHART
+# =============================================================================
+
+# Crypto configuration with display names
+CRYPTO_CONFIG = [
+    {"ticker": "CCTON Curncy", "name": "Ton"},
+    {"ticker": "CHYPEE Index", "name": "HyperLiquid"},
+    {"ticker": "XDOUSD Curncy", "name": "Polkadot"},
+    {"ticker": "XSOUSD Curncy", "name": "Solana"},
+    {"ticker": "XBIUSD Curncy", "name": "Binance"},
+    {"ticker": "XBTUSD Curncy", "name": "Bitcoin"},
+    {"ticker": "XETUSD Curncy", "name": "Ethereum"},
+    {"ticker": "BGCI Index", "name": "Bloomberg Galaxy Crypto"},
+    {"ticker": "XVV Curncy", "name": "AAVE"},
+    {"ticker": "XRPUSD Curncy", "name": "Ripple"},
+]
+
+# Chart dimensions (hardcoded)
+CRYPTO_PNG_WIDTH_PX = 1963
+CRYPTO_PNG_HEIGHT_PX = 1134
+CRYPTO_PPT_WIDTH_CM = 17.31
+CRYPTO_PPT_HEIGHT_CM = 10.0
+CRYPTO_PPT_LEFT_CM = 3.35
+CRYPTO_PPT_TOP_CM = 4.6
+CRYPTO_HTML_SCALE = 3
+
+
+def _format_crypto_percentage(value: float) -> str:
+    """Format percentage with sign."""
+    if value >= 0:
+        return f"+{value:.1f}%"
+    else:
+        return f"{value:.1f}%"
+
+
+def create_weekly_html_performance_chart(
+    excel_path: Union[str, pathlib.Path],
+    *,
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate HTML-based weekly crypto performance bar chart.
+
+    Returns:
+        Tuple of (PNG bytes, effective date used for computation)
+    """
+    # Get all tickers from configuration
+    tickers = [c["ticker"] for c in CRYPTO_CONFIG]
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    today = df_adj["Date"].max()
+
+    # Compute 1W returns for all cryptos
+    rows_data = []
+    for config in CRYPTO_CONFIG:
+        ticker = config["ticker"]
+        # Skip if ticker not in dataframe
+        if ticker not in df_adj.columns:
+            continue
+        try:
+            ret_val = _compute_horizon_returns(df_adj, ticker, today, 7)
+            if pd.isna(ret_val):
+                ret_val = 0.0
+        except Exception:
+            ret_val = 0.0
+
+        rows_data.append({
+            "name": config["name"],
+            "value": ret_val,
+        })
+
+    # Sort by value descending (best performers first)
+    rows_data.sort(key=lambda x: x["value"], reverse=True)
+
+    # Calculate max absolute value for bar scaling (minimum 5%)
+    valid_values = [abs(r["value"]) for r in rows_data if r["value"] != 0]
+    max_abs_value = max(valid_values) if valid_values else 5.0
+    max_abs_value = max(max_abs_value, 5.0)  # At least 5%
+
+    # Prepare rows for template with highlight classes
+    prepared_rows = []
+    for i, row in enumerate(rows_data):
+        value = row["value"]
+        bar_width = abs(value) / max_abs_value * 48
+        bar_width = min(bar_width, 48)
+
+        # Determine highlight class
+        if i == 0:
+            highlight_class = "top-performer"
+        elif i == len(rows_data) - 1:
+            highlight_class = "worst-performer"
+        else:
+            highlight_class = ""
+
+        prepared_rows.append({
+            "name": row["name"],
+            "value": value,
+            "bar_class": "positive" if value >= 0 else "negative",
+            "bar_width": bar_width,
+            "value_class": "positive" if value >= 0 else "negative",
+            "formatted_value": _format_crypto_percentage(value),
+            "highlight_class": highlight_class,
+        })
+
+    # Calculate scale values
+    scale_values = {
+        "scale_min": f"-{max_abs_value:.0f}%",
+        "scale_mid_low": f"-{max_abs_value/2:.0f}%",
+        "scale_mid_high": f"+{max_abs_value/2:.0f}%",
+        "scale_max": f"+{max_abs_value:.0f}%",
+    }
+
+    # Render HTML template
+    template = Template(CRYPTO_WEEKLY_HTML_TEMPLATE)
+    html_content = template.render(
+        scale=CRYPTO_HTML_SCALE,
+        width=CRYPTO_PNG_WIDTH_PX,
+        height=CRYPTO_PNG_HEIGHT_PX,
+        rows=prepared_rows,
+        **scale_values,
+    )
+
+    # Convert HTML to PNG
+    hti = Html2Image(size=(CRYPTO_PNG_WIDTH_PX, CRYPTO_PNG_HEIGHT_PX))
+    hti.screenshot(html_str=html_content, save_as="crypto_weekly_temp.png")
+
+    # Read the generated PNG
+    with open("crypto_weekly_temp.png", "rb") as f:
+        png_bytes = f.read()
+
+    # Clean up temp file
+    import os
+    try:
+        os.remove("crypto_weekly_temp.png")
+    except Exception:
+        pass
+
+    return png_bytes, used_date
+
+
+def insert_crypto_weekly_html_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """Insert the HTML-based crypto weekly performance chart into PowerPoint."""
+    if not image_bytes:
+        return prs
+
+    # Find target slide by placeholder name
+    target_slide = None
+    placeholder_names = ["crypto_perf_1w", "crypto_perf_1week"]
+    name_candidates = [n.lower() for n in placeholder_names]
+    pattern_candidates = [f"[{n}]" for n in name_candidates]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in name_candidates:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower in [p.lower() for p in pattern_candidates]:
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print("[Crypto Weekly HTML] ERROR: Slide not found")
+        return prs
+
+    # Insert chart image with exact hardcoded dimensions
+    left = Cm(CRYPTO_PPT_LEFT_CM)
+    top = Cm(CRYPTO_PPT_TOP_CM)
+    width = Cm(CRYPTO_PPT_WIDTH_CM)
+    height = Cm(CRYPTO_PPT_HEIGHT_CM)
+
+    stream = io.BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    # Send picture to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[Crypto Weekly HTML] Chart inserted at ({CRYPTO_PPT_LEFT_CM}, {CRYPTO_PPT_TOP_CM}) cm")
+
+    # Update source placeholder if date available
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_candidates = ["crypto_1w_source"]
+        source_patterns = [f"[{n}]" for n in source_candidates]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in [n.lower() for n in source_candidates]:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    return prs

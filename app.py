@@ -1629,6 +1629,8 @@ try:
         create_historical_performance_table as create_historical_crypto_performance_table,
         insert_crypto_performance_bar_slide,
         insert_crypto_performance_histo_slide,
+        create_weekly_html_performance_chart as create_weekly_crypto_html_chart,
+        insert_crypto_weekly_html_slide,
     )
 except Exception:
     # If Crypto module not available, define no-op placeholders
@@ -1639,6 +1641,10 @@ except Exception:
     def insert_crypto_performance_bar_slide(prs, image_bytes, *args, **kwargs):
         return prs
     def insert_crypto_performance_histo_slide(prs, image_bytes, *args, **kwargs):
+        return prs
+    def create_weekly_crypto_html_chart(*args, **kwargs):
+        return (b"", None)
+    def insert_crypto_weekly_html_slide(prs, image_bytes, *args, **kwargs):
         return prs
 
 # Import Credit performance functions
@@ -5817,20 +5823,16 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         try:
             update_progress("Processing Crypto performance charts...")
-            # Generate the weekly crypto performance bar chart with price-mode adjustment
-            crypto_bar_bytes, crypto_used_date = create_weekly_crypto_performance_chart(
+            # Generate the weekly crypto performance bar chart (HTML-based)
+            crypto_bar_bytes, crypto_used_date = create_weekly_crypto_html_chart(
                 excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
-            prs = insert_crypto_performance_bar_slide(
+            prs = insert_crypto_weekly_html_slide(
                 prs,
                 crypto_bar_bytes,
                 used_date=crypto_used_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
-                left_cm=1.63,
-                top_cm=4.73,
-                width_cm=22.48,
-                height_cm=10.61,
             )
 
             # Generate the cryptocurrency historical performance heatmap with price-mode adjustment

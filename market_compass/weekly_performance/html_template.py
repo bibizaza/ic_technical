@@ -1907,3 +1907,189 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
+
+# =============================================================================
+# CRYPTO WEEKLY PERFORMANCE TEMPLATE
+# =============================================================================
+
+CRYPTO_WEEKLY_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: {{ 10 * scale }}px;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 4 * scale }}px;
+        }
+
+        /* Data rows */
+        .row {
+            display: flex;
+            align-items: center;
+            height: {{ 32 * scale }}px;
+            padding: 0 {{ 10 * scale }}px;
+            border-radius: {{ 5 * scale }}px;
+        }
+
+        .row:nth-child(even) {
+            background: #F8FAFC;
+        }
+
+        /* Top performer highlight */
+        .row.top-performer {
+            background: linear-gradient(90deg, rgba(201, 162, 39, 0.1), transparent);
+            border-left: {{ 3 * scale }}px solid #C9A227;
+        }
+
+        /* Worst performer highlight */
+        .row.worst-performer {
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1), transparent);
+            border-left: {{ 3 * scale }}px solid #EF4444;
+        }
+
+        /* Crypto label */
+        .crypto-col {
+            width: {{ 160 * scale }}px;
+            display: flex;
+            align-items: center;
+        }
+
+        .crypto-name {
+            font-size: {{ 10 * scale }}px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        /* Bar container */
+        .bar-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            padding: 0 {{ 12 * scale }}px;
+            position: relative;
+        }
+
+        .bar-track {
+            width: 100%;
+            height: {{ 5 * scale }}px;
+            background: #F1F5F9;
+            border-radius: {{ 3 * scale }}px;
+            position: relative;
+        }
+
+        /* Center line */
+        .center-line {
+            position: absolute;
+            left: 50%;
+            top: {{ -3 * scale }}px;
+            bottom: {{ -3 * scale }}px;
+            width: {{ 2 * scale }}px;
+            background: #CBD5E1;
+            border-radius: {{ 1 * scale }}px;
+            z-index: 10;
+        }
+
+        /* Bars */
+        .bar {
+            position: absolute;
+            height: {{ 12 * scale }}px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+
+        .bar.positive {
+            left: calc(50% + 1px);
+            background: linear-gradient(90deg, #4ADE80, #16A34A);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(34, 197, 94, 0.25);
+            border-radius: 0 {{ 6 * scale }}px {{ 6 * scale }}px 0;
+        }
+
+        .bar.negative {
+            right: calc(50% + 1px);
+            background: linear-gradient(270deg, #F87171, #DC2626);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(239, 68, 68, 0.25);
+            border-radius: {{ 6 * scale }}px 0 0 {{ 6 * scale }}px;
+        }
+
+        /* Performance value */
+        .performance {
+            width: {{ 60 * scale }}px;
+            text-align: right;
+            font-size: {{ 10 * scale }}px;
+            font-weight: 700;
+        }
+
+        .performance.positive { color: #16A34A; }
+        .performance.negative { color: #DC2626; }
+
+        /* Scale */
+        .scale {
+            display: flex;
+            justify-content: center;
+            padding: {{ 8 * scale }}px 0 0 0;
+            margin-left: {{ 172 * scale }}px;
+            margin-right: {{ 60 * scale }}px;
+        }
+
+        .scale-inner {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 {{ 12 * scale }}px;
+            font-size: {{ 7 * scale }}px;
+            color: #94A3B8;
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-container">
+        {% for row in rows %}
+        <div class="row {{ row.highlight_class }}">
+            <div class="crypto-col">
+                <span class="crypto-name">{{ row.name }}</span>
+            </div>
+            <div class="bar-container">
+                <div class="bar-track">
+                    <div class="center-line"></div>
+                    {% if row.value != 0 %}
+                    <div class="bar {{ row.bar_class }}" style="width: {{ row.bar_width }}%;"></div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="performance {{ row.value_class }}">{{ row.formatted_value }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="scale">
+        <div class="scale-inner">
+            <span>{{ scale_min }}</span>
+            <span>{{ scale_mid_low }}</span>
+            <span>0</span>
+            <span>{{ scale_mid_high }}</span>
+            <span>{{ scale_max }}</span>
+        </div>
+    </div>
+</body>
+</html>
+'''
