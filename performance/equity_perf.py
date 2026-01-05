@@ -843,6 +843,8 @@ def _compute_ytd_series(
 ) -> Tuple[List[str], List[float]]:
     """Compute weekly YTD performance series for a ticker.
 
+    Samples data to one point per week for clean chart rendering.
+
     Returns:
         Tuple of (week labels, YTD performance values as cumulative returns)
     """
@@ -885,24 +887,30 @@ def _compute_ytd_series(
         print(f"[DEBUG] {ticker}: no data for year {year}")
         return [], []
 
-    # Compute YTD return for EVERY data point (weekly granularity)
-    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    # Sample to WEEKLY data (one point per week) for clean chart
+    # Group by week number and take the last value of each week
+    df_year["Week"] = df_year["Date"].dt.isocalendar().week
+    df_year["Month"] = df_year["Date"].dt.month
 
     labels = []
     values = []
+    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    for _, row in df_year.iterrows():
-        price = row[ticker]
-        date = row["Date"]
-        if not pd.isna(price):
-            ytd_return = (price - baseline_price) / baseline_price * 100
-            # Create label showing month (e.g., "Jan", "Feb")
-            month_label = month_names[date.month - 1]
-            labels.append(month_label)
-            values.append(round(ytd_return, 1))
+    # Group by week and get last price of each week
+    for week_num in sorted(df_year["Week"].unique()):
+        week_data = df_year[df_year["Week"] == week_num]
+        if len(week_data) > 0:
+            last_row = week_data.iloc[-1]
+            price = last_row[ticker]
+            month = int(last_row["Month"])
+            if not pd.isna(price):
+                ytd_return = (price - baseline_price) / baseline_price * 100
+                # Use month name as label (will show once per ~4 weeks)
+                labels.append(month_names[month - 1])
+                values.append(round(ytd_return, 1))
 
-    print(f"[DEBUG] {ticker}: {len(values)} data points, first 5={values[:5]}, last 5={values[-5:]}")
+    print(f"[DEBUG] {ticker}: {len(values)} weekly points, first 5={values[:5]}, last 5={values[-5:]}")
     return labels, values
 
 
