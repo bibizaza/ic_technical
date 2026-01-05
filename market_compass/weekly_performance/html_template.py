@@ -1207,11 +1207,11 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .category-icon {
-            font-size: {{ 18 * scale }}px;
+            font-size: {{ 9 * scale }}px;
         }
 
         .category-name {
-            font-size: {{ 14 * scale }}px;
+            font-size: {{ 7 * scale }}px;
             font-weight: 600;
             color: #1B3A5A;
             text-transform: uppercase;
@@ -1227,15 +1227,13 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .commodity-row.top-performer {
-            border: {{ 2 * scale }}px solid #FFD700;
-            border-radius: {{ 4 * scale }}px;
-            background: rgba(255, 215, 0, 0.05);
+            background: linear-gradient(90deg, rgba(201, 162, 39, 0.1), transparent);
+            border-left: {{ 3 * scale }}px solid #C9A227;
         }
 
         .commodity-row.worst-performer {
-            border: {{ 2 * scale }}px solid #DC3545;
-            border-radius: {{ 4 * scale }}px;
-            background: rgba(220, 53, 69, 0.05);
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1), transparent);
+            border-left: {{ 3 * scale }}px solid #EF4444;
         }
 
         .commodity-icon {
@@ -1248,7 +1246,7 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
             font-size: {{ 12 * scale }}px;
             font-weight: 500;
             color: #333;
-            width: {{ 100 * scale }}px;
+            width: {{ 110 * scale }}px;
         }
 
         .bar-container {
@@ -1257,6 +1255,7 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
             align-items: center;
             height: {{ 14 * scale }}px;
             position: relative;
+            padding: 0 {{ 15 * scale }}px;
         }
 
         .bar-track {
@@ -1285,18 +1284,20 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
 
         .bar.positive {
             left: 50%;
+            background: linear-gradient(90deg, #4ADE80, #16A34A);
+            opacity: 1;
         }
 
         .bar.negative {
             right: 50%;
         }
 
-        /* Color classes for positive performance */
-        .positive-1 { background: linear-gradient(90deg, #c8e6c9, #a5d6a7); }
-        .positive-2 { background: linear-gradient(90deg, #a5d6a7, #81c784); }
-        .positive-3 { background: linear-gradient(90deg, #81c784, #66bb6a); }
-        .positive-4 { background: linear-gradient(90deg, #66bb6a, #4caf50); }
-        .positive-5 { background: linear-gradient(90deg, #4caf50, #43a047); }
+        /* Color classes for positive performance - vibrant greens */
+        .positive-1 { background: linear-gradient(90deg, #4ADE80, #22C55E); }
+        .positive-2 { background: linear-gradient(90deg, #22C55E, #16A34A); }
+        .positive-3 { background: linear-gradient(90deg, #16A34A, #15803D); }
+        .positive-4 { background: linear-gradient(90deg, #15803D, #166534); }
+        .positive-5 { background: linear-gradient(90deg, #166534, #14532D); }
 
         /* Color classes for negative performance */
         .negative-1 { background: linear-gradient(270deg, #ffcdd2, #ef9a9a); }
