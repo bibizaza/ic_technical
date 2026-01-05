@@ -869,6 +869,7 @@ def create_historical_html_performance_chart(
             items_data.append({
                 "name": item["name"],
                 "icon": item["icon"],
+                "ytd_value": ytd,  # Keep raw value for sorting
                 "ytd_formatted": _format_historical_percentage(ytd),
                 "ytd_class": _get_commodity_historical_color_class(ytd),
                 "m1_formatted": _format_historical_percentage(m1),
@@ -880,6 +881,9 @@ def create_historical_html_performance_chart(
                 "m12_formatted": _format_historical_percentage(m12),
                 "m12_class": _get_commodity_historical_color_class(m12),
             })
+
+        # Sort items by YTD descending (best performers first)
+        items_data.sort(key=lambda x: x["ytd_value"], reverse=True)
 
         categories_data.append({
             "name": cat["name"],
@@ -969,7 +973,7 @@ def insert_commodity_historical_html_slide(
         date_str = used_date.strftime("%d/%m/%Y")
         suffix = " Close" if price_mode.lower() == "last close" else ""
         source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
-        source_candidates = ["commo_hist_source"]
+        source_candidates = ["commo_hist_source", "commo_1w_source2"]
         source_patterns = [f"[{n}]" for n in source_candidates]
 
         for shape in target_slide.shapes:
