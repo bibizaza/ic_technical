@@ -843,25 +843,45 @@ def _compute_ytd_series(
     """Compute YTD performance series for a ticker.
 
     Returns:
-        Tuple of (month labels, YTD performance values)
+        Tuple of (month labels, YTD performance values as cumulative returns)
     """
     if ticker not in df.columns:
+        print(f"[DEBUG] {ticker} not in columns")
         return [], []
 
     # Get the year of the last data point
     last_date = df["Date"].max()
     year = last_date.year
 
-    # Get start of year price
+    print(f"[DEBUG] {ticker}: last_date={last_date}, year={year}")
+
+    # Get start of year - use Dec 31 of previous year to get baseline
+    start_of_prev_year = pd.Timestamp(year=year-1, month=12, day=31)
     start_of_year = pd.Timestamp(year=year, month=1, day=1)
+
+    # Get baseline price (last price of previous year or first price of current year)
+    baseline_df = df[df["Date"] <= start_of_prev_year]
+    if len(baseline_df) > 0:
+        baseline_price = baseline_df[ticker].iloc[-1]
+    else:
+        # Fall back to first available price of the year
+        year_df = df[df["Date"] >= start_of_year]
+        if len(year_df) == 0:
+            print(f"[DEBUG] {ticker}: no data for year {year}")
+            return [], []
+        baseline_price = year_df[ticker].iloc[0]
+
+    if pd.isna(baseline_price) or baseline_price == 0:
+        print(f"[DEBUG] {ticker}: invalid baseline price {baseline_price}")
+        return [], []
+
+    print(f"[DEBUG] {ticker}: baseline_price={baseline_price}")
+
+    # Filter to current year data
     df_year = df[df["Date"] >= start_of_year].copy()
 
     if len(df_year) == 0:
-        return [], []
-
-    # Get first available price of the year (baseline)
-    baseline_price = df_year[ticker].iloc[0]
-    if pd.isna(baseline_price) or baseline_price == 0:
+        print(f"[DEBUG] {ticker}: no data for year {year}")
         return [], []
 
     # Group by month and get last price of each month
@@ -881,6 +901,7 @@ def _compute_ytd_series(
                 labels.append(month_names[month - 1])
                 values.append(round(ytd_return, 1))
 
+    print(f"[DEBUG] {ticker}: labels={labels}, values={values}")
     return labels, values
 
 
@@ -907,6 +928,10 @@ def create_equity_ytd_evolution_chart(
     # Load and adjust price data
     df = _load_price_data(excel_path, tickers)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+
+    print(f"[DEBUG] Raw data date range: {df['Date'].min()} to {df['Date'].max()}, rows={len(df)}")
+    print(f"[DEBUG] Adjusted data date range: {df_adj['Date'].min()} to {df_adj['Date'].max()}, rows={len(df_adj)}")
+    print(f"[DEBUG] used_date from adjust_prices_for_mode: {used_date}")
 
     if used_date is None:
         used_date = df_adj["Date"].max()
@@ -937,6 +962,12 @@ def create_equity_ytd_evolution_chart(
     for dataset in datasets:
         while len(dataset["data"]) < max_len:
             dataset["data"].append(None)
+
+    # Debug output
+    print(f"[DEBUG] chart_title={chart_title}")
+    print(f"[DEBUG] all_labels={all_labels} (len={len(all_labels)})")
+    for ds in datasets:
+        print(f"[DEBUG] {ds['label']}: data={ds['data']} (len={len(ds['data'])})")
 
     # Render HTML template
     template = Template(EQUITY_YTD_EVOLUTION_HTML_TEMPLATE)
