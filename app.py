@@ -1600,6 +1600,8 @@ try:
         insert_fx_performance_histo_slide,
         create_weekly_html_performance_chart as create_weekly_fx_html_chart,
         insert_fx_weekly_html_slide,
+        create_historical_html_performance_chart as create_historical_fx_html_chart,
+        insert_fx_historical_html_slide,
     )
 except Exception:
     # If FX module not available, define no-op placeholders
@@ -1614,6 +1616,10 @@ except Exception:
     def create_weekly_fx_html_chart(*args, **kwargs):
         return (b"", None)
     def insert_fx_weekly_html_slide(prs, image_bytes, *args, **kwargs):
+        return prs
+    def create_historical_fx_html_chart(*args, **kwargs):
+        return (b"", None)
+    def insert_fx_historical_html_slide(prs, image_bytes, *args, **kwargs):
         return prs
 
 # Import Crypto performance functions
@@ -5792,20 +5798,16 @@ def show_generate_presentation_page():
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
 
-            # Generate the FX historical performance heatmap with price-mode adjustment
-            fx_histo_bytes, fx_used_date2 = create_historical_fx_performance_table(
+            # Generate the FX historical performance heatmap with price-mode adjustment (HTML-based)
+            fx_histo_bytes, fx_used_date2 = create_historical_fx_html_chart(
                 excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
-            prs = insert_fx_performance_histo_slide(
+            prs = insert_fx_historical_html_slide(
                 prs,
                 fx_histo_bytes,
                 used_date=fx_used_date2,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
-                left_cm=2.16,
-                top_cm=4.70,
-                width_cm=19.43,
-                height_cm=10.61,
             )
         except Exception as e:
             print(f"FX performance charts error: {e}")

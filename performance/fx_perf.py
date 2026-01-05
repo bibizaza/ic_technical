@@ -59,7 +59,10 @@ from jinja2 import Template
 from html2image import Html2Image
 
 from utils import adjust_prices_for_mode
-from market_compass.weekly_performance.html_template import CURRENCY_WEEKLY_HTML_TEMPLATE
+from market_compass.weekly_performance.html_template import (
+    CURRENCY_WEEKLY_HTML_TEMPLATE,
+    CURRENCY_HISTORICAL_HTML_TEMPLATE,
+)
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -867,6 +870,249 @@ def insert_fx_weekly_html_slide(
         suffix = " Close" if price_mode.lower() == "last close" else ""
         source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
         source_candidates = ["fx_1w_source", "fx_perf_1w_source"]
+        source_patterns = [f"[{n}]" for n in source_candidates]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in [n.lower() for n in source_candidates]:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    return prs
+
+
+# =============================================================================
+# HTML-BASED CURRENCY HISTORICAL PERFORMANCE HEATMAP
+# =============================================================================
+
+# Chart dimensions for historical heatmap (hardcoded)
+FX_HIST_PNG_WIDTH_PX = 1930
+FX_HIST_PNG_HEIGHT_PX = 1200
+FX_HIST_PPT_WIDTH_CM = 17.02
+FX_HIST_PPT_HEIGHT_CM = 10.58
+FX_HIST_PPT_LEFT_CM = 3.35
+FX_HIST_PPT_TOP_CM = 5.5
+FX_HIST_HTML_SCALE = 3
+
+
+def _get_color_class_for_value(value: float) -> str:
+    """Get the CSS color class for a value using fixed thresholds.
+
+    Thresholds: 3%, 8%, 15%, 25%
+    """
+    abs_val = abs(value)
+
+    if abs_val < 0.5:
+        return "neutral"
+
+    if value > 0:
+        if abs_val >= 25:
+            return "positive-5"
+        elif abs_val >= 15:
+            return "positive-4"
+        elif abs_val >= 8:
+            return "positive-3"
+        elif abs_val >= 3:
+            return "positive-2"
+        else:
+            return "positive-1"
+    else:
+        if abs_val >= 25:
+            return "negative-5"
+        elif abs_val >= 15:
+            return "negative-4"
+        elif abs_val >= 8:
+            return "negative-3"
+        elif abs_val >= 3:
+            return "negative-2"
+        else:
+            return "negative-1"
+
+
+def _format_percentage_with_sign(value: float) -> str:
+    """Format percentage value with sign."""
+    if pd.isna(value):
+        return "N/A"
+    if value >= 0:
+        return f"+{value:.1f}%"
+    else:
+        return f"{value:.1f}%"
+
+
+def create_historical_html_performance_chart(
+    excel_path: Union[str, pathlib.Path],
+    *,
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate HTML-based historical currency performance heatmap.
+
+    Returns:
+        Tuple of (PNG bytes, effective date used for computation)
+    """
+    # Get all tickers from configuration
+    tickers = [c["ticker"] for c in CURRENCY_CONFIG]
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    today = df_adj["Date"].max()
+
+    # Build row data with returns for all horizons
+    rows_data = []
+    for config in CURRENCY_CONFIG:
+        ticker = config["ticker"]
+
+        # Calculate returns for all horizons
+        ret_ytd = float("nan")
+        start_of_year = pd.Timestamp(year=today.year, month=1, day=1)
+        past_series = df_adj.loc[df_adj["Date"] <= start_of_year, ticker]
+        if len(past_series) > 0:
+            past_price = past_series.iloc[-1]
+            current_price = df_adj[ticker].iloc[-1]
+            if past_price and not pd.isna(past_price):
+                ret_ytd = (current_price - past_price) / past_price * 100.0
+
+        ret_1m = _compute_horizon_returns(df_adj, ticker, today, 30)
+        ret_3m = _compute_horizon_returns(df_adj, ticker, today, 90)
+        ret_6m = _compute_horizon_returns(df_adj, ticker, today, 180)
+        ret_12m = _compute_horizon_returns(df_adj, ticker, today, 365)
+
+        rows_data.append({
+            "name": config["name"],
+            "flag": config["flag"],
+            "ytd_value": ret_ytd if not pd.isna(ret_ytd) else 0.0,
+            "m1_value": ret_1m if not pd.isna(ret_1m) else 0.0,
+            "m3_value": ret_3m if not pd.isna(ret_3m) else 0.0,
+            "m6_value": ret_6m if not pd.isna(ret_6m) else 0.0,
+            "m12_value": ret_12m if not pd.isna(ret_12m) else 0.0,
+        })
+
+    # Sort by YTD descending (best performers first)
+    rows_data.sort(key=lambda x: x["ytd_value"], reverse=True)
+
+    # Prepare rows for template
+    prepared_rows = []
+    for row in rows_data:
+        prepared_rows.append({
+            "name": row["name"],
+            "flag": row["flag"],
+            "ytd_formatted": _format_percentage_with_sign(row["ytd_value"]),
+            "ytd_class": _get_color_class_for_value(row["ytd_value"]),
+            "m1_formatted": _format_percentage_with_sign(row["m1_value"]),
+            "m1_class": _get_color_class_for_value(row["m1_value"]),
+            "m3_formatted": _format_percentage_with_sign(row["m3_value"]),
+            "m3_class": _get_color_class_for_value(row["m3_value"]),
+            "m6_formatted": _format_percentage_with_sign(row["m6_value"]),
+            "m6_class": _get_color_class_for_value(row["m6_value"]),
+            "m12_formatted": _format_percentage_with_sign(row["m12_value"]),
+            "m12_class": _get_color_class_for_value(row["m12_value"]),
+        })
+
+    # Render HTML template
+    template = Template(CURRENCY_HISTORICAL_HTML_TEMPLATE)
+    html_content = template.render(
+        scale=FX_HIST_HTML_SCALE,
+        width=FX_HIST_PNG_WIDTH_PX,
+        height=FX_HIST_PNG_HEIGHT_PX,
+        rows=prepared_rows,
+    )
+
+    # Convert HTML to PNG
+    hti = Html2Image(size=(FX_HIST_PNG_WIDTH_PX, FX_HIST_PNG_HEIGHT_PX))
+    hti.screenshot(html_str=html_content, save_as="fx_historical_temp.png")
+
+    # Read the generated PNG
+    with open("fx_historical_temp.png", "rb") as f:
+        png_bytes = f.read()
+
+    # Clean up temp file
+    import os
+    try:
+        os.remove("fx_historical_temp.png")
+    except Exception:
+        pass
+
+    return png_bytes, used_date
+
+
+def insert_fx_historical_html_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """Insert the HTML-based currency historical performance heatmap into PowerPoint."""
+    if not image_bytes:
+        return prs
+
+    # Find target slide by placeholder name
+    target_slide = None
+    placeholder_names = ["fx_perf_histo"]
+    name_candidates = [n.lower() for n in placeholder_names]
+    pattern_candidates = [f"[{n}]" for n in name_candidates]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in name_candidates:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower in [p.lower() for p in pattern_candidates]:
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print("[FX Historical HTML] ERROR: Slide not found")
+        return prs
+
+    # Insert chart image with exact hardcoded dimensions
+    left = Cm(FX_HIST_PPT_LEFT_CM)
+    top = Cm(FX_HIST_PPT_TOP_CM)
+    width = Cm(FX_HIST_PPT_WIDTH_CM)
+    height = Cm(FX_HIST_PPT_HEIGHT_CM)
+
+    stream = io.BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    # Send picture to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[FX Historical HTML] Heatmap inserted at ({FX_HIST_PPT_LEFT_CM}, {FX_HIST_PPT_TOP_CM}) cm")
+
+    # Update source placeholder if date available
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_candidates = ["fx_1w_source2", "fx_hist_source"]
         source_patterns = [f"[{n}]" for n in source_candidates]
 
         for shape in target_slide.shapes:
