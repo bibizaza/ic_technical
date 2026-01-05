@@ -604,17 +604,38 @@ def create_weekly_html_performance_chart(
         for item in cat["items"]:
             all_tickers.append(item["ticker"])
 
-    print(f"[Commodity Weekly HTML] Loading data for {len(all_tickers)} tickers")
+    print(f"[Commodity Weekly HTML] Loading data for {len(all_tickers)} tickers: {all_tickers}")
 
     # Load and adjust price data
-    df = _load_price_data(excel_path, all_tickers)
-    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    try:
+        df = _load_price_data(excel_path, all_tickers)
+        print(f"[Commodity Weekly HTML] Data loaded: {len(df)} rows, columns: {list(df.columns)[:5]}...")
+    except Exception as e:
+        print(f"[Commodity Weekly HTML] ERROR in _load_price_data: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+    try:
+        df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+        print(f"[Commodity Weekly HTML] Price mode adjusted, used_date: {used_date}")
+    except Exception as e:
+        print(f"[Commodity Weekly HTML] ERROR in adjust_prices_for_mode: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
     today = df_adj["Date"].max()
+    print(f"[Commodity Weekly HTML] Today date: {today}")
 
     # Compute 1W returns for all commodities
     returns_dict = {}
     for ticker in all_tickers:
-        returns_dict[ticker] = _compute_horizon_returns(df_adj, ticker, today, 7)
+        try:
+            returns_dict[ticker] = _compute_horizon_returns(df_adj, ticker, today, 7)
+        except Exception as e:
+            print(f"[Commodity Weekly HTML] ERROR computing return for {ticker}: {e}")
+            returns_dict[ticker] = float("nan")
 
     # Find top and worst performers across all commodities
     all_returns = [(ticker, returns_dict.get(ticker, float("nan"))) for ticker in all_tickers]
