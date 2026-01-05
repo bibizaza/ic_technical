@@ -596,11 +596,15 @@ def create_weekly_html_performance_chart(
     Returns:
         Tuple of (PNG bytes, effective date used for computation)
     """
+    print(f"[Commodity Weekly HTML] Starting chart generation from {excel_path}")
+
     # Get all tickers from configuration
     all_tickers = []
     for cat in COMMODITY_CATEGORIES:
         for item in cat["items"]:
             all_tickers.append(item["ticker"])
+
+    print(f"[Commodity Weekly HTML] Loading data for {len(all_tickers)} tickers")
 
     # Load and adjust price data
     df = _load_price_data(excel_path, all_tickers)
@@ -681,6 +685,7 @@ def create_weekly_html_performance_chart(
     except Exception:
         pass
 
+    print(f"[Commodity Weekly HTML] Chart generated, size: {len(png_bytes)} bytes")
     return png_bytes, used_date
 
 
@@ -691,28 +696,36 @@ def insert_commodity_weekly_html_slide(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """Insert the HTML-based commodity weekly performance chart into PowerPoint."""
+    print(f"[Commodity Weekly HTML] Starting insert, image_bytes size: {len(image_bytes) if image_bytes else 0}")
+
+    if not image_bytes:
+        print("[Commodity Weekly HTML] WARNING: No image data to insert")
+        return prs
+
     # Find target slide by placeholder name
     target_slide = None
     placeholder_names = ["commo_perf_1w", "commo_perf_1week"]
     name_candidates = [n.lower() for n in placeholder_names]
     pattern_candidates = [f"[{n}]" for n in name_candidates]
 
-    for slide in prs.slides:
+    for slide_idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
             if name_attr in name_candidates:
                 target_slide = slide
+                print(f"[Commodity Weekly HTML] Found slide by shape name '{name_attr}' at slide {slide_idx}")
                 break
             if shape.has_text_frame:
                 text_lower = (shape.text or "").strip().lower()
                 if text_lower in [p.lower() for p in pattern_candidates]:
                     target_slide = slide
+                    print(f"[Commodity Weekly HTML] Found slide by text pattern at slide {slide_idx}")
                     break
         if target_slide:
             break
 
     if target_slide is None:
-        # Fallback to a default slide
+        print("[Commodity Weekly HTML] WARNING: Slide not found, using fallback")
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Insert chart image with exact hardcoded dimensions
@@ -729,6 +742,8 @@ def insert_commodity_weekly_html_slide(
     pic_element = picture._element
     spTree.remove(pic_element)
     spTree.insert(2, pic_element)
+
+    print(f"[Commodity Weekly HTML] Chart inserted at ({PPT_LEFT_CM}, {PPT_TOP_CM}) cm, size: {PPT_WIDTH_CM}x{PPT_HEIGHT_CM} cm")
 
     # Update source placeholder if date available
     if used_date is not None:
