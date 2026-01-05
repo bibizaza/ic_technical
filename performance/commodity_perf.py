@@ -657,10 +657,15 @@ def create_weekly_html_performance_chart(
 
     # Build category data for template
     print(f"[Commodity Weekly HTML] Building category data...")
+    print(f"[Commodity Weekly HTML] COMMODITY_CATEGORIES type: {type(COMMODITY_CATEGORIES)}")
     categories_data = []
-    for cat in COMMODITY_CATEGORIES:
+    for cat_idx, cat in enumerate(COMMODITY_CATEGORIES):
+        print(f"[Commodity Weekly HTML] Processing category {cat_idx}: {cat.get('name', 'unknown')}")
         items_data = []
-        for item in cat["items"]:
+        cat_items = cat["items"]
+        print(f"[Commodity Weekly HTML] cat_items type: {type(cat_items)}, len: {len(cat_items) if hasattr(cat_items, '__len__') else 'N/A'}")
+        for item_idx, item in enumerate(cat_items):
+            print(f"[Commodity Weekly HTML] Processing item {item_idx}: {item.get('name', 'unknown')}")
             ticker = item["ticker"]
             value = returns_dict.get(ticker, 0.0)
             if pd.isna(value):
@@ -676,7 +681,7 @@ def create_weekly_html_performance_chart(
             elif ticker == worst_ticker:
                 highlight_class = "worst-performer"
 
-            items_data.append(CommodityItem(
+            commodity_item = CommodityItem(
                 name=item["name"],
                 icon=item["icon"],
                 value=value,
@@ -686,13 +691,21 @@ def create_weekly_html_performance_chart(
                 color_class=_get_commodity_color_class(value),
                 value_class="positive-value" if value >= 0 else "negative-value",
                 highlight_class=highlight_class,
-            ))
+            )
+            items_data.append(commodity_item)
+            print(f"[Commodity Weekly HTML] Item added: {item['name']}")
+
+        print(f"[Commodity Weekly HTML] Converting items to dict...")
+        items_as_dicts = []
+        for item in items_data:
+            items_as_dicts.append(vars(item))
 
         categories_data.append({
             "name": cat["name"],
             "icon": cat["icon"],
-            "items": [vars(item) for item in items_data],
+            "items": items_as_dicts,
         })
+        print(f"[Commodity Weekly HTML] Category {cat['name']} complete with {len(items_as_dicts)} items")
 
     # Render HTML template
     template = Template(COMMODITIES_WEEKLY_HTML_TEMPLATE)
