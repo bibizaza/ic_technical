@@ -596,76 +596,38 @@ def create_weekly_html_performance_chart(
     Returns:
         Tuple of (PNG bytes, effective date used for computation)
     """
-    print(f"[Commodity Weekly HTML] Starting chart generation from {excel_path}")
-
     # Get all tickers from configuration
     all_tickers = []
     for cat in COMMODITY_CATEGORIES:
         for item in cat["items"]:
             all_tickers.append(item["ticker"])
 
-    print(f"[Commodity Weekly HTML] Loading data for {len(all_tickers)} tickers: {all_tickers}")
-
     # Load and adjust price data
-    try:
-        df = _load_price_data(excel_path, all_tickers)
-        print(f"[Commodity Weekly HTML] Data loaded: {len(df)} rows, columns: {list(df.columns)[:5]}...")
-    except Exception as e:
-        print(f"[Commodity Weekly HTML] ERROR in _load_price_data: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
-
-    try:
-        df_adj, used_date = adjust_prices_for_mode(df, price_mode)
-        print(f"[Commodity Weekly HTML] Price mode adjusted, used_date: {used_date}")
-    except Exception as e:
-        print(f"[Commodity Weekly HTML] ERROR in adjust_prices_for_mode: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
-
+    df = _load_price_data(excel_path, all_tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
     today = df_adj["Date"].max()
-    print(f"[Commodity Weekly HTML] Today date: {today}")
 
     # Compute 1W returns for all commodities
-    print(f"[Commodity Weekly HTML] Computing returns...")
     returns_dict = {}
     for ticker in all_tickers:
         try:
             ret_val = _compute_horizon_returns(df_adj, ticker, today, 7)
             returns_dict[ticker] = ret_val
-            print(f"[Commodity Weekly HTML] {ticker}: {ret_val:.2f}%")
-        except Exception as e:
-            print(f"[Commodity Weekly HTML] ERROR computing return for {ticker}: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
             returns_dict[ticker] = float("nan")
 
-    print(f"[Commodity Weekly HTML] Returns computed: {len(returns_dict)} tickers")
-
     # Find top and worst performers across all commodities
-    print(f"[Commodity Weekly HTML] Finding top/worst performers...")
     all_returns = [(ticker, returns_dict.get(ticker, float("nan"))) for ticker in all_tickers]
-    print(f"[Commodity Weekly HTML] all_returns: {all_returns}")
     valid_returns = [(t, r) for t, r in all_returns if not pd.isna(r)]
-    print(f"[Commodity Weekly HTML] valid_returns: {len(valid_returns)}")
 
     top_ticker = max(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
     worst_ticker = min(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
-    print(f"[Commodity Weekly HTML] Top: {top_ticker}, Worst: {worst_ticker}")
 
     # Build category data for template
-    print(f"[Commodity Weekly HTML] Building category data...")
-    print(f"[Commodity Weekly HTML] COMMODITY_CATEGORIES type: {type(COMMODITY_CATEGORIES)}")
     categories_data = []
-    for cat_idx, cat in enumerate(COMMODITY_CATEGORIES):
-        print(f"[Commodity Weekly HTML] Processing category {cat_idx}: {cat.get('name', 'unknown')}")
+    for cat in COMMODITY_CATEGORIES:
         items_data = []
-        cat_items = cat["items"]
-        print(f"[Commodity Weekly HTML] cat_items type: {type(cat_items)}, len: {len(cat_items) if hasattr(cat_items, '__len__') else 'N/A'}")
-        for item_idx, item in enumerate(cat_items):
-            print(f"[Commodity Weekly HTML] Processing item {item_idx}: {item.get('name', 'unknown')}")
+        for item in cat["items"]:
             ticker = item["ticker"]
             value = returns_dict.get(ticker, 0.0)
             if pd.isna(value):
@@ -693,19 +655,13 @@ def create_weekly_html_performance_chart(
                 highlight_class=highlight_class,
             )
             items_data.append(commodity_item)
-            print(f"[Commodity Weekly HTML] Item added: {item['name']}")
 
-        print(f"[Commodity Weekly HTML] Converting items to dict...")
-        items_as_dicts = []
-        for item in items_data:
-            items_as_dicts.append(vars(item))
-
+        items_as_dicts = [vars(item) for item in items_data]
         categories_data.append({
             "name": cat["name"],
             "icon": cat["icon"],
-            "items": items_as_dicts,
+            "commodities": items_as_dicts,
         })
-        print(f"[Commodity Weekly HTML] Category {cat['name']} complete with {len(items_as_dicts)} items")
 
     # Render HTML template
     template = Template(COMMODITIES_WEEKLY_HTML_TEMPLATE)
@@ -731,7 +687,6 @@ def create_weekly_html_performance_chart(
     except Exception:
         pass
 
-    print(f"[Commodity Weekly HTML] Chart generated, size: {len(png_bytes)} bytes")
     return png_bytes, used_date
 
 
@@ -742,10 +697,7 @@ def insert_commodity_weekly_html_slide(
     price_mode: str = "Last Price",
 ) -> Presentation:
     """Insert the HTML-based commodity weekly performance chart into PowerPoint."""
-    print(f"[Commodity Weekly HTML] Starting insert, image_bytes size: {len(image_bytes) if image_bytes else 0}")
-
     if not image_bytes:
-        print("[Commodity Weekly HTML] WARNING: No image data to insert")
         return prs
 
     # Find target slide by placeholder name
@@ -754,24 +706,21 @@ def insert_commodity_weekly_html_slide(
     name_candidates = [n.lower() for n in placeholder_names]
     pattern_candidates = [f"[{n}]" for n in name_candidates]
 
-    for slide_idx, slide in enumerate(prs.slides):
+    for slide in prs.slides:
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
             if name_attr in name_candidates:
                 target_slide = slide
-                print(f"[Commodity Weekly HTML] Found slide by shape name '{name_attr}' at slide {slide_idx}")
                 break
             if shape.has_text_frame:
                 text_lower = (shape.text or "").strip().lower()
                 if text_lower in [p.lower() for p in pattern_candidates]:
                     target_slide = slide
-                    print(f"[Commodity Weekly HTML] Found slide by text pattern at slide {slide_idx}")
                     break
         if target_slide:
             break
 
     if target_slide is None:
-        print("[Commodity Weekly HTML] WARNING: Slide not found, using fallback")
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
 
     # Insert chart image with exact hardcoded dimensions

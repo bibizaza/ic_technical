@@ -1324,7 +1324,7 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
                 <span class="category-icon">{{ category.icon }}</span>
                 <span class="category-name">{{ category.name }}</span>
             </div>
-            {% for item in category.items %}
+            {% for item in category.commodities %}
             <div class="commodity-row {{ item.highlight_class }}">
                 <span class="commodity-icon">{{ item.icon }}</span>
                 <span class="commodity-name">{{ item.name }}</span>
