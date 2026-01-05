@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import io
 import os
+import json
 import pathlib
 from datetime import datetime
 from typing import Dict, List, Tuple, Union, Optional
@@ -53,7 +54,7 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
-from jinja2 import Template
+from jinja2 import Template, Environment
 from html2image import Html2Image
 
 from utils import adjust_prices_for_mode
@@ -969,8 +970,11 @@ def create_equity_ytd_evolution_chart(
     for ds in datasets:
         print(f"[DEBUG] {ds['label']}: data={ds['data']} (len={len(ds['data'])})")
 
-    # Render HTML template
-    template = Template(EQUITY_YTD_EVOLUTION_HTML_TEMPLATE)
+    # Render HTML template with proper JSON serialization
+    # Create environment with tojson filter
+    env = Environment()
+    env.filters['tojson'] = json.dumps
+    template = env.from_string(EQUITY_YTD_EVOLUTION_HTML_TEMPLATE)
     html_content = template.render(
         width=EQUITY_YTD_PNG_WIDTH_PX,
         height=EQUITY_YTD_PNG_HEIGHT_PX,
@@ -979,6 +983,11 @@ def create_equity_ytd_evolution_chart(
         labels=all_labels,
         datasets=datasets,
     )
+
+    # Save HTML for debugging
+    with open("equity_ytd_debug.html", "w") as f:
+        f.write(html_content)
+    print(f"[DEBUG] HTML saved to equity_ytd_debug.html")
 
     # Convert HTML to PNG
     hti = Html2Image(size=(EQUITY_YTD_PNG_WIDTH_PX, EQUITY_YTD_PNG_HEIGHT_PX))
