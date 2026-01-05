@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import io
 import pathlib
+from dataclasses import dataclass
 from typing import Dict, List, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
@@ -45,8 +46,11 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
+from jinja2 import Template
+from html2image import Html2Image
 
 from utils import adjust_prices_for_mode
+from market_compass.weekly_performance.html_template import COMMODITIES_WEEKLY_HTML_TEMPLATE
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -495,3 +499,270 @@ def insert_commodity_performance_histo_slide(
         price_mode=price_mode,
         source_placeholder_names=["commo_1w_source2"],
     )
+
+
+###############################################################################
+# HTML-based Commodities Weekly Performance Chart
+###############################################################################
+
+# Commodity configuration with categories, icons, and tickers
+COMMODITY_CATEGORIES = [
+    {
+        "name": "Energy",
+        "icon": "⚡",
+        "items": [
+            {"ticker": "CL1 Comdty", "name": "Oil (WTI)", "icon": "🛢️"},
+            {"ticker": "CO1 Comdty", "name": "Oil (Brent)", "icon": "🛢️"},
+            {"ticker": "TTFG1MON OECM Index", "name": "Natural Gas (TTF)", "icon": "🔥"},
+        ]
+    },
+    {
+        "name": "Green Transition",
+        "icon": "🌱",
+        "items": [
+            {"ticker": "UXA1 Comdty", "name": "Uranium", "icon": "☢️"},
+            {"ticker": "LMY1 Comdty", "name": "Lithium", "icon": "🔋"},
+            {"ticker": "IMRU5 Comdty", "name": "Manganese", "icon": "⚡"},
+            {"ticker": "LP1 Comdty", "name": "Copper", "icon": "🔶"},
+            {"ticker": "CVT1 Comdty", "name": "Cobalt", "icon": "💎"},
+        ]
+    },
+    {
+        "name": "Precious Metals",
+        "icon": "💰",
+        "items": [
+            {"ticker": "GCA Comdty", "name": "Gold", "icon": "🏆"},
+            {"ticker": "SIA Comdty", "name": "Silver", "icon": "🥈"},
+            {"ticker": "XPT Comdty", "name": "Platinum", "icon": "💠"},
+            {"ticker": "XPD Curncy", "name": "Palladium", "icon": "🔘"},
+        ]
+    },
+]
+
+# Chart dimensions (hardcoded, no calculations)
+PNG_WIDTH_PX = 1963
+PNG_HEIGHT_PX = 1134
+PPT_WIDTH_CM = 17.31
+PPT_HEIGHT_CM = 10.0
+PPT_LEFT_CM = 3.35
+PPT_TOP_CM = 4.6
+HTML_SCALE = 3
+
+
+@dataclass
+class CommodityItem:
+    """Data for a single commodity row."""
+    name: str
+    icon: str
+    value: float
+    formatted_value: str
+    bar_direction: str
+    bar_width: float
+    color_class: str
+    value_class: str
+    highlight_class: str
+
+
+def _get_commodity_color_class(value: float) -> str:
+    """Return CSS class for bar color based on value intensity."""
+    abs_val = abs(value)
+    if abs_val < 1:
+        intensity = 1
+    elif abs_val < 2:
+        intensity = 2
+    elif abs_val < 4:
+        intensity = 3
+    elif abs_val < 6:
+        intensity = 4
+    else:
+        intensity = 5
+    prefix = "positive" if value >= 0 else "negative"
+    return f"{prefix}-{intensity}"
+
+
+def _format_commodity_percentage(value: float) -> str:
+    """Format percentage with sign."""
+    return f"{value:+.1f}%"
+
+
+def create_weekly_html_performance_chart(
+    excel_path: Union[str, pathlib.Path],
+    *,
+    price_mode: str = "Last Price",
+    max_bar_percent: float = 50.0,
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate HTML-based weekly commodity performance bar chart.
+
+    Returns:
+        Tuple of (PNG bytes, effective date used for computation)
+    """
+    # Get all tickers from configuration
+    all_tickers = []
+    for cat in COMMODITY_CATEGORIES:
+        for item in cat["items"]:
+            all_tickers.append(item["ticker"])
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, all_tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    today = df_adj["Date"].max()
+
+    # Compute 1W returns for all commodities
+    returns_dict = {}
+    for ticker in all_tickers:
+        returns_dict[ticker] = _compute_horizon_returns(df_adj, ticker, today, 7)
+
+    # Find top and worst performers across all commodities
+    all_returns = [(ticker, returns_dict.get(ticker, float("nan"))) for ticker in all_tickers]
+    valid_returns = [(t, r) for t, r in all_returns if not pd.isna(r)]
+
+    top_ticker = max(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
+    worst_ticker = min(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
+
+    # Build category data for template
+    categories_data = []
+    for cat in COMMODITY_CATEGORIES:
+        items_data = []
+        for item in cat["items"]:
+            ticker = item["ticker"]
+            value = returns_dict.get(ticker, 0.0)
+            if pd.isna(value):
+                value = 0.0
+
+            # Calculate bar width as percentage of max
+            bar_width = min(abs(value) / max_bar_percent * 50, 50)
+
+            # Determine highlight class
+            highlight_class = ""
+            if ticker == top_ticker:
+                highlight_class = "top-performer"
+            elif ticker == worst_ticker:
+                highlight_class = "worst-performer"
+
+            items_data.append(CommodityItem(
+                name=item["name"],
+                icon=item["icon"],
+                value=value,
+                formatted_value=_format_commodity_percentage(value),
+                bar_direction="positive" if value >= 0 else "negative",
+                bar_width=bar_width,
+                color_class=_get_commodity_color_class(value),
+                value_class="positive-value" if value >= 0 else "negative-value",
+                highlight_class=highlight_class,
+            ))
+
+        categories_data.append({
+            "name": cat["name"],
+            "icon": cat["icon"],
+            "items": [vars(item) for item in items_data],
+        })
+
+    # Render HTML template
+    template = Template(COMMODITIES_WEEKLY_HTML_TEMPLATE)
+    html_content = template.render(
+        scale=HTML_SCALE,
+        width=PNG_WIDTH_PX,
+        height=PNG_HEIGHT_PX,
+        categories=categories_data,
+    )
+
+    # Convert HTML to PNG
+    hti = Html2Image(size=(PNG_WIDTH_PX, PNG_HEIGHT_PX))
+    hti.screenshot(html_str=html_content, save_as="commodity_weekly_temp.png")
+
+    # Read the generated PNG
+    with open("commodity_weekly_temp.png", "rb") as f:
+        png_bytes = f.read()
+
+    # Clean up temp file
+    import os
+    try:
+        os.remove("commodity_weekly_temp.png")
+    except Exception:
+        pass
+
+    return png_bytes, used_date
+
+
+def insert_commodity_weekly_html_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """Insert the HTML-based commodity weekly performance chart into PowerPoint."""
+    # Find target slide by placeholder name
+    target_slide = None
+    placeholder_names = ["commo_perf_1w", "commo_perf_1week"]
+    name_candidates = [n.lower() for n in placeholder_names]
+    pattern_candidates = [f"[{n}]" for n in name_candidates]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in name_candidates:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower in [p.lower() for p in pattern_candidates]:
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        # Fallback to a default slide
+        target_slide = prs.slides[min(11, len(prs.slides) - 1)]
+
+    # Insert chart image with exact hardcoded dimensions
+    left = Cm(PPT_LEFT_CM)
+    top = Cm(PPT_TOP_CM)
+    width = Cm(PPT_WIDTH_CM)
+    height = Cm(PPT_HEIGHT_CM)
+
+    stream = io.BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    # Send picture to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    # Update source placeholder if date available
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_candidates = ["commo_1w_source"]
+        source_patterns = [f"[{n}]" for n in source_candidates]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in [n.lower() for n in source_candidates]:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    return prs

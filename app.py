@@ -1655,6 +1655,8 @@ try:
         create_historical_performance_table as create_historical_commodity_performance_table,
         insert_commodity_performance_bar_slide,
         insert_commodity_performance_histo_slide,
+        create_weekly_html_performance_chart as create_weekly_commodity_html_chart,
+        insert_commodity_weekly_html_slide,
     )
 except Exception:
     def create_weekly_commodity_performance_chart(*args, **kwargs):  # type: ignore
@@ -1664,6 +1666,10 @@ except Exception:
     def insert_commodity_performance_bar_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
         return prs
     def insert_commodity_performance_histo_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
+    def create_weekly_commodity_html_chart(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def insert_commodity_weekly_html_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
         return prs
     
 # Import Rates performance functions
@@ -5912,20 +5918,16 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         try:
             update_progress("Processing Commodity performance charts...")
-            # Generate the weekly commodity performance bar chart with price-mode adjustment
-            commo_bar_bytes, commo_used_date = create_weekly_commodity_performance_chart(
+            # Generate the weekly commodity performance bar chart (HTML-based)
+            commo_bar_bytes, commo_used_date = create_weekly_commodity_html_chart(
                 excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
-            prs = insert_commodity_performance_bar_slide(
+            prs = insert_commodity_weekly_html_slide(
                 prs,
                 commo_bar_bytes,
                 used_date=commo_used_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
-                left_cm=1.63,
-                top_cm=4.73,
-                width_cm=22.48,
-                height_cm=10.61,
             )
 
             # Generate the commodity historical performance heatmap with price-mode adjustment

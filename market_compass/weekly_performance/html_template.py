@@ -1156,3 +1156,189 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
+# Commodities Weekly Performance HTML template
+COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            background: transparent;
+            padding: {{ 20 * scale }}px;
+            width: {{ width }}px;
+            height: {{ height }}px;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 8 * scale }}px;
+            height: 100%;
+        }
+
+        .category-section {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 2 * scale }}px;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: {{ 8 * scale }}px;
+            padding: {{ 4 * scale }}px {{ 8 * scale }}px;
+            background: linear-gradient(90deg, #e8e8e8 0%, transparent 100%);
+            border-radius: {{ 4 * scale }}px;
+        }
+
+        .category-icon {
+            font-size: {{ 18 * scale }}px;
+        }
+
+        .category-name {
+            font-size: {{ 14 * scale }}px;
+            font-weight: 600;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: {{ 0.5 * scale }}px;
+        }
+
+        .commodity-row {
+            display: flex;
+            align-items: center;
+            gap: {{ 8 * scale }}px;
+            padding: {{ 2 * scale }}px {{ 8 * scale }}px;
+            height: {{ 22 * scale }}px;
+        }
+
+        .commodity-row.top-performer {
+            border: {{ 2 * scale }}px solid #FFD700;
+            border-radius: {{ 4 * scale }}px;
+            background: rgba(255, 215, 0, 0.05);
+        }
+
+        .commodity-row.worst-performer {
+            border: {{ 2 * scale }}px solid #DC3545;
+            border-radius: {{ 4 * scale }}px;
+            background: rgba(220, 53, 69, 0.05);
+        }
+
+        .commodity-icon {
+            font-size: {{ 14 * scale }}px;
+            width: {{ 20 * scale }}px;
+            text-align: center;
+        }
+
+        .commodity-name {
+            font-size: {{ 12 * scale }}px;
+            font-weight: 500;
+            color: #333;
+            width: {{ 100 * scale }}px;
+        }
+
+        .bar-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            height: {{ 14 * scale }}px;
+            position: relative;
+        }
+
+        .bar-track {
+            position: absolute;
+            width: 100%;
+            height: {{ 7 * scale }}px;
+            background: #f0f0f0;
+            border-radius: {{ 3 * scale }}px;
+        }
+
+        .bar-center {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: {{ 1 * scale }}px;
+            background: #999;
+        }
+
+        .bar {
+            position: absolute;
+            height: {{ 14 * scale }}px;
+            border-radius: {{ 3 * scale }}px;
+            min-width: {{ 2 * scale }}px;
+        }
+
+        .bar.positive {
+            left: 50%;
+        }
+
+        .bar.negative {
+            right: 50%;
+        }
+
+        /* Color classes for positive performance */
+        .positive-1 { background: linear-gradient(90deg, #c8e6c9, #a5d6a7); }
+        .positive-2 { background: linear-gradient(90deg, #a5d6a7, #81c784); }
+        .positive-3 { background: linear-gradient(90deg, #81c784, #66bb6a); }
+        .positive-4 { background: linear-gradient(90deg, #66bb6a, #4caf50); }
+        .positive-5 { background: linear-gradient(90deg, #4caf50, #43a047); }
+
+        /* Color classes for negative performance */
+        .negative-1 { background: linear-gradient(270deg, #ffcdd2, #ef9a9a); }
+        .negative-2 { background: linear-gradient(270deg, #ef9a9a, #e57373); }
+        .negative-3 { background: linear-gradient(270deg, #e57373, #ef5350); }
+        .negative-4 { background: linear-gradient(270deg, #ef5350, #f44336); }
+        .negative-5 { background: linear-gradient(270deg, #f44336, #e53935); }
+
+        .value-label {
+            font-size: {{ 11 * scale }}px;
+            font-weight: 600;
+            color: #333;
+            width: {{ 50 * scale }}px;
+            text-align: right;
+        }
+
+        .value-label.positive-value {
+            color: #2e7d32;
+        }
+
+        .value-label.negative-value {
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-container">
+        {% for category in categories %}
+        <div class="category-section">
+            <div class="category-header">
+                <span class="category-icon">{{ category.icon }}</span>
+                <span class="category-name">{{ category.name }}</span>
+            </div>
+            {% for item in category.items %}
+            <div class="commodity-row {{ item.highlight_class }}">
+                <span class="commodity-icon">{{ item.icon }}</span>
+                <span class="commodity-name">{{ item.name }}</span>
+                <div class="bar-container">
+                    <div class="bar-track"></div>
+                    <div class="bar-center"></div>
+                    <div class="bar {{ item.bar_direction }} {{ item.color_class }}" style="width: {{ item.bar_width }}%;"></div>
+                </div>
+                <span class="value-label {{ item.value_class }}">{{ item.formatted_value }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
+'''
