@@ -1366,3 +1366,194 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
+
+# =============================================================================
+# COMMODITIES HISTORICAL PERFORMANCE HEATMAP TEMPLATE
+# =============================================================================
+
+COMMODITIES_HISTORICAL_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: {{ 8 * scale }}px;
+        }
+
+        .table-container {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 1 * scale }}px;
+        }
+
+        /* Header row */
+        .header-row {
+            display: flex;
+            align-items: center;
+            padding: {{ 4 * scale }}px 0;
+        }
+
+        .header-row .market-col {
+            width: {{ 110 * scale }}px;
+        }
+
+        .header-row .period-col {
+            flex: 1;
+            text-align: center;
+            font-size: {{ 8 * scale }}px;
+            font-weight: 600;
+            color: #1B3A5A;
+        }
+
+        .header-row .period-col.ytd {
+            flex: 1.3;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            margin-right: {{ 8 * scale }}px;
+        }
+
+        /* Category group header */
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: {{ 5 * scale }}px;
+            padding: {{ 3 * scale }}px {{ 8 * scale }}px;
+            margin-top: {{ 3 * scale }}px;
+            background: #F8FAFC;
+            border-left: {{ 2 * scale }}px solid #1B3A5A;
+            border-radius: 0 {{ 3 * scale }}px {{ 3 * scale }}px 0;
+        }
+
+        .category-header:first-of-type {
+            margin-top: 0;
+        }
+
+        .category-header .category-icon {
+            font-size: {{ 9 * scale }}px;
+        }
+
+        .category-header .category-name {
+            font-size: {{ 7 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Data rows */
+        .data-row {
+            display: flex;
+            align-items: center;
+            gap: {{ 2 * scale }}px;
+            padding-left: {{ 12 * scale }}px;
+        }
+
+        .commodity-col {
+            width: {{ 98 * scale }}px;
+            display: flex;
+            align-items: center;
+            gap: {{ 4 * scale }}px;
+            padding-right: {{ 4 * scale }}px;
+        }
+
+        .commodity-icon {
+            font-size: {{ 9 * scale }}px;
+        }
+
+        .commodity-name {
+            font-size: {{ 7 * scale }}px;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        /* Value cells */
+        .value-cell {
+            flex: 1;
+            height: {{ 18 * scale }}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: {{ 3 * scale }}px;
+            font-size: {{ 6 * scale }}px;
+            font-weight: 600;
+            color: #FFFFFF;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* YTD column - emphasized */
+        .value-cell.ytd {
+            flex: 1.3;
+            height: {{ 22 * scale }}px;
+            font-size: {{ 8 * scale }}px;
+            font-weight: 700;
+            margin-right: {{ 8 * scale }}px;
+            border-radius: {{ 4 * scale }}px;
+            box-shadow: 0 {{ 2 * scale }}px {{ 6 * scale }}px rgba(0,0,0,0.15), 0 {{ 1 * scale }}px {{ 2 * scale }}px rgba(0,0,0,0.1);
+        }
+
+        /* Color scale - Positive (green) - 5 levels */
+        .positive-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
+        .positive-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
+        .positive-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .positive-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .positive-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+
+        /* Color scale - Negative (red) - 5 levels */
+        .negative-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
+        .negative-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
+        .negative-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .negative-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .negative-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+    </style>
+</head>
+<body>
+    <div class="table-container">
+        <!-- Header -->
+        <div class="header-row">
+            <div class="market-col"></div>
+            <div class="period-col ytd">YTD</div>
+            <div class="period-col">1M</div>
+            <div class="period-col">3M</div>
+            <div class="period-col">6M</div>
+            <div class="period-col">12M</div>
+        </div>
+
+        {% for category in categories %}
+        <!-- {{ category.name }} -->
+        <div class="category-header">
+            <span class="category-icon">{{ category.icon }}</span>
+            <span class="category-name">{{ category.name }}</span>
+        </div>
+        {% for item in category.items %}
+        <div class="data-row">
+            <div class="commodity-col">
+                <span class="commodity-icon">{{ item.icon }}</span>
+                <span class="commodity-name">{{ item.name }}</span>
+            </div>
+            <div class="value-cell ytd {{ item.ytd_class }}">{{ item.ytd_formatted }}</div>
+            <div class="value-cell {{ item.m1_class }}">{{ item.m1_formatted }}</div>
+            <div class="value-cell {{ item.m3_class }}">{{ item.m3_formatted }}</div>
+            <div class="value-cell {{ item.m6_class }}">{{ item.m6_formatted }}</div>
+            <div class="value-cell {{ item.m12_class }}">{{ item.m12_formatted }}</div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+</body>
+</html>
+'''

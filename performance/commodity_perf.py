@@ -49,7 +49,10 @@ from jinja2 import Template
 from html2image import Html2Image
 
 from utils import adjust_prices_for_mode
-from market_compass.weekly_performance.html_template import COMMODITIES_WEEKLY_HTML_TEMPLATE
+from market_compass.weekly_performance.html_template import (
+    COMMODITIES_WEEKLY_HTML_TEMPLATE,
+    COMMODITIES_HISTORICAL_HTML_TEMPLATE,
+)
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -710,6 +713,263 @@ def insert_commodity_weekly_html_slide(
         suffix = " Close" if price_mode.lower() == "last close" else ""
         source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
         source_candidates = ["commo_1w_source"]
+        source_patterns = [f"[{n}]" for n in source_candidates]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in [n.lower() for n in source_candidates]:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    return prs
+
+
+# =============================================================================
+# COMMODITIES HISTORICAL PERFORMANCE HEATMAP
+# =============================================================================
+
+# Historical chart dimensions
+HIST_PNG_WIDTH_PX = 1930
+HIST_PNG_HEIGHT_PX = 1200
+HIST_PPT_WIDTH_CM = 17.02
+HIST_PPT_LEFT_CM = 3.35
+HIST_PPT_TOP_CM = 4.6
+HIST_HTML_SCALE = 3
+
+
+def _get_commodity_historical_color_class(value: float) -> str:
+    """
+    Determine color class based on value magnitude.
+
+    Thresholds for commodities (higher volatility than bonds):
+    - level 1: 0-5%
+    - level 2: 5-15%
+    - level 3: 15-30%
+    - level 4: 30-50%
+    - level 5: >50%
+    """
+    abs_val = abs(value)
+    prefix = "positive" if value >= 0 else "negative"
+
+    if abs_val <= 5:
+        level = 1
+    elif abs_val <= 15:
+        level = 2
+    elif abs_val <= 30:
+        level = 3
+    elif abs_val <= 50:
+        level = 4
+    else:
+        level = 5
+
+    return f"{prefix}-{level}"
+
+
+def _format_historical_percentage(value: float) -> str:
+    """Format value as percentage string with sign."""
+    if value >= 0:
+        return f"+{value:.1f}%"
+    else:
+        return f"{value:.1f}%"
+
+
+def create_historical_html_performance_chart(
+    excel_path: Union[str, pathlib.Path],
+    *,
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate HTML-based historical commodity performance heatmap.
+
+    Returns:
+        Tuple of (PNG bytes, effective date used for computation)
+    """
+    # Get all tickers from configuration
+    all_tickers = []
+    for cat in COMMODITY_CATEGORIES:
+        for item in cat["items"]:
+            all_tickers.append(item["ticker"])
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, all_tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    today = df_adj["Date"].max()
+
+    # Compute returns for all horizons
+    horizons = {
+        "ytd": None,  # Special case for YTD
+        "m1": 30,
+        "m3": 90,
+        "m6": 180,
+        "m12": 365,
+    }
+
+    returns_dict = {}
+    for ticker in all_tickers:
+        returns_dict[ticker] = {}
+        for horizon_name, days in horizons.items():
+            try:
+                if horizon_name == "ytd":
+                    # YTD: from Jan 1 of current year
+                    year_start = pd.Timestamp(year=today.year, month=1, day=1)
+                    df_ticker = df_adj[df_adj["Date"] >= year_start]
+                    if ticker in df_ticker.columns and len(df_ticker) >= 2:
+                        first_price = df_ticker[ticker].dropna().iloc[0]
+                        last_price = df_ticker[ticker].dropna().iloc[-1]
+                        ret_val = ((last_price / first_price) - 1) * 100
+                    else:
+                        ret_val = float("nan")
+                else:
+                    ret_val = _compute_horizon_returns(df_adj, ticker, today, days)
+                returns_dict[ticker][horizon_name] = ret_val
+            except Exception:
+                returns_dict[ticker][horizon_name] = float("nan")
+
+    # Build category data for template
+    categories_data = []
+    for cat in COMMODITY_CATEGORIES:
+        items_data = []
+        for item in cat["items"]:
+            ticker = item["ticker"]
+            ticker_returns = returns_dict.get(ticker, {})
+
+            ytd = ticker_returns.get("ytd", 0.0)
+            m1 = ticker_returns.get("m1", 0.0)
+            m3 = ticker_returns.get("m3", 0.0)
+            m6 = ticker_returns.get("m6", 0.0)
+            m12 = ticker_returns.get("m12", 0.0)
+
+            # Replace NaN with 0
+            ytd = 0.0 if pd.isna(ytd) else ytd
+            m1 = 0.0 if pd.isna(m1) else m1
+            m3 = 0.0 if pd.isna(m3) else m3
+            m6 = 0.0 if pd.isna(m6) else m6
+            m12 = 0.0 if pd.isna(m12) else m12
+
+            items_data.append({
+                "name": item["name"],
+                "icon": item["icon"],
+                "ytd_formatted": _format_historical_percentage(ytd),
+                "ytd_class": _get_commodity_historical_color_class(ytd),
+                "m1_formatted": _format_historical_percentage(m1),
+                "m1_class": _get_commodity_historical_color_class(m1),
+                "m3_formatted": _format_historical_percentage(m3),
+                "m3_class": _get_commodity_historical_color_class(m3),
+                "m6_formatted": _format_historical_percentage(m6),
+                "m6_class": _get_commodity_historical_color_class(m6),
+                "m12_formatted": _format_historical_percentage(m12),
+                "m12_class": _get_commodity_historical_color_class(m12),
+            })
+
+        categories_data.append({
+            "name": cat["name"],
+            "icon": cat["icon"],
+            "items": items_data,
+        })
+
+    # Render HTML template
+    template = Template(COMMODITIES_HISTORICAL_HTML_TEMPLATE)
+    html_content = template.render(
+        scale=HIST_HTML_SCALE,
+        width=HIST_PNG_WIDTH_PX,
+        height=HIST_PNG_HEIGHT_PX,
+        categories=categories_data,
+    )
+
+    # Convert HTML to PNG
+    hti = Html2Image(size=(HIST_PNG_WIDTH_PX, HIST_PNG_HEIGHT_PX))
+    hti.screenshot(html_str=html_content, save_as="commodity_historical_temp.png")
+
+    # Read the generated PNG
+    with open("commodity_historical_temp.png", "rb") as f:
+        png_bytes = f.read()
+
+    # Clean up temp file
+    import os
+    try:
+        os.remove("commodity_historical_temp.png")
+    except Exception:
+        pass
+
+    return png_bytes, used_date
+
+
+def insert_commodity_historical_html_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """Insert the HTML-based commodity historical performance heatmap into PowerPoint."""
+    if not image_bytes:
+        return prs
+
+    # Find target slide by placeholder name
+    target_slide = None
+    placeholder_names = ["commo_perf_histo", "commo_perf_hist"]
+    name_candidates = [n.lower() for n in placeholder_names]
+    pattern_candidates = [f"[{n}]" for n in name_candidates]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in name_candidates:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower in [p.lower() for p in pattern_candidates]:
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print("[Commodity Historical HTML] ERROR: Slide not found")
+        return prs
+
+    # Insert chart image with exact hardcoded dimensions
+    left = Cm(HIST_PPT_LEFT_CM)
+    top = Cm(HIST_PPT_TOP_CM)
+    width = Cm(HIST_PPT_WIDTH_CM)
+
+    stream = io.BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width)
+
+    # Send picture to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[Commodity Historical HTML] Heatmap inserted at ({HIST_PPT_LEFT_CM}, {HIST_PPT_TOP_CM}) cm")
+
+    # Update source placeholder if date available
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_candidates = ["commo_hist_source"]
         source_patterns = [f"[{n}]" for n in source_candidates]
 
         for shape in target_slide.shapes:

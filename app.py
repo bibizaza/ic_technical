@@ -1657,6 +1657,8 @@ try:
         insert_commodity_performance_histo_slide,
         create_weekly_html_performance_chart as create_weekly_commodity_html_chart,
         insert_commodity_weekly_html_slide,
+        create_historical_html_performance_chart as create_historical_commodity_html_chart,
+        insert_commodity_historical_html_slide,
     )
 except Exception:
     def create_weekly_commodity_performance_chart(*args, **kwargs):  # type: ignore
@@ -1670,6 +1672,10 @@ except Exception:
     def create_weekly_commodity_html_chart(*args, **kwargs):  # type: ignore
         return (b"", None)
     def insert_commodity_weekly_html_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
+    def create_historical_commodity_html_chart(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def insert_commodity_historical_html_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
         return prs
     
 # Import Rates performance functions
@@ -5930,20 +5936,16 @@ def show_generate_presentation_page():
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
 
-            # Generate the commodity historical performance heatmap with price-mode adjustment
-            commo_histo_bytes, commo_used_date2 = create_historical_commodity_performance_table(
+            # Generate the commodity historical performance heatmap (HTML-based)
+            commo_histo_bytes, commo_used_date2 = create_historical_commodity_html_chart(
                 excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
-            prs = insert_commodity_performance_histo_slide(
+            prs = insert_commodity_historical_html_slide(
                 prs,
                 commo_histo_bytes,
                 used_date=commo_used_date2,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
-                left_cm=2.16,
-                top_cm=4.70,
-                width_cm=19.43,
-                height_cm=10.61,
             )
         except Exception as e:
             print(f"Commodity performance charts error: {e}")
