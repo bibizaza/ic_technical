@@ -817,10 +817,10 @@ EQUITY_YTD_CONFIG = {
 
 # Chart dimensions (hardcoded)
 EQUITY_YTD_PNG_WIDTH_PX = 2700
-EQUITY_YTD_PNG_HEIGHT_PX = 1500
+EQUITY_YTD_PNG_HEIGHT_PX = 1350
 EQUITY_YTD_PPT_WIDTH_CM = 23.0
 EQUITY_YTD_PPT_LEFT_CM = 0.5
-EQUITY_YTD_PPT_TOP_CM = 4.0
+EQUITY_YTD_PPT_TOP_CM = 4.2
 EQUITY_YTD_HTML_SCALE = 3
 
 
@@ -842,10 +842,10 @@ def _compute_ytd_series(
     df: pd.DataFrame,
     ticker: str,
 ) -> Tuple[List[str], List[float]]:
-    """Compute daily YTD performance series for a ticker.
+    """Compute weekly YTD performance series for a ticker.
 
-    Uses daily data from 01/01/YYYY to latest available date.
-    Baseline is the FIRST available price in the year (not Dec 31 of prev year).
+    Uses daily data from 01/01/YYYY, sampled to weekly (every 5th trading day).
+    Baseline is the FIRST available price in the year.
 
     Returns:
         Tuple of (date labels, YTD performance values as cumulative returns)
@@ -887,8 +887,8 @@ def _compute_ytd_series(
     month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    labels = []
-    values = []
+    daily_labels = []
+    daily_values = []
 
     for _, row in df_year.iterrows():
         price = row[ticker]
@@ -897,10 +897,19 @@ def _compute_ytd_series(
             ytd_return = (price - baseline_price) / baseline_price * 100
             # Use month name as label
             month_label = month_names[date.month - 1]
-            labels.append(month_label)
-            values.append(round(ytd_return, 1))
+            daily_labels.append(month_label)
+            daily_values.append(round(ytd_return, 1))
 
-    print(f"[DEBUG] {ticker}: {len(values)} daily points, first 5={values[:5]}, last 5={values[-5:]}")
+    # Sample to weekly (every 5th trading day)
+    weekly_indices = list(range(0, len(daily_values), 5))
+    # Always include the last point
+    if weekly_indices[-1] != len(daily_values) - 1:
+        weekly_indices.append(len(daily_values) - 1)
+
+    labels = [daily_labels[i] for i in weekly_indices]
+    values = [daily_values[i] for i in weekly_indices]
+
+    print(f"[DEBUG] {ticker}: {len(daily_values)} daily -> {len(values)} weekly points, first 5={values[:5]}, last 5={values[-5:]}")
     return labels, values
 
 
