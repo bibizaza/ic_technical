@@ -629,22 +629,34 @@ def create_weekly_html_performance_chart(
     print(f"[Commodity Weekly HTML] Today date: {today}")
 
     # Compute 1W returns for all commodities
+    print(f"[Commodity Weekly HTML] Computing returns...")
     returns_dict = {}
     for ticker in all_tickers:
         try:
-            returns_dict[ticker] = _compute_horizon_returns(df_adj, ticker, today, 7)
+            ret_val = _compute_horizon_returns(df_adj, ticker, today, 7)
+            returns_dict[ticker] = ret_val
+            print(f"[Commodity Weekly HTML] {ticker}: {ret_val:.2f}%")
         except Exception as e:
             print(f"[Commodity Weekly HTML] ERROR computing return for {ticker}: {e}")
+            import traceback
+            traceback.print_exc()
             returns_dict[ticker] = float("nan")
 
+    print(f"[Commodity Weekly HTML] Returns computed: {len(returns_dict)} tickers")
+
     # Find top and worst performers across all commodities
+    print(f"[Commodity Weekly HTML] Finding top/worst performers...")
     all_returns = [(ticker, returns_dict.get(ticker, float("nan"))) for ticker in all_tickers]
+    print(f"[Commodity Weekly HTML] all_returns: {all_returns}")
     valid_returns = [(t, r) for t, r in all_returns if not pd.isna(r)]
+    print(f"[Commodity Weekly HTML] valid_returns: {len(valid_returns)}")
 
     top_ticker = max(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
     worst_ticker = min(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
+    print(f"[Commodity Weekly HTML] Top: {top_ticker}, Worst: {worst_ticker}")
 
     # Build category data for template
+    print(f"[Commodity Weekly HTML] Building category data...")
     categories_data = []
     for cat in COMMODITY_CATEGORIES:
         items_data = []
