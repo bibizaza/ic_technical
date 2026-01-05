@@ -1181,23 +1181,29 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
         .chart-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 8 * scale }}px;
+            gap: {{ 1 * scale }}px;
             height: 100%;
         }
 
         .category-section {
             display: flex;
             flex-direction: column;
-            gap: {{ 2 * scale }}px;
+            gap: {{ 1 * scale }}px;
         }
 
         .category-header {
             display: flex;
             align-items: center;
             gap: {{ 8 * scale }}px;
-            padding: {{ 4 * scale }}px {{ 8 * scale }}px;
-            background: linear-gradient(90deg, #e8e8e8 0%, transparent 100%);
-            border-radius: {{ 4 * scale }}px;
+            padding: {{ 3 * scale }}px {{ 8 * scale }}px;
+            margin-top: {{ 2 * scale }}px;
+            background: #F8FAFC;
+            border-left: {{ 3 * scale }}px solid #1B3A5A;
+            border-radius: 0 {{ 4 * scale }}px {{ 4 * scale }}px 0;
+        }
+
+        .category-section:first-child .category-header {
+            margin-top: 0;
         }
 
         .category-icon {
@@ -1207,7 +1213,7 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
         .category-name {
             font-size: {{ 14 * scale }}px;
             font-weight: 600;
-            color: #333;
+            color: #1B3A5A;
             text-transform: uppercase;
             letter-spacing: {{ 0.5 * scale }}px;
         }
@@ -1217,7 +1223,7 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
             align-items: center;
             gap: {{ 8 * scale }}px;
             padding: {{ 2 * scale }}px {{ 8 * scale }}px;
-            height: {{ 22 * scale }}px;
+            height: {{ 18 * scale }}px;
         }
 
         .commodity-row.top-performer {

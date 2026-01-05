@@ -589,7 +589,6 @@ def create_weekly_html_performance_chart(
     excel_path: Union[str, pathlib.Path],
     *,
     price_mode: str = "Last Price",
-    max_bar_percent: float = 50.0,
 ) -> Tuple[bytes, Optional[pd.Timestamp]]:
     """Generate HTML-based weekly commodity performance bar chart.
 
@@ -623,6 +622,11 @@ def create_weekly_html_performance_chart(
     top_ticker = max(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
     worst_ticker = min(valid_returns, key=lambda x: x[1])[0] if valid_returns else None
 
+    # Calculate max absolute value for bar scaling (minimum 5%)
+    max_abs_value = max((abs(r) for _, r in valid_returns), default=5.0)
+    max_abs_value = max(max_abs_value, 5.0)  # At least 5%
+    print(f"DEBUG: max_abs_value = {max_abs_value}")
+
     # Build category data for template
     categories_data = []
     for cat in COMMODITY_CATEGORIES:
@@ -633,8 +637,9 @@ def create_weekly_html_performance_chart(
             if pd.isna(value):
                 value = 0.0
 
-            # Calculate bar width as percentage of max
-            bar_width = min(abs(value) / max_bar_percent * 50, 50)
+            # Calculate bar width as percentage of max (48% max to leave margin)
+            bar_width = abs(value) / max_abs_value * 48
+            print(f"DEBUG: {item['name']} value={value:.2f}% bar_width={bar_width:.1f}%")
 
             # Determine highlight class
             highlight_class = ""
