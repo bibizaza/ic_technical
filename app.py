@@ -1631,6 +1631,8 @@ try:
         insert_crypto_performance_histo_slide,
         create_weekly_html_performance_chart as create_weekly_crypto_html_chart,
         insert_crypto_weekly_html_slide,
+        create_historical_html_performance_chart as create_historical_crypto_html_chart,
+        insert_crypto_historical_html_slide,
     )
 except Exception:
     # If Crypto module not available, define no-op placeholders
@@ -1645,6 +1647,10 @@ except Exception:
     def create_weekly_crypto_html_chart(*args, **kwargs):
         return (b"", None)
     def insert_crypto_weekly_html_slide(prs, image_bytes, *args, **kwargs):
+        return prs
+    def create_historical_crypto_html_chart(*args, **kwargs):
+        return (b"", None)
+    def insert_crypto_historical_html_slide(prs, image_bytes, *args, **kwargs):
         return prs
 
 # Import Credit performance functions
@@ -5835,20 +5841,16 @@ def show_generate_presentation_page():
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
 
-            # Generate the cryptocurrency historical performance heatmap with price-mode adjustment
-            crypto_histo_bytes, crypto_used_date2 = create_historical_crypto_performance_table(
+            # Generate the cryptocurrency historical performance heatmap (HTML-based) with price-mode adjustment
+            crypto_histo_bytes, crypto_used_date2 = create_historical_crypto_html_chart(
                 excel_path_for_ppt,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
-            prs = insert_crypto_performance_histo_slide(
+            prs = insert_crypto_historical_html_slide(
                 prs,
                 crypto_histo_bytes,
                 used_date=crypto_used_date2,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
-                left_cm=2.16,
-                top_cm=4.70,
-                width_cm=19.43,
-                height_cm=10.61,
             )
         except Exception as e:
             print(f"Crypto performance charts error: {e}")

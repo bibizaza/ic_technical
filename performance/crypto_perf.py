@@ -58,7 +58,7 @@ from jinja2 import Template
 from html2image import Html2Image
 
 from utils import adjust_prices_for_mode
-from market_compass.weekly_performance.html_template import CRYPTO_WEEKLY_HTML_TEMPLATE
+from market_compass.weekly_performance.html_template import CRYPTO_WEEKLY_HTML_TEMPLATE, CRYPTO_HISTORICAL_HTML_TEMPLATE
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -723,6 +723,15 @@ CRYPTO_PPT_LEFT_CM = 3.35
 CRYPTO_PPT_TOP_CM = 4.6
 CRYPTO_HTML_SCALE = 3
 
+# Historical chart dimensions (hardcoded)
+CRYPTO_HIST_PNG_WIDTH_PX = 1930
+CRYPTO_HIST_PNG_HEIGHT_PX = 1100
+CRYPTO_HIST_PPT_WIDTH_CM = 17.02
+CRYPTO_HIST_PPT_HEIGHT_CM = 9.7
+CRYPTO_HIST_PPT_LEFT_CM = 3.35
+CRYPTO_HIST_PPT_TOP_CM = 4.6
+CRYPTO_HIST_HTML_SCALE = 3
+
 
 def _format_crypto_percentage(value: float) -> str:
     """Format percentage with sign."""
@@ -895,6 +904,224 @@ def insert_crypto_weekly_html_slide(
         suffix = " Close" if price_mode.lower() == "last close" else ""
         source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
         source_candidates = ["crypto_1w_source"]
+        source_patterns = [f"[{n}]" for n in source_candidates]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in [n.lower() for n in source_candidates]:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    return prs
+
+
+# =============================================================================
+# HTML-BASED CRYPTO HISTORICAL PERFORMANCE CHART
+# =============================================================================
+
+def _get_crypto_historical_color_class(value: float) -> str:
+    """Get color class for crypto historical heatmap with wider thresholds.
+
+    Crypto-specific thresholds (wider for volatility):
+    - Level 1: 0-10%
+    - Level 2: 10-50%
+    - Level 3: 50-100%
+    - Level 4: 100-200%
+    - Level 5: 200%+
+    """
+    if pd.isna(value):
+        return "neutral"
+
+    abs_val = abs(value)
+    prefix = "positive" if value >= 0 else "negative"
+
+    if abs_val >= 200:
+        return f"{prefix}-5"
+    elif abs_val >= 100:
+        return f"{prefix}-4"
+    elif abs_val >= 50:
+        return f"{prefix}-3"
+    elif abs_val >= 10:
+        return f"{prefix}-2"
+    elif abs_val > 0:
+        return f"{prefix}-1"
+    else:
+        return "neutral"
+
+
+def _format_crypto_large_percentage(value: float) -> str:
+    """Format large crypto percentages without decimal for values >= 100%."""
+    if pd.isna(value):
+        return "N/A"
+
+    sign = "+" if value >= 0 else ""
+    abs_val = abs(value)
+
+    # Large percentages without decimal
+    if abs_val >= 100:
+        return f"{sign}{value:.0f}%"
+    else:
+        return f"{sign}{value:.1f}%"
+
+
+def create_historical_html_performance_chart(
+    excel_path: Union[str, pathlib.Path],
+    *,
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate HTML-based crypto historical performance heatmap.
+
+    Features:
+    - 10 cryptocurrencies sorted by YTD
+    - Wider color thresholds for crypto volatility (10%, 50%, 100%, 200%)
+    - Large percentages without decimal (e.g., +520%)
+    - YTD column emphasized with larger font and shadow
+
+    Returns:
+        Tuple of (PNG bytes, effective date used for computation)
+    """
+    # Get all tickers from configuration
+    tickers = [c["ticker"] for c in CRYPTO_CONFIG]
+    ticker_to_name = {c["ticker"]: c["name"] for c in CRYPTO_CONFIG}
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+
+    # Build returns table
+    perf = _build_returns_table(df_adj, ticker_to_name)
+
+    # Sort by YTD descending
+    perf_sorted = perf.sort_values("YTD", ascending=False).reset_index(drop=True)
+
+    # Prepare rows for template
+    rows_data = []
+    for _, row in perf_sorted.iterrows():
+        ytd_val = row["YTD"] if not pd.isna(row["YTD"]) else 0.0
+        m1_val = row["1M"] if not pd.isna(row["1M"]) else 0.0
+        m3_val = row["3M"] if not pd.isna(row["3M"]) else 0.0
+        m6_val = row["6M"] if not pd.isna(row["6M"]) else 0.0
+        m12_val = row["12M"] if not pd.isna(row["12M"]) else 0.0
+
+        rows_data.append({
+            "name": row["Name"],
+            "ytd_class": _get_crypto_historical_color_class(ytd_val),
+            "ytd_formatted": _format_crypto_large_percentage(ytd_val),
+            "m1_class": _get_crypto_historical_color_class(m1_val),
+            "m1_formatted": _format_crypto_large_percentage(m1_val),
+            "m3_class": _get_crypto_historical_color_class(m3_val),
+            "m3_formatted": _format_crypto_large_percentage(m3_val),
+            "m6_class": _get_crypto_historical_color_class(m6_val),
+            "m6_formatted": _format_crypto_large_percentage(m6_val),
+            "m12_class": _get_crypto_historical_color_class(m12_val),
+            "m12_formatted": _format_crypto_large_percentage(m12_val),
+        })
+
+    # Render HTML template
+    template = Template(CRYPTO_HISTORICAL_HTML_TEMPLATE)
+    html_content = template.render(
+        scale=CRYPTO_HIST_HTML_SCALE,
+        width=CRYPTO_HIST_PNG_WIDTH_PX,
+        height=CRYPTO_HIST_PNG_HEIGHT_PX,
+        rows=rows_data,
+    )
+
+    # Convert HTML to PNG
+    hti = Html2Image(size=(CRYPTO_HIST_PNG_WIDTH_PX, CRYPTO_HIST_PNG_HEIGHT_PX))
+    hti.screenshot(html_str=html_content, save_as="crypto_hist_temp.png")
+
+    # Read the generated PNG
+    with open("crypto_hist_temp.png", "rb") as f:
+        png_bytes = f.read()
+
+    # Clean up temp file
+    import os
+    try:
+        os.remove("crypto_hist_temp.png")
+    except Exception:
+        pass
+
+    return png_bytes, used_date
+
+
+def insert_crypto_historical_html_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """Insert the HTML-based crypto historical performance chart into PowerPoint."""
+    if not image_bytes:
+        return prs
+
+    # Find target slide by placeholder name
+    target_slide = None
+    placeholder_names = ["crypto_perf_histo"]
+    name_candidates = [n.lower() for n in placeholder_names]
+    pattern_candidates = [f"[{n}]" for n in name_candidates]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in name_candidates:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower in [p.lower() for p in pattern_candidates]:
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print("[Crypto Historical HTML] ERROR: Slide not found")
+        return prs
+
+    # Insert chart image with exact hardcoded dimensions
+    left = Cm(CRYPTO_HIST_PPT_LEFT_CM)
+    top = Cm(CRYPTO_HIST_PPT_TOP_CM)
+    width = Cm(CRYPTO_HIST_PPT_WIDTH_CM)
+    height = Cm(CRYPTO_HIST_PPT_HEIGHT_CM)
+
+    stream = io.BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    # Send picture to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[Crypto Historical HTML] Chart inserted at ({CRYPTO_HIST_PPT_LEFT_CM}, {CRYPTO_HIST_PPT_TOP_CM}) cm")
+
+    # Update source placeholder if date available
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_candidates = ["crypto_1w_source2"]
         source_patterns = [f"[{n}]" for n in source_candidates]
 
         for shape in target_slide.shapes:
