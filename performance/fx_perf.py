@@ -55,8 +55,11 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
+from jinja2 import Template
+from html2image import Html2Image
 
 from utils import adjust_prices_for_mode
+from market_compass.weekly_performance.html_template import CURRENCY_WEEKLY_HTML_TEMPLATE
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -664,3 +667,233 @@ def insert_fx_performance_histo_slide(
         price_mode=price_mode,
         source_placeholder_names=["fx_1w_source2"],
     )
+
+
+# =============================================================================
+# HTML-BASED CURRENCY WEEKLY PERFORMANCE CHART
+# =============================================================================
+
+# Currency configuration with flags
+CURRENCY_CONFIG = [
+    {"ticker": "DXY Curncy", "name": "Dollar Index", "flag": "🇺🇸"},
+    {"ticker": "EURCHF Curncy", "name": "EUR/CHF", "flag": "🇨🇭"},
+    {"ticker": "EURJPY Curncy", "name": "EUR/JPY", "flag": "🇯🇵"},
+    {"ticker": "EURMXN Curncy", "name": "EUR/MXN", "flag": "🇲🇽"},
+    {"ticker": "EURUSD Curncy", "name": "EUR/USD", "flag": "🇺🇸"},
+    {"ticker": "EURBRL Curncy", "name": "EUR/BRL", "flag": "🇧🇷"},
+]
+
+# Chart dimensions (hardcoded)
+FX_PNG_WIDTH_PX = 1963
+FX_PNG_HEIGHT_PX = 1134
+FX_PPT_WIDTH_CM = 17.31
+FX_PPT_HEIGHT_CM = 10.0
+FX_PPT_LEFT_CM = 3.35
+FX_PPT_TOP_CM = 5.5
+FX_HTML_SCALE = 3
+
+
+def _format_fx_percentage(value: float) -> str:
+    """Format percentage with sign."""
+    if value >= 0:
+        return f"+{value:.1f}%"
+    else:
+        return f"{value:.1f}%"
+
+
+def create_weekly_html_performance_chart(
+    excel_path: Union[str, pathlib.Path],
+    *,
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate HTML-based weekly currency performance bar chart.
+
+    Returns:
+        Tuple of (PNG bytes, effective date used for computation)
+    """
+    # Get all tickers from configuration
+    tickers = [c["ticker"] for c in CURRENCY_CONFIG]
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    today = df_adj["Date"].max()
+
+    # Compute 1W returns for all currencies
+    returns_dict = {}
+    for ticker in tickers:
+        try:
+            ret_val = _compute_horizon_returns(df_adj, ticker, today, 7)
+            returns_dict[ticker] = ret_val
+        except Exception:
+            returns_dict[ticker] = float("nan")
+
+    # Build row data with returns
+    rows_data = []
+    for config in CURRENCY_CONFIG:
+        ticker = config["ticker"]
+        value = returns_dict.get(ticker, 0.0)
+        if pd.isna(value):
+            value = 0.0
+        rows_data.append({
+            "name": config["name"],
+            "flag": config["flag"],
+            "value": value,
+        })
+
+    # Sort by value descending (best performers first)
+    rows_data.sort(key=lambda x: x["value"], reverse=True)
+
+    # Calculate max absolute value for bar scaling (minimum 1%)
+    valid_values = [abs(r["value"]) for r in rows_data if r["value"] != 0]
+    max_abs_value = max(valid_values) if valid_values else 1.0
+    max_abs_value = max(max_abs_value, 1.0)  # At least 1%
+
+    # Prepare rows for template with highlight classes
+    prepared_rows = []
+    for i, row in enumerate(rows_data):
+        value = row["value"]
+        bar_width = abs(value) / max_abs_value * 48
+
+        # Determine highlight class
+        if i == 0:
+            highlight_class = "top-performer"
+        elif i == len(rows_data) - 1:
+            highlight_class = "worst-performer"
+        else:
+            highlight_class = ""
+
+        prepared_rows.append({
+            "name": row["name"],
+            "flag": row["flag"],
+            "value": value,
+            "bar_class": "positive" if value >= 0 else "negative",
+            "bar_width": bar_width,
+            "value_class": "positive" if value >= 0 else "negative",
+            "formatted_value": _format_fx_percentage(value),
+            "highlight_class": highlight_class,
+        })
+
+    # Calculate scale values
+    scale_values = {
+        "scale_min": f"-{max_abs_value:.1f}%",
+        "scale_mid_low": f"-{max_abs_value/2:.1f}%",
+        "scale_mid_high": f"+{max_abs_value/2:.1f}%",
+        "scale_max": f"+{max_abs_value:.1f}%",
+    }
+
+    # Render HTML template
+    template = Template(CURRENCY_WEEKLY_HTML_TEMPLATE)
+    html_content = template.render(
+        scale=FX_HTML_SCALE,
+        width=FX_PNG_WIDTH_PX,
+        height=FX_PNG_HEIGHT_PX,
+        rows=prepared_rows,
+        **scale_values,
+    )
+
+    # Convert HTML to PNG
+    hti = Html2Image(size=(FX_PNG_WIDTH_PX, FX_PNG_HEIGHT_PX))
+    hti.screenshot(html_str=html_content, save_as="fx_weekly_temp.png")
+
+    # Read the generated PNG
+    with open("fx_weekly_temp.png", "rb") as f:
+        png_bytes = f.read()
+
+    # Clean up temp file
+    import os
+    try:
+        os.remove("fx_weekly_temp.png")
+    except Exception:
+        pass
+
+    return png_bytes, used_date
+
+
+def insert_fx_weekly_html_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """Insert the HTML-based currency weekly performance chart into PowerPoint."""
+    if not image_bytes:
+        return prs
+
+    # Find target slide by placeholder name
+    target_slide = None
+    placeholder_names = ["fx_perf_1w", "fx_perf_1week"]
+    name_candidates = [n.lower() for n in placeholder_names]
+    pattern_candidates = [f"[{n}]" for n in name_candidates]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in name_candidates:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower in [p.lower() for p in pattern_candidates]:
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print("[FX Weekly HTML] ERROR: Slide not found")
+        return prs
+
+    # Insert chart image with exact hardcoded dimensions
+    left = Cm(FX_PPT_LEFT_CM)
+    top = Cm(FX_PPT_TOP_CM)
+    width = Cm(FX_PPT_WIDTH_CM)
+    height = Cm(FX_PPT_HEIGHT_CM)
+
+    stream = io.BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+
+    # Send picture to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[FX Weekly HTML] Chart inserted at ({FX_PPT_LEFT_CM}, {FX_PPT_TOP_CM}) cm")
+
+    # Update source placeholder if date available
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_candidates = ["fx_1w_source", "fx_perf_1w_source"]
+        source_patterns = [f"[{n}]" for n in source_candidates]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in [n.lower() for n in source_candidates]:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    return prs
