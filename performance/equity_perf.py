@@ -841,10 +841,10 @@ def _compute_ytd_series(
     df: pd.DataFrame,
     ticker: str,
 ) -> Tuple[List[str], List[float]]:
-    """Compute YTD performance series for a ticker.
+    """Compute weekly YTD performance series for a ticker.
 
     Returns:
-        Tuple of (month labels, YTD performance values as cumulative returns)
+        Tuple of (week labels, YTD performance values as cumulative returns)
     """
     if ticker not in df.columns:
         print(f"[DEBUG] {ticker} not in columns")
@@ -878,31 +878,31 @@ def _compute_ytd_series(
 
     print(f"[DEBUG] {ticker}: baseline_price={baseline_price}")
 
-    # Filter to current year data
-    df_year = df[df["Date"] >= start_of_year].copy()
+    # Filter to current year data and sort by date
+    df_year = df[df["Date"] >= start_of_year].copy().sort_values("Date")
 
     if len(df_year) == 0:
         print(f"[DEBUG] {ticker}: no data for year {year}")
         return [], []
 
-    # Group by month and get last price of each month
-    df_year["Month"] = df_year["Date"].dt.month
+    # Compute YTD return for EVERY data point (weekly granularity)
     month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     labels = []
     values = []
 
-    for month in range(1, 13):
-        month_data = df_year[df_year["Month"] == month]
-        if len(month_data) > 0:
-            last_price = month_data[ticker].iloc[-1]
-            if not pd.isna(last_price):
-                ytd_return = (last_price - baseline_price) / baseline_price * 100
-                labels.append(month_names[month - 1])
-                values.append(round(ytd_return, 1))
+    for _, row in df_year.iterrows():
+        price = row[ticker]
+        date = row["Date"]
+        if not pd.isna(price):
+            ytd_return = (price - baseline_price) / baseline_price * 100
+            # Create label showing month (e.g., "Jan", "Feb")
+            month_label = month_names[date.month - 1]
+            labels.append(month_label)
+            values.append(round(ytd_return, 1))
 
-    print(f"[DEBUG] {ticker}: labels={labels}, values={values}")
+    print(f"[DEBUG] {ticker}: {len(values)} data points, first 5={values[:5]}, last 5={values[-5:]}")
     return labels, values
 
 
