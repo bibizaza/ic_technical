@@ -2349,6 +2349,12 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    duration: 0,
+                    onComplete: function() {
+                        document.body.setAttribute('data-chart-ready', 'true');
+                    }
+                },
                 interaction: {
                     intersect: false,
                     mode: 'index'

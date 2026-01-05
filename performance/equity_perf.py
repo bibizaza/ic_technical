@@ -56,6 +56,7 @@ from pptx import Presentation
 from pptx.util import Cm
 from jinja2 import Template, Environment
 from html2image import Html2Image
+from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
 from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE
@@ -1009,19 +1010,28 @@ def create_equity_ytd_evolution_chart(
         f.write(html_content)
     print(f"[DEBUG] HTML saved to equity_ytd_debug.html")
 
-    # Convert HTML to PNG
-    hti = Html2Image(size=(EQUITY_YTD_PNG_WIDTH_PX, EQUITY_YTD_PNG_HEIGHT_PX))
-    hti.screenshot(html_str=html_content, save_as="equity_ytd_temp.png")
+    # Convert HTML to PNG using Playwright (waits for Chart.js to render)
+    png_bytes = None
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={
+            'width': EQUITY_YTD_PNG_WIDTH_PX,
+            'height': EQUITY_YTD_PNG_HEIGHT_PX
+        })
 
-    # Read the generated PNG
-    with open("equity_ytd_temp.png", "rb") as f:
-        png_bytes = f.read()
+        # Load HTML content
+        page.set_content(html_content)
 
-    # Clean up temp file
-    try:
-        os.remove("equity_ytd_temp.png")
-    except Exception:
-        pass
+        # Wait for Chart.js to signal rendering complete
+        try:
+            page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
+        except Exception:
+            # Fallback: just wait a bit if selector times out
+            page.wait_for_timeout(2000)
+
+        # Take screenshot
+        png_bytes = page.screenshot()
+        browser.close()
 
     return png_bytes, used_date
 
