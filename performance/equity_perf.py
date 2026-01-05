@@ -841,12 +841,13 @@ def _compute_ytd_series(
     df: pd.DataFrame,
     ticker: str,
 ) -> Tuple[List[str], List[float]]:
-    """Compute weekly YTD performance series for a ticker.
+    """Compute daily YTD performance series for a ticker.
 
-    Samples data to one point per week for clean chart rendering.
+    Uses daily data from 01/01/YYYY to latest available date.
+    Baseline is the FIRST available price in the year (not Dec 31 of prev year).
 
     Returns:
-        Tuple of (week labels, YTD performance values as cumulative returns)
+        Tuple of (date labels, YTD performance values as cumulative returns)
     """
     if ticker not in df.columns:
         print(f"[DEBUG] {ticker} not in columns")
@@ -858,59 +859,47 @@ def _compute_ytd_series(
 
     print(f"[DEBUG] {ticker}: last_date={last_date}, year={year}")
 
-    # Get start of year - use Dec 31 of previous year to get baseline
-    start_of_prev_year = pd.Timestamp(year=year-1, month=12, day=31)
+    # Filter to current year data ONLY (from 01/01/YYYY onwards)
     start_of_year = pd.Timestamp(year=year, month=1, day=1)
-
-    # Get baseline price (last price of previous year or first price of current year)
-    baseline_df = df[df["Date"] <= start_of_prev_year]
-    if len(baseline_df) > 0:
-        baseline_price = baseline_df[ticker].iloc[-1]
-    else:
-        # Fall back to first available price of the year
-        year_df = df[df["Date"] >= start_of_year]
-        if len(year_df) == 0:
-            print(f"[DEBUG] {ticker}: no data for year {year}")
-            return [], []
-        baseline_price = year_df[ticker].iloc[0]
-
-    if pd.isna(baseline_price) or baseline_price == 0:
-        print(f"[DEBUG] {ticker}: invalid baseline price {baseline_price}")
-        return [], []
-
-    print(f"[DEBUG] {ticker}: baseline_price={baseline_price}")
-
-    # Filter to current year data and sort by date
     df_year = df[df["Date"] >= start_of_year].copy().sort_values("Date")
 
     if len(df_year) == 0:
         print(f"[DEBUG] {ticker}: no data for year {year}")
         return [], []
 
-    # Sample to WEEKLY data (one point per week) for clean chart
-    # Group by week number and take the last value of each week
-    df_year["Week"] = df_year["Date"].dt.isocalendar().week
-    df_year["Month"] = df_year["Date"].dt.month
+    # Baseline = FIRST available price in the year
+    first_valid_idx = df_year[ticker].first_valid_index()
+    if first_valid_idx is None:
+        print(f"[DEBUG] {ticker}: no valid prices in year {year}")
+        return [], []
 
-    labels = []
-    values = []
+    baseline_price = df_year.loc[first_valid_idx, ticker]
+    baseline_date = df_year.loc[first_valid_idx, "Date"]
+
+    if pd.isna(baseline_price) or baseline_price == 0:
+        print(f"[DEBUG] {ticker}: invalid baseline price {baseline_price}")
+        return [], []
+
+    print(f"[DEBUG] {ticker}: baseline_price={baseline_price} on {baseline_date}")
+
+    # Compute YTD return for EVERY daily data point
     month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    # Group by week and get last price of each week
-    for week_num in sorted(df_year["Week"].unique()):
-        week_data = df_year[df_year["Week"] == week_num]
-        if len(week_data) > 0:
-            last_row = week_data.iloc[-1]
-            price = last_row[ticker]
-            month = int(last_row["Month"])
-            if not pd.isna(price):
-                ytd_return = (price - baseline_price) / baseline_price * 100
-                # Use month name as label (will show once per ~4 weeks)
-                labels.append(month_names[month - 1])
-                values.append(round(ytd_return, 1))
+    labels = []
+    values = []
 
-    print(f"[DEBUG] {ticker}: {len(values)} weekly points, first 5={values[:5]}, last 5={values[-5:]}")
+    for _, row in df_year.iterrows():
+        price = row[ticker]
+        date = row["Date"]
+        if not pd.isna(price):
+            ytd_return = (price - baseline_price) / baseline_price * 100
+            # Use month name as label
+            month_label = month_names[date.month - 1]
+            labels.append(month_label)
+            values.append(round(ytd_return, 1))
+
+    print(f"[DEBUG] {ticker}: {len(values)} daily points, first 5={values[:5]}, last 5={values[-5:]}")
     return labels, values
 
 
@@ -976,7 +965,28 @@ def create_equity_ytd_evolution_chart(
     print(f"[DEBUG] chart_title={chart_title}")
     print(f"[DEBUG] all_labels={all_labels} (len={len(all_labels)})")
     for ds in datasets:
-        print(f"[DEBUG] {ds['label']}: data={ds['data']} (len={len(ds['data'])})")
+        print(f"[DEBUG] {ds['label']}: data={ds['data'][:5]}... (len={len(ds['data'])})")
+
+    # Compute y-axis min and max from all data values
+    all_values = []
+    for ds in datasets:
+        all_values.extend([v for v in ds["data"] if v is not None])
+
+    if all_values:
+        data_min = min(all_values)
+        data_max = max(all_values)
+        # Round to nice values with some padding
+        y_min = (int(data_min / 5) - 1) * 5  # Round down to nearest 5 with margin
+        y_max = (int(data_max / 5) + 2) * 5  # Round up to nearest 5 with margin
+        # Ensure zero is visible if data crosses zero
+        if data_min < 0 < data_max:
+            y_min = min(y_min, -5)
+            y_max = max(y_max, 5)
+    else:
+        y_min = -20
+        y_max = 40
+
+    print(f"[DEBUG] y_min={y_min}, y_max={y_max}")
 
     # Render HTML template with proper JSON serialization
     # Create environment with tojson filter
@@ -990,6 +1000,8 @@ def create_equity_ytd_evolution_chart(
         chart_title=chart_title,
         labels=all_labels,
         datasets=datasets,
+        y_min=y_min,
+        y_max=y_max,
     )
 
     # Save HTML for debugging

@@ -2304,6 +2304,8 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
         const labels = {{ labels | tojson }};
         const datasets = {{ datasets | tojson }};
         const scale = {{ scale }};
+        const yMin = {{ y_min }};
+        const yMax = {{ y_max }};
 
         // ============================================
         // LABEL COLLISION AVOIDANCE ALGORITHM
@@ -2378,10 +2380,21 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
                         },
                         ticks: {
                             font: { family: 'Calibri', size: 9 * scale, weight: '500' },
-                            color: '#64748B'
+                            color: '#64748B',
+                            autoSkip: false,
+                            maxRotation: 0,
+                            callback: function(value, index) {
+                                // Only show the first occurrence of each month
+                                const label = labels[index];
+                                if (index === 0) return label;
+                                const prevLabel = labels[index - 1];
+                                return label !== prevLabel ? label : '';
+                            }
                         }
                     },
                     y: {
+                        min: yMin,
+                        max: yMax,
                         grid: {
                             display: true,
                             color: function(context) {
