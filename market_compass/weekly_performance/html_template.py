@@ -1539,7 +1539,7 @@ COMMODITIES_HISTORICAL_HTML_TEMPLATE = '''
             <span class="category-icon">{{ category.icon }}</span>
             <span class="category-name">{{ category.name }}</span>
         </div>
-        {% for item in category.items %}
+        {% for item in category.commodities %}
         <div class="data-row">
             <div class="commodity-col">
                 <span class="commodity-icon">{{ item.icon }}</span>

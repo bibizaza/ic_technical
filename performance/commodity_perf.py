@@ -884,7 +884,7 @@ def create_historical_html_performance_chart(
         categories_data.append({
             "name": cat["name"],
             "icon": cat["icon"],
-            "items": items_data,
+            "commodities": items_data,  # Using "commodities" to avoid conflict with dict.items()
         })
 
     # Render HTML template
