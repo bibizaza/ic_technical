@@ -1014,7 +1014,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         .table-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 2 * scale }}px;
+            gap: {{ 3 * scale }}px;
         }
 
         /* Header row */
@@ -1048,7 +1048,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         .data-row {
             display: flex;
             align-items: center;
-            gap: {{ 2 * scale }}px;
+            gap: {{ 3 * scale }}px;
         }
 
         .market-col {

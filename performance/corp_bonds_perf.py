@@ -652,13 +652,13 @@ def insert_corp_bonds_historical_slide(
         return prs
 
     # Insert picture at hardcoded PowerPoint dimensions
-    # Corporate Bonds Historical - centered vertically (same left as Weekly)
-    # width=17.02cm, left=3.21cm, top=5.0cm
+    # EXACT positioning - do not recalculate
+    # width=17.02cm, left=3.35cm, top=6.3cm
     stream = io.BytesIO(image_bytes)
     pic = target_slide.shapes.add_picture(
         stream,
-        left=Cm(3.21),
-        top=Cm(5.0),
+        left=Cm(3.35),
+        top=Cm(6.3),
         width=Cm(17.02),
     )
 
