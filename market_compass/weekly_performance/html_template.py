@@ -3553,19 +3553,19 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     const chartArea = chart.chartArea;
                     const fontSize = 10 * scale;
                     const smallFontSize = 8 * scale;
-                    ctx.font = \`600 \${fontSize}px Calibri\`;
+                    ctx.font = `600 ${fontSize}px Calibri`;
                     ctx.textAlign = 'left';
                     const higherY = yScale.getPixelForValue(higherRange);
                     ctx.fillStyle = '#10B981';
                     ctx.fillText(higherRange.toLocaleString() + ' (' + higherRangePct + ')', chartArea.right + 8 * scale, higherY - 8 * scale);
-                    ctx.font = \`\${smallFontSize}px Calibri\`;
+                    ctx.font = `${smallFontSize}px Calibri`;
                     ctx.fillStyle = '#64748B';
                     ctx.fillText('Higher Range', chartArea.right + 8 * scale, higherY - 20 * scale);
                     const lowerY = yScale.getPixelForValue(lowerRange);
-                    ctx.font = \`600 \${fontSize}px Calibri\`;
+                    ctx.font = `600 ${fontSize}px Calibri`;
                     ctx.fillStyle = '#EF4444';
                     ctx.fillText(lowerRange.toLocaleString() + ' (' + lowerRangePct + ')', chartArea.right + 8 * scale, lowerY + 16 * scale);
-                    ctx.font = \`\${smallFontSize}px Calibri\`;
+                    ctx.font = `${smallFontSize}px Calibri`;
                     ctx.fillStyle = '#64748B';
                     ctx.fillText('Lower Range', chartArea.right + 8 * scale, lowerY + 28 * scale);
                 }

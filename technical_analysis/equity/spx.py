@@ -1132,9 +1132,9 @@ import json
 from jinja2 import Environment
 from playwright.sync_api import sync_playwright
 
-# Chart dimensions for v2
-TECH_V2_PNG_WIDTH_PX = 2700
-TECH_V2_PNG_HEIGHT_PX = 1600
+# Chart dimensions for v2 - reduced to fit slide content area (~23cm × 12cm)
+TECH_V2_PNG_WIDTH_PX = 2400  # ~23cm at 3x scale
+TECH_V2_PNG_HEIGHT_PX = 1260  # ~12cm at 3x scale
 TECH_V2_HTML_SCALE = 3
 TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
 
@@ -1292,18 +1292,27 @@ def create_technical_analysis_v2_chart(
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
 
     # RSI current
-    rsi_current = round(df["RSI"].iloc[-1], 0) if not pd.isna(df["RSI"].iloc[-1]) else 50
+    rsi_current = int(round(df["RSI"].iloc[-1], 0)) if not pd.isna(df["RSI"].iloc[-1]) else 50
     rsi_interpretation, rsi_color, rsi_context = _get_rsi_interpretation(rsi_current)
 
-    # DMAS scores
+    # DMAS scores - ensure all are integers (no decimals)
     if technical_score is None:
         technical_score = _get_technical_score_generic(df, "SPX")
+    technical_score = int(round(technical_score)) if technical_score is not None else 50
+
     if momentum_score is None:
         momentum_score = 50  # Default
+    momentum_score = int(round(momentum_score))
+
     if dmas_score is None:
-        dmas_score = int((technical_score + momentum_score) / 2)
+        dmas_score = int(round((technical_score + momentum_score) / 2))
+    else:
+        dmas_score = int(round(dmas_score))
+
     if dmas_prev_week is None:
         dmas_prev_week = dmas_score  # No change
+    else:
+        dmas_prev_week = int(round(dmas_prev_week))
 
     dmas_change = dmas_score - dmas_prev_week
     if dmas_change > 0:
@@ -1318,6 +1327,10 @@ def create_technical_analysis_v2_chart(
 
     technical_status, technical_color = _get_score_status(technical_score)
     momentum_status, momentum_color = _get_score_status(momentum_score)
+
+    # Debug logging
+    print(f"[Tech V2] Data points: {len(price_data)}, RSI current: {rsi_current}")
+    print(f"[Tech V2] Scores - DMAS: {dmas_score}, Technical: {technical_score}, Momentum: {momentum_score}")
 
     # Render HTML template
     env = Environment()
@@ -1361,6 +1374,17 @@ def create_technical_analysis_v2_chart(
         momentum_status=momentum_status,
     )
 
+    # Debug: Save HTML for inspection
+    try:
+        import tempfile
+        import os
+        debug_html_path = os.path.join(tempfile.gettempdir(), "tech_v2_debug.html")
+        with open(debug_html_path, "w") as f:
+            f.write(html_content)
+        print(f"[Tech V2] Debug HTML saved to: {debug_html_path}")
+    except Exception as e:
+        print(f"[Tech V2] Could not save debug HTML: {e}")
+
     # Render with Playwright
     png_bytes = None
     try:
@@ -1370,12 +1394,25 @@ def create_technical_analysis_v2_chart(
                 'width': TECH_V2_PNG_WIDTH_PX,
                 'height': TECH_V2_PNG_HEIGHT_PX
             })
+
+            # Set content and wait for network idle
             page.set_content(html_content, wait_until='networkidle')
+
+            # Wait for Chart.js to load and render
             try:
-                page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
+                # First wait for Chart.js to be available
+                page.wait_for_function("typeof Chart !== 'undefined'", timeout=10000)
+                print("[Tech V2] Chart.js library loaded")
+
+                # Then wait for chart ready signal
+                page.wait_for_selector('body[data-chart-ready="true"]', timeout=15000)
                 print("[Tech V2] Chart.js rendering complete")
-            except Exception:
-                page.wait_for_timeout(3000)
+            except Exception as wait_err:
+                print(f"[Tech V2] Wait timeout, using fallback: {wait_err}")
+                # Fallback: just wait 5 seconds
+                page.wait_for_timeout(5000)
+
+            # Take screenshot
             png_bytes = page.screenshot()
             print(f"[Tech V2] Screenshot taken: {len(png_bytes)} bytes")
             browser.close()
@@ -1396,7 +1433,7 @@ def insert_technical_analysis_v2_slide(
     placeholder_name: str = "spx_v2",
     left_cm: float = 0.5,
     top_cm: float = 4.2,
-    width_cm: float = 24.0,
+    width_cm: float = 23.0,  # Reduced to fit slide better
 ) -> Presentation:
     """Insert Technical Analysis v2 chart into PowerPoint.
 
