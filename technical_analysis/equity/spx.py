@@ -1122,3 +1122,375 @@ def insert_spx_technical_chart_with_range(
     stream = BytesIO(img_bytes)
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
+
+
+# =============================================================================
+# TECHNICAL ANALYSIS CHART V2 - Chart.js + Playwright
+# =============================================================================
+
+import json
+from jinja2 import Environment
+from playwright.sync_api import sync_playwright
+
+# Chart dimensions for v2
+TECH_V2_PNG_WIDTH_PX = 2700
+TECH_V2_PNG_HEIGHT_PX = 1600
+TECH_V2_HTML_SCALE = 3
+TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
+
+
+def _compute_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
+    """Compute RSI for a price series."""
+    delta = prices.diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = (-delta).where(delta < 0, 0.0)
+    avg_gain = gain.rolling(window=period, min_periods=period).mean()
+    avg_loss = loss.rolling(window=period, min_periods=period).mean()
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+
+def _compute_fibonacci_levels(high: float, low: float) -> list:
+    """Compute Fibonacci retracement levels."""
+    diff = high - low
+    levels = [
+        low,                         # 0%
+        low + diff * 0.236,          # 23.6%
+        low + diff * 0.382,          # 38.2%
+        low + diff * 0.5,            # 50%
+        low + diff * 0.618,          # 61.8%
+        low + diff * 0.786,          # 78.6%
+        high,                        # 100%
+    ]
+    return [round(l, 2) for l in levels]
+
+
+def _get_score_status(score: int) -> tuple:
+    """Get status text and color based on score."""
+    if score >= 81:
+        return "Strong", "#22C55E"
+    elif score >= 61:
+        return "Good", "#84CC16"
+    elif score >= 41:
+        return "Neutral", "#EAB308"
+    elif score >= 21:
+        return "Weak", "#F97316"
+    else:
+        return "Very Weak", "#EF4444"
+
+
+def _get_rsi_interpretation(rsi: float) -> tuple:
+    """Get RSI interpretation text and color."""
+    if rsi >= 70:
+        return "Overbought", "#EF4444", "Caution: Potential pullback"
+    elif rsi <= 30:
+        return "Oversold", "#22C55E", "Opportunity: Potential bounce"
+    elif rsi >= 50:
+        return "Neutral", "#EAB308", "Room to run"
+    else:
+        return "Neutral", "#EAB308", "Watching support"
+
+
+def create_technical_analysis_v2_chart(
+    excel_path,
+    ticker: str = "SPX Index",
+    *,
+    price_mode: str = "Last Price",
+    dmas_score: int = None,
+    dmas_prev_week: int = None,
+    technical_score: int = None,
+    momentum_score: int = None,
+    lookback_days: int = TECH_V2_LOOKBACK_DAYS,
+) -> tuple:
+    """Generate Technical Analysis v2 chart using Chart.js + Playwright.
+
+    Parameters
+    ----------
+    excel_path : str or Path
+        Path to Excel file with price data.
+    ticker : str
+        Bloomberg ticker for the instrument.
+    price_mode : str
+        "Last Price" or "Last Close".
+    dmas_score : int, optional
+        Current DMAS score (0-100). If None, calculated from technical + momentum.
+    dmas_prev_week : int, optional
+        Previous week's DMAS score for change calculation.
+    technical_score : int, optional
+        Technical component score. If None, calculated from price data.
+    momentum_score : int, optional
+        Momentum component score. If None, uses placeholder.
+    lookback_days : int
+        Number of trading days for price chart.
+
+    Returns
+    -------
+    tuple
+        (PNG bytes, effective date used)
+    """
+    from market_compass.weekly_performance.html_template import TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE
+
+    # Load price data
+    try:
+        df = _load_price_data_from_obj(excel_path, ticker, price_mode=price_mode)
+    except Exception:
+        df = _load_price_data(pathlib.Path(excel_path), ticker, price_mode=price_mode)
+
+    if df.empty:
+        print(f"[Tech V2] No data for {ticker}")
+        return None, None
+
+    # Get the last N days
+    df = df.tail(lookback_days + 200)  # Extra for MA calculation
+
+    # Calculate moving averages on full data
+    df["MA50"] = df["Price"].rolling(window=50, min_periods=1).mean()
+    df["MA100"] = df["Price"].rolling(window=100, min_periods=1).mean()
+    df["MA200"] = df["Price"].rolling(window=200, min_periods=1).mean()
+    df["RSI"] = _compute_rsi(df["Price"], 14)
+
+    # Trim to lookback window
+    df = df.tail(lookback_days)
+
+    used_date = df["Date"].max()
+
+    # Prepare data for chart
+    price_labels = df["Date"].dt.strftime("%b-%d").tolist()
+    price_data = df["Price"].round(2).tolist()
+    ma50_data = df["MA50"].round(2).tolist()
+    ma100_data = df["MA100"].round(2).tolist()
+    ma200_data = df["MA200"].round(2).tolist()
+    rsi_data = df["RSI"].round(1).tolist()
+
+    # Last price
+    last_price = df["Price"].iloc[-1]
+    last_price_str = f"{last_price:,.2f}"
+
+    # Fibonacci levels
+    period_high = df["Price"].max()
+    period_low = df["Price"].min()
+    fib_levels = _compute_fibonacci_levels(period_high, period_low)
+
+    # Y-axis range for price
+    price_padding = (period_high - period_low) * 0.1
+    price_y_min = round(period_low - price_padding, 0)
+    price_y_max = round(period_high + price_padding, 0)
+
+    # Trading range (use volatility-based if available)
+    vol_val = _get_vol_index_value(excel_path, price_mode=price_mode, vol_ticker="VIX Index")
+    if vol_val:
+        expected_move = (last_price * (vol_val / 100)) / (52 ** 0.5)
+        higher_range = round(last_price + expected_move, 0)
+        lower_range = round(last_price - expected_move, 0)
+    else:
+        # Fallback: 2% range
+        higher_range = round(last_price * 1.02, 0)
+        lower_range = round(last_price * 0.98, 0)
+
+    higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
+    lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
+
+    # RSI current
+    rsi_current = round(df["RSI"].iloc[-1], 0) if not pd.isna(df["RSI"].iloc[-1]) else 50
+    rsi_interpretation, rsi_color, rsi_context = _get_rsi_interpretation(rsi_current)
+
+    # DMAS scores
+    if technical_score is None:
+        technical_score = _get_technical_score_generic(df, "SPX")
+    if momentum_score is None:
+        momentum_score = 50  # Default
+    if dmas_score is None:
+        dmas_score = int((technical_score + momentum_score) / 2)
+    if dmas_prev_week is None:
+        dmas_prev_week = dmas_score  # No change
+
+    dmas_change = dmas_score - dmas_prev_week
+    if dmas_change > 0:
+        dmas_change_text = f"▲ +{dmas_change} WoW (from {dmas_prev_week})"
+        dmas_change_color = "#22C55E"
+    elif dmas_change < 0:
+        dmas_change_text = f"▼ {dmas_change} WoW (from {dmas_prev_week})"
+        dmas_change_color = "#EF4444"
+    else:
+        dmas_change_text = f"— Unchanged (from {dmas_prev_week})"
+        dmas_change_color = "#9CA3AF"
+
+    technical_status, technical_color = _get_score_status(technical_score)
+    momentum_status, momentum_color = _get_score_status(momentum_score)
+
+    # Render HTML template
+    env = Environment()
+    env.filters['tojson'] = json.dumps
+    template = env.from_string(TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE)
+
+    html_content = template.render(
+        width=TECH_V2_PNG_WIDTH_PX,
+        height=TECH_V2_PNG_HEIGHT_PX,
+        scale=TECH_V2_HTML_SCALE,
+        # Price chart data
+        price_labels=price_labels,
+        price_data=price_data,
+        ma50_data=ma50_data,
+        ma100_data=ma100_data,
+        ma200_data=ma200_data,
+        fib_levels=fib_levels,
+        price_y_min=price_y_min,
+        price_y_max=price_y_max,
+        last_price=last_price_str,
+        higher_range=higher_range,
+        lower_range=lower_range,
+        higher_range_pct=higher_range_pct,
+        lower_range_pct=lower_range_pct,
+        # RSI chart data
+        rsi_labels=price_labels,
+        rsi_data=rsi_data,
+        rsi_current=int(rsi_current),
+        rsi_color=rsi_color,
+        rsi_interpretation=rsi_interpretation,
+        rsi_context=rsi_context,
+        # DMAS panel
+        dmas_score=dmas_score,
+        dmas_change_text=dmas_change_text,
+        dmas_change_color=dmas_change_color,
+        technical_score=technical_score,
+        technical_color=technical_color,
+        technical_status=technical_status,
+        momentum_score=momentum_score,
+        momentum_color=momentum_color,
+        momentum_status=momentum_status,
+    )
+
+    # Render with Playwright
+    png_bytes = None
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={
+                'width': TECH_V2_PNG_WIDTH_PX,
+                'height': TECH_V2_PNG_HEIGHT_PX
+            })
+            page.set_content(html_content, wait_until='networkidle')
+            try:
+                page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
+                print("[Tech V2] Chart.js rendering complete")
+            except Exception:
+                page.wait_for_timeout(3000)
+            png_bytes = page.screenshot()
+            print(f"[Tech V2] Screenshot taken: {len(png_bytes)} bytes")
+            browser.close()
+    except Exception as e:
+        print(f"[Tech V2] Playwright error: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return png_bytes, used_date
+
+
+def insert_technical_analysis_v2_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date=None,
+    price_mode: str = "Last Price",
+    *,
+    placeholder_name: str = "spx_v2",
+    left_cm: float = 0.5,
+    top_cm: float = 4.2,
+    width_cm: float = 24.0,
+) -> Presentation:
+    """Insert Technical Analysis v2 chart into PowerPoint.
+
+    Parameters
+    ----------
+    prs : Presentation
+        PowerPoint presentation to modify.
+    image_bytes : bytes
+        PNG chart image data.
+    used_date : Timestamp, optional
+        Date for source footnote.
+    price_mode : str
+        "Last Price" or "Last Close".
+    placeholder_name : str
+        Name of placeholder shape to find target slide.
+    left_cm, top_cm, width_cm : float
+        Chart position and size.
+
+    Returns
+    -------
+    Presentation
+        Modified presentation.
+    """
+    if not image_bytes:
+        return prs
+
+    # Find target slide
+    target_slide = None
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr == placeholder_name.lower():
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower == f"[{placeholder_name.lower()}]":
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print(f"[Tech V2] Slide with placeholder '{placeholder_name}' not found")
+        return prs
+
+    # Insert chart image
+    stream = BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(
+        stream, Cm(left_cm), Cm(top_cm), width=Cm(width_cm)
+    )
+
+    # Send to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[Tech V2] Chart inserted at ({left_cm}, {top_cm}) cm")
+
+    # Insert source footnote
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+
+        source_placeholder = f"{placeholder_name}_source"
+        source_patterns = [f"[{source_placeholder}]", source_placeholder]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == source_placeholder.lower():
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_run_font_attributes(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    return prs

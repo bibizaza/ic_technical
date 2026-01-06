@@ -143,6 +143,9 @@ from technical_analysis.equity.spx import (
     _get_spx_momentum_score,
     generate_range_gauge_only_image,
     _compute_range_bounds as _compute_range_bounds_spx,
+    # Technical Analysis v2 (Chart.js + Playwright)
+    create_technical_analysis_v2_chart,
+    insert_technical_analysis_v2_slide,
 )
 
 from importlib import reload
@@ -4385,6 +4388,38 @@ def show_generate_presentation_page():
             used_date_spx,
             pmode,
         )
+
+        # ------------------------------------------------------------------
+        # Insert SPX Technical Analysis v2 chart (Chart.js + Playwright)
+        # ------------------------------------------------------------------
+        try:
+            update_progress("Processing S&P 500 Technical Analysis v2...")
+            # Get DMAS scores from session state
+            spx_dmas = st.session_state.get("dmas_scores", {}).get("spx", 50)
+            spx_dmas_prev = st.session_state.get("dmas_prev_week", {}).get("spx", spx_dmas)
+            spx_tech = _get_spx_technical_score(excel_path_for_ppt)
+            spx_momentum = _get_spx_momentum_score(excel_path_for_ppt)
+
+            v2_bytes, v2_date = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="SPX Index",
+                price_mode=pmode,
+                dmas_score=int(spx_dmas),
+                dmas_prev_week=int(spx_dmas_prev),
+                technical_score=spx_tech,
+                momentum_score=spx_momentum,
+            )
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes,
+                used_date=v2_date,
+                price_mode=pmode,
+                placeholder_name="spx_v2",
+            )
+        except Exception as e:
+            print(f"[Tech V2] SPX v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert CSI technical analysis slide (always)

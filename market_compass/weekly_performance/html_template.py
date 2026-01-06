@@ -3027,3 +3027,645 @@ CRYPTO_YTD_EVOLUTION_HTML_TEMPLATE = '''
 </body>
 </html>
 '''
+
+
+
+# =============================================================================
+# TECHNICAL ANALYSIS CHART V2 - Chart.js + Playwright
+# =============================================================================
+
+TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: 0;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        .price-row {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .price-chart-area {
+            flex: 1;
+            position: relative;
+            padding: {{ 10 * scale }}px;
+            padding-right: {{ 5 * scale }}px;
+        }
+
+        .price-chart-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .dmas-panel {
+            width: {{ 200 * scale }}px;
+            background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
+            padding: {{ 12 * scale }}px;
+            display: flex;
+            flex-direction: column;
+            gap: {{ 8 * scale }}px;
+        }
+
+        .panel-title {
+            font-size: {{ 9 * scale }}px;
+            text-transform: uppercase;
+            letter-spacing: {{ 1 * scale }}px;
+            color: rgba(255,255,255,0.5);
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            padding-bottom: {{ 6 * scale }}px;
+            text-align: center;
+        }
+
+        .dmas-score-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: {{ 8 * scale }}px;
+            padding: {{ 12 * scale }}px;
+            text-align: center;
+        }
+
+        .dmas-label {
+            font-size: {{ 9 * scale }}px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: {{ 4 * scale }}px;
+        }
+
+        .dmas-value {
+            font-size: {{ 36 * scale }}px;
+            font-weight: 700;
+            color: #FFFFFF;
+            line-height: 1.1;
+        }
+
+        .dmas-progress {
+            height: {{ 8 * scale }}px;
+            background: linear-gradient(90deg, #EF4444 0%, #F59E0B 25%, #EAB308 50%, #84CC16 75%, #22C55E 100%);
+            border-radius: {{ 4 * scale }}px;
+            margin: {{ 8 * scale }}px 0;
+            position: relative;
+        }
+
+        .dmas-marker {
+            position: absolute;
+            width: {{ 4 * scale }}px;
+            height: {{ 12 * scale }}px;
+            background: #FFFFFF;
+            border-radius: {{ 2 * scale }}px;
+            top: {{ -2 * scale }}px;
+            transform: translateX(-50%);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .dmas-change {
+            font-size: {{ 10 * scale }}px;
+            color: {{ dmas_change_color }};
+            margin-top: {{ 4 * scale }}px;
+        }
+
+        .sub-score-card {
+            background: rgba(255,255,255,0.08);
+            border-radius: {{ 6 * scale }}px;
+            padding: {{ 10 * scale }}px;
+        }
+
+        .sub-score-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: {{ 6 * scale }}px;
+        }
+
+        .sub-score-title {
+            font-size: {{ 10 * scale }}px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .sub-score-value {
+            font-size: {{ 16 * scale }}px;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+
+        .sub-score-progress {
+            height: {{ 5 * scale }}px;
+            background: rgba(255,255,255,0.15);
+            border-radius: {{ 2.5 * scale }}px;
+            overflow: hidden;
+            margin-bottom: {{ 4 * scale }}px;
+        }
+
+        .sub-score-fill {
+            height: 100%;
+            border-radius: {{ 2.5 * scale }}px;
+        }
+
+        .sub-score-status {
+            display: flex;
+            align-items: center;
+            gap: {{ 4 * scale }}px;
+            font-size: {{ 9 * scale }}px;
+        }
+
+        .status-dot {
+            width: {{ 6 * scale }}px;
+            height: {{ 6 * scale }}px;
+            border-radius: 50%;
+        }
+
+        .rsi-row {
+            display: flex;
+            height: {{ 110 * scale }}px;
+        }
+
+        .rsi-chart-area {
+            flex: 1;
+            position: relative;
+            padding: {{ 5 * scale }}px {{ 5 * scale }}px {{ 10 * scale }}px {{ 10 * scale }}px;
+        }
+
+        .rsi-chart-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .rsi-title {
+            position: absolute;
+            top: {{ 5 * scale }}px;
+            left: {{ 15 * scale }}px;
+            font-size: {{ 11 * scale }}px;
+            font-weight: 600;
+            color: #1B3A5A;
+            z-index: 10;
+        }
+
+        .rsi-panel {
+            width: {{ 200 * scale }}px;
+            background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
+            padding: {{ 12 * scale }}px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: {{ 6 * scale }}px;
+        }
+
+        .rsi-current-title {
+            font-size: {{ 9 * scale }}px;
+            text-transform: uppercase;
+            letter-spacing: {{ 1 * scale }}px;
+            color: rgba(255,255,255,0.5);
+            text-align: center;
+        }
+
+        .rsi-current-value {
+            font-size: {{ 32 * scale }}px;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.1;
+        }
+
+        .rsi-gauge {
+            height: {{ 8 * scale }}px;
+            background: linear-gradient(90deg, #22C55E 0%, #22C55E 30%, #EAB308 50%, #EF4444 70%, #EF4444 100%);
+            border-radius: {{ 4 * scale }}px;
+            position: relative;
+            margin: {{ 6 * scale }}px 0;
+        }
+
+        .rsi-gauge-marker {
+            position: absolute;
+            width: {{ 4 * scale }}px;
+            height: {{ 12 * scale }}px;
+            background: #FFFFFF;
+            border-radius: {{ 2 * scale }}px;
+            top: {{ -2 * scale }}px;
+            transform: translateX(-50%);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .rsi-interpretation {
+            font-size: {{ 10 * scale }}px;
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .rsi-context {
+            font-size: {{ 9 * scale }}px;
+            text-align: center;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .chart-legend {
+            position: absolute;
+            top: {{ 5 * scale }}px;
+            left: {{ 15 * scale }}px;
+            display: flex;
+            gap: {{ 15 * scale }}px;
+            font-size: {{ 10 * scale }}px;
+            z-index: 10;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: {{ 5 * scale }}px;
+        }
+
+        .legend-line {
+            width: {{ 20 * scale }}px;
+            height: {{ 3 * scale }}px;
+            border-radius: {{ 1.5 * scale }}px;
+        }
+
+        .legend-text {
+            color: #64748B;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="price-row">
+            <div class="price-chart-area">
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: #1B3A5A;"></div>
+                        <span class="legend-text">Price ({{ last_price }})</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: #10B981;"></div>
+                        <span class="legend-text">50-day MA</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: #F59E0B;"></div>
+                        <span class="legend-text">100-day MA</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: #EF4444;"></div>
+                        <span class="legend-text">200-day MA</span>
+                    </div>
+                </div>
+                <div class="price-chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+
+            <div class="dmas-panel">
+                <div class="panel-title">Dynamic Market Analysis</div>
+                <div class="dmas-score-card">
+                    <div class="dmas-label">DMAS Score</div>
+                    <div class="dmas-value">{{ dmas_score }}</div>
+                    <div class="dmas-progress">
+                        <div class="dmas-marker" style="left: {{ dmas_score }}%;"></div>
+                    </div>
+                    <div class="dmas-change">{{ dmas_change_text }}</div>
+                </div>
+                <div class="sub-score-card">
+                    <div class="sub-score-header">
+                        <span class="sub-score-title">Technical</span>
+                        <span class="sub-score-value">{{ technical_score }}</span>
+                    </div>
+                    <div class="sub-score-progress">
+                        <div class="sub-score-fill" style="width: {{ technical_score }}%; background: {{ technical_color }};"></div>
+                    </div>
+                    <div class="sub-score-status">
+                        <div class="status-dot" style="background: {{ technical_color }};"></div>
+                        <span style="color: {{ technical_color }};">{{ technical_status }}</span>
+                    </div>
+                </div>
+                <div class="sub-score-card">
+                    <div class="sub-score-header">
+                        <span class="sub-score-title">Momentum</span>
+                        <span class="sub-score-value">{{ momentum_score }}</span>
+                    </div>
+                    <div class="sub-score-progress">
+                        <div class="sub-score-fill" style="width: {{ momentum_score }}%; background: {{ momentum_color }};"></div>
+                    </div>
+                    <div class="sub-score-status">
+                        <div class="status-dot" style="background: {{ momentum_color }};"></div>
+                        <span style="color: {{ momentum_color }};">{{ momentum_status }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rsi-row">
+            <div class="rsi-chart-area">
+                <div class="rsi-title">RSI (14)</div>
+                <div class="rsi-chart-container">
+                    <canvas id="rsiChart"></canvas>
+                </div>
+            </div>
+            <div class="rsi-panel">
+                <div class="rsi-current-title">RSI Current</div>
+                <div class="rsi-current-value" style="color: {{ rsi_color }};">{{ rsi_current }}</div>
+                <div class="rsi-gauge">
+                    <div class="rsi-gauge-marker" style="left: {{ rsi_current }}%;"></div>
+                </div>
+                <div class="rsi-interpretation" style="color: {{ rsi_color }};">{{ rsi_interpretation }}</div>
+                <div class="rsi-context">{{ rsi_context }}</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const scale = {{ scale }};
+        const priceLabels = {{ price_labels | tojson }};
+        const priceData = {{ price_data | tojson }};
+        const ma50Data = {{ ma50_data | tojson }};
+        const ma100Data = {{ ma100_data | tojson }};
+        const ma200Data = {{ ma200_data | tojson }};
+        const fibLevels = {{ fib_levels | tojson }};
+        const priceYMin = {{ price_y_min }};
+        const priceYMax = {{ price_y_max }};
+        const higherRange = {{ higher_range }};
+        const lowerRange = {{ lower_range }};
+        const higherRangePct = "{{ higher_range_pct }}";
+        const lowerRangePct = "{{ lower_range_pct }}";
+        const rsiLabels = {{ rsi_labels | tojson }};
+        const rsiData = {{ rsi_data | tojson }};
+
+        const fibAnnotations = {};
+        fibLevels.forEach((level, idx) => {
+            fibAnnotations['fib' + idx] = {
+                type: 'line',
+                yMin: level,
+                yMax: level,
+                borderColor: 'rgba(203, 213, 225, 0.5)',
+                borderWidth: 1,
+                borderDash: [4, 4],
+            };
+        });
+
+        fibAnnotations['higherRange'] = {
+            type: 'line',
+            yMin: higherRange,
+            yMax: higherRange,
+            xMin: priceLabels.length - 1,
+            borderColor: '#1B3A5A',
+            borderWidth: 1.5 * scale / 3,
+            borderDash: [5, 3],
+        };
+        fibAnnotations['lowerRange'] = {
+            type: 'line',
+            yMin: lowerRange,
+            yMax: lowerRange,
+            xMin: priceLabels.length - 1,
+            borderColor: '#1B3A5A',
+            borderWidth: 1.5 * scale / 3,
+            borderDash: [5, 3],
+        };
+
+        const priceCtx = document.getElementById('priceChart').getContext('2d');
+        const priceChart = new Chart(priceCtx, {
+            type: 'line',
+            data: {
+                labels: priceLabels,
+                datasets: [
+                    {
+                        label: 'Price',
+                        data: priceData,
+                        borderColor: '#1B3A5A',
+                        borderWidth: 2.5 * scale / 3,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false,
+                        order: 1,
+                    },
+                    {
+                        label: '50-day MA',
+                        data: ma50Data,
+                        borderColor: '#10B981',
+                        borderWidth: 1.5 * scale / 3,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false,
+                        order: 2,
+                    },
+                    {
+                        label: '100-day MA',
+                        data: ma100Data,
+                        borderColor: '#F59E0B',
+                        borderWidth: 1.5 * scale / 3,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false,
+                        order: 3,
+                    },
+                    {
+                        label: '200-day MA',
+                        data: ma200Data,
+                        borderColor: '#EF4444',
+                        borderWidth: 1.5 * scale / 3,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false,
+                        order: 4,
+                    },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 0,
+                    onComplete: function() {
+                        document.body.setAttribute('data-chart-ready', 'true');
+                    }
+                },
+                layout: {
+                    padding: {
+                        top: 25 * scale,
+                        right: 90 * scale,
+                        bottom: 5 * scale,
+                        left: 5 * scale,
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false },
+                    annotation: {
+                        annotations: fibAnnotations
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false },
+                        ticks: {
+                            font: { size: 9 * scale, family: 'Calibri' },
+                            color: '#64748B',
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 12,
+                        }
+                    },
+                    y: {
+                        display: true,
+                        position: 'left',
+                        min: priceYMin,
+                        max: priceYMax,
+                        grid: {
+                            display: true,
+                            color: 'rgba(0, 0, 0, 0.05)',
+                        },
+                        ticks: {
+                            font: { size: 9 * scale, family: 'Calibri' },
+                            color: '#64748B',
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [{
+                id: 'tradingRangeLabels',
+                afterDraw: function(chart) {
+                    const ctx = chart.ctx;
+                    const yScale = chart.scales.y;
+                    const chartArea = chart.chartArea;
+                    const fontSize = 10 * scale;
+                    const smallFontSize = 8 * scale;
+                    ctx.font = \`600 \${fontSize}px Calibri\`;
+                    ctx.textAlign = 'left';
+                    const higherY = yScale.getPixelForValue(higherRange);
+                    ctx.fillStyle = '#10B981';
+                    ctx.fillText(higherRange.toLocaleString() + ' (' + higherRangePct + ')', chartArea.right + 8 * scale, higherY - 8 * scale);
+                    ctx.font = \`\${smallFontSize}px Calibri\`;
+                    ctx.fillStyle = '#64748B';
+                    ctx.fillText('Higher Range', chartArea.right + 8 * scale, higherY - 20 * scale);
+                    const lowerY = yScale.getPixelForValue(lowerRange);
+                    ctx.font = \`600 \${fontSize}px Calibri\`;
+                    ctx.fillStyle = '#EF4444';
+                    ctx.fillText(lowerRange.toLocaleString() + ' (' + lowerRangePct + ')', chartArea.right + 8 * scale, lowerY + 16 * scale);
+                    ctx.font = \`\${smallFontSize}px Calibri\`;
+                    ctx.fillStyle = '#64748B';
+                    ctx.fillText('Lower Range', chartArea.right + 8 * scale, lowerY + 28 * scale);
+                }
+            }]
+        });
+
+        const rsiCtx = document.getElementById('rsiChart').getContext('2d');
+        const rsiChart = new Chart(rsiCtx, {
+            type: 'line',
+            data: {
+                labels: rsiLabels,
+                datasets: [{
+                    label: 'RSI',
+                    data: rsiData,
+                    borderColor: '#8B5CF6',
+                    borderWidth: 2 * scale / 3,
+                    pointRadius: 0,
+                    tension: 0.1,
+                    fill: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                layout: {
+                    padding: {
+                        top: 20 * scale,
+                        right: 90 * scale,
+                        bottom: 5 * scale,
+                        left: 5 * scale,
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false },
+                    annotation: {
+                        annotations: {
+                            oversoldZone: {
+                                type: 'box',
+                                yMin: 0,
+                                yMax: 30,
+                                backgroundColor: 'rgba(16, 185, 129, 0.06)',
+                                borderWidth: 0,
+                            },
+                            overboughtZone: {
+                                type: 'box',
+                                yMin: 70,
+                                yMax: 100,
+                                backgroundColor: 'rgba(239, 68, 68, 0.06)',
+                                borderWidth: 0,
+                            },
+                            line30: {
+                                type: 'line',
+                                yMin: 30,
+                                yMax: 30,
+                                borderColor: 'rgba(16, 185, 129, 0.4)',
+                                borderWidth: 1,
+                                borderDash: [4, 4],
+                            },
+                            line70: {
+                                type: 'line',
+                                yMin: 70,
+                                yMax: 70,
+                                borderColor: 'rgba(239, 68, 68, 0.4)',
+                                borderWidth: 1,
+                                borderDash: [4, 4],
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false },
+                        ticks: {
+                            font: { size: 9 * scale, family: 'Calibri' },
+                            color: '#64748B',
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 12,
+                        }
+                    },
+                    y: {
+                        display: true,
+                        position: 'left',
+                        min: 0,
+                        max: 100,
+                        grid: { display: false },
+                        ticks: {
+                            font: { size: 9 * scale, family: 'Calibri' },
+                            color: '#64748B',
+                            stepSize: 20,
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+'''
+
