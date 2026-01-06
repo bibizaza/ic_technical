@@ -1322,8 +1322,22 @@ def create_crypto_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
     return png_bytes, used_date
 
 
-def insert_crypto_ytd_evolution_slide(prs, image_bytes, used_date=None, price_mode="Last Price"):
-    """Insert the Crypto YTD Evolution chart into PowerPoint."""
+def insert_crypto_ytd_evolution_slide(prs, image_bytes, used_date=None, price_mode="Last Price", subtitle=None):
+    """Insert the Crypto YTD Evolution chart into PowerPoint.
+
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation to modify.
+    image_bytes : bytes
+        PNG data for the YTD evolution chart.
+    used_date : pandas.Timestamp or None, optional
+        Effective date used for performance calculations.
+    price_mode : str, default "Last Price"
+        Either "Last Price" or "Last Close".
+    subtitle : str or None, optional
+        Subtitle text to insert into the ytd_crypto_subtitle placeholder.
+    """
     if not image_bytes:
         return prs
 
@@ -1348,6 +1362,37 @@ def insert_crypto_ytd_evolution_slide(prs, image_bytes, used_date=None, price_mo
         print(f"[Crypto YTD Evolution] ERROR: Slide not found")
         return prs
 
+    # ------------------------------------------------------------------
+    # Insert subtitle into the 'ytd_crypto_subtitle' placeholder
+    # ------------------------------------------------------------------
+    if subtitle:
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == "ytd_crypto_subtitle" and shape.has_text_frame:
+                tf = shape.text_frame
+                paragraph = tf.paragraphs[0]
+                runs = paragraph.runs
+                attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                # Determine replacement: replace tokens "XXX" or "[ytd_crypto_subtitle]"
+                original_text = "".join(run.text for run in runs) if runs else ""
+                new_text = original_text
+                if "XXX" in new_text:
+                    new_text = new_text.replace("XXX", subtitle)
+                elif "[ytd_crypto_subtitle]" in new_text:
+                    new_text = new_text.replace("[ytd_crypto_subtitle]", subtitle)
+                else:
+                    new_text = subtitle
+                # Clear and insert new run
+                tf.clear()
+                p = tf.paragraphs[0]
+                new_run = p.add_run()
+                new_run.text = new_text
+                _apply_font_attrs(new_run, *attrs)
+                break
+
+    # ------------------------------------------------------------------
+    # Insert chart image with exact hardcoded dimensions
+    # ------------------------------------------------------------------
     from io import BytesIO
     image_stream = BytesIO(image_bytes)
 
@@ -1363,5 +1408,47 @@ def insert_crypto_ytd_evolution_slide(prs, image_bytes, used_date=None, price_mo
     spTree.insert(2, sp)
 
     print(f"[Crypto YTD Evolution] Chart inserted")
+
+    # ------------------------------------------------------------------
+    # Insert data source footnote
+    # ------------------------------------------------------------------
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        suffix = " Close" if price_mode.lower() == "last close" else ""
+        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        placeholder_name = "ytd_crypto_source"
+        placeholder_patterns = ["[ytd_crypto_source]", "ytd_crypto_source"]
+        inserted = False
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == placeholder_name:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                inserted = True
+                break
+            if shape.has_text_frame:
+                for pattern in placeholder_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        try:
+                            new_text = shape.text.replace(pattern, source_text)
+                        except Exception:
+                            new_text = source_text
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        _apply_font_attrs(new_run, *attrs)
+                        inserted = True
+                        break
+                if inserted:
+                    break
 
     return prs
