@@ -1685,6 +1685,8 @@ try:
         insert_commodity_weekly_html_slide,
         create_historical_html_performance_chart as create_historical_commodity_html_chart,
         insert_commodity_historical_html_slide,
+        create_commodity_ytd_evolution_chart,
+        insert_commodity_ytd_evolution_slide,
     )
 except Exception:
     def create_weekly_commodity_performance_chart(*args, **kwargs):  # type: ignore
@@ -4035,7 +4037,6 @@ def show_generate_presentation_page():
         st.stop()
 
     # Lazy import functions for inserting charts into PPT
-    from ytd_perf.commodity_ytd import insert_commodity_chart
     from ytd_perf.crypto_ytd import insert_crypto_chart
 
     st.sidebar.write("### Summary of selections")
@@ -4269,15 +4270,6 @@ def show_generate_presentation_page():
 
         # Insert YTD charts
         update_progress("Updating date on first slide...")
-
-        update_progress("Inserting Commodity YTD chart...")
-        prs = insert_commodity_chart(
-            prs,
-            excel_path_for_ppt,
-            subtitle=st.session_state.get("co_subtitle", ""),
-            tickers=st.session_state.get("selected_co_tickers", []),
-            price_mode=st.session_state.get("price_mode", "Last Price"),
-        )
 
         update_progress("Inserting Crypto YTD chart...")
         prs = insert_crypto_chart(
@@ -5957,6 +5949,18 @@ def show_generate_presentation_page():
                 prs,
                 commo_histo_bytes,
                 used_date=commo_used_date2,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+
+            # Generate the Commodity YTD Evolution chart (Chart.js line chart)
+            commo_ytd_evo_bytes, commo_ytd_evo_date = create_commodity_ytd_evolution_chart(
+                excel_path_for_ppt,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_commodity_ytd_evolution_slide(
+                prs,
+                commo_ytd_evo_bytes,
+                used_date=commo_ytd_evo_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
         except Exception as e:

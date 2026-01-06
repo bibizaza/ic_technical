@@ -36,6 +36,8 @@ Key functions
 from __future__ import annotations
 
 import io
+import json
+import os
 import pathlib
 from typing import Dict, List, Tuple, Union, Optional
 
@@ -45,13 +47,15 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
-from jinja2 import Template
+from jinja2 import Template, Environment
 from html2image import Html2Image
+from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
 from market_compass.weekly_performance.html_template import (
     COMMODITIES_WEEKLY_HTML_TEMPLATE,
     COMMODITIES_HISTORICAL_HTML_TEMPLATE,
+    COMMODITY_YTD_EVOLUTION_HTML_TEMPLATE,
 )
 
 try:
@@ -1002,5 +1006,226 @@ def insert_commodity_historical_html_slide(
                 else:
                     continue
                 break
+
+    return prs
+
+# =============================================================================
+# COMMODITY YTD EVOLUTION LINE CHART (Chart.js + Playwright)
+# =============================================================================
+
+# Commodity configuration with real commodity colors
+COMMODITY_YTD_CONFIG = {
+    "XAU Curncy": {"name": "Gold", "color": "#DAA520"},
+    "XAG Curncy": {"name": "Silver", "color": "#8C8C8C"},
+    "XPT Curncy": {"name": "Platinum", "color": "#4682B4"},
+    "XPD Curncy": {"name": "Palladium", "color": "#E8B4B8"},
+    "HG1 Comdty": {"name": "Copper", "color": "#B87333"},
+    "UXA Comdty": {"name": "Uranium", "color": "#6B8E23"},
+    "CL1 Comdty": {"name": "Oil (WTI)", "color": "#1C1C1C"},
+}
+
+# Chart dimensions
+COMMODITY_YTD_PNG_WIDTH_PX = 2700
+COMMODITY_YTD_PNG_HEIGHT_PX = 1350
+COMMODITY_YTD_PPT_WIDTH_CM = 23.0
+COMMODITY_YTD_PPT_LEFT_CM = 0.5
+COMMODITY_YTD_PPT_TOP_CM = 4.2
+COMMODITY_YTD_HTML_SCALE = 3
+
+
+def _get_commodity_ytd_year(data_end_date: pd.Timestamp) -> int:
+    """Determine which year to show as YTD based on data end date."""
+    return data_end_date.year
+
+
+def _get_commodity_chart_title(data_end_date: pd.Timestamp) -> str:
+    """Generate chart title with correct year."""
+    year = _get_commodity_ytd_year(data_end_date)
+    return f"{year} YTD Evolution"
+
+
+def _load_commodity_price_data(excel_path, tickers):
+    """Load a DataFrame of dates and prices for the specified commodity tickers."""
+    df = pd.read_excel(excel_path, sheet_name="data_prices")
+    df = df.drop(index=0)
+    df = df[df[df.columns[0]] != "DATES"].copy()
+    df = df.rename(columns={df.columns[0]: "Date"})
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    out = df[["Date"] + [t for t in tickers if t in df.columns]].copy()
+    for t in tickers:
+        if t in out.columns:
+            out[t] = pd.to_numeric(out[t], errors="coerce")
+    return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+
+
+def _compute_commodity_ytd_series(df, ticker):
+    """Compute weekly YTD performance series for a commodity."""
+    if ticker not in df.columns:
+        return [], []
+
+    last_date = df["Date"].max()
+    year = last_date.year
+    start_of_year = pd.Timestamp(year=year, month=1, day=1)
+    df_year = df[df["Date"] >= start_of_year].copy().sort_values("Date")
+
+    if len(df_year) == 0:
+        return [], []
+
+    first_valid_idx = df_year[ticker].first_valid_index()
+    if first_valid_idx is None:
+        return [], []
+
+    baseline_price = df_year.loc[first_valid_idx, ticker]
+    if pd.isna(baseline_price) or baseline_price == 0:
+        return [], []
+
+    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+    daily_labels = []
+    daily_values = []
+
+    for _, row in df_year.iterrows():
+        price = row[ticker]
+        date = row["Date"]
+        if not pd.isna(price):
+            ytd_return = (price - baseline_price) / baseline_price * 100
+            daily_labels.append(month_names[date.month - 1])
+            daily_values.append(round(ytd_return, 1))
+
+    # Sample to weekly (every 5th trading day)
+    weekly_indices = list(range(0, len(daily_values), 5))
+    if len(daily_values) > 0 and weekly_indices[-1] != len(daily_values) - 1:
+        weekly_indices.append(len(daily_values) - 1)
+
+    labels = [daily_labels[i] for i in weekly_indices]
+    values = [daily_values[i] for i in weekly_indices]
+
+    return labels, values
+
+
+def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
+    """Generate HTML-based Commodity YTD Evolution line chart."""
+    tickers = list(COMMODITY_YTD_CONFIG.keys())
+    df = _load_commodity_price_data(excel_path, tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+
+    if used_date is None:
+        used_date = df_adj["Date"].max()
+
+    chart_title = _get_commodity_chart_title(used_date)
+
+    all_labels = []
+    datasets = []
+
+    for ticker, config in COMMODITY_YTD_CONFIG.items():
+        labels, values = _compute_commodity_ytd_series(df_adj, ticker)
+        if labels and values:
+            if len(labels) > len(all_labels):
+                all_labels = labels
+            datasets.append({
+                "label": config["name"],
+                "data": values,
+                "borderColor": config["color"],
+                "backgroundColor": "transparent",
+            })
+
+    max_len = len(all_labels)
+    for dataset in datasets:
+        while len(dataset["data"]) < max_len:
+            dataset["data"].append(None)
+
+    all_values = []
+    for ds in datasets:
+        all_values.extend([v for v in ds["data"] if v is not None])
+
+    if all_values:
+        data_min = min(all_values)
+        data_max = max(all_values)
+        y_min = (int(data_min / 5) - 1) * 5
+        y_max = (int(data_max / 5) + 2) * 5
+        if data_min < 0 < data_max:
+            y_min = min(y_min, -5)
+            y_max = max(y_max, 5)
+    else:
+        y_min = -20
+        y_max = 40
+
+    env = Environment()
+    env.filters['tojson'] = json.dumps
+    template = env.from_string(COMMODITY_YTD_EVOLUTION_HTML_TEMPLATE)
+    html_content = template.render(
+        width=COMMODITY_YTD_PNG_WIDTH_PX,
+        height=COMMODITY_YTD_PNG_HEIGHT_PX,
+        scale=COMMODITY_YTD_HTML_SCALE,
+        chart_title=chart_title,
+        labels=all_labels,
+        datasets=datasets,
+        y_min=y_min,
+        y_max=y_max,
+    )
+
+    png_bytes = None
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={
+                'width': COMMODITY_YTD_PNG_WIDTH_PX,
+                'height': COMMODITY_YTD_PNG_HEIGHT_PX
+            })
+            page.set_content(html_content, wait_until='networkidle')
+            try:
+                page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
+            except Exception:
+                page.wait_for_timeout(3000)
+            png_bytes = page.screenshot()
+            browser.close()
+    except Exception as e:
+        print(f"[ERROR] Playwright failed for commodity chart: {e}")
+
+    return png_bytes, used_date
+
+
+def insert_commodity_ytd_evolution_slide(prs, image_bytes, used_date=None, price_mode="Last Price"):
+    """Insert the Commodity YTD Evolution chart into PowerPoint."""
+    if not image_bytes:
+        return prs
+
+    target_slide = None
+    placeholder_names = ["ytd_commo_perf"]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in [n.lower() for n in placeholder_names]:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower == "[ytd_commo_perf]":
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print(f"[Commodity YTD Evolution] ERROR: Slide not found")
+        return prs
+
+    from io import BytesIO
+    image_stream = BytesIO(image_bytes)
+
+    left = Cm(COMMODITY_YTD_PPT_LEFT_CM)
+    top = Cm(COMMODITY_YTD_PPT_TOP_CM)
+    width = Cm(COMMODITY_YTD_PPT_WIDTH_CM)
+
+    pic = target_slide.shapes.add_picture(image_stream, left, top, width=width)
+
+    spTree = target_slide.shapes._spTree
+    sp = pic._element
+    spTree.remove(sp)
+    spTree.insert(2, sp)
+
+    print(f"[Commodity YTD Evolution] Chart inserted")
 
     return prs
