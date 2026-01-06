@@ -1635,6 +1635,8 @@ try:
         insert_crypto_weekly_html_slide,
         create_historical_html_performance_chart as create_historical_crypto_html_chart,
         insert_crypto_historical_html_slide,
+        create_crypto_ytd_evolution_chart,
+        insert_crypto_ytd_evolution_slide,
     )
 except Exception:
     # If Crypto module not available, define no-op placeholders
@@ -4036,9 +4038,6 @@ def show_generate_presentation_page():
         )
         st.stop()
 
-    # Lazy import functions for inserting charts into PPT
-    from ytd_perf.crypto_ytd import insert_crypto_chart
-
     st.sidebar.write("### Summary of selections")
     st.sidebar.write("Equities:", st.session_state.get("selected_eq_names", []))
     st.sidebar.write("Commodities:", st.session_state.get("selected_co_names", []))
@@ -4267,19 +4266,6 @@ def show_generate_presentation_page():
         # Fallback: if placeholder not found, replace shape named "DataIC"
         if not _date_set:
             prs = _set_text_in_named_textbox(prs, "DataIC", human_date)
-
-        # Insert YTD charts
-        update_progress("Updating date on first slide...")
-
-        update_progress("Inserting Crypto YTD chart...")
-        prs = insert_crypto_chart(
-            prs,
-            excel_path_for_ppt,
-            subtitle=st.session_state.get("cr_subtitle", ""),
-            tickers=st.session_state.get("selected_cr_tickers", []),
-            price_mode=st.session_state.get("price_mode", "Last Price"),
-        )
-
 
         # Determine which equity index was selected for technical analysis (not used here since we insert all indices)
         selected_index = st.session_state.get("ta_equity_index", "S&P 500")
@@ -5846,6 +5832,18 @@ def show_generate_presentation_page():
                 prs,
                 crypto_histo_bytes,
                 used_date=crypto_used_date2,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+
+            # Generate the Crypto YTD Evolution chart (Chart.js line chart)
+            crypto_ytd_evo_bytes, crypto_ytd_evo_date = create_crypto_ytd_evolution_chart(
+                excel_path_for_ppt,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_crypto_ytd_evolution_slide(
+                prs,
+                crypto_ytd_evo_bytes,
+                used_date=crypto_ytd_evo_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
         except Exception as e:
