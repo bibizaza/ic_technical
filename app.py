@@ -5771,6 +5771,7 @@ def show_generate_presentation_page():
                 ytd_evo_bytes,
                 used_date=ytd_evo_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
+                subtitle=st.session_state.get("eq_subtitle"),
             )
         except Exception as e:
             print(f"Equity performance charts error: {e}")
@@ -5845,6 +5846,7 @@ def show_generate_presentation_page():
                 crypto_ytd_evo_bytes,
                 used_date=crypto_ytd_evo_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
+                subtitle=st.session_state.get("cr_subtitle"),
             )
         except Exception as e:
             print(f"Crypto performance charts error: {e}")
@@ -5960,6 +5962,7 @@ def show_generate_presentation_page():
                 commo_ytd_evo_bytes,
                 used_date=commo_ytd_evo_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
+                subtitle=st.session_state.get("co_subtitle"),
             )
         except Exception as e:
             print(f"Commodity performance charts error: {e}")
