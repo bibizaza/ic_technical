@@ -3091,10 +3091,10 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         .dmas-panel {
             width: {{ 200 * scale }}px;
             background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
-            padding: {{ 12 * scale }}px;
+            padding: {{ 8 * scale }}px;
             display: flex;
             flex-direction: column;
-            gap: {{ 8 * scale }}px;
+            gap: {{ 5 * scale }}px;
             border: 1px solid #1B3A5A;
             border-left: none;
             border-radius: 0 {{ 8 * scale }}px 0 0;
@@ -3112,8 +3112,8 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .dmas-score-card {
             background: rgba(255,255,255,0.1);
-            border-radius: {{ 8 * scale }}px;
-            padding: {{ 12 * scale }}px;
+            border-radius: {{ 6 * scale }}px;
+            padding: {{ 8 * scale }}px;
             text-align: center;
         }
 
@@ -3125,7 +3125,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .dmas-value {
-            font-size: {{ 36 * scale }}px;
+            font-size: {{ 32 * scale }}px;
             font-weight: 700;
             color: #FFFFFF;
             line-height: 1.1;
@@ -3158,15 +3158,15 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .sub-score-card {
             background: rgba(255,255,255,0.08);
-            border-radius: {{ 6 * scale }}px;
-            padding: {{ 10 * scale }}px;
+            border-radius: {{ 5 * scale }}px;
+            padding: {{ 6 * scale }}px;
         }
 
         .sub-score-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: {{ 6 * scale }}px;
+            margin-bottom: {{ 4 * scale }}px;
         }
 
         .sub-score-title {
@@ -3622,7 +3622,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         top: 20 * scale,
                         right: 90 * scale,
                         bottom: 5 * scale,
-                        left: 5 * scale,
+                        left: 25 * scale,
                     }
                 },
                 plugins: {
