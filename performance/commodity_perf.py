@@ -1014,13 +1014,14 @@ def insert_commodity_historical_html_slide(
 # =============================================================================
 
 # Commodity configuration with real commodity colors
+# Using same tickers as COMMODITY_CATEGORIES for weekly/historical charts
 COMMODITY_YTD_CONFIG = {
-    "XAU Curncy": {"name": "Gold", "color": "#DAA520"},
-    "XAG Curncy": {"name": "Silver", "color": "#8C8C8C"},
-    "XPT Curncy": {"name": "Platinum", "color": "#4682B4"},
+    "GCA Comdty": {"name": "Gold", "color": "#DAA520"},
+    "SIA Comdty": {"name": "Silver", "color": "#8C8C8C"},
+    "XPT Comdty": {"name": "Platinum", "color": "#4682B4"},
     "XPD Curncy": {"name": "Palladium", "color": "#E8B4B8"},
-    "HG1 Comdty": {"name": "Copper", "color": "#B87333"},
-    "UXA Comdty": {"name": "Uranium", "color": "#6B8E23"},
+    "LP1 Comdty": {"name": "Copper", "color": "#B87333"},
+    "UXA1 Comdty": {"name": "Uranium", "color": "#6B8E23"},
     "CL1 Comdty": {"name": "Oil (WTI)", "color": "#1C1C1C"},
 }
 
