@@ -835,7 +835,7 @@ def _get_ytd_year(data_end_date: pd.Timestamp) -> int:
 def _get_chart_title(data_end_date: pd.Timestamp) -> str:
     """Generate chart title with correct year."""
     year = _get_ytd_year(data_end_date)
-    return f"YTD {year} Performance of Equity Indices (%)"
+    return f"{year} YTD Evolution"
 
 
 def _compute_ytd_series(

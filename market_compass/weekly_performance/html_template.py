@@ -2380,9 +2380,7 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
                 scales: {
                     x: {
                         grid: {
-                            display: true,
-                            color: 'rgba(0, 0, 0, 0.05)',
-                            drawBorder: false,
+                            display: false,
                         },
                         ticks: {
                             font: { family: 'Calibri', size: 9 * scale, weight: '500' },
@@ -2405,15 +2403,15 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
                             display: true,
                             color: function(context) {
                                 if (context.tick.value === 0) {
-                                    return 'rgba(27, 58, 90, 0.3)';
+                                    return 'rgba(0, 0, 0, 0.3)';
                                 }
-                                return 'rgba(0, 0, 0, 0.05)';
+                                return 'transparent';
                             },
                             lineWidth: function(context) {
                                 if (context.tick.value === 0) {
                                     return 2;
                                 }
-                                return 1;
+                                return 0;
                             },
                             drawBorder: false,
                         },
