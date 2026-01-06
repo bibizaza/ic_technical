@@ -3531,7 +3531,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         top: 25 * scale,
                         right: 90 * scale,
                         bottom: 5 * scale,
-                        left: 5 * scale,
+                        left: 50 * scale,
                     }
                 },
                 plugins: {
@@ -3548,9 +3548,14 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         ticks: {
                             font: { size: 9 * scale, family: 'Calibri' },
                             color: '#64748B',
+                            padding: 5,
                             maxRotation: 0,
                             autoSkip: true,
                             maxTicksLimit: 12,
+                        },
+                        afterFit: function(axis) {
+                            axis.paddingLeft = 0;
+                            axis.paddingRight = 0;
                         }
                     },
                     y: {
@@ -3576,24 +3581,45 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 afterDraw: function(chart) {
                     const ctx = chart.ctx;
                     const yScale = chart.scales.y;
+                    const xScale = chart.scales.x;
                     const chartArea = chart.chartArea;
-                    const fontSize = 10 * scale;
-                    const smallFontSize = 8 * scale;
+                    const fontSize = 9 * scale;
+                    const smallFontSize = 7 * scale;
+                    const dotRadius = 3 * scale;
+
+                    // Get x position for range start (at last data point)
+                    const rangeStartX = chartArea.right;
+
+                    // Higher range
+                    const higherY = yScale.getPixelForValue(higherRange);
+                    // Draw dot at start of higher range line
+                    ctx.beginPath();
+                    ctx.arc(rangeStartX, higherY, dotRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#1B3A5A';
+                    ctx.fill();
+                    // Draw labels
                     ctx.font = `600 ${fontSize}px Calibri`;
                     ctx.textAlign = 'left';
-                    const higherY = yScale.getPixelForValue(higherRange);
                     ctx.fillStyle = '#10B981';
-                    ctx.fillText(higherRange.toLocaleString() + ' (' + higherRangePct + ')', chartArea.right + 8 * scale, higherY - 8 * scale);
+                    ctx.fillText(higherRange.toLocaleString() + ' (' + higherRangePct + ')', chartArea.right + 10 * scale, higherY - 6 * scale);
                     ctx.font = `${smallFontSize}px Calibri`;
                     ctx.fillStyle = '#64748B';
-                    ctx.fillText('Higher Range', chartArea.right + 8 * scale, higherY - 20 * scale);
+                    ctx.fillText('Higher Range', chartArea.right + 10 * scale, higherY - 16 * scale);
+
+                    // Lower range
                     const lowerY = yScale.getPixelForValue(lowerRange);
+                    // Draw dot at start of lower range line
+                    ctx.beginPath();
+                    ctx.arc(rangeStartX, lowerY, dotRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#1B3A5A';
+                    ctx.fill();
+                    // Draw labels
                     ctx.font = `600 ${fontSize}px Calibri`;
                     ctx.fillStyle = '#EF4444';
-                    ctx.fillText(lowerRange.toLocaleString() + ' (' + lowerRangePct + ')', chartArea.right + 8 * scale, lowerY + 16 * scale);
+                    ctx.fillText(lowerRange.toLocaleString() + ' (' + lowerRangePct + ')', chartArea.right + 10 * scale, lowerY + 14 * scale);
                     ctx.font = `${smallFontSize}px Calibri`;
                     ctx.fillStyle = '#64748B';
-                    ctx.fillText('Lower Range', chartArea.right + 8 * scale, lowerY + 28 * scale);
+                    ctx.fillText('Lower Range', chartArea.right + 10 * scale, lowerY + 24 * scale);
                 }
             }]
         });
@@ -3622,7 +3648,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         top: 20 * scale,
                         right: 90 * scale,
                         bottom: 5 * scale,
-                        left: 25 * scale,
+                        left: 50 * scale,
                     }
                 },
                 plugins: {
@@ -3670,9 +3696,14 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         ticks: {
                             font: { size: 9 * scale, family: 'Calibri' },
                             color: '#64748B',
+                            padding: 5,
                             maxRotation: 0,
                             autoSkip: true,
                             maxTicksLimit: 12,
+                        },
+                        afterFit: function(axis) {
+                            axis.paddingLeft = 0;
+                            axis.paddingRight = 0;
                         }
                     },
                     y: {

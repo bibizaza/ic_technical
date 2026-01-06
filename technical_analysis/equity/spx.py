@@ -1133,9 +1133,10 @@ from jinja2 import Environment
 from playwright.sync_api import sync_playwright
 
 # Chart dimensions for v2 - aspect ratio 23.67:11.5 = 2.058
-TECH_V2_PNG_WIDTH_PX = 2400
-TECH_V2_PNG_HEIGHT_PX = 1166  # Taller to fix stretched look
-TECH_V2_HTML_SCALE = 3
+# Base: 1420×690px, using 2x scale for quality
+TECH_V2_PNG_WIDTH_PX = 2840   # 1420 × 2
+TECH_V2_PNG_HEIGHT_PX = 1380  # 690 × 2
+TECH_V2_HTML_SCALE = 2
 TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
 
 
@@ -1507,7 +1508,7 @@ def insert_technical_analysis_v2_slide(
     spTree.remove(pic_element)
     spTree.insert(2, pic_element)
 
-    print(f"[Tech V2] Chart inserted at ({left_cm}, {top_cm}) cm")
+    print(f"[DEBUG] Inserting image: {width_cm} × {height_cm} cm at ({left_cm}, {top_cm})")
 
     # Insert source footnote
     if used_date is not None:
