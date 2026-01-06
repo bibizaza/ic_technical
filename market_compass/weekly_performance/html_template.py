@@ -3214,7 +3214,9 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         .rsi-chart-area {
             flex: 1;
             position: relative;
-            padding: {{ 5 * scale }}px 0 {{ 10 * scale }}px {{ 10 * scale }}px;
+            padding: {{ 10 * scale }}px;
+            padding-right: 0;
+            padding-top: {{ 5 * scale }}px;
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
             border-top: none;
@@ -3413,9 +3415,6 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             <div class="rsi-panel">
                 <div class="rsi-current-title">RSI Current</div>
                 <div class="rsi-current-value" style="color: {{ rsi_color }};">{{ rsi_current }}</div>
-                <div class="rsi-gauge">
-                    <div class="rsi-gauge-marker" style="left: {{ rsi_current }}%;"></div>
-                </div>
                 <div class="rsi-interpretation" style="color: {{ rsi_color }};">{{ rsi_interpretation }}</div>
                 <div class="rsi-context">{{ rsi_context }}</div>
             </div>
@@ -3445,7 +3444,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 type: 'line',
                 yMin: level,
                 yMax: level,
-                borderColor: 'rgba(203, 213, 225, 0.5)',
+                borderColor: 'rgba(100, 116, 139, 0.4)',
                 borderWidth: 1,
                 borderDash: [4, 4],
             };
@@ -3560,8 +3559,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         min: priceYMin,
                         max: priceYMax,
                         grid: {
-                            display: true,
-                            color: 'rgba(0, 0, 0, 0.05)',
+                            display: false,
                         },
                         ticks: {
                             font: { size: 9 * scale, family: 'Calibri' },

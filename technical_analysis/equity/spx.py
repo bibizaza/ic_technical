@@ -1132,9 +1132,9 @@ import json
 from jinja2 import Environment
 from playwright.sync_api import sync_playwright
 
-# Chart dimensions for v2 - reduced to fit slide content area (~23cm × 12cm)
-TECH_V2_PNG_WIDTH_PX = 2400  # ~23cm at 3x scale
-TECH_V2_PNG_HEIGHT_PX = 1260  # ~12cm at 3x scale
+# Chart dimensions for v2 - aspect ratio 23.67:11.5 = 2.058
+TECH_V2_PNG_WIDTH_PX = 2400
+TECH_V2_PNG_HEIGHT_PX = 1166  # Taller to fix stretched look
 TECH_V2_HTML_SCALE = 3
 TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
 
@@ -1272,23 +1272,6 @@ def create_technical_analysis_v2_chart(
     period_low = df["Price"].min()
     fib_levels = _compute_fibonacci_levels(period_high, period_low)
 
-    # Y-axis range for price - include all data points (price + all MAs)
-    all_data_min = min(
-        df["Price"].min(),
-        df["MA50"].min(),
-        df["MA100"].min(),
-        df["MA200"].min()
-    )
-    all_data_max = max(
-        df["Price"].max(),
-        df["MA50"].max(),
-        df["MA100"].max(),
-        df["MA200"].max()
-    )
-    price_padding = (all_data_max - all_data_min) * 0.02  # 2% padding
-    price_y_min = round(all_data_min - price_padding, 0)
-    price_y_max = round(all_data_max + price_padding, 0)
-
     # Trading range (use volatility-based if available)
     vol_val = _get_vol_index_value(excel_path, price_mode=price_mode, vol_ticker="VIX Index")
     if vol_val:
@@ -1302,6 +1285,25 @@ def create_technical_analysis_v2_chart(
 
     higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
+
+    # Y-axis range - include all data points AND trading range
+    all_data_min = min(
+        df["Price"].min(),
+        df["MA50"].min(),
+        df["MA100"].min(),
+        df["MA200"].min(),
+        lower_range  # Include lower trading range
+    )
+    all_data_max = max(
+        df["Price"].max(),
+        df["MA50"].max(),
+        df["MA100"].max(),
+        df["MA200"].max(),
+        higher_range  # Include higher trading range
+    )
+    price_padding = (all_data_max - all_data_min) * 0.03  # 3% padding for labels
+    price_y_min = round(all_data_min - price_padding, 0)
+    price_y_max = round(all_data_max + price_padding, 0)
 
     # RSI current
     rsi_current = int(round(df["RSI"].iloc[-1], 0)) if not pd.isna(df["RSI"].iloc[-1]) else 50
@@ -1444,9 +1446,9 @@ def insert_technical_analysis_v2_slide(
     *,
     placeholder_name: str = "spx_v2",
     left_cm: float = 1.13,
-    top_cm: float = 4.53,
+    top_cm: float = 4.2,
     width_cm: float = 23.67,
-    height_cm: float = 10.77,
+    height_cm: float = 11.5,
 ) -> Presentation:
     """Insert Technical Analysis v2 chart into PowerPoint.
 
