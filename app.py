@@ -4035,7 +4035,6 @@ def show_generate_presentation_page():
         st.stop()
 
     # Lazy import functions for inserting charts into PPT
-    from ytd_perf.equity_ytd import insert_equity_chart
     from ytd_perf.commodity_ytd import insert_commodity_chart
     from ytd_perf.crypto_ytd import insert_crypto_chart
 
@@ -4270,15 +4269,6 @@ def show_generate_presentation_page():
 
         # Insert YTD charts
         update_progress("Updating date on first slide...")
-
-        update_progress("Inserting Equity YTD chart...")
-        prs = insert_equity_chart(
-            prs,
-            excel_path_for_ppt,
-            subtitle=st.session_state.get("eq_subtitle", ""),
-            tickers=st.session_state.get("selected_eq_tickers", []),
-            price_mode=st.session_state.get("price_mode", "Last Price"),
-        )
 
         update_progress("Inserting Commodity YTD chart...")
         prs = insert_commodity_chart(

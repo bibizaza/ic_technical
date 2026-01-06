@@ -1014,11 +1014,6 @@ def create_equity_ytd_evolution_chart(
         y_max=y_max,
     )
 
-    # Save HTML for debugging
-    with open("equity_ytd_debug.html", "w") as f:
-        f.write(html_content)
-    print(f"[DEBUG] HTML saved to equity_ytd_debug.html")
-
     # Convert HTML to PNG using Playwright (waits for Chart.js to render)
     png_bytes = None
     try:
