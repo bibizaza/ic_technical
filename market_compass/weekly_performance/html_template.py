@@ -3075,7 +3075,11 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             flex: 1;
             position: relative;
             padding: {{ 10 * scale }}px;
-            padding-right: {{ 5 * scale }}px;
+            padding-right: 0;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-right: none;
+            border-radius: {{ 8 * scale }}px 0 0 0;
         }
 
         .price-chart-container {
@@ -3091,6 +3095,9 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             display: flex;
             flex-direction: column;
             gap: {{ 8 * scale }}px;
+            border: 1px solid #1B3A5A;
+            border-left: none;
+            border-radius: 0 {{ 8 * scale }}px 0 0;
         }
 
         .panel-title {
@@ -3207,7 +3214,12 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         .rsi-chart-area {
             flex: 1;
             position: relative;
-            padding: {{ 5 * scale }}px {{ 5 * scale }}px {{ 10 * scale }}px {{ 10 * scale }}px;
+            padding: {{ 5 * scale }}px 0 {{ 10 * scale }}px {{ 10 * scale }}px;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-top: none;
+            border-right: none;
+            border-radius: 0 0 0 {{ 8 * scale }}px;
         }
 
         .rsi-chart-container {
@@ -3234,6 +3246,15 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             flex-direction: column;
             justify-content: center;
             gap: {{ 6 * scale }}px;
+            border: 1px solid #1B3A5A;
+            border-top: none;
+            border-left: none;
+            border-radius: 0 0 {{ 8 * scale }}px 0;
+            list-style: none;
+        }
+
+        .rsi-panel * {
+            list-style: none;
         }
 
         .rsi-current-title {
@@ -3249,6 +3270,13 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             font-weight: 700;
             text-align: center;
             line-height: 1.1;
+            list-style: none;
+        }
+
+        .rsi-current-value::before,
+        .rsi-current-value::after {
+            content: none;
+            display: none;
         }
 
         .rsi-gauge {
@@ -3452,7 +3480,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         label: 'Price',
                         data: priceData,
                         borderColor: '#1B3A5A',
-                        borderWidth: 2.5 * scale / 3,
+                        borderWidth: 3 * scale / 3,
                         pointRadius: 0,
                         tension: 0.1,
                         fill: false,

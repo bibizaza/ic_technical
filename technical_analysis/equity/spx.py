@@ -1272,10 +1272,22 @@ def create_technical_analysis_v2_chart(
     period_low = df["Price"].min()
     fib_levels = _compute_fibonacci_levels(period_high, period_low)
 
-    # Y-axis range for price
-    price_padding = (period_high - period_low) * 0.1
-    price_y_min = round(period_low - price_padding, 0)
-    price_y_max = round(period_high + price_padding, 0)
+    # Y-axis range for price - include all data points (price + all MAs)
+    all_data_min = min(
+        df["Price"].min(),
+        df["MA50"].min(),
+        df["MA100"].min(),
+        df["MA200"].min()
+    )
+    all_data_max = max(
+        df["Price"].max(),
+        df["MA50"].max(),
+        df["MA100"].max(),
+        df["MA200"].max()
+    )
+    price_padding = (all_data_max - all_data_min) * 0.02  # 2% padding
+    price_y_min = round(all_data_min - price_padding, 0)
+    price_y_max = round(all_data_max + price_padding, 0)
 
     # Trading range (use volatility-based if available)
     vol_val = _get_vol_index_value(excel_path, price_mode=price_mode, vol_ticker="VIX Index")
@@ -1431,9 +1443,10 @@ def insert_technical_analysis_v2_slide(
     price_mode: str = "Last Price",
     *,
     placeholder_name: str = "spx_v2",
-    left_cm: float = 0.5,
-    top_cm: float = 4.2,
-    width_cm: float = 23.0,  # Reduced to fit slide better
+    left_cm: float = 1.13,
+    top_cm: float = 4.53,
+    width_cm: float = 23.67,
+    height_cm: float = 10.77,
 ) -> Presentation:
     """Insert Technical Analysis v2 chart into PowerPoint.
 
@@ -1483,7 +1496,7 @@ def insert_technical_analysis_v2_slide(
     # Insert chart image
     stream = BytesIO(image_bytes)
     picture = target_slide.shapes.add_picture(
-        stream, Cm(left_cm), Cm(top_cm), width=Cm(width_cm)
+        stream, Cm(left_cm), Cm(top_cm), width=Cm(width_cm), height=Cm(height_cm)
     )
 
     # Send to back
