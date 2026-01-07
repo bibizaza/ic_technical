@@ -26,7 +26,7 @@ from .data_prep import AssetRow
 # ============================================================
 
 # Scale factor for crisp output (3x = ultra crisp)
-SCALE_FACTOR = 3
+SCALE_FACTOR = 4
 
 # Base dimensions (logical size)
 BASE_WIDTH = 1200

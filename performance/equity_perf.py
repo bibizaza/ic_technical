@@ -372,7 +372,7 @@ def create_weekly_performance_chart(
 
     # Generate HTML - PNG must be 3x scale for crisp rendering
     # Target: 17.31cm × 10cm in PowerPoint
-    SCALE_FACTOR = 3
+    SCALE_FACTOR = 4
     width_px = int(17.31 * 37.8 * SCALE_FACTOR)  # = 1963 px
     height_px = int(10 * 37.8 * SCALE_FACTOR)     # = 1134 px
 
@@ -515,7 +515,7 @@ def create_historical_performance_table(
         })
 
     # Generate HTML
-    SCALE_FACTOR = 3
+    SCALE_FACTOR = 4
     width_px = 2200  # ~19.4cm at 3x
     height_px = 1200  # ~10.6cm at 3x
 

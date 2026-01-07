@@ -6074,6 +6074,28 @@ def show_generate_presentation_page():
         # Apply the font correction to all tables after all slides have been added
         force_all_tables_calibri(prs, size_pt=11)
 
+        def disable_image_compression(prs):
+            """Disable automatic image compression in PowerPoint.
+
+            Sets compression state to 'none' for all embedded images (blips)
+            to preserve full resolution when the presentation is opened.
+            """
+            DRAWING_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+            try:
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, '_element'):
+                            # Find blip elements (images)
+                            for blip in shape._element.iter(f'{DRAWING_NS}blip'):
+                                # Set compression state to 'none'
+                                blip.set(f'{DRAWING_NS}cstate', 'none')
+            except Exception:
+                # Never break presentation generation if compression disable fails
+                pass
+
+        # Disable image compression to preserve chart quality
+        disable_image_compression(prs)
+
         update_progress("Finalizing presentation...")
         out_stream = BytesIO()
         prs.save(out_stream)

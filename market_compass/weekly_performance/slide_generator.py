@@ -17,7 +17,7 @@ from .html_template import WEEKLY_PERFORMANCE_HTML_TEMPLATE
 # CONSTANTS
 # =============================================================================
 
-SCALE_FACTOR = 3
+SCALE_FACTOR = 4
 
 # Index name and flag mapping for Equity
 # Flag codes are ISO 3166-1 alpha-2 for flagcdn.com

@@ -66,7 +66,7 @@ from utils import adjust_prices_for_mode
 from market_compass.weekly_performance.html_template import BONDS_RATES_HTML_TEMPLATE, BONDS_HISTORICAL_HTML_TEMPLATE
 
 # Scale factor for high-resolution rendering
-SCALE_FACTOR = 3
+SCALE_FACTOR = 4
 
 # Country configuration for bonds rates chart
 # Flag codes are ISO 3166-1 alpha-2 for flagcdn.com

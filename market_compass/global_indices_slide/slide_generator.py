@@ -19,7 +19,7 @@ from .html_template import GLOBAL_INDICES_HTML_TEMPLATE
 # RESOLUTION SETTINGS
 # =============================================================================
 
-SCALE_FACTOR = 3
+SCALE_FACTOR = 4
 BASE_WIDTH = 903
 BASE_HEIGHT = 315  # Compact table fits in smaller height
 COMBINED_WIDTH_PX = BASE_WIDTH * SCALE_FACTOR   # 2709

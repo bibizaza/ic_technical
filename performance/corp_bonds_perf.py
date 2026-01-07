@@ -34,7 +34,7 @@ from market_compass.weekly_performance.html_template import (
 
 
 # Scale factor for PNG generation
-SCALE_FACTOR = 3
+SCALE_FACTOR = 4
 
 # Corporate bond configuration - uses Bloomberg index tickers from data_prices sheet
 # Maps ticker to (display_name, flag country code, credit_type)

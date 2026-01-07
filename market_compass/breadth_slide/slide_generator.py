@@ -18,7 +18,7 @@ from .html_template import BREADTH_HTML_TEMPLATE
 # RESOLUTION SETTINGS
 # =============================================================================
 
-SCALE_FACTOR = 3
+SCALE_FACTOR = 4
 BREADTH_BASE_WIDTH = 440
 BREADTH_BASE_HEIGHT = 331
 BREADTH_WIDTH_PX = BREADTH_BASE_WIDTH * SCALE_FACTOR   # 1320

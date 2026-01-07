@@ -19,7 +19,7 @@ from .html_template import FUNDAMENTAL_HTML_TEMPLATE
 # RESOLUTION SETTINGS
 # =============================================================================
 
-SCALE_FACTOR = 3
+SCALE_FACTOR = 4
 FUNDAMENTAL_BASE_WIDTH = 440
 FUNDAMENTAL_BASE_HEIGHT = 331
 FUNDAMENTAL_WIDTH_PX = FUNDAMENTAL_BASE_WIDTH * SCALE_FACTOR   # 1320
