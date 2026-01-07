@@ -60,6 +60,19 @@ lows.
 
 from __future__ import annotations
 
+# === Windows Playwright Fix - MUST BE EARLY ===
+import sys
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+# === End Fix ===
+
 from datetime import timedelta
 import pathlib
 from typing import Optional, Tuple
@@ -110,7 +123,6 @@ from technical_analysis.powerpoint_utils import (
 # )
 # MARS scores are now read directly from mars_score sheet in Excel (see _compute_spx_mars_score_cached)
 
-
 def _load_price_data(
     excel_path: pathlib.Path,
     ticker: str = "SPX Index",
@@ -141,9 +153,7 @@ def _load_price_data(
     """
     return _load_price_data_generic(excel_path, ticker, price_mode)
 
-
 # ---------------------------------------------------------------------------
-
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -369,7 +379,6 @@ def make_spx_figure(
     )
     return fig
 
-
 ###############################################################################
 # High‑resolution chart export (PNG)
 ###############################################################################
@@ -492,11 +501,9 @@ def _generate_spx_image_from_df(
     buf.seek(0)
     return buf.getvalue()
 
-
 ###############################################################################
 # Score helpers
 ###############################################################################
-
 
 def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     """
@@ -509,19 +516,14 @@ def _find_spx_slide(prs: Presentation) -> Optional[int]:
     """Find the S&P 500 slide by placeholder."""
     return find_slide_by_placeholder(prs, "spx")
 
-
-
 def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presentation:
     """Insert the S&P 500 technical score into the slide."""
     score = _get_spx_technical_score(excel_file)
     return insert_score_number(prs, score, "spx", "tech_score")
 
-
 ###############################################################################
 # Call‑out range helpers and insertion
 ###############################################################################
-
-
 
 def insert_spx_technical_chart_with_callout(
     prs: Presentation,
@@ -690,8 +692,6 @@ def insert_spx_technical_chart_with_callout(
             break
     return prs
 
-
-
 @st.cache_data(show_spinner=False)
 def _compute_spx_mars_score_cached(excel_path: str) -> Optional[float]:
     """
@@ -729,7 +729,6 @@ def _compute_spx_mars_score_cached(excel_path: str) -> Optional[float]:
         print(f"Warning: Could not read MARS score for SPX: {e}")
         return None
 
-
 def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
     Retrieve the momentum score for S&P 500 from the mars_score Excel sheet.
@@ -742,7 +741,6 @@ def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentat
     """Insert the S&P 500 momentum score into the slide."""
     score = _get_spx_momentum_score(excel_file)
     return insert_score_number(prs, score, "spx", "momentum_score")
-
 
 ###############################################################################
 # Chart insertion
@@ -795,7 +793,6 @@ def insert_spx_technical_chart(
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
 
-
 ###############################################################################
 # Subtitle insertion
 ###############################################################################
@@ -804,14 +801,9 @@ def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
     """Insert subtitle into the S&P 500 slide."""
     return insert_subtitle(prs, subtitle, "spx")
 
-
 ###############################################################################
 # Colour interpolation for gauge
 ###############################################################################
-
-
-
-
 
 def insert_spx_average_gauge(
     prs: Presentation, excel_file, last_week_avg: float
@@ -878,7 +870,6 @@ def insert_spx_average_gauge(
     stream = BytesIO(gauge_bytes)
     slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
-
 
 ###############################################################################
 # Technical assessment insertion
@@ -965,7 +956,6 @@ def insert_spx_technical_assessment(
                     return prs
     return prs
 
-
 ###############################################################################
 # Source footnote insertion
 ###############################################################################
@@ -1046,14 +1036,9 @@ def insert_spx_source(
                     return prs
     return prs
 
-
 ###############################################################################
 # Range gauge helpers and insertion
 ###############################################################################
-
-
-
-
 
 def insert_spx_technical_chart_with_range(
     prs: Presentation,
@@ -1136,7 +1121,6 @@ def insert_spx_technical_chart_with_range(
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
 
-
 # =============================================================================
 # TECHNICAL ANALYSIS CHART V2 - Chart.js + Playwright
 # =============================================================================
@@ -1152,7 +1136,6 @@ TECH_V2_PNG_HEIGHT_PX = 1380  # 690 × 2
 TECH_V2_HTML_SCALE = 2
 TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
 
-
 def _compute_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     """Compute RSI for a price series."""
     delta = prices.diff()
@@ -1163,7 +1146,6 @@ def _compute_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
     return rsi
-
 
 def _compute_fibonacci_levels(high: float, low: float) -> list:
     """Compute Fibonacci retracement levels."""
@@ -1179,7 +1161,6 @@ def _compute_fibonacci_levels(high: float, low: float) -> list:
     ]
     return [round(l, 2) for l in levels]
 
-
 def _get_score_status(score: int) -> tuple:
     """Get status text and color based on score."""
     if score >= 81:
@@ -1193,7 +1174,6 @@ def _get_score_status(score: int) -> tuple:
     else:
         return "Very Weak", "#EF4444"
 
-
 def _get_rsi_interpretation(rsi: float) -> tuple:
     """Get RSI interpretation text and color."""
     if rsi >= 70:
@@ -1204,7 +1184,6 @@ def _get_rsi_interpretation(rsi: float) -> tuple:
         return "Neutral", "#EAB308", "Room to run"
     else:
         return "Neutral", "#EAB308", "Watching support"
-
 
 def create_technical_analysis_v2_chart(
     excel_path,
@@ -1450,7 +1429,6 @@ def create_technical_analysis_v2_chart(
         traceback.print_exc()
 
     return png_bytes, used_date
-
 
 def insert_technical_analysis_v2_slide(
     prs: Presentation,

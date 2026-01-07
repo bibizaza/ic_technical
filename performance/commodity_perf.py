@@ -48,6 +48,18 @@ Key functions
 
 from __future__ import annotations
 
+# === Windows Playwright Fix - MUST BE EARLY ===
+import sys
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+# === End Fix ===
 import io
 import json
 import os
@@ -121,7 +133,6 @@ def _load_price_data(excel_path: Union[str, pathlib.Path], tickers: List[str]) -
         out[t] = pd.to_numeric(out[t], errors="coerce")
     return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
 
-
 def _compute_horizon_returns(
     df: pd.DataFrame,
     ticker: str,
@@ -138,7 +149,6 @@ def _compute_horizon_returns(
     if past_price == 0 or pd.isna(past_price):
         return float("nan")
     return (current_price - past_price) / past_price * 100.0
-
 
 def _build_returns_table(
     df: pd.DataFrame,
@@ -170,7 +180,6 @@ def _build_returns_table(
     table["Name"] = table.index.map(mapping.get)
     return table[["Name", "1W", "1M", "3M", "6M", "12M", "YTD"]]
 
-
 ###############################################################################
 # Colour helper (green/red)
 ###############################################################################
@@ -187,7 +196,6 @@ def _colour_for_value(val: float, max_pos: float, min_neg: float) -> Tuple[float
         ratio = float(val) / min_neg  # both negative → positive ratio
         return tuple(white + ratio * (red - white))
     return tuple(white)
-
 
 ###############################################################################
 # Figure generation functions
@@ -305,7 +313,6 @@ def create_weekly_performance_chart(
     buf.seek(0)
     return buf.getvalue(), used_date
 
-
 def create_historical_performance_table(
     excel_path: Union[str, pathlib.Path],
     ticker_mapping: Dict[str, str] | None = None,
@@ -381,7 +388,6 @@ def create_historical_performance_table(
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue(), used_date
-
 
 ###############################################################################
 # Slide insertion helpers
@@ -466,7 +472,6 @@ def _insert_dashboard_to_placeholder(
                 break
     return prs
 
-
 def insert_commodity_performance_bar_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -493,7 +498,6 @@ def insert_commodity_performance_bar_slide(
         source_placeholder_names=["commo_1w_source"],
     )
 
-
 def insert_commodity_performance_histo_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -519,7 +523,6 @@ def insert_commodity_performance_histo_slide(
         price_mode=price_mode,
         source_placeholder_names=["commo_1w_source2"],
     )
-
 
 ###############################################################################
 # HTML-based Commodities Weekly Performance Chart
@@ -568,11 +571,9 @@ PPT_LEFT_CM = 3.35
 PPT_TOP_CM = 4.6
 HTML_SCALE = 3
 
-
 def _format_commodity_percentage(value: float) -> str:
     """Format percentage with sign."""
     return f"{value:+.1f}%"
-
 
 def create_weekly_html_performance_chart(
     excel_path: Union[str, pathlib.Path],
@@ -674,7 +675,6 @@ def create_weekly_html_performance_chart(
 
     return png_bytes, used_date
 
-
 def insert_commodity_weekly_html_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -762,7 +762,6 @@ def insert_commodity_weekly_html_slide(
 
     return prs
 
-
 # =============================================================================
 # COMMODITIES HISTORICAL PERFORMANCE HEATMAP
 # =============================================================================
@@ -774,7 +773,6 @@ HIST_PPT_WIDTH_CM = 17.02
 HIST_PPT_LEFT_CM = 3.35
 HIST_PPT_TOP_CM = 4.6
 HIST_HTML_SCALE = 3
-
 
 def _get_commodity_historical_color_class(value: float) -> str:
     """
@@ -803,14 +801,12 @@ def _get_commodity_historical_color_class(value: float) -> str:
 
     return f"{prefix}-{level}"
 
-
 def _format_historical_percentage(value: float) -> str:
     """Format value as percentage string with sign."""
     if value >= 0:
         return f"+{value:.1f}%"
     else:
         return f"{value:.1f}%"
-
 
 def create_historical_html_performance_chart(
     excel_path: Union[str, pathlib.Path],
@@ -935,7 +931,6 @@ def create_historical_html_performance_chart(
 
     return png_bytes, used_date
 
-
 def insert_commodity_historical_html_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -1047,17 +1042,14 @@ COMMODITY_YTD_PPT_LEFT_CM = 0.5
 COMMODITY_YTD_PPT_TOP_CM = 4.2
 COMMODITY_YTD_HTML_SCALE = 3
 
-
 def _get_commodity_ytd_year(data_end_date: pd.Timestamp) -> int:
     """Determine which year to show as YTD based on data end date."""
     return data_end_date.year
-
 
 def _get_commodity_chart_title(data_end_date: pd.Timestamp) -> str:
     """Generate chart title with correct year."""
     year = _get_commodity_ytd_year(data_end_date)
     return f"{year} YTD Evolution"
-
 
 def _load_commodity_price_data(excel_path, tickers):
     """Load a DataFrame of dates and prices for the specified commodity tickers."""
@@ -1071,7 +1063,6 @@ def _load_commodity_price_data(excel_path, tickers):
         if t in out.columns:
             out[t] = pd.to_numeric(out[t], errors="coerce")
     return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
-
 
 def _compute_commodity_ytd_series(df, ticker):
     """Compute weekly YTD performance series for a commodity."""
@@ -1123,7 +1114,6 @@ def _compute_commodity_ytd_series(df, ticker):
         values = [daily_values[i] for i in weekly_indices]
 
     return labels, values
-
 
 def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
     """Generate HTML-based Commodity YTD Evolution line chart."""
@@ -1232,7 +1222,6 @@ def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price")
         print(f"[ERROR] Playwright failed for commodity chart: {e}")
 
     return png_bytes, used_date
-
 
 def insert_commodity_ytd_evolution_slide(prs, image_bytes, used_date=None, price_mode="Last Price", subtitle=None):
     """Insert the Commodity YTD Evolution chart into PowerPoint.

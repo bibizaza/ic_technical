@@ -67,6 +67,18 @@ except ImportError:
 
 from __future__ import annotations
 
+# === Windows Playwright Fix - MUST BE EARLY ===
+import sys
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+# === End Fix ===
 import io
 import os
 import json
@@ -153,7 +165,6 @@ def _load_price_data(excel_path: Union[str, pathlib.Path], tickers: List[str]) -
         out[t] = pd.to_numeric(out[t], errors="coerce")
     return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
 
-
 def _compute_horizon_returns(
     df: pd.DataFrame,
     ticker: str,
@@ -191,7 +202,6 @@ def _compute_horizon_returns(
     if past_price == 0 or pd.isna(past_price):
         return float("nan")
     return (current_price - past_price) / past_price * 100.0
-
 
 def _build_returns_table(
     df: pd.DataFrame,
@@ -239,7 +249,6 @@ def _build_returns_table(
     table = pd.DataFrame.from_dict(results, orient="index")
     table["Name"] = table.index.map(mapping.get)
     return table[["Name", "1W", "1M", "3M", "6M", "12M", "YTD"]]
-
 
 ###############################################################################
 # Figure generation functions
@@ -412,7 +421,6 @@ def create_weekly_performance_chart(
 
     return png_bytes, used_date
 
-
 def create_historical_performance_table(
     excel_path: Union[str, pathlib.Path],
     ticker_mapping: Dict[str, str] | None = None,
@@ -555,7 +563,6 @@ def create_historical_performance_table(
 
     return png_bytes, used_date
 
-
 ###############################################################################
 # Colour helper
 ###############################################################################
@@ -578,7 +585,6 @@ def _colour_for_value(val: float, max_pos: float, min_neg: float) -> Tuple[float
         ratio = float(val) / min_neg  # both negative → positive ratio
         return tuple(white + ratio * (red - white))
     return tuple(white)
-
 
 ###############################################################################
 # Slide insertion helpers
@@ -716,7 +722,6 @@ def _insert_dashboard_to_placeholder(
                 break
     return prs
 
-
 def insert_equity_performance_bar_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -770,7 +775,6 @@ def insert_equity_performance_bar_slide(
         source_placeholder_names=["equity_1w_source"],
     )
 
-
 def insert_equity_performance_histo_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -823,7 +827,6 @@ def insert_equity_performance_histo_slide(
         source_placeholder_names=["equity_1w_source2"],
     )
 
-
 # =============================================================================
 # EQUITY YTD EVOLUTION CHART (Chart.js Line Chart)
 # =============================================================================
@@ -849,7 +852,6 @@ EQUITY_YTD_PPT_LEFT_CM = 0.5
 EQUITY_YTD_PPT_TOP_CM = 4.2
 EQUITY_YTD_HTML_SCALE = 3
 
-
 def _get_ytd_year(data_end_date: pd.Timestamp) -> int:
     """Determine which year to show as YTD based on data end date.
 
@@ -857,12 +859,10 @@ def _get_ytd_year(data_end_date: pd.Timestamp) -> int:
     """
     return data_end_date.year
 
-
 def _get_chart_title(data_end_date: pd.Timestamp) -> str:
     """Generate chart title with correct year."""
     year = _get_ytd_year(data_end_date)
     return f"{year} YTD Evolution"
-
 
 def _compute_ytd_series(
     df: pd.DataFrame,
@@ -944,7 +944,6 @@ def _compute_ytd_series(
 
     print(f"[DEBUG] {ticker}: {len(daily_values)} daily -> {len(values)} final points, first 5={values[:5]}, last 5={values[-5:]}")
     return labels, values
-
 
 def create_equity_ytd_evolution_chart(
     excel_path: Union[str, pathlib.Path],
@@ -1106,7 +1105,6 @@ def create_equity_ytd_evolution_chart(
         traceback.print_exc()
 
     return png_bytes, used_date
-
 
 def insert_equity_ytd_evolution_slide(
     prs: Presentation,
