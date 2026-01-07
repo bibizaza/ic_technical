@@ -70,6 +70,80 @@ except Exception as e:
     pass  # Secrets not configured, will use pattern-based subtitles
 
 # ---------------------------------------------------------------------
+# Load historical DMAS values from history tracker into session state
+# ---------------------------------------------------------------------
+def _load_historical_dmas_to_session():
+    """
+    Load previous week's DMAS values from history tracker into session state.
+    This enables week-over-week comparison in technical slides.
+    """
+    try:
+        from market_compass.subtitle_generator.history_tracker import get_tracker
+        import os
+        tracker = get_tracker()
+
+        # Debug: Show history file path and status
+        print(f"[History] Looking for: {tracker.storage_path}")
+        print(f"[History] File exists: {os.path.exists(tracker.storage_path)}")
+
+        all_assets = tracker.get_all_assets()
+        print(f"[History] Found {len(all_assets)} assets in history: {all_assets[:10]}{'...' if len(all_assets) > 10 else ''}")
+
+        # Map asset names (as stored in history) to ticker keys (as used in session state)
+        ASSET_TO_TICKER_KEY = {
+            "S&P 500": "spx",
+            "SPX": "spx",
+            "CSI 300": "csi",
+            "Nikkei 225": "nikkei",
+            "TASI": "tasi",
+            "Sensex": "sensex",
+            "Dax": "dax",
+            "DAX": "dax",
+            "SMI": "smi",
+            "Ibov": "ibov",
+            "IBOV": "ibov",
+            "Bovespa": "ibov",
+            "Mexbol": "mexbol",
+            "Bitcoin": "bitcoin",
+            "BTC": "bitcoin",
+            "Ethereum": "ethereum",
+            "ETH": "ethereum",
+            "Gold": "gold",
+            "Oil": "oil",
+            "WTI": "oil",
+        }
+
+        loaded_count = 0
+        for asset_name, ticker_key in ASSET_TO_TICKER_KEY.items():
+            # Get the previous week's data (second-to-last entry)
+            last_week = tracker.get_last_week(asset_name)
+
+            if last_week is not None:
+                prev_dmas = last_week.get("dmas")
+                if prev_dmas is not None:
+                    session_key = f"{ticker_key}_last_week_avg"
+                    # Only set if not already set (don't override transition sheet data)
+                    if session_key not in st.session_state:
+                        st.session_state[session_key] = float(prev_dmas)
+                        loaded_count += 1
+                        print(f"[History] Set {session_key} = {prev_dmas} (from {asset_name})")
+
+        if loaded_count > 0:
+            print(f"[History] Loaded {loaded_count} previous DMAS values from history")
+        else:
+            print(f"[History] No previous DMAS values loaded (need at least 2 weeks of data per asset)")
+
+    except ImportError:
+        print("[History] History tracker not available (import error)")
+    except Exception as e:
+        import traceback
+        print(f"[History] Warning: Could not load historical DMAS: {e}")
+        traceback.print_exc()
+
+# Load historical data on app startup
+_load_historical_dmas_to_session()
+
+# ---------------------------------------------------------------------
 # Assessment and subtitle generation - LAZY LOADING
 # ---------------------------------------------------------------------
 # Don't import at module level to avoid sys.path pollution

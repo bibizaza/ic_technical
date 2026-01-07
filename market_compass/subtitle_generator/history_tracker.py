@@ -41,6 +41,8 @@ class HistoryTracker:
 
         self.storage_path = storage_path
         self.data: Dict[str, List[dict]] = self._load()
+        print(f"[HistoryTracker] Initialized with path: {self.storage_path}")
+        print(f"[HistoryTracker] Loaded {len(self.data)} assets")
 
     def _load(self) -> Dict[str, List[dict]]:
         """Load from JSON."""
@@ -114,6 +116,7 @@ class HistoryTracker:
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
 
+        print(f"[HistoryTracker] Recording batch of {len(assets_data)} assets for date {date}")
         for asset in assets_data:
             self.record(
                 asset_name=asset["asset_name"],
@@ -126,6 +129,7 @@ class HistoryTracker:
                 rating=asset.get("rating", "Neutral"),
                 date=date
             )
+        print(f"[HistoryTracker] Saved to: {self.storage_path}")
 
     def get_history(self, asset_name: str) -> List[dict]:
         """Get all historical snapshots for an asset."""
