@@ -44,6 +44,18 @@ Usage example::
 
 from __future__ import annotations
 
+# === Windows Playwright Fix - MUST BE EARLY ===
+import sys
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+# === End Fix ===
 import io
 import json
 import pathlib
@@ -138,7 +150,6 @@ def _load_price_data(excel_path: Union[str, pathlib.Path], tickers: List[str]) -
         out[t] = pd.to_numeric(out[t], errors="coerce")
     return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
 
-
 def _compute_horizon_returns(
     df: pd.DataFrame,
     ticker: str,
@@ -176,7 +187,6 @@ def _compute_horizon_returns(
     if past_price == 0 or pd.isna(past_price):
         return float("nan")
     return (current_price - past_price) / past_price * 100.0
-
 
 def _build_returns_table(
     df: pd.DataFrame,
@@ -224,7 +234,6 @@ def _build_returns_table(
     table = pd.DataFrame.from_dict(results, orient="index")
     table["Name"] = table.index.map(mapping.get)
     return table[["Name", "1W", "1M", "3M", "6M", "12M", "YTD"]]
-
 
 ###############################################################################
 # Figure generation functions
@@ -326,7 +335,6 @@ def create_weekly_performance_chart(
     plt.close(fig)
     buf.seek(0)
     return buf.getvalue(), used_date
-
 
 def create_historical_performance_table(
     excel_path: Union[str, pathlib.Path],
@@ -444,7 +452,6 @@ def create_historical_performance_table(
     buf.seek(0)
     return buf.getvalue(), used_date
 
-
 ###############################################################################
 # Colour helper
 ###############################################################################
@@ -467,7 +474,6 @@ def _colour_for_value(val: float, max_pos: float, min_neg: float) -> Tuple[float
         ratio = float(val) / min_neg  # both negative → positive ratio
         return tuple(white + ratio * (red - white))
     return tuple(white)
-
 
 ###############################################################################
 # Slide insertion helpers
@@ -595,7 +601,6 @@ def _insert_dashboard_to_placeholder(
                 break
     return prs
 
-
 def insert_crypto_performance_bar_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -649,7 +654,6 @@ def insert_crypto_performance_bar_slide(
         source_placeholder_names=["crypto_1w_source"],
     )
 
-
 def insert_crypto_performance_histo_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -702,7 +706,6 @@ def insert_crypto_performance_histo_slide(
         source_placeholder_names=["crypto_1w_source2"],
     )
 
-
 # =============================================================================
 # HTML-BASED CRYPTO WEEKLY PERFORMANCE CHART
 # =============================================================================
@@ -739,14 +742,12 @@ CRYPTO_HIST_PPT_LEFT_CM = 3.35
 CRYPTO_HIST_PPT_TOP_CM = 4.6
 CRYPTO_HIST_HTML_SCALE = 3
 
-
 def _format_crypto_percentage(value: float) -> str:
     """Format percentage with sign."""
     if value >= 0:
         return f"+{value:.1f}%"
     else:
         return f"{value:.1f}%"
-
 
 def create_weekly_html_performance_chart(
     excel_path: Union[str, pathlib.Path],
@@ -853,7 +854,6 @@ def create_weekly_html_performance_chart(
 
     return png_bytes, used_date
 
-
 def insert_crypto_weekly_html_slide(
     prs: Presentation,
     image_bytes: bytes,
@@ -942,7 +942,6 @@ def insert_crypto_weekly_html_slide(
 
     return prs
 
-
 # =============================================================================
 # HTML-BASED CRYPTO HISTORICAL PERFORMANCE CHART
 # =============================================================================
@@ -976,7 +975,6 @@ def _get_crypto_historical_color_class(value: float) -> str:
     else:
         return "neutral"
 
-
 def _format_crypto_large_percentage(value: float) -> str:
     """Format large crypto percentages without decimal for values >= 100%."""
     if pd.isna(value):
@@ -990,7 +988,6 @@ def _format_crypto_large_percentage(value: float) -> str:
         return f"{sign}{value:.0f}%"
     else:
         return f"{sign}{value:.1f}%"
-
 
 def create_historical_html_performance_chart(
     excel_path: Union[str, pathlib.Path],
@@ -1070,7 +1067,6 @@ def create_historical_html_performance_chart(
         pass
 
     return png_bytes, used_date
-
 
 def insert_crypto_historical_html_slide(
     prs: Presentation,
@@ -1160,7 +1156,6 @@ def insert_crypto_historical_html_slide(
 
     return prs
 
-
 # =============================================================================
 # CRYPTO YTD EVOLUTION LINE CHART (Chart.js + Playwright)
 # =============================================================================
@@ -1183,17 +1178,14 @@ CRYPTO_YTD_PPT_LEFT_CM = 0.5
 CRYPTO_YTD_PPT_TOP_CM = 4.2
 CRYPTO_YTD_HTML_SCALE = 3
 
-
 def _get_crypto_ytd_year(data_end_date: pd.Timestamp) -> int:
     """Determine which year to show as YTD based on data end date."""
     return data_end_date.year
-
 
 def _get_crypto_chart_title(data_end_date: pd.Timestamp) -> str:
     """Generate chart title with correct year."""
     year = _get_crypto_ytd_year(data_end_date)
     return f"{year} YTD Evolution"
-
 
 def _compute_crypto_ytd_series(df, ticker):
     """Compute weekly YTD performance series for a crypto."""
@@ -1245,7 +1237,6 @@ def _compute_crypto_ytd_series(df, ticker):
         values = [daily_values[i] for i in weekly_indices]
 
     return labels, values
-
 
 def create_crypto_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
     """Generate HTML-based Crypto YTD Evolution line chart."""
@@ -1354,7 +1345,6 @@ def create_crypto_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
         print(f"[ERROR] Playwright failed for crypto chart: {e}")
 
     return png_bytes, used_date
-
 
 def insert_crypto_ytd_evolution_slide(prs, image_bytes, used_date=None, price_mode="Last Price", subtitle=None):
     """Insert the Crypto YTD Evolution chart into PowerPoint.
