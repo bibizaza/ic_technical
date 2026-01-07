@@ -59,6 +59,17 @@ sys.path.insert(0, _app_dir)
 import streamlit as st
 
 # ---------------------------------------------------------------------
+# Load API keys from Streamlit secrets
+# ---------------------------------------------------------------------
+try:
+    # Load Anthropic API key for Claude subtitle generation
+    if "anthropic" in st.secrets and "api_key" in st.secrets["anthropic"]:
+        from market_compass.subtitle_generator import set_api_key
+        set_api_key(st.secrets["anthropic"]["api_key"])
+except Exception as e:
+    pass  # Secrets not configured, will use pattern-based subtitles
+
+# ---------------------------------------------------------------------
 # Assessment and subtitle generation - LAZY LOADING
 # ---------------------------------------------------------------------
 # Don't import at module level to avoid sys.path pollution
