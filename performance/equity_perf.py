@@ -1,16 +1,3 @@
-# === Windows Playwright Fix - MUST BE FIRST ===
-import sys
-import asyncio
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-try:
-    import nest_asyncio
-    nest_asyncio.apply()
-except ImportError:
-    pass
-# === End Fix ===
-
 """Equity performance dashboard generation with price‐mode awareness and source footnotes.
 
 This module produces charts summarising recent performance for a selection of major
@@ -52,19 +39,6 @@ Usage example::
 
 """
 
-# === Windows Playwright Fix - MUST BE FIRST ===
-import sys
-import asyncio
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-try:
-    import nest_asyncio
-    nest_asyncio.apply()
-except ImportError:
-    pass  # nest_asyncio not installed, may work without it
-# === End Fix ===
-
 from __future__ import annotations
 
 # === Windows Playwright Fix - MUST BE EARLY ===
@@ -79,6 +53,7 @@ try:
 except ImportError:
     pass
 # === End Fix ===
+
 import io
 import os
 import json

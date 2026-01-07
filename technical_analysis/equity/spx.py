@@ -1,16 +1,3 @@
-# === Windows Playwright Fix - MUST BE FIRST ===
-import sys
-import asyncio
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-try:
-    import nest_asyncio
-    nest_asyncio.apply()
-except ImportError:
-    pass
-# === End Fix ===
-
 """
 Utility functions for S&P 500 technical analysis and high‑resolution export.
 
