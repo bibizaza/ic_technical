@@ -8,7 +8,7 @@ Stores weekly snapshots per asset for:
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 
@@ -136,10 +136,32 @@ class HistoryTracker:
         return self.data.get(asset_name, [])
 
     def get_last_week(self, asset_name: str) -> Optional[dict]:
-        """Get previous week's data (second to last entry)."""
+        """Get previous week's data.
+
+        Returns the most recent entry that is NOT from the current week.
+        - If latest entry is from a previous week, return it
+        - If latest entry is from this week, return second-to-last
+        """
         history = self.get_history(asset_name)
+        if not history:
+            return None
+
+        today = datetime.now().date()
+        # Get the Monday of the current week
+        current_week_start = today - timedelta(days=today.weekday())
+
+        # Check the most recent entry
+        last_entry = history[-1]
+        last_date = datetime.strptime(last_entry["date"], "%Y-%m-%d").date()
+
+        # If the last entry is from a previous week, return it
+        if last_date < current_week_start:
+            return last_entry
+
+        # Last entry is from this week, so return second-to-last if available
         if len(history) >= 2:
             return history[-2]
+
         return None
 
     def get_context_for_subtitle(self, asset_name: str) -> Optional[str]:
