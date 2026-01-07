@@ -57,6 +57,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -122,10 +123,8 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .flag {
-            width: {{ 20 * scale }}px;
-            height: {{ 15 * scale }}px;
-            object-fit: contain;
-            vertical-align: middle;
+            font-size: {{ 14 * scale }}px;
+            line-height: 1;
         }
 
         .market-name {
@@ -222,7 +221,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="market-info">
-                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
+                <span class="fi fi-{{ row.flag }} flag"></span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
             <div class="bar-container">
@@ -261,6 +260,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -327,10 +327,8 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .flag {
-            width: {{ 18 * scale }}px;
-            height: {{ 13 * scale }}px;
-            object-fit: contain;
-            vertical-align: middle;
+            font-size: {{ 12 * scale }}px;
+            line-height: 1;
         }
 
         .market-name {
@@ -397,7 +395,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="market-col">
-                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
+                <span class="fi fi-{{ row.flag }} flag"></span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
@@ -422,6 +420,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -462,10 +461,8 @@ BONDS_RATES_HTML_TEMPLATE = '''
         }
 
         .country-header .flag {
-            width: {{ 20 * scale }}px;
-            height: {{ 15 * scale }}px;
-            object-fit: contain;
-            vertical-align: middle;
+            font-size: {{ 14 * scale }}px;
+            line-height: 1;
         }
 
         .country-header .country-name {
@@ -610,7 +607,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         {% for country in countries %}
         <!-- {{ country.name }} -->
         <div class="country-header">
-            <img class="flag" src="https://flagcdn.com/24x18/{{ country.flag }}.png" alt="{{ country.flag }}">
+            <span class="fi fi-{{ country.flag }} flag"></span>
             <span class="country-name">{{ country.name }}</span>
         </div>
         {% for tenor in country.tenors %}
@@ -664,6 +661,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -731,10 +729,8 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .country-header .flag {
-            width: {{ 14 * scale }}px;
-            height: {{ 10 * scale }}px;
-            object-fit: contain;
-            vertical-align: middle;
+            font-size: {{ 10 * scale }}px;
+            line-height: 1;
         }
 
         .country-header .country-name {
@@ -822,7 +818,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         {% for country in countries %}
         <!-- {{ country.name }} -->
         <div class="country-header">
-            <img class="flag" src="https://flagcdn.com/24x18/{{ country.flag }}.png" alt="{{ country.flag }}">
+            <span class="fi fi-{{ country.flag }} flag"></span>
             <span class="country-name">{{ country.name }}</span>
         </div>
         {% for tenor in country.tenors %}
@@ -848,6 +844,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -905,10 +902,8 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .flag {
-            width: {{ 18 * scale }}px;
-            height: {{ 13 * scale }}px;
-            object-fit: contain;
-            vertical-align: middle;
+            font-size: {{ 12 * scale }}px;
+            line-height: 1;
         }
 
         .credit-badge {
@@ -1021,7 +1016,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="market-col">
-                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
+                <span class="fi fi-{{ row.flag }} flag"></span>
                 <span class="credit-badge {{ row.credit_class }}">{{ row.credit_type }}</span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
@@ -1061,6 +1056,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -1127,10 +1123,8 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .flag {
-            width: {{ 18 * scale }}px;
-            height: {{ 13 * scale }}px;
-            object-fit: contain;
-            vertical-align: middle;
+            font-size: {{ 12 * scale }}px;
+            line-height: 1;
         }
 
         .credit-badge {
@@ -1211,7 +1205,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="market-col">
-                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
+                <span class="fi fi-{{ row.flag }} flag"></span>
                 <span class="credit-badge {{ row.credit_class }}">{{ row.credit_type }}</span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
@@ -1638,6 +1632,7 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -1695,10 +1690,8 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .flag {
-            width: {{ 20 * scale }}px;
-            height: {{ 15 * scale }}px;
-            object-fit: contain;
-            vertical-align: middle;
+            font-size: {{ 14 * scale }}px;
+            line-height: 1;
         }
 
         .currency-name {
@@ -1794,7 +1787,7 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="currency-col">
-                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
+                <span class="fi fi-{{ row.flag }} flag"></span>
                 <span class="currency-name">{{ row.name }}</span>
             </div>
             <div class="bar-container">
@@ -1833,6 +1826,7 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -1899,10 +1893,8 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .flag {
-            width: {{ 20 * scale }}px;
-            height: {{ 15 * scale }}px;
-            object-fit: contain;
-            vertical-align: middle;
+            font-size: {{ 14 * scale }}px;
+            line-height: 1;
         }
 
         .currency-name {
@@ -1969,7 +1961,7 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="currency-col">
-                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
+                <span class="fi fi-{{ row.flag }} flag"></span>
                 <span class="currency-name">{{ row.name }}</span>
             </div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
