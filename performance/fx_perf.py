@@ -676,14 +676,14 @@ def insert_fx_performance_histo_slide(
 # HTML-BASED CURRENCY WEEKLY PERFORMANCE CHART
 # =============================================================================
 
-# Currency configuration with flags
+# Currency configuration with flag country codes (for flagcdn.com)
 CURRENCY_CONFIG = [
-    {"ticker": "DXY Curncy", "name": "Dollar Index", "flag": "🇺🇸"},
-    {"ticker": "EURCHF Curncy", "name": "EUR/CHF", "flag": "🇨🇭"},
-    {"ticker": "EURJPY Curncy", "name": "EUR/JPY", "flag": "🇯🇵"},
-    {"ticker": "EURMXN Curncy", "name": "EUR/MXN", "flag": "🇲🇽"},
-    {"ticker": "EURUSD Curncy", "name": "EUR/USD", "flag": "🇺🇸"},
-    {"ticker": "EURBRL Curncy", "name": "EUR/BRL", "flag": "🇧🇷"},
+    {"ticker": "DXY Curncy", "name": "Dollar Index", "flag": "us"},
+    {"ticker": "EURCHF Curncy", "name": "EUR/CHF", "flag": "ch"},
+    {"ticker": "EURJPY Curncy", "name": "EUR/JPY", "flag": "jp"},
+    {"ticker": "EURMXN Curncy", "name": "EUR/MXN", "flag": "mx"},
+    {"ticker": "EURUSD Curncy", "name": "EUR/USD", "flag": "us"},
+    {"ticker": "EURBRL Curncy", "name": "EUR/BRL", "flag": "br"},
 ]
 
 # Chart dimensions (hardcoded)

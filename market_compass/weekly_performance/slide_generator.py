@@ -20,16 +20,17 @@ from .html_template import WEEKLY_PERFORMANCE_HTML_TEMPLATE
 SCALE_FACTOR = 3
 
 # Index name and flag mapping for Equity
+# Flag codes are ISO 3166-1 alpha-2 for flagcdn.com
 EQUITY_INDEX_MAP = {
-    "SPX Index": {"name": "S&P 500", "flag": "\U0001F1FA\U0001F1F8"},      # US
-    "DAX Index": {"name": "Dax", "flag": "\U0001F1E9\U0001F1EA"},          # Germany
-    "SMI Index": {"name": "SMI", "flag": "\U0001F1E8\U0001F1ED"},          # Switzerland
-    "NKY Index": {"name": "Nikkei 225", "flag": "\U0001F1EF\U0001F1F5"},   # Japan
-    "SHSZ300 Index": {"name": "CSI 300", "flag": "\U0001F1E8\U0001F1F3"},  # China
-    "SENSEX Index": {"name": "Sensex", "flag": "\U0001F1EE\U0001F1F3"},    # India
-    "IBOV Index": {"name": "Bovespa", "flag": "\U0001F1E7\U0001F1F7"},     # Brazil
-    "MEXBOL Index": {"name": "Mexbol", "flag": "\U0001F1F2\U0001F1FD"},    # Mexico
-    "SASEIDX Index": {"name": "TASI", "flag": "\U0001F1F8\U0001F1E6"},     # Saudi Arabia
+    "SPX Index": {"name": "S&P 500", "flag": "us"},
+    "DAX Index": {"name": "Dax", "flag": "de"},
+    "SMI Index": {"name": "SMI", "flag": "ch"},
+    "NKY Index": {"name": "Nikkei 225", "flag": "jp"},
+    "SHSZ300 Index": {"name": "CSI 300", "flag": "cn"},
+    "SENSEX Index": {"name": "Sensex", "flag": "in"},
+    "IBOV Index": {"name": "Bovespa", "flag": "br"},
+    "MEXBOL Index": {"name": "Mexbol", "flag": "mx"},
+    "SASEIDX Index": {"name": "TASI", "flag": "sa"},
 }
 
 

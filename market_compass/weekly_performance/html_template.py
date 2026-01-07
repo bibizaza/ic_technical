@@ -122,7 +122,10 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 14 * scale }}px;
+            width: {{ 20 * scale }}px;
+            height: {{ 15 * scale }}px;
+            object-fit: contain;
+            vertical-align: middle;
         }
 
         .market-name {
@@ -219,7 +222,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="market-info">
-                <span class="flag">{{ row.flag }}</span>
+                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
                 <span class="market-name">{{ row.name }}</span>
             </div>
             <div class="bar-container">
@@ -324,7 +327,10 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 12 * scale }}px;
+            width: {{ 18 * scale }}px;
+            height: {{ 13 * scale }}px;
+            object-fit: contain;
+            vertical-align: middle;
         }
 
         .market-name {
@@ -391,7 +397,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="market-col">
-                <span class="flag">{{ row.flag }}</span>
+                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
                 <span class="market-name">{{ row.name }}</span>
             </div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
@@ -456,7 +462,10 @@ BONDS_RATES_HTML_TEMPLATE = '''
         }
 
         .country-header .flag {
-            font-size: {{ 14 * scale }}px;
+            width: {{ 20 * scale }}px;
+            height: {{ 15 * scale }}px;
+            object-fit: contain;
+            vertical-align: middle;
         }
 
         .country-header .country-name {
@@ -601,7 +610,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         {% for country in countries %}
         <!-- {{ country.name }} -->
         <div class="country-header">
-            <span class="flag">{{ country.flag }}</span>
+            <img class="flag" src="https://flagcdn.com/24x18/{{ country.flag }}.png" alt="{{ country.flag }}">
             <span class="country-name">{{ country.name }}</span>
         </div>
         {% for tenor in country.tenors %}
@@ -722,7 +731,10 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .country-header .flag {
-            font-size: {{ 9 * scale }}px;
+            width: {{ 14 * scale }}px;
+            height: {{ 10 * scale }}px;
+            object-fit: contain;
+            vertical-align: middle;
         }
 
         .country-header .country-name {
@@ -810,7 +822,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         {% for country in countries %}
         <!-- {{ country.name }} -->
         <div class="country-header">
-            <span class="flag">{{ country.flag }}</span>
+            <img class="flag" src="https://flagcdn.com/24x18/{{ country.flag }}.png" alt="{{ country.flag }}">
             <span class="country-name">{{ country.name }}</span>
         </div>
         {% for tenor in country.tenors %}
@@ -893,7 +905,10 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 12 * scale }}px;
+            width: {{ 18 * scale }}px;
+            height: {{ 13 * scale }}px;
+            object-fit: contain;
+            vertical-align: middle;
         }
 
         .credit-badge {
@@ -1006,7 +1021,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="market-col">
-                <span class="flag">{{ row.flag }}</span>
+                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
                 <span class="credit-badge {{ row.credit_class }}">{{ row.credit_type }}</span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
@@ -1112,7 +1127,10 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 12 * scale }}px;
+            width: {{ 18 * scale }}px;
+            height: {{ 13 * scale }}px;
+            object-fit: contain;
+            vertical-align: middle;
         }
 
         .credit-badge {
@@ -1193,7 +1211,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="market-col">
-                <span class="flag">{{ row.flag }}</span>
+                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
                 <span class="credit-badge {{ row.credit_class }}">{{ row.credit_type }}</span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
@@ -1677,7 +1695,10 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 14 * scale }}px;
+            width: {{ 20 * scale }}px;
+            height: {{ 15 * scale }}px;
+            object-fit: contain;
+            vertical-align: middle;
         }
 
         .currency-name {
@@ -1773,7 +1794,7 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="currency-col">
-                <span class="flag">{{ row.flag }}</span>
+                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
                 <span class="currency-name">{{ row.name }}</span>
             </div>
             <div class="bar-container">
@@ -1878,7 +1899,10 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 14 * scale }}px;
+            width: {{ 20 * scale }}px;
+            height: {{ 15 * scale }}px;
+            object-fit: contain;
+            vertical-align: middle;
         }
 
         .currency-name {
@@ -1945,7 +1969,7 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="currency-col">
-                <span class="flag">{{ row.flag }}</span>
+                <img class="flag" src="https://flagcdn.com/24x18/{{ row.flag }}.png" alt="{{ row.flag }}">
                 <span class="currency-name">{{ row.name }}</span>
             </div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>

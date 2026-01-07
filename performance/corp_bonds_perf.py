@@ -37,16 +37,17 @@ from market_compass.weekly_performance.html_template import (
 SCALE_FACTOR = 3
 
 # Corporate bond configuration - uses Bloomberg index tickers from data_prices sheet
-# Maps ticker to (display_name, flag, credit_type)
+# Maps ticker to (display_name, flag country code, credit_type)
+# Flag codes are ISO 3166-1 alpha-2 for flagcdn.com (use "un" for global/EM)
 CORP_BOND_CONFIG = {
     # Investment Grade
-    "LUACTRUU Index": {"name": "US IG Corp", "flag": "\U0001F1FA\U0001F1F8", "credit": "IG"},
-    "LECPTREU Index": {"name": "EUR IG Corp", "flag": "\U0001F1EA\U0001F1FA", "credit": "IG"},
-    "JPEIESGE Index": {"name": "EM IG Corp", "flag": "\U0001F30D", "credit": "IG"},
+    "LUACTRUU Index": {"name": "US IG Corp", "flag": "us", "credit": "IG"},
+    "LECPTREU Index": {"name": "EUR IG Corp", "flag": "eu", "credit": "IG"},
+    "JPEIESGE Index": {"name": "EM IG Corp", "flag": "un", "credit": "IG"},
     # High Yield
-    "LF98TRUU Index": {"name": "US HY Corp", "flag": "\U0001F1FA\U0001F1F8", "credit": "HY"},
-    "IBOXXMJA Index": {"name": "EUR HY Corp", "flag": "\U0001F1EA\U0001F1FA", "credit": "HY"},
-    "JPEIEMHY Index": {"name": "EM HY Corp", "flag": "\U0001F30D", "credit": "HY"},
+    "LF98TRUU Index": {"name": "US HY Corp", "flag": "us", "credit": "HY"},
+    "IBOXXMJA Index": {"name": "EUR HY Corp", "flag": "eu", "credit": "HY"},
+    "JPEIEMHY Index": {"name": "EM HY Corp", "flag": "un", "credit": "HY"},
 }
 
 

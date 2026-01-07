@@ -69,10 +69,11 @@ from market_compass.weekly_performance.html_template import BONDS_RATES_HTML_TEM
 SCALE_FACTOR = 3
 
 # Country configuration for bonds rates chart
+# Flag codes are ISO 3166-1 alpha-2 for flagcdn.com
 COUNTRY_CONFIG = [
     {
         "name": "United States",
-        "flag": "\U0001F1FA\U0001F1F8",  # US flag
+        "flag": "us",
         "tickers": {
             "USGG2YR Index": "2Y",
             "USGG10YR Index": "10Y",
@@ -81,7 +82,7 @@ COUNTRY_CONFIG = [
     },
     {
         "name": "Eurozone",
-        "flag": "\U0001F1EA\U0001F1FA",  # EU flag
+        "flag": "eu",
         "tickers": {
             "GECU2YR Index": "2Y",
             "GECU10YR Index": "10Y",
@@ -90,7 +91,7 @@ COUNTRY_CONFIG = [
     },
     {
         "name": "Japan",
-        "flag": "\U0001F1EF\U0001F1F5",  # JP flag
+        "flag": "jp",
         "tickers": {
             "GJGB2 Index": "2Y",
             "GJGB10 Index": "10Y",
@@ -99,7 +100,7 @@ COUNTRY_CONFIG = [
     },
     {
         "name": "China",
-        "flag": "\U0001F1E8\U0001F1F3",  # CN flag
+        "flag": "cn",
         "tickers": {
             "GCNY2YR Index": "2Y",
             "GCNY10YR Index": "10Y",
