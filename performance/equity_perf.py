@@ -59,7 +59,7 @@ from html2image import Html2Image
 from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
-from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE
+from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -900,16 +900,23 @@ def _compute_ytd_series(
             daily_labels.append(month_label)
             daily_values.append(round(ytd_return, 1))
 
-    # Sample to weekly (every 5th trading day)
-    weekly_indices = list(range(0, len(daily_values), 5))
-    # Always include the last point
-    if weekly_indices[-1] != len(daily_values) - 1:
-        weekly_indices.append(len(daily_values) - 1)
+    # If fewer than 22 data points, use daily frequency instead of weekly
+    # This handles beginning of year when there's only a few days of data
+    if len(daily_values) < 22:
+        print(f"[DEBUG] {ticker}: {len(daily_values)} daily points (< 22), using daily frequency")
+        labels = daily_labels
+        values = daily_values
+    else:
+        # Sample to weekly (every 5th trading day)
+        weekly_indices = list(range(0, len(daily_values), 5))
+        # Always include the last point
+        if weekly_indices[-1] != len(daily_values) - 1:
+            weekly_indices.append(len(daily_values) - 1)
 
-    labels = [daily_labels[i] for i in weekly_indices]
-    values = [daily_values[i] for i in weekly_indices]
+        labels = [daily_labels[i] for i in weekly_indices]
+        values = [daily_values[i] for i in weekly_indices]
 
-    print(f"[DEBUG] {ticker}: {len(daily_values)} daily -> {len(values)} weekly points, first 5={values[:5]}, last 5={values[-5:]}")
+    print(f"[DEBUG] {ticker}: {len(daily_values)} daily -> {len(values)} final points, first 5={values[:5]}, last 5={values[-5:]}")
     return labels, values
 
 
@@ -976,6 +983,34 @@ def create_equity_ytd_evolution_chart(
     print(f"[DEBUG] all_labels={all_labels} (len={len(all_labels)})")
     for ds in datasets:
         print(f"[DEBUG] {ds['label']}: data={ds['data'][:5]}... (len={len(ds['data'])})")
+
+    # Check for insufficient data (< 3 data points)
+    if len(all_labels) < 3:
+        print(f"[DEBUG] Insufficient data ({len(all_labels)} points), rendering placeholder")
+        env = Environment()
+        template = env.from_string(YTD_INSUFFICIENT_DATA_HTML_TEMPLATE)
+        html_content = template.render(
+            width=EQUITY_YTD_PNG_WIDTH_PX,
+            height=EQUITY_YTD_PNG_HEIGHT_PX,
+            scale=EQUITY_YTD_HTML_SCALE,
+            chart_title=chart_title,
+        )
+        # Convert placeholder HTML to PNG
+        png_bytes = None
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page(viewport={
+                    'width': EQUITY_YTD_PNG_WIDTH_PX,
+                    'height': EQUITY_YTD_PNG_HEIGHT_PX
+                })
+                page.set_content(html_content, wait_until='networkidle')
+                page.wait_for_timeout(500)
+                png_bytes = page.screenshot()
+                browser.close()
+        except Exception as e:
+            print(f"[ERROR] Playwright failed for placeholder: {e}")
+        return png_bytes, used_date
 
     # Compute y-axis min and max from all data values
     all_values = []

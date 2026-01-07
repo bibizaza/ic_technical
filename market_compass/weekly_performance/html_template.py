@@ -1,5 +1,57 @@
 """HTML template for Weekly Performance chart."""
 
+# Placeholder template for YTD charts when insufficient data
+YTD_INSUFFICIENT_DATA_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .placeholder-container {
+            text-align: center;
+            color: #64748B;
+        }
+
+        .placeholder-title {
+            font-size: {{ 18 * scale }}px;
+            font-weight: 600;
+            color: #1B3A5A;
+            margin-bottom: {{ 15 * scale }}px;
+        }
+
+        .placeholder-message {
+            font-size: {{ 14 * scale }}px;
+            color: #64748B;
+        }
+    </style>
+</head>
+<body>
+    <div class="placeholder-container">
+        <div class="placeholder-title">{{ chart_title }}</div>
+        <div class="placeholder-message">Insufficient data for YTD chart</div>
+    </div>
+</body>
+</html>
+'''
+
 WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">

@@ -56,6 +56,7 @@ from market_compass.weekly_performance.html_template import (
     COMMODITIES_WEEKLY_HTML_TEMPLATE,
     COMMODITIES_HISTORICAL_HTML_TEMPLATE,
     COMMODITY_YTD_EVOLUTION_HTML_TEMPLATE,
+    YTD_INSUFFICIENT_DATA_HTML_TEMPLATE,
 )
 
 try:
@@ -1094,13 +1095,19 @@ def _compute_commodity_ytd_series(df, ticker):
             daily_labels.append(month_names[date.month - 1])
             daily_values.append(round(ytd_return, 1))
 
-    # Sample to weekly (every 5th trading day)
-    weekly_indices = list(range(0, len(daily_values), 5))
-    if len(daily_values) > 0 and weekly_indices[-1] != len(daily_values) - 1:
-        weekly_indices.append(len(daily_values) - 1)
+    # If fewer than 22 data points, use daily frequency instead of weekly
+    # This handles beginning of year when there's only a few days of data
+    if len(daily_values) < 22:
+        labels = daily_labels
+        values = daily_values
+    else:
+        # Sample to weekly (every 5th trading day)
+        weekly_indices = list(range(0, len(daily_values), 5))
+        if len(daily_values) > 0 and weekly_indices[-1] != len(daily_values) - 1:
+            weekly_indices.append(len(daily_values) - 1)
 
-    labels = [daily_labels[i] for i in weekly_indices]
-    values = [daily_values[i] for i in weekly_indices]
+        labels = [daily_labels[i] for i in weekly_indices]
+        values = [daily_values[i] for i in weekly_indices]
 
     return labels, values
 
@@ -1135,6 +1142,33 @@ def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price")
     for dataset in datasets:
         while len(dataset["data"]) < max_len:
             dataset["data"].append(None)
+
+    # Check for insufficient data (< 3 data points)
+    if len(all_labels) < 3:
+        print(f"[DEBUG] Commodity: Insufficient data ({len(all_labels)} points), rendering placeholder")
+        env = Environment()
+        template = env.from_string(YTD_INSUFFICIENT_DATA_HTML_TEMPLATE)
+        html_content = template.render(
+            width=COMMODITY_YTD_PNG_WIDTH_PX,
+            height=COMMODITY_YTD_PNG_HEIGHT_PX,
+            scale=COMMODITY_YTD_HTML_SCALE,
+            chart_title=chart_title,
+        )
+        png_bytes = None
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page(viewport={
+                    'width': COMMODITY_YTD_PNG_WIDTH_PX,
+                    'height': COMMODITY_YTD_PNG_HEIGHT_PX
+                })
+                page.set_content(html_content, wait_until='networkidle')
+                page.wait_for_timeout(500)
+                png_bytes = page.screenshot()
+                browser.close()
+        except Exception as e:
+            print(f"[ERROR] Playwright failed for placeholder: {e}")
+        return png_bytes, used_date
 
     all_values = []
     for ds in datasets:
