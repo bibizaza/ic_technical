@@ -865,14 +865,14 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         .chart-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 6 * scale }}px;
+            gap: {{ 3 * scale }}px;
         }
 
         /* Data rows */
         .row {
             display: flex;
             align-items: center;
-            height: {{ 38 * scale }}px;
+            height: {{ 28 * scale }}px;
             padding: 0 {{ 10 * scale }}px;
             border-radius: {{ 5 * scale }}px;
         }
@@ -902,12 +902,12 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 12 * scale }}px;
+            font-size: {{ 10 * scale }}px;
             line-height: 1;
         }
 
         .credit-badge {
-            font-size: {{ 7 * scale }}px;
+            font-size: {{ 6 * scale }}px;
             font-weight: 700;
             padding: {{ 2 * scale }}px {{ 4 * scale }}px;
             border-radius: {{ 2 * scale }}px;
