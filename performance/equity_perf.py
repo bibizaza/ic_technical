@@ -72,6 +72,7 @@ from html2image import Html2Image
 from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
+from utils.flag_utils import get_flag_html
 from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE
 
 try:
@@ -343,6 +344,7 @@ def create_weekly_performance_chart(
         rows.append({
             "name": name,
             "flag": flag,
+            "flag_html": get_flag_html(flag),
             "value": value,
             "highlight_class": highlight_class,
             "bar_class": bar_class,
@@ -502,6 +504,7 @@ def create_historical_performance_table(
         rows.append({
             "name": name,
             "flag": flag,
+            "flag_html": get_flag_html(flag),
             "ytd_formatted": format_percentage(row["YTD"]),
             "ytd_class": get_color_class(row["YTD"]),
             "m1_formatted": format_percentage(row["1M"]),

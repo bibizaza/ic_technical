@@ -7,6 +7,7 @@ from pathlib import Path
 
 from jinja2 import Template
 from html2image import Html2Image
+from utils.flag_utils import get_flag_html
 from pptx import Presentation
 from pptx.util import Cm
 
@@ -98,6 +99,7 @@ def prepare_performance_rows(
         prepared.append({
             "name": row.name,
             "flag": row.flag,
+            "flag_html": get_flag_html(row.flag),
             "value": row.value,
             "highlight_class": highlight_class,
             "bar_class": bar_class,

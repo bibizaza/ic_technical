@@ -55,6 +55,7 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
+from utils.flag_utils import get_flag_html
 from jinja2 import Template
 from html2image import Html2Image
 
@@ -741,6 +742,7 @@ def create_weekly_html_performance_chart(
         rows_data.append({
             "name": config["name"],
             "flag": config["flag"],
+            "flag_html": get_flag_html(config["flag"]),
             "value": value,
         })
 
@@ -769,6 +771,7 @@ def create_weekly_html_performance_chart(
         prepared_rows.append({
             "name": row["name"],
             "flag": row["flag"],
+            "flag_html": get_flag_html(row["flag"]),
             "value": value,
             "bar_class": "positive" if value >= 0 else "negative",
             "bar_width": bar_width,
@@ -1001,6 +1004,7 @@ def create_historical_html_performance_chart(
         rows_data.append({
             "name": config["name"],
             "flag": config["flag"],
+            "flag_html": get_flag_html(config["flag"]),
             "ytd_value": ret_ytd if not pd.isna(ret_ytd) else 0.0,
             "m1_value": ret_1m if not pd.isna(ret_1m) else 0.0,
             "m3_value": ret_3m if not pd.isna(ret_3m) else 0.0,
@@ -1017,6 +1021,7 @@ def create_historical_html_performance_chart(
         prepared_rows.append({
             "name": row["name"],
             "flag": row["flag"],
+            "flag_html": get_flag_html(row["flag"]),
             "ytd_formatted": _format_percentage_with_sign(row["ytd_value"]),
             "ytd_class": _get_color_class_for_value(row["ytd_value"]),
             "m1_formatted": _format_percentage_with_sign(row["m1_value"]),

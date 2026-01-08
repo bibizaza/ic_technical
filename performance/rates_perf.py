@@ -59,6 +59,7 @@ import numpy as np
 import pandas as pd
 from jinja2 import Template
 from html2image import Html2Image
+from utils.flag_utils import get_flag_html
 from pptx import Presentation
 from pptx.util import Cm
 
@@ -396,6 +397,7 @@ def create_weekly_performance_chart(
             countries.append({
                 "name": country["name"],
                 "flag": country["flag"],
+                "flag_html": get_flag_html(country["flag"]),
                 "tenors": tenors,
             })
 
@@ -549,6 +551,7 @@ def create_historical_performance_table(
             countries.append({
                 "name": country["name"],
                 "flag": country["flag"],
+                "flag_html": get_flag_html(country["flag"]),
                 "tenors": tenors,
             })
 

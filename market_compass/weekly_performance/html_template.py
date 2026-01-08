@@ -57,7 +57,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+    
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -221,7 +221,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="market-info">
-                <span class="fi fi-{{ row.flag }} flag"></span>
+                {{ row.flag_html | safe }}
                 <span class="market-name">{{ row.name }}</span>
             </div>
             <div class="bar-container">
@@ -260,7 +260,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+    
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -395,7 +395,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="market-col">
-                <span class="fi fi-{{ row.flag }} flag"></span>
+                {{ row.flag_html | safe }}
                 <span class="market-name">{{ row.name }}</span>
             </div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
@@ -420,7 +420,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+    
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -607,7 +607,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         {% for country in countries %}
         <!-- {{ country.name }} -->
         <div class="country-header">
-            <span class="fi fi-{{ country.flag }} flag"></span>
+            {{ country.flag_html | safe }}
             <span class="country-name">{{ country.name }}</span>
         </div>
         {% for tenor in country.tenors %}
@@ -661,7 +661,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+    
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -818,7 +818,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         {% for country in countries %}
         <!-- {{ country.name }} -->
         <div class="country-header">
-            <span class="fi fi-{{ country.flag }} flag"></span>
+            {{ country.flag_html | safe }}
             <span class="country-name">{{ country.name }}</span>
         </div>
         {% for tenor in country.tenors %}
@@ -844,7 +844,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+    
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -1016,7 +1016,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="market-col">
-                <span class="fi fi-{{ row.flag }} flag"></span>
+                {{ row.flag_html | safe }}
                 <span class="credit-badge {{ row.credit_class }}">{{ row.credit_type }}</span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
@@ -1056,7 +1056,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+    
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -1205,7 +1205,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="market-col">
-                <span class="fi fi-{{ row.flag }} flag"></span>
+                {{ row.flag_html | safe }}
                 <span class="credit-badge {{ row.credit_class }}">{{ row.credit_type }}</span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
@@ -1632,7 +1632,7 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+    
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -1787,7 +1787,7 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="currency-col">
-                <span class="fi fi-{{ row.flag }} flag"></span>
+                {{ row.flag_html | safe }}
                 <span class="currency-name">{{ row.name }}</span>
             </div>
             <div class="bar-container">
@@ -1826,7 +1826,7 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+    
     <style>
         @import url('https://fonts.cdnfonts.com/css/calibri-light');
 
@@ -1961,7 +1961,7 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="currency-col">
-                <span class="fi fi-{{ row.flag }} flag"></span>
+                {{ row.flag_html | safe }}
                 <span class="currency-name">{{ row.name }}</span>
             </div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>

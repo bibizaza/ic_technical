@@ -23,6 +23,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import pandas as pd
 from jinja2 import Template
 from html2image import Html2Image
+from utils.flag_utils import get_flag_html
 from pptx import Presentation
 from pptx.util import Cm
 
@@ -262,6 +263,7 @@ def create_weekly_performance_chart(
         prepared_rows.append({
             "name": row.name,
             "flag": row.flag,
+            "flag_html": get_flag_html(row.flag),
             "credit_type": row.credit_type,
             "credit_class": "ig" if row.credit_type == "IG" else "hy",
             "value": row.value,
@@ -559,6 +561,7 @@ def create_historical_performance_chart(
         prepared_rows.append({
             "name": row.name,
             "flag": row.flag,
+            "flag_html": get_flag_html(row.flag),
             "credit_type": row.credit_type,
             "credit_class": "ig" if row.credit_type == "IG" else "hy",
             "ytd_formatted": _format_percentage(row.ytd),
