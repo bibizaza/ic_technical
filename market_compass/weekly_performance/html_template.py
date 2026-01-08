@@ -3686,38 +3686,66 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     const dotRadius = 3 * scale;
 
                     // Get x position for range start (at last data point)
-                    const rangeStartX = chartArea.right;
+                    const dotX = chartArea.right;
+                    const lineEndX = chartArea.right + 80 * scale;  // End of dashed line
 
                     // Higher range
                     const higherY = yScale.getPixelForValue(higherRange);
-                    // Draw dot at start of higher range line
-                    ctx.beginPath();
-                    ctx.arc(rangeStartX, higherY, dotRadius, 0, Math.PI * 2);
-                    ctx.fillStyle = '#1B3A5A';
-                    ctx.fill();
-                    // Draw labels
-                    ctx.font = `600 ${fontSize}px Calibri`;
+
+                    // Draw labels ABOVE the line for Higher Range
+                    ctx.font = `${smallFontSize}px Calibri`;
                     ctx.textAlign = 'left';
+                    ctx.fillStyle = '#64748B';
+                    ctx.fillText('Higher Range', chartArea.right + 10 * scale, higherY - 18 * scale);
+                    ctx.font = `600 ${fontSize}px Calibri`;
                     ctx.fillStyle = '#10B981';
                     ctx.fillText(higherRange.toLocaleString() + ' (' + higherRangePct + ')', chartArea.right + 10 * scale, higherY - 6 * scale);
-                    ctx.font = `${smallFontSize}px Calibri`;
-                    ctx.fillStyle = '#64748B';
-                    ctx.fillText('Higher Range', chartArea.right + 10 * scale, higherY - 16 * scale);
+
+                    // Draw dot at higher range
+                    ctx.beginPath();
+                    ctx.arc(dotX, higherY, dotRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#1B3A5A';
+                    ctx.fill();
+
+                    // Draw dashed line from dot to right (BELOW text)
+                    ctx.save();
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = '#1B3A5A';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(dotX + dotRadius, higherY);
+                    ctx.lineTo(lineEndX, higherY);
+                    ctx.stroke();
+                    ctx.restore();
 
                     // Lower range
                     const lowerY = yScale.getPixelForValue(lowerRange);
-                    // Draw dot at start of lower range line
+
+                    // Draw dot at lower range
                     ctx.beginPath();
-                    ctx.arc(rangeStartX, lowerY, dotRadius, 0, Math.PI * 2);
+                    ctx.arc(dotX, lowerY, dotRadius, 0, Math.PI * 2);
                     ctx.fillStyle = '#1B3A5A';
                     ctx.fill();
-                    // Draw labels
+
+                    // Draw dashed line from dot to right (ABOVE text)
+                    ctx.save();
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = '#1B3A5A';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(dotX + dotRadius, lowerY);
+                    ctx.lineTo(lineEndX, lowerY);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // Draw labels BELOW the line for Lower Range
                     ctx.font = `600 ${fontSize}px Calibri`;
+                    ctx.textAlign = 'left';
                     ctx.fillStyle = '#EF4444';
                     ctx.fillText(lowerRange.toLocaleString() + ' (' + lowerRangePct + ')', chartArea.right + 10 * scale, lowerY + 14 * scale);
                     ctx.font = `${smallFontSize}px Calibri`;
                     ctx.fillStyle = '#64748B';
-                    ctx.fillText('Lower Range', chartArea.right + 10 * scale, lowerY + 24 * scale);
+                    ctx.fillText('Lower Range', chartArea.right + 10 * scale, lowerY + 26 * scale);
                 }
             }]
         });
