@@ -3205,16 +3205,12 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         .dmas-progress {
             width: 100%;
             height: 8px;
-            background: rgba(255,255,255,0.15);  /* Grey background (unfilled portion) */
+            /* Full gradient scale: red → orange → yellow → green */
+            background: linear-gradient(90deg, #EF4444 0%, #F59E0B 25%, #EAB308 50%, #84CC16 75%, #22C55E 100%);
             border-radius: 4px;
             margin: 8px 0;
             position: relative;
             overflow: visible;
-        }
-
-        .dmas-progress-fill {
-            height: 100%;
-            border-radius: 4px;
         }
 
         .dmas-marker {
@@ -3456,7 +3452,6 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     <div class="dmas-label">DMAS Score</div>
                     <div class="dmas-value">{{ dmas_score }}</div>
                     <div class="dmas-progress">
-                        <div class="dmas-progress-fill" style="width: {{ dmas_score }}%; background: {{ dmas_color }};"></div>
                         <div class="dmas-marker" style="left: {{ dmas_score }}%;"></div>
                     </div>
                     <div class="dmas-change">{{ dmas_change_text }}</div>

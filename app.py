@@ -4308,11 +4308,12 @@ def show_generate_presentation_page():
         # ------------------------------------------------------------------
         try:
             update_progress("Processing S&P 500 Technical Analysis v2...")
-            # Get DMAS scores from session state
-            spx_dmas = st.session_state.get("dmas_scores", {}).get("spx", 50)
-            spx_dmas_prev = st.session_state.get("dmas_prev_week", {}).get("spx", spx_dmas)
+            # Get DMAS scores from session state (uses individual keys like "spx_dmas")
+            spx_dmas = st.session_state.get("spx_dmas", 50)
+            spx_dmas_prev = st.session_state.get("spx_last_week_avg", spx_dmas)
             spx_tech = _get_spx_technical_score(excel_path_for_ppt)
             spx_momentum = _get_spx_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] SPX DMAS: {spx_dmas}, Prev Week: {spx_dmas_prev}, Tech: {spx_tech}, Mom: {spx_momentum}")
 
             v2_bytes, v2_date = create_technical_analysis_v2_chart(
                 excel_path_for_ppt,
