@@ -1116,13 +1116,14 @@ import json
 from jinja2 import Environment
 from playwright.sync_api import sync_playwright
 
-# Chart dimensions for v2 - aspect ratio matches PowerPoint (23.67cm × 11.5cm = 2.058:1)
-# Base: 950×460px, using 4x scale for quality
+# Chart dimensions for v2 - HTML at base size, Playwright scales up
+# Base dimensions for HTML body (smaller = sharper when scaled)
 TECH_V2_BASE_WIDTH = 950
-TECH_V2_BASE_HEIGHT = 460  # 950 / 2.058 ≈ 460
-TECH_V2_HTML_SCALE = 4
-TECH_V2_PNG_WIDTH_PX = TECH_V2_BASE_WIDTH * TECH_V2_HTML_SCALE   # 3800
-TECH_V2_PNG_HEIGHT_PX = TECH_V2_BASE_HEIGHT * TECH_V2_HTML_SCALE  # 1840
+TECH_V2_BASE_HEIGHT = 420  # Reduced for better fit
+TECH_V2_DEVICE_SCALE = 4   # Playwright device scale factor for high-res output
+TECH_V2_HTML_SCALE = 1     # Scale factor for HTML elements (1 = base size)
+TECH_V2_PNG_WIDTH_PX = TECH_V2_BASE_WIDTH * TECH_V2_DEVICE_SCALE   # 3800
+TECH_V2_PNG_HEIGHT_PX = TECH_V2_BASE_HEIGHT * TECH_V2_DEVICE_SCALE  # 1680
 TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
 
 def _compute_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
@@ -1334,9 +1335,9 @@ def create_technical_analysis_v2_chart(
     template = env.from_string(TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE)
 
     html_content = template.render(
-        width=TECH_V2_PNG_WIDTH_PX,
-        height=TECH_V2_PNG_HEIGHT_PX,
-        scale=TECH_V2_HTML_SCALE,
+        width=TECH_V2_BASE_WIDTH,   # Base dimensions - Playwright scales up
+        height=TECH_V2_BASE_HEIGHT,
+        scale=TECH_V2_HTML_SCALE,   # 1 = no CSS scaling, Playwright does the scaling
         # Price chart data
         price_labels=price_labels,
         price_data=price_data,
@@ -1371,6 +1372,7 @@ def create_technical_analysis_v2_chart(
     )
 
     # Debug: Save HTML for inspection
+    print(f"[Tech V2] HTML body: {TECH_V2_BASE_WIDTH}×{TECH_V2_BASE_HEIGHT}px, Playwright scale: {TECH_V2_DEVICE_SCALE}x -> {TECH_V2_PNG_WIDTH_PX}×{TECH_V2_PNG_HEIGHT_PX}px output")
     try:
         import tempfile
         import os
@@ -1386,10 +1388,14 @@ def create_technical_analysis_v2_chart(
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page(viewport={
-                'width': TECH_V2_PNG_WIDTH_PX,
-                'height': TECH_V2_PNG_HEIGHT_PX
-            })
+            # Use base dimensions for viewport, device_scale_factor for high-res output
+            page = browser.new_page(
+                viewport={
+                    'width': TECH_V2_BASE_WIDTH,
+                    'height': TECH_V2_BASE_HEIGHT
+                },
+                device_scale_factor=TECH_V2_DEVICE_SCALE
+            )
 
             # Set content and wait for network idle
             page.set_content(html_content, wait_until='networkidle')
