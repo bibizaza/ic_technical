@@ -3135,14 +3135,13 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .price-row {
             display: flex;
-            flex: 1;
-            min-height: 0;
+            height: 75%;
         }
 
         .price-chart-area {
             flex: 1;
             position: relative;
-            padding: {{ 10 * scale }}px;
+            padding: {{ 8 * scale }}px;
             padding-right: 0;
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
@@ -3276,7 +3275,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .rsi-row {
             display: flex;
-            height: {{ 110 * scale }}px;
+            height: 25%;
         }
 
         .rsi-chart-area {
@@ -3309,13 +3308,13 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-panel {
-            width: {{ 200 * scale }}px;
+            width: {{ 160 * scale }}px;
             background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
-            padding: {{ 12 * scale }}px;
+            padding: {{ 8 * scale }}px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: {{ 6 * scale }}px;
+            gap: {{ 4 * scale }}px;
             border: 1px solid #1B3A5A;
             border-top: none;
             border-left: none;
@@ -3328,7 +3327,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-current-title {
-            font-size: {{ 9 * scale }}px;
+            font-size: {{ 8 * scale }}px;
             text-transform: uppercase;
             letter-spacing: {{ 1 * scale }}px;
             color: rgba(255,255,255,0.5);
@@ -3336,7 +3335,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-current-value {
-            font-size: {{ 32 * scale }}px;
+            font-size: {{ 24 * scale }}px;
             font-weight: 700;
             text-align: center;
             line-height: 1.1;
@@ -3350,11 +3349,11 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-gauge {
-            height: {{ 8 * scale }}px;
+            height: {{ 6 * scale }}px;
             background: linear-gradient(90deg, #22C55E 0%, #22C55E 30%, #EAB308 50%, #EF4444 70%, #EF4444 100%);
-            border-radius: {{ 4 * scale }}px;
+            border-radius: {{ 3 * scale }}px;
             position: relative;
-            margin: {{ 6 * scale }}px 0;
+            margin: {{ 4 * scale }}px 0;
         }
 
         .rsi-gauge-marker {
@@ -3369,13 +3368,13 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-interpretation {
-            font-size: {{ 10 * scale }}px;
+            font-size: {{ 9 * scale }}px;
             text-align: center;
             color: rgba(255,255,255,0.8);
         }
 
         .rsi-context {
-            font-size: {{ 9 * scale }}px;
+            font-size: {{ 8 * scale }}px;
             text-align: center;
             color: rgba(255,255,255,0.5);
         }
