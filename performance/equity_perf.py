@@ -520,7 +520,7 @@ def create_historical_performance_table(
     # Generate HTML
     SCALE_FACTOR = 4
     width_px = 2200  # ~19.4cm at 3x
-    height_px = 1200  # ~10.6cm at 3x
+    height_px = 1500  # Increased for 9 rows at 4x scale
 
     template = Template(HISTORICAL_PERFORMANCE_HTML_TEMPLATE)
     html = template.render(
