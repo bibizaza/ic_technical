@@ -1324,6 +1324,7 @@ def create_technical_analysis_v2_chart(
 
     technical_status, technical_color = _get_score_status(technical_score)
     momentum_status, momentum_color = _get_score_status(momentum_score)
+    dmas_status, dmas_color = _get_score_status(dmas_score)
 
     # Debug logging
     print(f"[Tech V2] Data points: {len(price_data)}, RSI current: {rsi_current}")
@@ -1361,6 +1362,7 @@ def create_technical_analysis_v2_chart(
         rsi_context=rsi_context,
         # DMAS panel
         dmas_score=dmas_score,
+        dmas_color=dmas_color,
         dmas_change_text=dmas_change_text,
         dmas_change_color=dmas_change_color,
         technical_score=technical_score,
