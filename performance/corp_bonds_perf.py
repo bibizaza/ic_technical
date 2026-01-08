@@ -577,9 +577,9 @@ def create_historical_performance_chart(
         })
 
     # Generate HTML - use hardcoded dimensions for 6 rows
-    # Shorter aspect ratio for fewer rows
+    # Increased height for better fit at 4x scale
     PNG_WIDTH_PX = 1930
-    PNG_HEIGHT_PX = 800
+    PNG_HEIGHT_PX = 950
 
     template = Template(CORP_BONDS_HISTORICAL_HTML_TEMPLATE)
     html = template.render(
