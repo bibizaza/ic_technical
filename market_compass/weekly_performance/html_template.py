@@ -3135,18 +3135,19 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .price-row {
             display: flex;
-            height: 75%;
+            height: 320px;  /* ~76% of 420px */
         }
 
         .price-chart-area {
             flex: 1;
             position: relative;
-            padding: {{ 8 * scale }}px;
-            padding-right: 0;
+            padding: 8px;
+            padding-left: 40px;   /* Reduced from ~60px */
+            padding-right: 10px;
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
             border-right: none;
-            border-radius: {{ 8 * scale }}px 0 0 0;
+            border-radius: 8px 0 0 0;
         }
 
         .price-chart-container {
@@ -3156,139 +3157,143 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .dmas-panel {
-            width: {{ 160 * scale }}px;
+            width: 200px;         /* Increased from ~160px for better proportions */
+            min-width: 200px;
             background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
-            padding: {{ 6 * scale }}px;
+            padding: 12px 15px;   /* More horizontal padding */
             display: flex;
             flex-direction: column;
-            gap: {{ 4 * scale }}px;
+            gap: 6px;
             border: 1px solid #1B3A5A;
             border-left: none;
-            border-radius: 0 {{ 8 * scale }}px 0 0;
+            border-radius: 0 8px 0 0;
         }
 
         .panel-title {
-            font-size: {{ 9 * scale }}px;
+            font-size: 9px;
             text-transform: uppercase;
-            letter-spacing: {{ 1 * scale }}px;
+            letter-spacing: 1px;
             color: rgba(255,255,255,0.5);
             border-bottom: 1px solid rgba(255,255,255,0.15);
-            padding-bottom: {{ 6 * scale }}px;
+            padding-bottom: 6px;
             text-align: center;
         }
 
         .dmas-score-card {
             background: rgba(255,255,255,0.1);
-            border-radius: {{ 5 * scale }}px;
-            padding: {{ 6 * scale }}px;
+            border-radius: 5px;
+            padding: 10px 15px;
+            margin-bottom: 8px;
             text-align: center;
         }
 
         .dmas-label {
-            font-size: {{ 8 * scale }}px;
+            font-size: 8px;
             text-transform: uppercase;
             color: rgba(255,255,255,0.6);
-            margin-bottom: {{ 3 * scale }}px;
+            margin-bottom: 3px;
         }
 
         .dmas-value {
-            font-size: {{ 26 * scale }}px;
+            font-size: 36px;      /* Adjusted for wider panel */
             font-weight: 700;
             color: #FFFFFF;
             line-height: 1.1;
         }
 
         .dmas-progress {
-            height: {{ 8 * scale }}px;
+            height: 8px;
             background: linear-gradient(90deg, #EF4444 0%, #F59E0B 25%, #EAB308 50%, #84CC16 75%, #22C55E 100%);
-            border-radius: {{ 4 * scale }}px;
-            margin: {{ 8 * scale }}px 0;
+            border-radius: 4px;
+            margin: 8px 0;
             position: relative;
         }
 
         .dmas-marker {
             position: absolute;
-            width: {{ 4 * scale }}px;
-            height: {{ 12 * scale }}px;
+            width: 4px;
+            height: 12px;
             background: #FFFFFF;
-            border-radius: {{ 2 * scale }}px;
-            top: {{ -2 * scale }}px;
+            border-radius: 2px;
+            top: -2px;
             transform: translateX(-50%);
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
 
         .dmas-change {
-            font-size: {{ 10 * scale }}px;
+            font-size: 10px;
             color: {{ dmas_change_color }};
-            margin-top: {{ 4 * scale }}px;
+            margin-top: 4px;
         }
 
         .sub-score-card {
             background: rgba(255,255,255,0.08);
-            border-radius: {{ 5 * scale }}px;
-            padding: {{ 6 * scale }}px;
+            border-radius: 5px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
         }
 
         .sub-score-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: {{ 4 * scale }}px;
+            margin-bottom: 4px;
         }
 
         .sub-score-title {
-            font-size: {{ 10 * scale }}px;
+            font-size: 10px;
             color: rgba(255,255,255,0.7);
         }
 
         .sub-score-value {
-            font-size: {{ 16 * scale }}px;
+            font-size: 18px;
             font-weight: 700;
             color: #FFFFFF;
         }
 
         .sub-score-progress {
-            height: {{ 5 * scale }}px;
+            height: 5px;
             background: rgba(255,255,255,0.15);
-            border-radius: {{ 2.5 * scale }}px;
+            border-radius: 2.5px;
             overflow: hidden;
-            margin-bottom: {{ 4 * scale }}px;
+            margin-bottom: 4px;
         }
 
         .sub-score-fill {
             height: 100%;
-            border-radius: {{ 2.5 * scale }}px;
+            border-radius: 2.5px;
         }
 
         .sub-score-status {
             display: flex;
             align-items: center;
-            gap: {{ 4 * scale }}px;
-            font-size: {{ 9 * scale }}px;
+            gap: 4px;
+            font-size: 9px;
         }
 
         .status-dot {
-            width: {{ 6 * scale }}px;
-            height: {{ 6 * scale }}px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
         }
 
         .rsi-row {
             display: flex;
-            height: 25%;
+            height: 100px;  /* ~24% of 420px */
         }
 
         .rsi-chart-area {
             flex: 1;
             position: relative;
-            padding: {{ 10 * scale }}px;
-            padding-right: 0;
-            padding-top: {{ 5 * scale }}px;
+            padding: 10px;
+            padding-left: 40px;   /* Same as price chart */
+            padding-right: 10px;
+            padding-top: 5px;
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
             border-top: none;
             border-right: none;
-            border-radius: 0 0 0 {{ 8 * scale }}px;
+            border-radius: 0 0 0 8px;
         }
 
         .rsi-chart-container {
@@ -3299,26 +3304,27 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .rsi-title {
             position: absolute;
-            top: {{ 5 * scale }}px;
-            left: {{ 15 * scale }}px;
-            font-size: {{ 11 * scale }}px;
+            top: 5px;
+            left: 15px;
+            font-size: 11px;
             font-weight: 600;
             color: #1B3A5A;
             z-index: 10;
         }
 
         .rsi-panel {
-            width: {{ 160 * scale }}px;
+            width: 200px;         /* Same as DMAS panel */
+            min-width: 200px;
             background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
-            padding: {{ 8 * scale }}px;
+            padding: 8px 15px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: {{ 4 * scale }}px;
+            gap: 4px;
             border: 1px solid #1B3A5A;
             border-top: none;
             border-left: none;
-            border-radius: 0 0 {{ 8 * scale }}px 0;
+            border-radius: 0 0 8px 0;
             list-style: none;
         }
 
@@ -3327,15 +3333,15 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-current-title {
-            font-size: {{ 8 * scale }}px;
+            font-size: 8px;
             text-transform: uppercase;
-            letter-spacing: {{ 1 * scale }}px;
+            letter-spacing: 1px;
             color: rgba(255,255,255,0.5);
             text-align: center;
         }
 
         .rsi-current-value {
-            font-size: {{ 24 * scale }}px;
+            font-size: 24px;
             font-weight: 700;
             text-align: center;
             line-height: 1.1;
@@ -3349,56 +3355,58 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-gauge {
-            height: {{ 6 * scale }}px;
+            height: 6px;
             background: linear-gradient(90deg, #22C55E 0%, #22C55E 30%, #EAB308 50%, #EF4444 70%, #EF4444 100%);
-            border-radius: {{ 3 * scale }}px;
+            border-radius: 3px;
             position: relative;
-            margin: {{ 4 * scale }}px 0;
+            margin: 4px 0;
         }
 
         .rsi-gauge-marker {
             position: absolute;
-            width: {{ 4 * scale }}px;
-            height: {{ 12 * scale }}px;
+            width: 4px;
+            height: 12px;
             background: #FFFFFF;
-            border-radius: {{ 2 * scale }}px;
-            top: {{ -2 * scale }}px;
+            border-radius: 2px;
+            top: -2px;
             transform: translateX(-50%);
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
 
         .rsi-interpretation {
-            font-size: {{ 9 * scale }}px;
+            font-size: 9px;
             text-align: center;
             color: rgba(255,255,255,0.8);
         }
 
         .rsi-context {
-            font-size: {{ 8 * scale }}px;
+            font-size: 8px;
             text-align: center;
             color: rgba(255,255,255,0.5);
         }
 
         .chart-legend {
             position: absolute;
-            top: {{ 5 * scale }}px;
-            left: {{ 15 * scale }}px;
+            top: 5px;
+            left: 40px;           /* Align with chart left edge */
+            right: 10px;          /* Align with chart right edge */
             display: flex;
-            gap: {{ 15 * scale }}px;
-            font-size: {{ 10 * scale }}px;
+            justify-content: center;  /* CENTER the legend */
+            gap: 20px;
+            font-size: 10px;
             z-index: 10;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            gap: {{ 5 * scale }}px;
+            gap: 5px;
         }
 
         .legend-line {
-            width: {{ 20 * scale }}px;
-            height: {{ 3 * scale }}px;
-            border-radius: {{ 1.5 * scale }}px;
+            width: 20px;
+            height: 3px;
+            border-radius: 1.5px;
         }
 
         .legend-text {

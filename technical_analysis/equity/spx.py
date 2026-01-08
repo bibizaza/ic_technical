@@ -1433,9 +1433,9 @@ def insert_technical_analysis_v2_slide(
     *,
     placeholder_name: str = "spx_v2",
     left_cm: float = 1.13,
-    top_cm: float = 4.2,
+    top_cm: float = 4.8,      # Slightly lower to avoid subtitle
     width_cm: float = 23.67,
-    height_cm: float = 11.5,
+    height_cm: float = 10.5,  # Reduced from 11.5 for better fit
 ) -> Presentation:
     """Insert Technical Analysis v2 chart into PowerPoint.
 
