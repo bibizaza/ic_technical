@@ -1116,9 +1116,9 @@ import json
 from jinja2 import Environment
 from playwright.sync_api import sync_playwright
 
-# Chart dimensions for v2 - aspect ratio 23.67:11.5 = 2.058
-# Base: 1420×690px, using 2x scale for quality
-TECH_V2_PNG_WIDTH_PX = 2840   # 1420 × 2
+# Chart dimensions for v2 - reduced for better slide fit
+# Base: 1200×690px, using 2x scale for quality
+TECH_V2_PNG_WIDTH_PX = 2400   # 1200 × 2 (reduced from 1420)
 TECH_V2_PNG_HEIGHT_PX = 1380  # 690 × 2
 TECH_V2_HTML_SCALE = 2
 TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days

@@ -3157,12 +3157,12 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .dmas-panel {
-            width: {{ 200 * scale }}px;
+            width: {{ 160 * scale }}px;
             background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
-            padding: {{ 8 * scale }}px;
+            padding: {{ 6 * scale }}px;
             display: flex;
             flex-direction: column;
-            gap: {{ 5 * scale }}px;
+            gap: {{ 4 * scale }}px;
             border: 1px solid #1B3A5A;
             border-left: none;
             border-radius: 0 {{ 8 * scale }}px 0 0;
@@ -3180,20 +3180,20 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .dmas-score-card {
             background: rgba(255,255,255,0.1);
-            border-radius: {{ 6 * scale }}px;
-            padding: {{ 8 * scale }}px;
+            border-radius: {{ 5 * scale }}px;
+            padding: {{ 6 * scale }}px;
             text-align: center;
         }
 
         .dmas-label {
-            font-size: {{ 9 * scale }}px;
+            font-size: {{ 8 * scale }}px;
             text-transform: uppercase;
             color: rgba(255,255,255,0.6);
-            margin-bottom: {{ 4 * scale }}px;
+            margin-bottom: {{ 3 * scale }}px;
         }
 
         .dmas-value {
-            font-size: {{ 32 * scale }}px;
+            font-size: {{ 26 * scale }}px;
             font-weight: 700;
             color: #FFFFFF;
             line-height: 1.1;
