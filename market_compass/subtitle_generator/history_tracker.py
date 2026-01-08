@@ -30,11 +30,28 @@ class HistoryTracker:
     """
     Tracks historical data for Market Compass assets.
     Stores last 52 weeks (1 year) per asset.
+
+    Storage path priority:
+    1. Explicit storage_path parameter
+    2. IC_HISTORY_PATH environment variable
+    3. Dropbox folder (auto-detected)
+    4. Local project folder (fallback)
     """
 
     def __init__(self, storage_path: str = None):
         if storage_path is None:
-            # Store in project directory for easy access
+            # Check environment variable first
+            storage_path = os.environ.get("IC_HISTORY_PATH")
+
+        if storage_path is None:
+            # Try to find Dropbox folder
+            dropbox_path = self._find_dropbox_path()
+            if dropbox_path:
+                storage_path = os.path.join(dropbox_path, "ic_technical_history.json")
+                print(f"[HistoryTracker] Using Dropbox: {storage_path}")
+
+        if storage_path is None:
+            # Fall back to local project directory
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             storage_path = os.path.join(base_dir, "data", "history.json")
             os.makedirs(os.path.dirname(storage_path), exist_ok=True)
@@ -43,6 +60,31 @@ class HistoryTracker:
         self.data: Dict[str, List[dict]] = self._load()
         print(f"[HistoryTracker] Initialized with path: {self.storage_path}")
         print(f"[HistoryTracker] Loaded {len(self.data)} assets")
+
+    def _find_dropbox_path(self) -> Optional[str]:
+        """Auto-detect Dropbox folder location."""
+        import sys
+
+        # Common Dropbox locations
+        if sys.platform == "win32":
+            # Windows
+            candidates = [
+                os.path.expandvars(r"%USERPROFILE%\Dropbox"),
+                os.path.expandvars(r"%USERPROFILE%\Dropbox (Personal)"),
+                os.path.expandvars(r"%LOCALAPPDATA%\Dropbox"),
+            ]
+        else:
+            # macOS / Linux
+            candidates = [
+                os.path.expanduser("~/Dropbox"),
+                os.path.expanduser("~/Dropbox (Personal)"),
+            ]
+
+        for path in candidates:
+            if os.path.isdir(path):
+                return path
+
+        return None
 
     def _load(self) -> Dict[str, List[dict]]:
         """Load from JSON."""
