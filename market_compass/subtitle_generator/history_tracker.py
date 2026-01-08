@@ -44,10 +44,10 @@ class HistoryTracker:
             storage_path = os.environ.get("IC_HISTORY_PATH")
 
         if storage_path is None:
-            # Try to find Dropbox folder
+            # Try to find Dropbox folder (Tools_In_Construction/ic/score_history)
             dropbox_path = self._find_dropbox_path()
             if dropbox_path:
-                storage_path = os.path.join(dropbox_path, "ic_technical_history.json")
+                storage_path = os.path.join(dropbox_path, "history.json")
                 print(f"[HistoryTracker] Using Dropbox: {storage_path}")
 
         if storage_path is None:
@@ -62,27 +62,40 @@ class HistoryTracker:
         print(f"[HistoryTracker] Loaded {len(self.data)} assets")
 
     def _find_dropbox_path(self) -> Optional[str]:
-        """Auto-detect Dropbox folder location."""
+        """Auto-detect Dropbox folder and return IC score_history subfolder."""
         import sys
 
-        # Common Dropbox locations
+        # Common Dropbox root locations
         if sys.platform == "win32":
             # Windows
-            candidates = [
+            dropbox_roots = [
                 os.path.expandvars(r"%USERPROFILE%\Dropbox"),
                 os.path.expandvars(r"%USERPROFILE%\Dropbox (Personal)"),
-                os.path.expandvars(r"%LOCALAPPDATA%\Dropbox"),
             ]
         else:
             # macOS / Linux
-            candidates = [
+            dropbox_roots = [
                 os.path.expanduser("~/Dropbox"),
                 os.path.expanduser("~/Dropbox (Personal)"),
             ]
 
-        for path in candidates:
-            if os.path.isdir(path):
-                return path
+        # IC Technical subfolder path
+        ic_subfolder = os.path.join("Tools_In_Construction", "ic", "score_history")
+
+        for dropbox_root in dropbox_roots:
+            if os.path.isdir(dropbox_root):
+                # Check if IC subfolder exists
+                ic_path = os.path.join(dropbox_root, ic_subfolder)
+                if os.path.isdir(ic_path):
+                    return ic_path
+                # If not, create it
+                try:
+                    os.makedirs(ic_path, exist_ok=True)
+                    print(f"[HistoryTracker] Created Dropbox folder: {ic_path}")
+                    return ic_path
+                except OSError:
+                    # Can't create, fall back to Dropbox root
+                    return dropbox_root
 
         return None
 
