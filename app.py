@@ -4315,6 +4315,10 @@ def show_generate_presentation_page():
             spx_momentum = _get_spx_momentum_score(excel_path_for_ppt)
             print(f"[Tech V2] SPX DMAS: {spx_dmas}, Prev Week: {spx_dmas_prev}, Tech: {spx_tech}, Mom: {spx_momentum}")
 
+            # Get previous week Technical/Momentum scores if available
+            spx_tech_prev = st.session_state.get("spx_tech_score_prev", None)
+            spx_mom_prev = st.session_state.get("spx_mom_score_prev", None)
+
             v2_bytes, v2_date = create_technical_analysis_v2_chart(
                 excel_path_for_ppt,
                 ticker="SPX Index",
@@ -4322,7 +4326,9 @@ def show_generate_presentation_page():
                 dmas_score=int(spx_dmas),
                 dmas_prev_week=int(spx_dmas_prev),
                 technical_score=spx_tech,
+                technical_prev_week=spx_tech_prev,
                 momentum_score=spx_momentum,
+                momentum_prev_week=spx_mom_prev,
             )
             prs = insert_technical_analysis_v2_slide(
                 prs,

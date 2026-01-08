@@ -1183,7 +1183,9 @@ def create_technical_analysis_v2_chart(
     dmas_score: int = None,
     dmas_prev_week: int = None,
     technical_score: int = None,
+    technical_prev_week: int = None,
     momentum_score: int = None,
+    momentum_prev_week: int = None,
     lookback_days: int = TECH_V2_LOOKBACK_DAYS,
 ) -> tuple:
     """Generate Technical Analysis v2 chart using Chart.js + Playwright.
@@ -1202,8 +1204,12 @@ def create_technical_analysis_v2_chart(
         Previous week's DMAS score for change calculation.
     technical_score : int, optional
         Technical component score. If None, calculated from price data.
+    technical_prev_week : int, optional
+        Previous week's Technical score for trend arrow.
     momentum_score : int, optional
         Momentum component score. If None, uses placeholder.
+    momentum_prev_week : int, optional
+        Previous week's Momentum score for trend arrow.
     lookback_days : int
         Number of trading days for price chart.
 
@@ -1326,6 +1332,39 @@ def create_technical_analysis_v2_chart(
     momentum_status, momentum_color = _get_score_status(momentum_score)
     dmas_status, dmas_color = _get_score_status(dmas_score)
 
+    # Calculate trend arrows for Technical and Momentum
+    # Technical trend
+    if technical_prev_week is None:
+        technical_prev_week = technical_score
+    else:
+        technical_prev_week = int(round(technical_prev_week))
+
+    if technical_score > technical_prev_week:
+        technical_trend = "▲"
+        technical_trend_color = "#22C55E"  # Green
+    elif technical_score < technical_prev_week:
+        technical_trend = "▼"
+        technical_trend_color = "#EF4444"  # Red
+    else:
+        technical_trend = "—"
+        technical_trend_color = "#9CA3AF"  # Gray
+
+    # Momentum trend
+    if momentum_prev_week is None:
+        momentum_prev_week = momentum_score
+    else:
+        momentum_prev_week = int(round(momentum_prev_week))
+
+    if momentum_score > momentum_prev_week:
+        momentum_trend = "▲"
+        momentum_trend_color = "#22C55E"  # Green
+    elif momentum_score < momentum_prev_week:
+        momentum_trend = "▼"
+        momentum_trend_color = "#EF4444"  # Red
+    else:
+        momentum_trend = "—"
+        momentum_trend_color = "#9CA3AF"  # Gray
+
     # Debug logging
     print(f"[Tech V2] Data points: {len(price_data)}, RSI current: {rsi_current}")
     print(f"[Tech V2] Scores - DMAS: {dmas_score}, Technical: {technical_score}, Momentum: {momentum_score}")
@@ -1368,9 +1407,13 @@ def create_technical_analysis_v2_chart(
         technical_score=technical_score,
         technical_color=technical_color,
         technical_status=technical_status,
+        technical_trend=technical_trend,
+        technical_trend_color=technical_trend_color,
         momentum_score=momentum_score,
         momentum_color=momentum_color,
         momentum_status=momentum_status,
+        momentum_trend=momentum_trend,
+        momentum_trend_color=momentum_trend_color,
     )
 
     # Debug: Save HTML for inspection

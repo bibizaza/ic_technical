@@ -3253,6 +3253,14 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             font-size: 18px;
             font-weight: 700;
             color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .score-trend {
+            font-size: 12px;
+            font-weight: 600;
         }
 
         .sub-score-progress {
@@ -3459,7 +3467,10 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 <div class="sub-score-card">
                     <div class="sub-score-header">
                         <span class="sub-score-title">Technical</span>
-                        <span class="sub-score-value">{{ technical_score }}</span>
+                        <span class="sub-score-value">
+                            <span class="score-trend" style="color: {{ technical_trend_color }};">{{ technical_trend }}</span>
+                            {{ technical_score }}
+                        </span>
                     </div>
                     <div class="sub-score-progress">
                         <div class="sub-score-fill" style="width: {{ technical_score }}%; background: {{ technical_color }};"></div>
@@ -3472,7 +3483,10 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 <div class="sub-score-card">
                     <div class="sub-score-header">
                         <span class="sub-score-title">Momentum</span>
-                        <span class="sub-score-value">{{ momentum_score }}</span>
+                        <span class="sub-score-value">
+                            <span class="score-trend" style="color: {{ momentum_trend_color }};">{{ momentum_trend }}</span>
+                            {{ momentum_score }}
+                        </span>
                     </div>
                     <div class="sub-score-progress">
                         <div class="sub-score-fill" style="width: {{ momentum_score }}%; background: {{ momentum_color }};"></div>
