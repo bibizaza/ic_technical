@@ -3142,8 +3142,9 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             flex: 1;
             position: relative;
             padding: 8px;
-            padding-left: 20px;   /* Reduced from 40px - push chart left */
+            padding-left: 5px;    /* Reduced from 20px - extend chart left */
             padding-right: 10px;
+            margin-left: 0;
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
             border-right: none;
@@ -3286,9 +3287,10 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             flex: 1;
             position: relative;
             padding: 10px;
-            padding-left: 20px;   /* Same as price chart - critical for Y-axis alignment */
+            padding-left: 5px;    /* Same as price chart - critical for Y-axis alignment */
             padding-right: 10px;
             padding-top: 5px;
+            margin-left: 0;
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
             border-top: none;
@@ -3388,7 +3390,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         .chart-legend {
             position: absolute;
             top: 5px;
-            left: 20px;           /* Align with chart left edge */
+            left: 5px;            /* Align with chart left edge */
             right: 10px;          /* Align with chart right edge */
             display: flex;
             justify-content: center;  /* CENTER the legend */
@@ -3603,10 +3605,10 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 },
                 layout: {
                     padding: {
-                        top: 25 * scale,
-                        right: 90 * scale,
-                        bottom: 5 * scale,
-                        left: 50 * scale,
+                        top: 25,
+                        right: 90,
+                        bottom: 5,
+                        left: 5,      /* Reduced from 50 - extend chart left */
                     }
                 },
                 plugins: {
@@ -3724,10 +3726,10 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 animation: { duration: 0 },
                 layout: {
                     padding: {
-                        top: 20 * scale,
-                        right: 90 * scale,
-                        bottom: 5 * scale,
-                        left: 50 * scale,
+                        top: 20,
+                        right: 90,
+                        bottom: 5,
+                        left: 5,      /* Same as price chart - keep aligned */
                     }
                 },
                 plugins: {
