@@ -756,7 +756,7 @@ def insert_commodity_weekly_html_slide(
 
 # Historical chart dimensions
 HIST_PNG_WIDTH_PX = 1930
-HIST_PNG_HEIGHT_PX = 1200
+HIST_PNG_HEIGHT_PX = 1400  # Increased for 12 commodity rows + 3 category headers
 HIST_PPT_WIDTH_CM = 17.02
 HIST_PPT_LEFT_CM = 3.35
 HIST_PPT_TOP_CM = 4.6
