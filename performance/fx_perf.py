@@ -55,7 +55,7 @@ import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
-from utils.flag_utils import get_flag_html
+from helpers.flag_utils import get_flag_html
 from jinja2 import Template
 from html2image import Html2Image
 

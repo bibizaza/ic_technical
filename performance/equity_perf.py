@@ -72,7 +72,7 @@ from html2image import Html2Image
 from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
-from utils.flag_utils import get_flag_html
+from helpers.flag_utils import get_flag_html
 from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE
 
 try:
