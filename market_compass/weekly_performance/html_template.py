@@ -3142,7 +3142,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             flex: 1;
             position: relative;
             padding: 8px;
-            padding-left: 40px;   /* Reduced from ~60px */
+            padding-left: 20px;   /* Reduced from 40px - push chart left */
             padding-right: 10px;
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
@@ -3286,7 +3286,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             flex: 1;
             position: relative;
             padding: 10px;
-            padding-left: 40px;   /* Same as price chart */
+            padding-left: 20px;   /* Same as price chart - critical for Y-axis alignment */
             padding-right: 10px;
             padding-top: 5px;
             background: #FFFFFF;
@@ -3388,7 +3388,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         .chart-legend {
             position: absolute;
             top: 5px;
-            left: 40px;           /* Align with chart left edge */
+            left: 20px;           /* Align with chart left edge */
             right: 10px;          /* Align with chart right edge */
             display: flex;
             justify-content: center;  /* CENTER the legend */
@@ -3644,9 +3644,13 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         ticks: {
                             font: { size: 9 * scale, family: 'Calibri' },
                             color: '#64748B',
+                            padding: 5,
                             callback: function(value) {
                                 return value.toLocaleString();
                             }
+                        },
+                        afterFit: function(axis) {
+                            axis.width = 50;  // Force same width for both charts
                         }
                     }
                 }
@@ -3790,7 +3794,11 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         ticks: {
                             font: { size: 9 * scale, family: 'Calibri' },
                             color: '#64748B',
+                            padding: 5,
                             stepSize: 20,
+                        },
+                        afterFit: function(axis) {
+                            axis.width = 50;  // Force same width as price chart
                         }
                     }
                 }
