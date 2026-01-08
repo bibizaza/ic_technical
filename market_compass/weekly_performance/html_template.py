@@ -281,14 +281,14 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         .table-container {
             display: flex;
             flex-direction: column;
-            gap: {{ 3 * scale }}px;
+            gap: {{ 2 * scale }}px;
         }
 
         /* Header row */
         .header-row {
             display: flex;
             align-items: center;
-            padding: {{ 6 * scale }}px 0;
+            padding: {{ 4 * scale }}px 0;
         }
 
         .header-row .market-col {
@@ -327,12 +327,12 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 12 * scale }}px;
+            font-size: {{ 10 * scale }}px;
             line-height: 1;
         }
 
         .market-name {
-            font-size: {{ 9 * scale }}px;
+            font-size: {{ 8 * scale }}px;
             font-weight: 500;
             color: #334155;
         }
@@ -340,12 +340,12 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         /* Value cells */
         .value-cell {
             flex: 1;
-            height: {{ 30 * scale }}px;
+            height: {{ 24 * scale }}px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: {{ 5 * scale }}px;
-            font-size: {{ 9 * scale }}px;
+            border-radius: {{ 4 * scale }}px;
+            font-size: {{ 8 * scale }}px;
             font-weight: 600;
             color: #FFFFFF;
             text-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -354,11 +354,11 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
-            height: {{ 34 * scale }}px;
-            font-size: {{ 11 * scale }}px;
+            height: {{ 26 * scale }}px;
+            font-size: {{ 9 * scale }}px;
             font-weight: 700;
-            margin-right: {{ 12 * scale }}px;
-            border-radius: {{ 6 * scale }}px;
+            margin-right: {{ 10 * scale }}px;
+            border-radius: {{ 5 * scale }}px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
         }
 
