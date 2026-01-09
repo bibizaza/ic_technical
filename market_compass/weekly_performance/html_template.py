@@ -3436,18 +3436,24 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         <div class="legend-line" style="background: #1B3A5A;"></div>
                         <span class="legend-text">Price ({{ last_price }})</span>
                     </div>
+                    {% if show_ma50 %}
                     <div class="legend-item">
                         <div class="legend-line" style="background: #10B981;"></div>
                         <span class="legend-text">50-day MA</span>
                     </div>
+                    {% endif %}
+                    {% if show_ma100 %}
                     <div class="legend-item">
                         <div class="legend-line" style="background: #F59E0B;"></div>
                         <span class="legend-text">100-day MA</span>
                     </div>
+                    {% endif %}
+                    {% if show_ma200 %}
                     <div class="legend-item">
                         <div class="legend-line" style="background: #EF4444;"></div>
                         <span class="legend-text">200-day MA</span>
                     </div>
+                    {% endif %}
                 </div>
                 <div class="price-chart-container">
                     <canvas id="priceChart"></canvas>
@@ -3522,6 +3528,9 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         const ma50Data = {{ ma50_data | tojson }};
         const ma100Data = {{ ma100_data | tojson }};
         const ma200Data = {{ ma200_data | tojson }};
+        const showMa50 = {{ show_ma50 | tojson }};
+        const showMa100 = {{ show_ma100 | tojson }};
+        const showMa200 = {{ show_ma200 | tojson }};
         const fibLevels = {{ fib_levels | tojson }};
         const priceYMin = {{ price_y_min }};
         const priceYMax = {{ price_y_max }};
@@ -3581,33 +3590,36 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     },
                     {
                         label: '50-day MA',
-                        data: ma50Data,
+                        data: showMa50 ? ma50Data : [],  // Hide if too far from price
                         borderColor: '#10B981',
                         borderWidth: 1.5 * scale / 3,
                         pointRadius: 0,
                         tension: 0.1,
                         fill: false,
                         order: 2,
+                        hidden: !showMa50,
                     },
                     {
                         label: '100-day MA',
-                        data: ma100Data,
+                        data: showMa100 ? ma100Data : [],  // Hide if too far from price
                         borderColor: '#F59E0B',
                         borderWidth: 1.5 * scale / 3,
                         pointRadius: 0,
                         tension: 0.1,
                         fill: false,
                         order: 3,
+                        hidden: !showMa100,
                     },
                     {
                         label: '200-day MA',
-                        data: ma200Data,
+                        data: showMa200 ? ma200Data : [],  // Hide if too far from price
                         borderColor: '#EF4444',
                         borderWidth: 1.5 * scale / 3,
                         pointRadius: 0,
                         tension: 0.1,
                         fill: false,
                         order: 4,
+                        hidden: !showMa200,
                     },
                 ]
             },

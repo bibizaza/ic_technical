@@ -1275,22 +1275,41 @@ def create_technical_analysis_v2_chart(
     higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
 
-    # Y-axis range - include all data points AND trading range
-    all_data_min = min(
-        df["Price"].min(),
-        df["MA50"].min(),
-        df["MA100"].min(),
-        df["MA200"].min(),
-        lower_range  # Include lower trading range
-    )
-    all_data_max = max(
-        df["Price"].max(),
-        df["MA50"].max(),
-        df["MA100"].max(),
-        df["MA200"].max(),
-        higher_range  # Include higher trading range
-    )
-    price_padding = (all_data_max - all_data_min) * 0.03  # 3% padding for labels
+    # Determine which MAs are close enough to display (within 10% of current price)
+    ma50_last = df["MA50"].iloc[-1]
+    ma100_last = df["MA100"].iloc[-1]
+    ma200_last = df["MA200"].iloc[-1]
+
+    MA_DISTANCE_THRESHOLD = 0.10  # 10% - MAs further than this won't be displayed
+
+    show_ma50 = abs(ma50_last - last_price) / last_price < MA_DISTANCE_THRESHOLD
+    show_ma100 = abs(ma100_last - last_price) / last_price < MA_DISTANCE_THRESHOLD
+    show_ma200 = abs(ma200_last - last_price) / last_price < MA_DISTANCE_THRESHOLD
+
+    # Debug: Log which MAs are shown
+    ma_distances = {
+        "MA50": f"{((ma50_last - last_price) / last_price * 100):.1f}%",
+        "MA100": f"{((ma100_last - last_price) / last_price * 100):.1f}%",
+        "MA200": f"{((ma200_last - last_price) / last_price * 100):.1f}%",
+    }
+    print(f"[Tech V2] MA distances from price: {ma_distances}")
+    print(f"[Tech V2] Showing MAs: MA50={show_ma50}, MA100={show_ma100}, MA200={show_ma200}")
+
+    # Y-axis range - focus on price action + nearby MAs + trading range
+    # Start with price range
+    y_values = [df["Price"].min(), df["Price"].max(), lower_range, higher_range]
+
+    # Only include MAs that will be displayed
+    if show_ma50:
+        y_values.extend([df["MA50"].min(), df["MA50"].max()])
+    if show_ma100:
+        y_values.extend([df["MA100"].min(), df["MA100"].max()])
+    if show_ma200:
+        y_values.extend([df["MA200"].min(), df["MA200"].max()])
+
+    all_data_min = min(y_values)
+    all_data_max = max(y_values)
+    price_padding = (all_data_max - all_data_min) * 0.05  # 5% padding for labels
     price_y_min = round(all_data_min - price_padding, 0)
     price_y_max = round(all_data_max + price_padding, 0)
 
@@ -1384,6 +1403,9 @@ def create_technical_analysis_v2_chart(
         ma50_data=ma50_data,
         ma100_data=ma100_data,
         ma200_data=ma200_data,
+        show_ma50=show_ma50,
+        show_ma100=show_ma100,
+        show_ma200=show_ma200,
         fib_levels=fib_levels,
         price_y_min=price_y_min,
         price_y_max=price_y_max,
