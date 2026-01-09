@@ -1331,13 +1331,13 @@ def create_technical_analysis_v2_chart(
 
     dmas_change = dmas_score - dmas_prev_week
     if dmas_change > 0:
-        dmas_change_text = f"▲ +{dmas_change} WoW (from {dmas_prev_week})"
+        dmas_change_text = f"▲ +{dmas_change} WoW"
         dmas_change_color = "#22C55E"
     elif dmas_change < 0:
-        dmas_change_text = f"▼ {dmas_change} WoW (from {dmas_prev_week})"
+        dmas_change_text = f"▼ {dmas_change} WoW"
         dmas_change_color = "#EF4444"
     else:
-        dmas_change_text = f"— Unchanged (from {dmas_prev_week})"
+        dmas_change_text = "— Unchanged WoW"
         dmas_change_color = "#9CA3AF"
 
     technical_status, technical_color = _get_score_status(technical_score)
