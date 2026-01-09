@@ -3908,14 +3908,14 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                                 type: 'box',
                                 yMin: 0,
                                 yMax: 30,
-                                backgroundColor: 'rgba(16, 185, 129, 0.06)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
                                 borderWidth: 0,
                             },
                             overboughtZone: {
                                 type: 'box',
                                 yMin: 70,
                                 yMax: 100,
-                                backgroundColor: 'rgba(239, 68, 68, 0.06)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)',
                                 borderWidth: 0,
                             },
                             line30: {
@@ -3964,14 +3964,15 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                             font: { size: 9 * scale, family: 'Calibri' },
                             color: '#64748B',
                             padding: 5,
-                            // Show standard RSI levels: 0, 30, 50, 70, 100
+                            autoSkip: false,
+                            // Show only standard RSI levels: 0, 30, 70, 100
                             callback: function(value) {
-                                if ([0, 30, 50, 70, 100].includes(value)) {
+                                if (value === 0 || value === 30 || value === 70 || value === 100) {
                                     return value;
                                 }
-                                return '';
+                                return null;  // Hide other tick labels
                             },
-                            stepSize: 10,  // Generate ticks at 10-unit intervals, filter with callback
+                            stepSize: 10,  // Generate ticks at 10-unit intervals
                         },
                         afterFit: function(axis) {
                             axis.width = 50;  // Force same width as price chart
