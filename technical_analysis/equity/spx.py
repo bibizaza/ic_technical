@@ -1252,8 +1252,8 @@ def create_technical_analysis_v2_chart(
     ma200_data = df["MA200"].round(2).tolist()
     rsi_data = df["RSI"].round(1).tolist()
 
-    # Last price
-    last_price = df["Price"].iloc[-1]
+    # Last price - convert to native Python float for JSON serialization
+    last_price = float(df["Price"].iloc[-1])
     last_price_str = f"{last_price:,.2f}"
 
     # Fibonacci levels
@@ -1265,12 +1265,12 @@ def create_technical_analysis_v2_chart(
     vol_val = _get_vol_index_value(excel_path, price_mode=price_mode, vol_ticker="VIX Index")
     if vol_val:
         expected_move = (last_price * (vol_val / 100)) / (52 ** 0.5)
-        higher_range = round(last_price + expected_move, 0)
-        lower_range = round(last_price - expected_move, 0)
+        higher_range = float(round(last_price + expected_move, 0))
+        lower_range = float(round(last_price - expected_move, 0))
     else:
         # Fallback: 2% range
-        higher_range = round(last_price * 1.02, 0)
-        lower_range = round(last_price * 0.98, 0)
+        higher_range = float(round(last_price * 1.02, 0))
+        lower_range = float(round(last_price * 0.98, 0))
 
     higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
@@ -1282,9 +1282,10 @@ def create_technical_analysis_v2_chart(
 
     MA_DISTANCE_THRESHOLD = 0.10  # 10% - MAs further than this won't be displayed
 
-    show_ma50 = abs(ma50_last - last_price) / last_price < MA_DISTANCE_THRESHOLD
-    show_ma100 = abs(ma100_last - last_price) / last_price < MA_DISTANCE_THRESHOLD
-    show_ma200 = abs(ma200_last - last_price) / last_price < MA_DISTANCE_THRESHOLD
+    # Convert to native Python bool to ensure JSON serialization works correctly
+    show_ma50 = bool(abs(ma50_last - last_price) / last_price < MA_DISTANCE_THRESHOLD)
+    show_ma100 = bool(abs(ma100_last - last_price) / last_price < MA_DISTANCE_THRESHOLD)
+    show_ma200 = bool(abs(ma200_last - last_price) / last_price < MA_DISTANCE_THRESHOLD)
 
     # Debug: Log which MAs are shown
     ma_distances = {
@@ -1307,11 +1308,12 @@ def create_technical_analysis_v2_chart(
     if show_ma200:
         y_values.extend([df["MA200"].min(), df["MA200"].max()])
 
-    all_data_min = min(y_values)
-    all_data_max = max(y_values)
+    # Convert to native Python floats to ensure proper JSON serialization
+    all_data_min = float(min(y_values))
+    all_data_max = float(max(y_values))
     price_padding = (all_data_max - all_data_min) * 0.05  # 5% padding for labels
-    price_y_min = round(all_data_min - price_padding, 0)
-    price_y_max = round(all_data_max + price_padding, 0)
+    price_y_min = float(round(all_data_min - price_padding, 0))
+    price_y_max = float(round(all_data_max + price_padding, 0))
 
     # RSI current
     rsi_current = int(round(df["RSI"].iloc[-1], 0)) if not pd.isna(df["RSI"].iloc[-1]) else 50
