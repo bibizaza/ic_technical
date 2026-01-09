@@ -3814,14 +3814,14 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     // Higher range
                     const higherY = yScale.getPixelForValue(higherRange);
 
-                    // Draw labels ABOVE the line for Higher Range
+                    // Draw labels ABOVE the line for Higher Range (right-aligned)
                     ctx.font = `${smallFontSize}px Calibri`;
-                    ctx.textAlign = 'left';
+                    ctx.textAlign = 'right';
                     ctx.fillStyle = '#64748B';
-                    ctx.fillText('Higher Range', chartArea.right + 10 * scale, higherY - 18 * scale);
+                    ctx.fillText('Higher Range', lineEndX, higherY - 18 * scale);
                     ctx.font = `600 ${fontSize}px Calibri`;
                     ctx.fillStyle = '#10B981';
-                    ctx.fillText(higherRange.toLocaleString() + ' (' + higherRangePct + ')', chartArea.right + 10 * scale, higherY - 6 * scale);
+                    ctx.fillText(higherRange.toLocaleString() + ' (' + higherRangePct + ')', lineEndX, higherY - 6 * scale);
 
                     // Draw dot at higher range
                     ctx.beginPath();
@@ -3860,14 +3860,14 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     ctx.stroke();
                     ctx.restore();
 
-                    // Draw labels BELOW the line for Lower Range
+                    // Draw labels BELOW the line for Lower Range (right-aligned)
                     ctx.font = `600 ${fontSize}px Calibri`;
-                    ctx.textAlign = 'left';
+                    ctx.textAlign = 'right';
                     ctx.fillStyle = '#EF4444';
-                    ctx.fillText(lowerRange.toLocaleString() + ' (' + lowerRangePct + ')', chartArea.right + 10 * scale, lowerY + 14 * scale);
+                    ctx.fillText(lowerRange.toLocaleString() + ' (' + lowerRangePct + ')', lineEndX, lowerY + 14 * scale);
                     ctx.font = `${smallFontSize}px Calibri`;
                     ctx.fillStyle = '#64748B';
-                    ctx.fillText('Lower Range', chartArea.right + 10 * scale, lowerY + 26 * scale);
+                    ctx.fillText('Lower Range', lineEndX, lowerY + 26 * scale);
                 }
             }]
         });
@@ -3881,7 +3881,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     label: 'RSI',
                     data: rsiData,
                     borderColor: '#8B5CF6',
-                    borderWidth: 2 * scale / 3,
+                    borderWidth: 2.5 * scale / 3,
                     pointRadius: 0,
                     tension: 0.1,
                     fill: false,
