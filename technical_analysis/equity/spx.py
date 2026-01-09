@@ -1275,45 +1275,37 @@ def create_technical_analysis_v2_chart(
     higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
 
-    # Determine which MAs are close enough to display (within 10% of current price)
-    ma50_last = df["MA50"].iloc[-1]
-    ma100_last = df["MA100"].iloc[-1]
-    ma200_last = df["MA200"].iloc[-1]
+    # Y-axis bounds based on first Fibonacci level ± buffer
+    # This focuses the chart on relevant price action without distant levels compressing the view
+    FIBONACCI_BUFFER_PCT = 0.015  # 1.5% buffer beyond first Fibonacci
 
-    MA_DISTANCE_THRESHOLD = 0.10  # 10% - MAs further than this won't be displayed
+    # Find first Fibonacci levels above and below current price
+    fib_above = [f for f in fib_levels if f > last_price]
+    fib_below = [f for f in fib_levels if f < last_price]
 
-    # Convert to native Python bool to ensure JSON serialization works correctly
-    show_ma50 = bool(abs(ma50_last - last_price) / last_price < MA_DISTANCE_THRESHOLD)
-    show_ma100 = bool(abs(ma100_last - last_price) / last_price < MA_DISTANCE_THRESHOLD)
-    show_ma200 = bool(abs(ma200_last - last_price) / last_price < MA_DISTANCE_THRESHOLD)
+    first_fib_above = min(fib_above) if fib_above else max(fib_levels)
+    first_fib_below = max(fib_below) if fib_below else min(fib_levels)
 
-    # Debug: Log which MAs are shown
-    ma_distances = {
-        "MA50": f"{((ma50_last - last_price) / last_price * 100):.1f}%",
-        "MA100": f"{((ma100_last - last_price) / last_price * 100):.1f}%",
-        "MA200": f"{((ma200_last - last_price) / last_price * 100):.1f}%",
-    }
-    print(f"[Tech V2] MA distances from price: {ma_distances}")
-    print(f"[Tech V2] Showing MAs: MA50={show_ma50}, MA100={show_ma100}, MA200={show_ma200}")
+    # Primary bounds: first Fibonacci ± buffer
+    price_y_min = first_fib_below * (1 - FIBONACCI_BUFFER_PCT)
+    price_y_max = first_fib_above * (1 + FIBONACCI_BUFFER_PCT)
 
-    # Y-axis range - focus on price action + nearby MAs + trading range
-    # Start with price range
-    y_values = [df["Price"].min(), df["Price"].max(), lower_range, higher_range]
+    # Safety: extend if actual price data exceeds bounds
+    price_min = float(df["Price"].min())
+    price_max = float(df["Price"].max())
 
-    # Only include MAs that will be displayed
-    if show_ma50:
-        y_values.extend([df["MA50"].min(), df["MA50"].max()])
-    if show_ma100:
-        y_values.extend([df["MA100"].min(), df["MA100"].max()])
-    if show_ma200:
-        y_values.extend([df["MA200"].min(), df["MA200"].max()])
+    if price_min < price_y_min:
+        price_y_min = price_min * 0.995  # 0.5% below min price
+    if price_max > price_y_max:
+        price_y_max = price_max * 1.005  # 0.5% above max price
 
-    # Convert to native Python floats to ensure proper JSON serialization
-    all_data_min = float(min(y_values))
-    all_data_max = float(max(y_values))
-    price_padding = (all_data_max - all_data_min) * 0.05  # 5% padding for labels
-    price_y_min = float(round(all_data_min - price_padding, 0))
-    price_y_max = float(round(all_data_max + price_padding, 0))
+    # Convert to native Python floats and round for clean axis labels
+    price_y_min = float(round(price_y_min, 0))
+    price_y_max = float(round(price_y_max, 0))
+
+    # Debug logging
+    print(f"[Tech V2] First Fib above: {first_fib_above:.2f}, First Fib below: {first_fib_below:.2f}")
+    print(f"[Tech V2] Y-axis bounds: {price_y_min:.0f} - {price_y_max:.0f}")
 
     # RSI current
     rsi_current = int(round(df["RSI"].iloc[-1], 0)) if not pd.isna(df["RSI"].iloc[-1]) else 50
@@ -1405,9 +1397,9 @@ def create_technical_analysis_v2_chart(
         ma50_data=ma50_data,
         ma100_data=ma100_data,
         ma200_data=ma200_data,
-        show_ma50=show_ma50,
-        show_ma100=show_ma100,
-        show_ma200=show_ma200,
+        show_ma50=True,   # Always show - Y-axis clips distant MAs naturally
+        show_ma100=True,
+        show_ma200=True,
         fib_levels=fib_levels,
         price_y_min=price_y_min,
         price_y_max=price_y_max,
