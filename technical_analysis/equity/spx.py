@@ -1277,15 +1277,17 @@ def create_technical_analysis_v2_chart(
 
     # Y-axis bounds: First Fibonacci below (floor) to Higher Trading Range (ceiling)
     # This focuses the chart on relevant price action
-    FIBONACCI_BUFFER_PCT = 0.01  # 1% buffer
+    # Asymmetric buffers: tighter on top, more room on bottom
+    Y_MAX_BUFFER_PCT = 0.005  # 0.5% buffer above Higher Trading Range
+    Y_MIN_BUFFER_PCT = 0.015  # 1.5% buffer below First Fibonacci
 
     # Y-MAX: Higher Trading Range (volatility-based) + buffer
-    price_y_max = higher_range * (1 + FIBONACCI_BUFFER_PCT)
+    price_y_max = higher_range * (1 + Y_MAX_BUFFER_PCT)
 
     # Y-MIN: First Fibonacci below current price - buffer
     fib_below = [f for f in fib_levels if f < last_price]
     first_fib_below = max(fib_below) if fib_below else min(fib_levels)
-    price_y_min = first_fib_below * (1 - FIBONACCI_BUFFER_PCT)
+    price_y_min = first_fib_below * (1 - Y_MIN_BUFFER_PCT)
 
     # Safety: extend if actual price data exceeds bounds
     price_min = float(df["Price"].min())
