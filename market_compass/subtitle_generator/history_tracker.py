@@ -74,7 +74,11 @@ class HistoryTracker:
             ]
         else:
             # macOS / Linux
+            # macOS CloudStorage location (newer Dropbox installations)
             dropbox_roots = [
+                os.path.expanduser("~/Library/CloudStorage/Dropbox"),
+                os.path.expanduser("~/Library/CloudStorage/Dropbox-Personal"),
+                # Traditional Dropbox locations (fallback)
                 os.path.expanduser("~/Dropbox"),
                 os.path.expanduser("~/Dropbox (Personal)"),
             ]
