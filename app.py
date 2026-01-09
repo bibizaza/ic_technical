@@ -119,6 +119,7 @@ def _load_historical_dmas_to_session():
             last_week = tracker.get_last_week(asset_name)
 
             if last_week is not None:
+                # Load DMAS
                 prev_dmas = last_week.get("dmas")
                 if prev_dmas is not None:
                     session_key = f"{ticker_key}_last_week_avg"
@@ -127,6 +128,22 @@ def _load_historical_dmas_to_session():
                         st.session_state[session_key] = float(prev_dmas)
                         loaded_count += 1
                         print(f"[History] Set {session_key} = {prev_dmas} (from {asset_name})")
+
+                # Load Technical score for trend arrow
+                prev_tech = last_week.get("technical_score")
+                if prev_tech is not None:
+                    tech_key = f"{ticker_key}_last_week_tech"
+                    if tech_key not in st.session_state:
+                        st.session_state[tech_key] = float(prev_tech)
+                        print(f"[History] Set {tech_key} = {prev_tech} (from {asset_name})")
+
+                # Load Momentum score for trend arrow
+                prev_mom = last_week.get("momentum_score")
+                if prev_mom is not None:
+                    mom_key = f"{ticker_key}_last_week_mom"
+                    if mom_key not in st.session_state:
+                        st.session_state[mom_key] = float(prev_mom)
+                        print(f"[History] Set {mom_key} = {prev_mom} (from {asset_name})")
 
         if loaded_count > 0:
             print(f"[History] Loaded {loaded_count} previous DMAS values from history")
@@ -4315,9 +4332,10 @@ def show_generate_presentation_page():
             spx_momentum = _get_spx_momentum_score(excel_path_for_ppt)
             print(f"[Tech V2] SPX DMAS: {spx_dmas}, Prev Week: {spx_dmas_prev}, Tech: {spx_tech}, Mom: {spx_momentum}")
 
-            # Get previous week Technical/Momentum scores if available
-            spx_tech_prev = st.session_state.get("spx_tech_score_prev", None)
-            spx_mom_prev = st.session_state.get("spx_mom_score_prev", None)
+            # Get previous week Technical/Momentum scores from history
+            spx_tech_prev = st.session_state.get("spx_last_week_tech", None)
+            spx_mom_prev = st.session_state.get("spx_last_week_mom", None)
+            print(f"[Tech V2] Prev week scores - Tech: {spx_tech_prev}, Mom: {spx_mom_prev}")
 
             v2_bytes, v2_date = create_technical_analysis_v2_chart(
                 excel_path_for_ppt,
