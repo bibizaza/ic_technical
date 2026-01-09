@@ -3346,7 +3346,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-current-title {
-            font-size: 14px;
+            font-size: 13px;
             text-transform: uppercase;
             letter-spacing: 1.5px;
             color: rgba(255,255,255,0.5);
@@ -3354,7 +3354,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-current-value {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 700;
             text-align: center;
             line-height: 1.1;
@@ -3387,13 +3387,13 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-interpretation {
-            font-size: 12px;
+            font-size: 11px;
             text-align: center;
             color: rgba(255,255,255,0.8);
         }
 
         .rsi-context {
-            font-size: 10px;
+            font-size: 9px;
             text-align: center;
             color: rgba(255,255,255,0.5);
         }

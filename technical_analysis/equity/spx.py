@@ -1171,9 +1171,9 @@ def _get_rsi_interpretation(rsi: float) -> tuple:
     elif rsi <= 30:
         return "Oversold", "#10B981", "Potential bounce opportunity"  # Green
     elif rsi >= 50:
-        return "Neutral", "#94A3B8", "Room to run"  # Grey
+        return "Neutral", "#C9A227", "Room to run"  # Gold
     else:
-        return "Neutral", "#94A3B8", "Room to run"  # Grey
+        return "Neutral", "#C9A227", "Room to run"  # Gold
 
 def create_technical_analysis_v2_chart(
     excel_path,
