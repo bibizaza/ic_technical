@@ -3582,7 +3582,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         label: 'Price',
                         data: priceData,
                         borderColor: '#1B3A5A',
-                        borderWidth: 3 * scale / 3,
+                        borderWidth: 3,  // Bold price line for visibility
                         pointRadius: 0,
                         tension: 0.1,
                         fill: false,

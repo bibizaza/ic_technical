@@ -1275,20 +1275,17 @@ def create_technical_analysis_v2_chart(
     higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
 
-    # Y-axis bounds based on first Fibonacci level ± buffer
-    # This focuses the chart on relevant price action without distant levels compressing the view
-    FIBONACCI_BUFFER_PCT = 0.015  # 1.5% buffer beyond first Fibonacci
+    # Y-axis bounds: First Fibonacci below (floor) to Higher Trading Range (ceiling)
+    # This focuses the chart on relevant price action
+    FIBONACCI_BUFFER_PCT = 0.015  # 1.5% buffer
 
-    # Find first Fibonacci levels above and below current price
-    fib_above = [f for f in fib_levels if f > last_price]
+    # Y-MAX: Higher Trading Range (volatility-based) + buffer
+    price_y_max = higher_range * (1 + FIBONACCI_BUFFER_PCT)
+
+    # Y-MIN: First Fibonacci below current price - buffer
     fib_below = [f for f in fib_levels if f < last_price]
-
-    first_fib_above = min(fib_above) if fib_above else max(fib_levels)
     first_fib_below = max(fib_below) if fib_below else min(fib_levels)
-
-    # Primary bounds: first Fibonacci ± buffer
     price_y_min = first_fib_below * (1 - FIBONACCI_BUFFER_PCT)
-    price_y_max = first_fib_above * (1 + FIBONACCI_BUFFER_PCT)
 
     # Safety: extend if actual price data exceeds bounds
     price_min = float(df["Price"].min())
@@ -1304,7 +1301,7 @@ def create_technical_analysis_v2_chart(
     price_y_max = float(round(price_y_max, 0))
 
     # Debug logging
-    print(f"[Tech V2] First Fib above: {first_fib_above:.2f}, First Fib below: {first_fib_below:.2f}")
+    print(f"[Tech V2] First Fib below: {first_fib_below:.2f}, Higher Range: {higher_range:.2f}")
     print(f"[Tech V2] Y-axis bounds: {price_y_min:.0f} - {price_y_max:.0f}")
 
     # RSI current
