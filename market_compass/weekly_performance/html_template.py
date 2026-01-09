@@ -3964,7 +3964,14 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                             font: { size: 9 * scale, family: 'Calibri' },
                             color: '#64748B',
                             padding: 5,
-                            stepSize: 20,
+                            // Show standard RSI levels: 0, 30, 50, 70, 100
+                            callback: function(value) {
+                                if ([0, 30, 50, 70, 100].includes(value)) {
+                                    return value;
+                                }
+                                return '';
+                            },
+                            stepSize: 10,  // Generate ticks at 10-unit intervals, filter with callback
                         },
                         afterFit: function(axis) {
                             axis.width = 50;  // Force same width as price chart
