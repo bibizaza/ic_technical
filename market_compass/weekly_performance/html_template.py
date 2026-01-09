@@ -3965,12 +3965,12 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                             color: '#64748B',
                             padding: 5,
                             autoSkip: false,
-                            // Show only standard RSI levels: 0, 30, 70, 100
+                            // Show only RSI threshold levels: 30 and 70
                             callback: function(value) {
-                                if (value === 0 || value === 30 || value === 70 || value === 100) {
+                                if (value === 30 || value === 70) {
                                     return value;
                                 }
-                                return null;  // Hide other tick labels
+                                return null;  // Hide 0, 100, and other tick labels
                             },
                             stepSize: 10,  // Generate ticks at 10-unit intervals
                         },
