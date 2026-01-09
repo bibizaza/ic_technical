@@ -3592,7 +3592,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         label: '50-day MA',
                         data: showMa50 ? ma50Data : [],  // Hide if too far from price
                         borderColor: '#10B981',
-                        borderWidth: 1.5 * scale / 3,
+                        borderWidth: 2.5 * scale / 3,
                         pointRadius: 0,
                         tension: 0.1,
                         fill: false,
@@ -3603,7 +3603,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         label: '100-day MA',
                         data: showMa100 ? ma100Data : [],  // Hide if too far from price
                         borderColor: '#F59E0B',
-                        borderWidth: 1.5 * scale / 3,
+                        borderWidth: 2.5 * scale / 3,
                         pointRadius: 0,
                         tension: 0.1,
                         fill: false,
@@ -3614,7 +3614,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                         label: '200-day MA',
                         data: showMa200 ? ma200Data : [],  // Hide if too far from price
                         borderColor: '#EF4444',
-                        borderWidth: 1.5 * scale / 3,
+                        borderWidth: 2.5 * scale / 3,
                         pointRadius: 0,
                         tension: 0.1,
                         fill: false,
