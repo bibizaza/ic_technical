@@ -3346,9 +3346,9 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
         }
 
         .rsi-current-title {
-            font-size: 8px;
+            font-size: 12px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
             color: rgba(255,255,255,0.5);
             text-align: center;
         }
@@ -3513,7 +3513,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 </div>
             </div>
             <div class="rsi-panel">
-                <div class="rsi-current-title">RSI Current</div>
+                <div class="rsi-current-title">RSI</div>
                 <div class="rsi-current-value" style="color: {{ rsi_color }};">{{ rsi_current }}</div>
                 <div class="rsi-interpretation" style="color: {{ rsi_color }};">{{ rsi_interpretation }}</div>
                 <div class="rsi-context">{{ rsi_context }}</div>
