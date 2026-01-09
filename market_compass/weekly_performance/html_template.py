@@ -3291,7 +3291,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .rsi-row {
             display: flex;
-            height: 100px;  /* ~24% of 420px */
+            height: 120px;  /* Increased for better RSI visibility */
         }
 
         .rsi-chart-area {
