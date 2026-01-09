@@ -3135,7 +3135,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         .price-row {
             display: flex;
-            height: 320px;  /* ~76% of 420px */
+            height: 300px;  /* Reduced to accommodate taller RSI row */
         }
 
         .price-chart-area {
