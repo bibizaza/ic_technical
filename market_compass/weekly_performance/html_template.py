@@ -3687,6 +3687,116 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 }
             },
             plugins: [{
+                id: 'regressionChannel',
+                beforeDatasetsDraw: function(chart) {
+                    const ctx = chart.ctx;
+                    const yScale = chart.scales.y;
+                    const xScale = chart.scales.x;
+                    const chartArea = chart.chartArea;
+
+                    // 1-month regression channel (21 trading days)
+                    const lookback = 21;
+                    const n = Math.min(lookback, priceData.length);
+                    const startIdx = priceData.length - n;
+                    const recentPrices = priceData.slice(startIdx);
+
+                    if (n < 3) return;  // Not enough data
+
+                    // === 1. Calculate OLS Linear Regression ===
+                    const xValues = Array.from({ length: n }, (_, i) => i);
+
+                    const sumX = xValues.reduce((a, b) => a + b, 0);
+                    const sumY = recentPrices.reduce((a, b) => a + b, 0);
+                    const sumXY = xValues.reduce((acc, x, i) => acc + x * recentPrices[i], 0);
+                    const sumX2 = xValues.reduce((acc, x) => acc + x * x, 0);
+
+                    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                    const intercept = (sumY - slope * sumX) / n;
+
+                    // Regression line values
+                    const regressionValues = xValues.map(x => intercept + slope * x);
+
+                    // === 2. Find Max Distance Above & Below Regression ===
+                    let maxAbove = 0;
+                    let maxBelow = 0;
+
+                    recentPrices.forEach((price, i) => {
+                        const regValue = regressionValues[i];
+                        const diff = price - regValue;
+
+                        if (diff > maxAbove) maxAbove = diff;
+                        if (diff < maxBelow) maxBelow = diff;  // maxBelow will be negative
+                    });
+
+                    // === 3. Create Parallel Bands ===
+                    const upperBand = regressionValues.map(v => v + maxAbove);
+                    const lowerBand = regressionValues.map(v => v + maxBelow);
+
+                    // === 4. Determine Color Based on Slope ===
+                    const isPositive = slope > 0;
+
+                    const fillColor = isPositive
+                        ? 'rgba(40, 167, 69, 0.12)'    // Green (modern, subtle)
+                        : 'rgba(180, 60, 80, 0.12)';   // Dark pink/red (modern, subtle)
+
+                    const lineColor = isPositive
+                        ? 'rgba(40, 167, 69, 0.4)'     // Green
+                        : 'rgba(180, 60, 80, 0.4)';    // Dark pink/red
+
+                    // === 5. Helper functions for coordinate conversion ===
+                    const getX = (i) => xScale.getPixelForValue(startIdx + i);
+                    const getY = (price) => yScale.getPixelForValue(price);
+
+                    // === 6. Draw Filled Channel ===
+                    ctx.save();
+
+                    // Clip to chart area
+                    ctx.beginPath();
+                    ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+                    ctx.clip();
+
+                    ctx.beginPath();
+
+                    // Upper band (left to right)
+                    ctx.moveTo(getX(0), getY(upperBand[0]));
+                    for (let i = 1; i < n; i++) {
+                        ctx.lineTo(getX(i), getY(upperBand[i]));
+                    }
+
+                    // Lower band (right to left)
+                    for (let i = n - 1; i >= 0; i--) {
+                        ctx.lineTo(getX(i), getY(lowerBand[i]));
+                    }
+
+                    ctx.closePath();
+                    ctx.fillStyle = fillColor;
+                    ctx.fill();
+
+                    // === 7. Draw Dashed Band Lines ===
+                    ctx.setLineDash([6, 4]);
+                    ctx.strokeStyle = lineColor;
+                    ctx.lineWidth = 1.5;
+
+                    // Upper band line
+                    ctx.beginPath();
+                    ctx.moveTo(getX(0), getY(upperBand[0]));
+                    for (let i = 1; i < n; i++) {
+                        ctx.lineTo(getX(i), getY(upperBand[i]));
+                    }
+                    ctx.stroke();
+
+                    // Lower band line
+                    ctx.beginPath();
+                    ctx.moveTo(getX(0), getY(lowerBand[0]));
+                    for (let i = 1; i < n; i++) {
+                        ctx.lineTo(getX(i), getY(lowerBand[i]));
+                    }
+                    ctx.stroke();
+
+                    ctx.restore();  // Reset clipping and line dash
+                }
+            },
+            {
                 id: 'tradingRangeLabels',
                 afterDraw: function(chart) {
                     const ctx = chart.ctx;

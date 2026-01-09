@@ -1277,7 +1277,7 @@ def create_technical_analysis_v2_chart(
 
     # Y-axis bounds: First Fibonacci below (floor) to Higher Trading Range (ceiling)
     # This focuses the chart on relevant price action
-    FIBONACCI_BUFFER_PCT = 0.015  # 1.5% buffer
+    FIBONACCI_BUFFER_PCT = 0.01  # 1% buffer
 
     # Y-MAX: Higher Trading Range (volatility-based) + buffer
     price_y_max = higher_range * (1 + FIBONACCI_BUFFER_PCT)
