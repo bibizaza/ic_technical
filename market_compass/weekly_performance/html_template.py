@@ -3547,9 +3547,9 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 type: 'line',
                 yMin: level,
                 yMax: level,
-                borderColor: 'rgba(100, 116, 139, 0.4)',
+                borderColor: 'rgba(150, 150, 150, 0.25)',  // Subtle grey, background reference
                 borderWidth: 1,
-                borderDash: [4, 4],
+                borderDash: [3, 3],  // Shorter dashes
             };
         });
 
@@ -3736,12 +3736,12 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     const isPositive = slope > 0;
 
                     const fillColor = isPositive
-                        ? 'rgba(40, 167, 69, 0.12)'    // Green (modern, subtle)
-                        : 'rgba(180, 60, 80, 0.12)';   // Dark pink/red (modern, subtle)
+                        ? 'rgba(16, 185, 129, 0.15)'   // Green fill (subtle)
+                        : 'rgba(239, 68, 68, 0.15)';   // Red fill (subtle)
 
                     const lineColor = isPositive
-                        ? 'rgba(40, 167, 69, 0.4)'     // Green
-                        : 'rgba(180, 60, 80, 0.4)';    // Dark pink/red
+                        ? 'rgba(16, 185, 129, 0.6)'    // Green, bolder (60% opacity)
+                        : 'rgba(239, 68, 68, 0.6)';    // Red, bolder (60% opacity)
 
                     // === 5. Helper functions for coordinate conversion ===
                     const getX = (i) => xScale.getPixelForValue(startIdx + i);
@@ -3775,7 +3775,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                     // === 7. Draw Dashed Band Lines ===
                     ctx.setLineDash([6, 4]);
                     ctx.strokeStyle = lineColor;
-                    ctx.lineWidth = 1.5;
+                    ctx.lineWidth = 2;  // Bolder for hero element
 
                     // Upper band line
                     ctx.beginPath();
