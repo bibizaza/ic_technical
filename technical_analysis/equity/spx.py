@@ -1167,13 +1167,13 @@ def _get_score_status(score: int) -> tuple:
 def _get_rsi_interpretation(rsi: float) -> tuple:
     """Get RSI interpretation text and color."""
     if rsi >= 70:
-        return "Overbought", "#EF4444", "Caution: Potential pullback"
+        return "Overbought", "#F97316", "Caution: Potential pullback"  # Orange
     elif rsi <= 30:
-        return "Oversold", "#22C55E", "Opportunity: Potential bounce"
+        return "Oversold", "#10B981", "Potential bounce opportunity"  # Green
     elif rsi >= 50:
-        return "Neutral", "#EAB308", "Room to run"
+        return "Neutral", "#94A3B8", "Room to run"  # Grey
     else:
-        return "Neutral", "#EAB308", "Watching support"
+        return "Neutral", "#94A3B8", "Room to run"  # Grey
 
 def create_technical_analysis_v2_chart(
     excel_path,

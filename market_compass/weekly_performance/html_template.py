@@ -3516,7 +3516,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
                 <div class="rsi-current-title">RSI</div>
                 <div class="rsi-current-value" style="color: {{ rsi_color }};">{{ rsi_current }}</div>
                 <div class="rsi-interpretation" style="color: {{ rsi_color }};">{{ rsi_interpretation }}</div>
-                <div class="rsi-context">{{ rsi_context }}</div>
+                <div class="rsi-context" style="color: {{ rsi_color }}; opacity: 0.7;">{{ rsi_context }}</div>
             </div>
         </div>
     </div>
