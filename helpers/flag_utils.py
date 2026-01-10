@@ -53,25 +53,27 @@ FLAG_EMOJI = {
 }
 
 
-def get_flag_html(country_code: str, size: int = 20) -> str:
+def get_flag_html(country_code: str, size: int = 22) -> str:
     """Return flag HTML - emoji on Mac, image on Windows/Linux.
 
     Args:
         country_code: ISO 3166-1 alpha-2 country code (e.g., 'us', 'jp')
-        size: Size in pixels
+        size: Width in pixels (height auto-calculated for ~3:2 aspect ratio)
 
     Returns:
         HTML string for the flag
     """
     code = country_code.lower()
+    # Calculate height for ~3:2 aspect ratio (standard flag proportion)
+    height = int(size * 2 / 3)
 
     if sys.platform == 'darwin':  # Mac
-        # Use emoji flags
+        # Use emoji flags with proper sizing
         emoji = FLAG_EMOJI.get(code, '🏳️')
-        return f'<span style="font-size:{size}px; line-height:1;">{emoji}</span>'
+        return f'<span style="font-size:{size}px; line-height:1; margin-right:4px;">{emoji}</span>'
     else:  # Windows/Linux
-        # Use image flags from CDN
-        return f'<img src="https://flagcdn.com/24x18/{code}.png" style="width:{size}px; height:auto; vertical-align:middle;">'
+        # Use image flags from CDN with proper aspect ratio
+        return f'<img src="https://flagcdn.com/24x18/{code}.png" style="width:{size}px; height:{height}px; vertical-align:middle; margin-right:4px;">'
 
 
 def get_flag_css() -> str:
