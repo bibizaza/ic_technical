@@ -179,7 +179,8 @@ def _load_historical_dmas_to_session():
         traceback.print_exc()
 
 # Load historical data on app startup
-_load_historical_dmas_to_session()
+# NOTE: Moved to after calendar date picker to ensure correct date is used
+# _load_historical_dmas_to_session()
 
 # ---------------------------------------------------------------------
 # Assessment and subtitle generation - LAZY LOADING
@@ -1990,6 +1991,10 @@ def show_upload_page():
                 help=f"Latest date in Excel: {max_date.strftime('%d %b %Y')}. Adjust if markets were closed."
             )
             st.session_state["data_as_of"] = data_as_of
+
+            # Load historical data NOW that we have the correct date
+            # This ensures history lookup uses calendar date, not today's date
+            _load_historical_dmas_to_session()
 
             # Show selected date info
             if data_as_of < max_date:
