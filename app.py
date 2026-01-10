@@ -1965,11 +1965,18 @@ def show_upload_page():
                 tmp.flush()
                 date_check_path = Path(tmp.name)
 
-            df_dates = pd.read_excel(date_check_path, sheet_name="data_prices", usecols=[0], nrows=500)
+            # Read full sheet to let pandas properly parse dates (usecols breaks date parsing)
+            df_dates = pd.read_excel(date_check_path, sheet_name="data_prices")
             df_dates = df_dates.drop(index=0)
             df_dates = df_dates[df_dates[df_dates.columns[0]] != "DATES"]
             df_dates["Date"] = pd.to_datetime(df_dates[df_dates.columns[0]], errors="coerce")
+            df_dates = df_dates.dropna(subset=["Date"])
             max_date = df_dates["Date"].max().date()
+
+            # Debug logging
+            print(f"[Calendar] Date column type: {df_dates[df_dates.columns[0]].dtype}")
+            print(f"[Calendar] Sample dates: {df_dates['Date'].tail(3).tolist()}")
+            print(f"[Calendar] Max date: {max_date}")
 
             # Initialize session state if not set
             if "data_as_of" not in st.session_state:
