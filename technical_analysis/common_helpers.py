@@ -480,23 +480,56 @@ def _get_momentum_score_generic(
         The MARS momentum score (0-100) or None if unavailable.
     """
     try:
-        from mars_engine.data_loader import load_mars_scores
+        # Read mars_score sheet directly from Excel
+        try:
+            df_mars = pd.read_excel(excel_obj_or_path, sheet_name="mars_score")
+        except Exception as e:
+            print(f"Warning: Could not read mars_score sheet: {e}")
+            return None
 
-        # Load all MARS scores from mars_score sheet
-        mars_scores = load_mars_scores(excel_obj_or_path)
+        if df_mars.empty:
+            print("Warning: mars_score sheet is empty")
+            return None
 
-        # Try exact match first (case-insensitive)
+        # The sheet typically has ticker/asset in first column and score in another
+        # Try to find the score column (usually named 'score', 'Score', 'MARS', 'momentum', etc.)
+        score_col = None
+        for col in df_mars.columns:
+            col_lower = str(col).lower()
+            if col_lower in ('score', 'mars', 'momentum', 'mars_score', 'momentum_score'):
+                score_col = col
+                break
+
+        # If no named score column, assume second column is the score
+        if score_col is None and len(df_mars.columns) >= 2:
+            score_col = df_mars.columns[1]
+
+        if score_col is None:
+            print("Warning: Could not identify score column in mars_score sheet")
+            return None
+
+        # First column is typically the ticker/asset identifier
+        ticker_col = df_mars.columns[0]
+
+        # Normalize ticker for matching
         ticker_upper = ticker.strip().upper()
-        for key, score in mars_scores.items():
-            if key.upper() == ticker_upper:
-                return float(score)
-
-        # Try partial match (e.g., "GCA COMDTY" might be stored as "GCA" or "Gold")
         ticker_parts = ticker_upper.split()
-        if ticker_parts:
-            first_part = ticker_parts[0]
-            for key, score in mars_scores.items():
-                if first_part in key.upper():
+        first_part = ticker_parts[0] if ticker_parts else ticker_upper
+
+        # Search for matching ticker
+        for idx, row in df_mars.iterrows():
+            cell_value = str(row[ticker_col]).strip().upper()
+
+            # Exact match
+            if cell_value == ticker_upper:
+                score = row[score_col]
+                if pd.notna(score):
+                    return float(score)
+
+            # Partial match (e.g., "SPX" matches "SPX Index")
+            if first_part in cell_value or cell_value in ticker_upper:
+                score = row[score_col]
+                if pd.notna(score):
                     return float(score)
 
         print(f"Warning: Ticker '{ticker}' not found in mars_score sheet")

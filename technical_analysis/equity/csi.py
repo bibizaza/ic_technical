@@ -695,10 +695,6 @@ def _compute_csi_mars_score_cached(excel_path: str) -> Optional[float]:
     MARS application. This ensures 100% consistency with the MARS app and
     provides instant performance (no calculation needed).
 
-    The MARS app calculates CSI scores using dynamic LASSO weighting where
-    component weights are learned via walk-forward validation on 5-year
-    rolling windows. This pre-computed approach is the definitive source.
-
     Parameters
     ----------
     excel_path : str
@@ -709,23 +705,8 @@ def _compute_csi_mars_score_cached(excel_path: str) -> Optional[float]:
     float or None
         Latest MARS momentum score (0-100), or None if not found
     """
-    try:
-        from mars_engine.data_loader import load_mars_scores
-
-        # Load all pre-computed MARS scores
-        mars_scores = load_mars_scores(excel_path)
-
-        # Look for CSI score (try multiple ticker name variations)
-        for ticker in ["CSI", "CSI 300", "SHSZ300", "SHSZ300 Index"]:
-            if ticker in mars_scores:
-                return float(mars_scores[ticker])
-
-        print("Warning: CSI not found in mars_score sheet")
-        return None
-
-    except Exception as e:
-        print(f"Warning: Could not read MARS score for CSI: {e}")
-        return None
+    # Use the generic momentum score function
+    return _get_momentum_score_generic(excel_path, "SHSZ300 Index")
 
 
 def _get_csi_momentum_score(excel_obj_or_path) -> Optional[float]:

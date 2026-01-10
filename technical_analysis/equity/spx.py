@@ -698,23 +698,8 @@ def _compute_spx_mars_score_cached(excel_path: str) -> Optional[float]:
     float or None
         Latest MARS momentum score (0-100), or None if not found
     """
-    try:
-        from mars_engine.data_loader import load_mars_scores
-
-        # Load all pre-computed MARS scores
-        mars_scores = load_mars_scores(excel_path)
-
-        # Look for SPX score (try multiple ticker name variations)
-        for ticker in ["SPX", "SPX Index", "S&P 500"]:
-            if ticker in mars_scores:
-                return float(mars_scores[ticker])
-
-        print("Warning: SPX not found in mars_score sheet")
-        return None
-
-    except Exception as e:
-        print(f"Warning: Could not read MARS score for SPX: {e}")
-        return None
+    # Use the generic momentum score function
+    return _get_momentum_score_generic(excel_path, "SPX Index")
 
 def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
