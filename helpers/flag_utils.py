@@ -54,13 +54,9 @@ FLAG_EMOJI = {
 
 
 def get_flag_html(country_code: str, size: int = 22) -> str:
-    """Return flag HTML using PNG images.
-
-    Always uses PNG images because charts are rendered via Html2Image/Playwright
-    (headless Chromium) which doesn't render emoji flags well, even on Mac.
+    """Return flag HTML - emoji on Mac, PNG on Windows/Linux.
 
     Note: Size is controlled by CSS in the templates (scaled appropriately).
-    The inline style is minimal to allow CSS to control dimensions.
 
     Args:
         country_code: ISO 3166-1 alpha-2 country code (e.g., 'us', 'jp')
@@ -71,8 +67,11 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
     """
     code = country_code.lower()
 
-    # Use PNG images - let CSS control the size (templates apply scale factor)
-    return f'<img class="flag-img" src="https://flagcdn.com/w40/{code}.png" style="vertical-align:middle; flex-shrink:0;">'
+    if sys.platform == 'darwin':  # Mac - use emoji flags
+        emoji = FLAG_EMOJI.get(code, '🏳️')
+        return f'<span class="flag">{emoji}</span>'
+    else:  # Windows/Linux - use PNG images
+        return f'<img class="flag-img" src="https://flagcdn.com/w40/{code}.png" style="vertical-align:middle; flex-shrink:0;">'
 
 
 def get_flag_css() -> str:
