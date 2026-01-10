@@ -1928,6 +1928,48 @@ def show_upload_page():
             temp_path.unlink()
         except Exception as e:
             print(f"Warning: Could not load transition data: {e}")
+
+    # =========================================================================
+    # DATA AS OF DATE PICKER
+    # =========================================================================
+    if excel_file is not None:
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("📅 Data Configuration")
+
+        # Get max date from Excel data
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+                tmp.write(excel_file.getbuffer())
+                tmp.flush()
+                date_check_path = Path(tmp.name)
+
+            df_dates = pd.read_excel(date_check_path, sheet_name="data_prices", usecols=[0], nrows=500)
+            df_dates = df_dates.drop(index=0)
+            df_dates = df_dates[df_dates[df_dates.columns[0]] != "DATES"]
+            df_dates["Date"] = pd.to_datetime(df_dates[df_dates.columns[0]], errors="coerce")
+            max_date = df_dates["Date"].max().date()
+
+            # Initialize session state if not set
+            if "data_as_of" not in st.session_state:
+                st.session_state["data_as_of"] = max_date
+
+            # Date picker
+            data_as_of = st.sidebar.date_input(
+                "Data As Of",
+                value=st.session_state.get("data_as_of", max_date),
+                max_value=max_date,
+                help=f"Latest date in Excel: {max_date.strftime('%d %b %Y')}. Adjust if markets were closed."
+            )
+            st.session_state["data_as_of"] = data_as_of
+
+            # Show selected date info
+            if data_as_of < max_date:
+                st.sidebar.info(f"📆 Using data up to {data_as_of.strftime('%d %b %Y')}")
+
+        except Exception as e:
+            st.sidebar.warning(f"⚠️ Could not read dates from Excel: {str(e)[:50]}")
+
     pptx_file = st.sidebar.file_uploader(
         "Upload PowerPoint template", type=["pptx", "pptm"], key="ppt_upload"
     )
@@ -2002,6 +2044,10 @@ def show_upload_page():
                     df_prices = df_prices.drop(index=0)
                     df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
                     df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+
+                    # Filter by "Data As Of" date if set
+                    if "data_as_of" in st.session_state:
+                        df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
 
                     # Calculate commodity market caps from reserves × spot price
                     try:
@@ -2688,6 +2734,9 @@ def show_technical_analysis_page():
             df_prices["Date"] = pd.to_datetime(
                 df_prices[df_prices.columns[0]], errors="coerce"
             )
+            # Filter by "Data As Of" date if set
+            if "data_as_of" in st.session_state:
+                df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
             df_prices["Price"] = pd.to_numeric(df_prices[ticker], errors="coerce")
             df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(
                 drop=True
@@ -2834,6 +2883,9 @@ def show_technical_analysis_page():
                             df_vol = df_vol.drop(index=0)
                             df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
                             df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
+                            # Filter by "Data As Of" date if set
+                            if "data_as_of" in st.session_state:
+                                df_vol = df_vol[df_vol["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
                             if "VIX Index" in df_vol.columns:
                                 df_vol["Price"] = pd.to_numeric(df_vol["VIX Index"], errors="coerce")
                                 df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
@@ -2855,6 +2907,9 @@ def show_technical_analysis_page():
                             df_vol = df_vol.drop(index=0)
                             df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
                             df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
+                            # Filter by "Data As Of" date if set
+                            if "data_as_of" in st.session_state:
+                                df_vol = df_vol[df_vol["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
                             if "VSMI1M Index" in df_vol.columns:
                                 df_vol["Price"] = pd.to_numeric(df_vol["VSMI1M Index"], errors="coerce")
                                 df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
@@ -3181,6 +3236,9 @@ def show_commodity_technical_analysis() -> None:
         df_prices = df_prices.drop(index=0)
         df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
         df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+        # Filter by "Data As Of" date if set
+        if "data_as_of" in st.session_state:
+            df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
         df_prices["Price"] = pd.to_numeric(df_prices[ticker], errors="coerce")
         df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
         # Adjust for price mode using the helper if available
@@ -3313,6 +3371,9 @@ def show_commodity_technical_analysis() -> None:
                         df_vol = df_vol.drop(index=0)
                         df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
                         df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
+                        # Filter by "Data As Of" date if set
+                        if "data_as_of" in st.session_state:
+                            df_vol = df_vol[df_vol["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
                         if vol_col_name in df_vol.columns:
                             df_vol["Price"] = pd.to_numeric(df_vol[vol_col_name], errors="coerce")
                             df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[["Date", "Price"]]
@@ -3634,6 +3695,9 @@ def show_crypto_technical_analysis() -> None:
         df_prices = df_prices.drop(index=0)
         df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
         df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+        # Filter by "Data As Of" date if set
+        if "data_as_of" in st.session_state:
+            df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
         df_prices["Price"] = pd.to_numeric(df_prices[ticker], errors="coerce")
         df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
         # Adjust prices for selected price mode
@@ -3751,6 +3815,9 @@ def show_crypto_technical_analysis() -> None:
                         df_vol = df_vol.drop(index=0)
                         df_vol = df_vol[df_vol[df_vol.columns[0]] != "DATES"]
                         df_vol["Date"] = pd.to_datetime(df_vol[df_vol.columns[0]], errors="coerce")
+                        # Filter by "Data As Of" date if set
+                        if "data_as_of" in st.session_state:
+                            df_vol = df_vol[df_vol["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
                         if vol_col_name in df_vol.columns:
                             df_vol["Price"] = pd.to_numeric(df_vol[vol_col_name], errors="coerce")
                             df_vol = df_vol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[[
@@ -4307,6 +4374,9 @@ def show_generate_presentation_page():
             df_prices = df_prices.drop(index=0)
             df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
             df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+            # Filter by "Data As Of" date if set
+            if "data_as_of" in st.session_state:
+                df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
             df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
             df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                 ["Date", "Price"]
