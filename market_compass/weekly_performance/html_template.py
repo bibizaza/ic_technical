@@ -123,8 +123,16 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 14 * scale }}px;
+            font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* Flag images */
+        .market-info img {
+            width: {{ 22 * scale }}px;
+            height: {{ 14 * scale }}px;
+            vertical-align: middle;
+            margin-right: {{ 4 * scale }}px;
         }
 
         .market-name {
@@ -327,8 +335,16 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 10 * scale }}px;
+            font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* Flag images */
+        .market-col img {
+            width: {{ 22 * scale }}px;
+            height: {{ 14 * scale }}px;
+            vertical-align: middle;
+            margin-right: {{ 4 * scale }}px;
         }
 
         .market-name {
@@ -461,8 +477,16 @@ BONDS_RATES_HTML_TEMPLATE = '''
         }
 
         .country-header .flag {
-            font-size: {{ 14 * scale }}px;
+            font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* Flag images in country headers */
+        .country-header img {
+            width: {{ 22 * scale }}px;
+            height: {{ 14 * scale }}px;
+            vertical-align: middle;
+            margin-right: {{ 4 * scale }}px;
         }
 
         .country-header .country-name {
@@ -729,8 +753,16 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .country-header .flag {
-            font-size: {{ 10 * scale }}px;
+            font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* Flag images */
+        .country-header img {
+            width: {{ 22 * scale }}px;
+            height: {{ 14 * scale }}px;
+            vertical-align: middle;
+            margin-right: {{ 4 * scale }}px;
         }
 
         .country-header .country-name {
@@ -902,8 +934,16 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 10 * scale }}px;
+            font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* Flag images */
+        .market-col img {
+            width: {{ 22 * scale }}px;
+            height: {{ 14 * scale }}px;
+            vertical-align: middle;
+            margin-right: {{ 4 * scale }}px;
         }
 
         .credit-badge {
@@ -1123,8 +1163,16 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 10 * scale }}px;
+            font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* Flag images */
+        .market-col img {
+            width: {{ 22 * scale }}px;
+            height: {{ 14 * scale }}px;
+            vertical-align: middle;
+            margin-right: {{ 4 * scale }}px;
         }
 
         .credit-badge {
@@ -1690,8 +1738,16 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 14 * scale }}px;
+            font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* Flag images */
+        .currency-col img {
+            width: {{ 22 * scale }}px;
+            height: {{ 14 * scale }}px;
+            vertical-align: middle;
+            margin-right: {{ 4 * scale }}px;
         }
 
         .currency-name {
@@ -1893,8 +1949,16 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         .flag {
-            font-size: {{ 14 * scale }}px;
+            font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* Flag images */
+        .currency-col img {
+            width: {{ 22 * scale }}px;
+            height: {{ 14 * scale }}px;
+            vertical-align: middle;
+            margin-right: {{ 4 * scale }}px;
         }
 
         .currency-name {
