@@ -54,7 +54,11 @@ FLAG_EMOJI = {
 
 
 def get_flag_html(country_code: str, size: int = 22) -> str:
-    """Return flag HTML - emoji on Mac, image on Windows/Linux.
+    """Return flag HTML using PNG images for cross-platform consistency.
+
+    Always uses PNG images from flagcdn.com to ensure consistent rendering
+    across all platforms (Mac, Windows, Linux) and when charts are rendered
+    to images via Playwright/html2image.
 
     Args:
         country_code: ISO 3166-1 alpha-2 country code (e.g., 'us', 'jp')
@@ -67,13 +71,9 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
     # Calculate height for ~3:2 aspect ratio (standard flag proportion)
     height = int(size * 2 / 3)
 
-    if sys.platform == 'darwin':  # Mac
-        # Use emoji flags with proper sizing
-        emoji = FLAG_EMOJI.get(code, '🏳️')
-        return f'<span style="font-size:{size}px; line-height:1; margin-right:4px;">{emoji}</span>'
-    else:  # Windows/Linux
-        # Use image flags from CDN with proper aspect ratio
-        return f'<img src="https://flagcdn.com/24x18/{code}.png" style="width:{size}px; height:{height}px; vertical-align:middle; margin-right:4px;">'
+    # Always use PNG images for consistent cross-platform rendering
+    # (emoji flags don't render well on Windows and vary across browsers)
+    return f'<img src="https://flagcdn.com/w40/{code}.png" style="width:{size}px; height:{height}px; vertical-align:middle; margin-right:4px;">'
 
 
 def get_flag_css() -> str:
