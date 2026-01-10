@@ -128,11 +128,13 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         /* Flag images */
-        .market-info img {
-            width: {{ 22 * scale }}px;
-            height: {{ 14 * scale }}px;
+        .market-info img,
+        .market-info .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
             vertical-align: middle;
             margin-right: {{ 4 * scale }}px;
+            flex-shrink: 0;
         }
 
         .market-name {
@@ -340,11 +342,13 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         /* Flag images */
-        .market-col img {
-            width: {{ 22 * scale }}px;
-            height: {{ 14 * scale }}px;
+        .market-col img,
+        .market-col .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
             vertical-align: middle;
             margin-right: {{ 4 * scale }}px;
+            flex-shrink: 0;
         }
 
         .market-name {
@@ -482,11 +486,13 @@ BONDS_RATES_HTML_TEMPLATE = '''
         }
 
         /* Flag images in country headers */
-        .country-header img {
-            width: {{ 22 * scale }}px;
-            height: {{ 14 * scale }}px;
+        .country-header img,
+        .country-header .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
             vertical-align: middle;
             margin-right: {{ 4 * scale }}px;
+            flex-shrink: 0;
         }
 
         .country-header .country-name {
@@ -758,11 +764,13 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         /* Flag images */
-        .country-header img {
-            width: {{ 22 * scale }}px;
-            height: {{ 14 * scale }}px;
+        .country-header img,
+        .country-header .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
             vertical-align: middle;
             margin-right: {{ 4 * scale }}px;
+            flex-shrink: 0;
         }
 
         .country-header .country-name {
@@ -939,11 +947,13 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         }
 
         /* Flag images */
-        .market-col img {
-            width: {{ 22 * scale }}px;
-            height: {{ 14 * scale }}px;
+        .market-col img,
+        .market-col .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
             vertical-align: middle;
             margin-right: {{ 4 * scale }}px;
+            flex-shrink: 0;
         }
 
         .credit-badge {
@@ -1168,11 +1178,13 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         /* Flag images */
-        .market-col img {
-            width: {{ 22 * scale }}px;
-            height: {{ 14 * scale }}px;
+        .market-col img,
+        .market-col .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
             vertical-align: middle;
             margin-right: {{ 4 * scale }}px;
+            flex-shrink: 0;
         }
 
         .credit-badge {
@@ -1743,11 +1755,13 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
         }
 
         /* Flag images */
-        .currency-col img {
-            width: {{ 22 * scale }}px;
-            height: {{ 14 * scale }}px;
+        .currency-col img,
+        .currency-col .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
             vertical-align: middle;
             margin-right: {{ 4 * scale }}px;
+            flex-shrink: 0;
         }
 
         .currency-name {
@@ -1954,11 +1968,13 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         }
 
         /* Flag images */
-        .currency-col img {
-            width: {{ 22 * scale }}px;
-            height: {{ 14 * scale }}px;
+        .currency-col img,
+        .currency-col .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
             vertical-align: middle;
             margin-right: {{ 4 * scale }}px;
+            flex-shrink: 0;
         }
 
         .currency-name {
