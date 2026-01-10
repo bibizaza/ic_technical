@@ -194,25 +194,34 @@ class HistoryTracker:
         """Get all historical snapshots for an asset."""
         return self.data.get(asset_name, [])
 
-    def get_last_week(self, asset_name: str) -> Optional[dict]:
+    def get_last_week(self, asset_name: str, current_date: 'date' = None) -> Optional[dict]:
         """Get previous week's data.
 
-        Returns the most recent entry that is NOT from the current week.
-        - If latest entry is from a previous week, return it
-        - If latest entry is from this week, return second-to-last
+        If current_date is provided, finds the most recent entry BEFORE that date.
+        Otherwise, uses today's date and returns the most recent entry from a previous week.
+
+        Returns dict with 'days_gap' indicating actual days between current and previous entry.
         """
+        from datetime import date as date_type
+
         history = self.get_history(asset_name)
         if not history:
             print(f"[HistoryTracker] get_last_week('{asset_name}'): No history found")
             return None
 
-        today = datetime.now().date()
-        # Get the Monday of the current week
-        current_week_start = today - timedelta(days=today.weekday())
+        # Use provided current_date or today
+        if current_date is None:
+            today = datetime.now().date()
+        else:
+            # Handle both date and datetime objects
+            if isinstance(current_date, datetime):
+                today = current_date.date()
+            else:
+                today = current_date
 
         # Debug: show all entries for this asset
         print(f"[HistoryTracker] get_last_week('{asset_name}'): Found {len(history)} entries")
-        print(f"[HistoryTracker]   Today: {today}, Current week start (Monday): {current_week_start}")
+        print(f"[HistoryTracker]   Current date: {today}")
         for i, entry in enumerate(history[-5:]):  # Show last 5 entries
             entry_date = entry.get("date", "?")
             entry_dmas = entry.get("dmas", "?")
@@ -220,22 +229,25 @@ class HistoryTracker:
             entry_mom = entry.get("momentum_score", "?")
             print(f"[HistoryTracker]   [{i}] {entry_date}: DMAS={entry_dmas}, Tech={entry_tech}, Mom={entry_mom}")
 
-        # Check the most recent entry
-        last_entry = history[-1]
-        last_date = datetime.strptime(last_entry["date"], "%Y-%m-%d").date()
+        # Sort entries by date descending and find the most recent entry BEFORE current_date
+        sorted_entries = sorted(
+            history,
+            key=lambda x: x.get("date", ""),
+            reverse=True
+        )
 
-        # If the last entry is from a previous week, return it
-        if last_date < current_week_start:
-            print(f"[HistoryTracker]   -> Returning last entry (from previous week): {last_entry.get('date')}")
-            return last_entry
+        for entry in sorted_entries:
+            entry_date = datetime.strptime(entry["date"], "%Y-%m-%d").date()
+            if entry_date < today:
+                days_gap = (today - entry_date).days
+                # Add days_gap and previous_date to the returned entry
+                result = entry.copy()
+                result['days_gap'] = days_gap
+                result['previous_date'] = entry_date
+                print(f"[HistoryTracker]   -> Returning entry from {entry_date} ({days_gap} days ago)")
+                return result
 
-        # Last entry is from this week, so return second-to-last if available
-        if len(history) >= 2:
-            second_last = history[-2]
-            print(f"[HistoryTracker]   -> Returning second-to-last entry: {second_last.get('date')}")
-            return second_last
-
-        print(f"[HistoryTracker]   -> No previous week data available (only 1 entry from current week)")
+        print(f"[HistoryTracker]   -> No previous entry found before {today}")
         return None
 
     def get_context_for_subtitle(self, asset_name: str) -> Optional[str]:

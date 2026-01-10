@@ -696,9 +696,16 @@ def generate_batch(
     client=None,
     model: str = DEFAULT_MODEL,
     api_key: str = None,
-    use_history: bool = True
+    use_history: bool = True,
+    data_as_of: str = None,
 ) -> List[dict]:
-    """Generate subtitles for multiple assets with deduplication and caching."""
+    """Generate subtitles for multiple assets with deduplication and caching.
+
+    Parameters
+    ----------
+    data_as_of : str, optional
+        Date string (YYYY-MM-DD) for history storage. If None, uses today's date.
+    """
 
     if client is None:
         client = get_client(api_key)
@@ -773,8 +780,8 @@ def generate_batch(
                     "price_vs_200ma_pct": asset.get("price_vs_200ma_pct", 0),
                     "rating": result.get("rating", "Neutral"),
                 })
-            history_tracker.record_batch(history_data)
-            print(f"Saved {len(history_data)} assets to history")
+            history_tracker.record_batch(history_data, date=data_as_of)
+            print(f"Saved {len(history_data)} assets to history (date={data_as_of})")
         except Exception as e:
             print(f"Warning: Could not save to history: {e}")
 

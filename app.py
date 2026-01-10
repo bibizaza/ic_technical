@@ -76,6 +76,9 @@ def _load_historical_dmas_to_session():
     """
     Load previous week's DMAS values from history tracker into session state.
     This enables week-over-week comparison in technical slides.
+
+    Uses data_as_of date from calendar picker if available.
+    Also stores days_gap and previous_date for proper change text formatting.
     """
     try:
         from market_compass.subtitle_generator.history_tracker import get_tracker
@@ -88,6 +91,10 @@ def _load_historical_dmas_to_session():
 
         all_assets = tracker.get_all_assets()
         print(f"[History] Found {len(all_assets)} assets in history: {all_assets[:10]}{'...' if len(all_assets) > 10 else ''}")
+
+        # Get the calendar-selected date if available
+        current_date = st.session_state.get("data_as_of")
+        print(f"[History] Using data_as_of date: {current_date}")
 
         # Map asset names (as stored in history) to ticker keys (as used in session state)
         ASSET_TO_TICKER_KEY = {
@@ -115,8 +122,8 @@ def _load_historical_dmas_to_session():
 
         loaded_count = 0
         for asset_name, ticker_key in ASSET_TO_TICKER_KEY.items():
-            # Get the previous week's data (second-to-last entry)
-            last_week = tracker.get_last_week(asset_name)
+            # Get the previous week's data, passing current_date for proper lookup
+            last_week = tracker.get_last_week(asset_name, current_date=current_date)
 
             if last_week is not None:
                 # Load DMAS
@@ -128,6 +135,20 @@ def _load_historical_dmas_to_session():
                         st.session_state[session_key] = float(prev_dmas)
                         loaded_count += 1
                         print(f"[History] Set {session_key} = {prev_dmas} (from {asset_name})")
+
+                # Store days_gap for proper change text formatting
+                days_gap = last_week.get("days_gap")
+                if days_gap is not None:
+                    gap_key = f"{ticker_key}_prev_days_gap"
+                    st.session_state[gap_key] = days_gap
+                    print(f"[History] Set {gap_key} = {days_gap}")
+
+                # Store previous_date for display in change text
+                prev_date = last_week.get("previous_date")
+                if prev_date is not None:
+                    date_key = f"{ticker_key}_prev_date"
+                    st.session_state[date_key] = prev_date
+                    print(f"[History] Set {date_key} = {prev_date}")
 
                 # Load Technical score for trend arrow
                 prev_tech = last_week.get("technical_score")
@@ -2159,7 +2180,11 @@ def show_upload_page():
                     use_claude = CLAUDE_GEN_AVAILABLE and is_claude_available()
                     if use_claude and assets_for_claude:
                         status_text.text("Generating subtitles via Claude API...")
-                        subtitle_results = generate_claude_subtitles_batch(assets_for_claude, prices_dict)
+                        # Pass data_as_of for history storage keyed by calendar date
+                        data_as_of_str = None
+                        if "data_as_of" in st.session_state:
+                            data_as_of_str = st.session_state["data_as_of"].strftime("%Y-%m-%d")
+                        subtitle_results = generate_claude_subtitles_batch(assets_for_claude, prices_dict, data_as_of=data_as_of_str)
                     else:
                         # Fall back to individual generation
                         subtitle_results = {}
@@ -4407,6 +4432,10 @@ def show_generate_presentation_page():
             spx_mom_prev = st.session_state.get("spx_last_week_mom", None)
             print(f"[Tech V2] Prev week scores - Tech: {spx_tech_prev}, Mom: {spx_mom_prev}")
 
+            # Get gap information for change text formatting
+            spx_days_gap = st.session_state.get("spx_prev_days_gap", None)
+            spx_prev_date = st.session_state.get("spx_prev_date", None)
+
             v2_bytes, v2_date = create_technical_analysis_v2_chart(
                 excel_path_for_ppt,
                 ticker="SPX Index",
@@ -4417,6 +4446,8 @@ def show_generate_presentation_page():
                 technical_prev_week=spx_tech_prev,
                 momentum_score=spx_momentum,
                 momentum_prev_week=spx_mom_prev,
+                days_gap=spx_days_gap,
+                previous_date=spx_prev_date,
             )
             prs = insert_technical_analysis_v2_slide(
                 prs,

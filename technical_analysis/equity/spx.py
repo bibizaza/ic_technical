@@ -1186,6 +1186,8 @@ def create_technical_analysis_v2_chart(
     momentum_score: int = None,
     momentum_prev_week: int = None,
     lookback_days: int = TECH_V2_LOOKBACK_DAYS,
+    days_gap: int = None,
+    previous_date: 'date' = None,
 ) -> tuple:
     """Generate Technical Analysis v2 chart using Chart.js + Playwright.
 
@@ -1323,21 +1325,44 @@ def create_technical_analysis_v2_chart(
     else:
         dmas_score = int(round(dmas_score))
 
+    # Track if we have no prior history (for "No prior data" display)
+    no_prior_data = dmas_prev_week is None and days_gap is None
+
     if dmas_prev_week is None:
         dmas_prev_week = dmas_score  # No change
     else:
         dmas_prev_week = int(round(dmas_prev_week))
 
-    dmas_change = dmas_score - dmas_prev_week
-    if dmas_change > 0:
-        dmas_change_text = f"▲ +{dmas_change} WoW"
-        dmas_change_color = "#22C55E"
-    elif dmas_change < 0:
-        dmas_change_text = f"▼ {dmas_change} WoW"
-        dmas_change_color = "#EF4444"
-    else:
-        dmas_change_text = "— Unchanged WoW"
+    # Format change text based on gap between current and previous data
+    # WoW = 6-8 days (typical week gap), otherwise show actual date and gap
+    def _format_change_suffix(days_gap, previous_date):
+        if days_gap is None:
+            return "WoW"  # Default fallback
+        if 6 <= days_gap <= 8:
+            return "WoW"
+        # Format as "vs DD/MM (Xd)"
+        if previous_date is not None:
+            date_str = previous_date.strftime("%d/%m")
+            return f"vs {date_str} ({days_gap}d)"
+        return f"({days_gap}d)"
+
+    # Handle "No prior data" case when no history exists
+    if no_prior_data:
+        dmas_change_text = "— No prior data"
         dmas_change_color = "#9CA3AF"
+    else:
+        dmas_change = dmas_score - dmas_prev_week
+        change_suffix = _format_change_suffix(days_gap, previous_date)
+
+        if dmas_change > 0:
+            dmas_change_text = f"▲ +{dmas_change} {change_suffix}"
+            dmas_change_color = "#22C55E"
+        elif dmas_change < 0:
+            dmas_change_text = f"▼ {dmas_change} {change_suffix}"
+            dmas_change_color = "#EF4444"
+        else:
+            dmas_change_text = f"— Unchanged {change_suffix}"
+            dmas_change_color = "#9CA3AF"
 
     technical_status, technical_color = _get_score_status(technical_score)
     momentum_status, momentum_color = _get_score_status(momentum_score)

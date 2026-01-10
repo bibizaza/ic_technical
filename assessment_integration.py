@@ -567,6 +567,7 @@ def generate_assessment_and_subtitle(
 def generate_claude_subtitles_batch(
     assets_list: list,
     prices_dict: dict = None,
+    data_as_of: str = None,
 ) -> Dict[str, dict]:
     """
     Generate subtitles for multiple assets using Claude API.
@@ -659,7 +660,7 @@ def generate_claude_subtitles_batch(
 
     # Call Claude API for batch generation
     try:
-        claude_results = claude_generate_batch(claude_assets)
+        claude_results = claude_generate_batch(claude_assets, data_as_of=data_as_of)
 
         # Format results
         results = {}
