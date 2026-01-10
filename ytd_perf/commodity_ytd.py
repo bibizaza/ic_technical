@@ -319,8 +319,7 @@ def insert_commodity_chart(
         prices_df, used_date = adjust_prices_for_mode(prices_df, price_mode)
         if used_date is not None:
             date_str = used_date.strftime("%d/%m/%Y")
-            suffix = " Close" if price_mode.lower() == "last close" else ""
-            source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+            source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
             placeholder_name = "ytd_commo_source"
             placeholder_patterns = ["[ytd_commo_source]", "ytd_commo_source"]
             inserted = False

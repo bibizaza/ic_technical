@@ -954,8 +954,7 @@ def insert_sensex_source(
         date_str = used_date.strftime("%d/%m/%Y")
     except Exception:
         return prs
-    suffix = " Close" if str(price_mode).lower() == "last close" else ""
-    source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+    source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
     placeholder_name = "sensex_source"
     placeholder_patterns = ["[sensex_source]", "sensex_source"]
     # Restrict insertion to the SENSEX slide only

@@ -1005,8 +1005,7 @@ def insert_csi_source(
         date_str = used_date.strftime("%d/%m/%Y")
     except Exception:
         return prs
-    suffix = " Close" if str(price_mode).lower() == "last close" else ""
-    source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+    source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
     placeholder_name = "csi_source"
     placeholder_patterns = ["[csi_source]", "csi_source"]
     # Restrict insertion to the CSI slide only

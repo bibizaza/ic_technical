@@ -565,8 +565,7 @@ def _insert_dashboard_to_placeholder(
     # Insert source footnote if a date is available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         # Look for source placeholder
         source_candidates = [n.lower() for n in source_placeholder_names]
         source_patterns = [f"[{n}]" for n in source_candidates]
@@ -909,8 +908,7 @@ def insert_crypto_weekly_html_slide(
     # Update source placeholder if date available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         source_candidates = ["crypto_1w_source"]
         source_patterns = [f"[{n}]" for n in source_candidates]
 
@@ -1123,8 +1121,7 @@ def insert_crypto_historical_html_slide(
     # Update source placeholder if date available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         source_candidates = ["crypto_1w_source2"]
         source_patterns = [f"[{n}]" for n in source_candidates]
 
@@ -1439,8 +1436,7 @@ def insert_crypto_ytd_evolution_slide(prs, image_bytes, used_date=None, price_mo
     # ------------------------------------------------------------------
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         placeholder_name = "ytd_crypto_source"
         placeholder_patterns = ["[ytd_crypto_source]", "ytd_crypto_source"]
         inserted = False

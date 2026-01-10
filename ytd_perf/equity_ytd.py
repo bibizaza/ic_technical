@@ -412,8 +412,7 @@ def insert_equity_chart(
         # ------------------------------------------------------------------
         if used_date is not None:
             date_str = used_date.strftime("%d/%m/%Y")
-            suffix = " Close" if price_mode.lower() == "last close" else ""
-            source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+            source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
             placeholder_name = "ytd_eq_source"
             placeholder_patterns = ["[ytd_eq_source]", "ytd_eq_source"]
             inserted = False

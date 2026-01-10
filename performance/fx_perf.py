@@ -528,8 +528,7 @@ def _insert_dashboard_to_placeholder(
     # Insert source footnote if a date is available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         # Look for source placeholder
         source_candidates = [n.lower() for n in source_placeholder_names]
         source_patterns = [f"[{n}]" for n in source_candidates]
@@ -870,8 +869,7 @@ def insert_fx_weekly_html_slide(
     # Update source placeholder if date available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         source_candidates = ["fx_1w_source", "fx_perf_1w_source"]
         source_patterns = [f"[{n}]" for n in source_candidates]
 
@@ -1115,8 +1113,7 @@ def insert_fx_historical_html_slide(
     # Update source placeholder if date available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         source_candidates = ["fx_1w_source2", "fx_hist_source"]
         source_patterns = [f"[{n}]" for n in source_candidates]
 

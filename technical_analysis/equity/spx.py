@@ -982,8 +982,7 @@ def insert_spx_source(
         date_str = used_date.strftime("%d/%m/%Y")
     except Exception:
         return prs
-    suffix = " Close" if str(price_mode).lower() == "last close" else ""
-    source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+    source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
     placeholder_name = "spx_source"
     placeholder_patterns = ["[spx_source]", "spx_source"]
     # Restrict insertion to the SPX slide only
@@ -1559,8 +1558,7 @@ def insert_technical_analysis_v2_slide(
     # Insert source footnote
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
 
         source_placeholder = f"{placeholder_name}_source"
         source_patterns = [f"[{source_placeholder}]", source_placeholder]

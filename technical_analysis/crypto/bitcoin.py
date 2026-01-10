@@ -941,8 +941,7 @@ def insert_bitcoin_source(
         date_str = used_date.strftime("%d/%m/%Y")
     except Exception:
         return prs
-    suffix = " Close" if str(price_mode).lower() == "last close" else ""
-    source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+    source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
     placeholder_name = "bitcoin_source"
     placeholder_patterns = ["[bitcoin_source]", "bitcoin_source"]
     # Restrict insertion to the Bitcoin slide only

@@ -663,8 +663,7 @@ def _insert_dashboard_to_placeholder(
     # Insert source footnote if a date is available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         # Look for source placeholder
         source_candidates = [n.lower() for n in source_placeholder_names]
         source_patterns = [f"[{n}]" for n in source_candidates]
@@ -1184,8 +1183,7 @@ def insert_equity_ytd_evolution_slide(
     # ------------------------------------------------------------------
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
         placeholder_name = "ytd_eq_source"
         placeholder_patterns = ["[ytd_eq_source]", "ytd_eq_source"]
         inserted = False

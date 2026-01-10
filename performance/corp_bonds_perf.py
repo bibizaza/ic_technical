@@ -398,8 +398,7 @@ def insert_corp_bonds_performance_slide(
     # Insert source footnote if date available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
 
         source_names = ["credit_1w_source", "corp_bonds_1w_source"]
         source_candidates = [n.lower() for n in source_names]
@@ -675,8 +674,7 @@ def insert_corp_bonds_historical_slide(
     # Insert source footnote if date available
     if used_date is not None:
         date_str = used_date.strftime("%d/%m/%Y")
-        suffix = " Close" if price_mode.lower() == "last close" else ""
-        source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
 
         source_names = ["credit_1w_source2", "credit_histo_source", "corp_bonds_histo_source"]
         source_candidates = [n.lower() for n in source_names]
