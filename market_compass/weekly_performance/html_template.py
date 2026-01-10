@@ -3120,7 +3120,15 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
 
         body {
             font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
-            background: #FFFFFF;
+            background: radial-gradient(
+                ellipse 140% 140% at 20% 50%,
+                #FFFFFF 0%,
+                #FFFFFF 40%,
+                #F4F7FA 55%,
+                #E8EEF4 70%,
+                #D8E2EC 85%,
+                #C8D4E2 100%
+            );
             width: {{ width }}px;
             height: {{ height }}px;
             padding: 0;
@@ -3145,10 +3153,16 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             padding-left: 5px;    /* Reduced from 20px - extend chart left */
             padding-right: 10px;
             margin-left: 0;
-            background: #FFFFFF;
-            border: 1px solid #E2E8F0;
+            background: linear-gradient(90deg,
+                rgba(255,255,255,0.95) 0%,
+                rgba(255,255,255,0.85) 70%,
+                rgba(248,250,252,0.75) 90%,
+                rgba(240,244,248,0.6) 100%
+            );
+            border: 1px solid #D1D9E6;
             border-right: none;
             border-radius: 8px 0 0 0;
+            box-shadow: inset -20px 0 30px -15px rgba(27, 58, 90, 0.08);
         }
 
         .price-chart-container {
@@ -3168,6 +3182,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             border: 1px solid #1B3A5A;
             border-left: none;
             border-radius: 0 8px 0 0;
+            box-shadow: -8px 0 20px -5px rgba(27, 58, 90, 0.25);
         }
 
         .panel-title {
@@ -3302,11 +3317,17 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             padding-right: 10px;
             padding-top: 5px;
             margin-left: 0;
-            background: #FFFFFF;
-            border: 1px solid #E2E8F0;
+            background: linear-gradient(90deg,
+                rgba(255,255,255,0.95) 0%,
+                rgba(255,255,255,0.85) 70%,
+                rgba(248,250,252,0.75) 90%,
+                rgba(240,244,248,0.6) 100%
+            );
+            border: 1px solid #D1D9E6;
             border-top: none;
             border-right: none;
             border-radius: 0 0 0 8px;
+            box-shadow: inset -20px 0 30px -15px rgba(27, 58, 90, 0.08);
         }
 
         .rsi-chart-container {
@@ -3339,6 +3360,7 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = '''
             border-left: none;
             border-radius: 0 0 8px 0;
             list-style: none;
+            box-shadow: -8px 0 20px -5px rgba(27, 58, 90, 0.25);
         }
 
         .rsi-panel * {
