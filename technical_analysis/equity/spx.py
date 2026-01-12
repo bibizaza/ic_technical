@@ -1576,12 +1576,20 @@ def insert_technical_analysis_v2_slide(
         date_str = used_date.strftime("%d/%m/%Y")
         source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
 
+        # Support both spx_v2_source and spx_source patterns
         source_placeholder = f"{placeholder_name}_source"
-        source_patterns = [f"[{source_placeholder}]", source_placeholder]
+        source_patterns = [
+            f"[{source_placeholder}]", source_placeholder,  # e.g., [spx_v2_source], spx_v2_source
+            "[spx_source]", "spx_source",  # Also check for V1-style placeholder
+        ]
 
+        replaced_source = False
         for shape in target_slide.shapes:
+            if replaced_source:
+                break
             name_attr = getattr(shape, "name", "")
-            if name_attr and name_attr.lower() == source_placeholder.lower():
+            # Check by shape name
+            if name_attr and name_attr.lower() in [source_placeholder.lower(), "spx_source"]:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
@@ -1590,7 +1598,10 @@ def insert_technical_analysis_v2_slide(
                     new_run = p.add_run()
                     new_run.text = source_text
                     _apply_run_font_attributes(new_run, *attrs)
+                    print(f"[Tech V2] Replaced source via shape name: {name_attr}")
+                    replaced_source = True
                 break
+            # Check by text content
             if shape.has_text_frame:
                 for pattern in source_patterns:
                     if pattern.lower() in (shape.text or "").lower():
@@ -1601,10 +1612,11 @@ def insert_technical_analysis_v2_slide(
                         new_run = p.add_run()
                         new_run.text = source_text
                         _apply_run_font_attributes(new_run, *attrs)
+                        print(f"[Tech V2] Replaced {pattern} with source")
+                        replaced_source = True
                         break
-                else:
-                    continue
-                break
+                if replaced_source:
+                    break
 
     # Replace [spx_view] placeholder with market assessment text
     if view_text is not None:
