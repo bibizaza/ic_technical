@@ -1204,7 +1204,7 @@ def create_technical_analysis_v2_chart(
     tuple
         (PNG bytes, effective date used)
     """
-    from market_compass.weekly_performance.html_template import TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE
+    from technical_analysis.templates import TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE
 
     # Load price data
     try:
