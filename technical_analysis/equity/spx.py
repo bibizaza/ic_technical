@@ -1505,6 +1505,8 @@ def insert_technical_analysis_v2_slide(
     top_cm: float = 4.8,      # Slightly lower to avoid subtitle
     width_cm: float = 23.67,
     height_cm: float = 10.5,  # Reduced from 11.5 for better fit
+    view_text: Optional[str] = None,
+    subtitle_text: Optional[str] = None,
 ) -> Presentation:
     """Insert Technical Analysis v2 chart into PowerPoint.
 
@@ -1522,6 +1524,10 @@ def insert_technical_analysis_v2_slide(
         Name of placeholder shape to find target slide.
     left_cm, top_cm, width_cm : float
         Chart position and size.
+    view_text : str, optional
+        Market assessment text (e.g., "S&P 500: Bullish") to replace [spx_view].
+    subtitle_text : str, optional
+        Subtitle text to replace [spx_text].
 
     Returns
     -------
@@ -1595,6 +1601,80 @@ def insert_technical_analysis_v2_slide(
                         new_run = p.add_run()
                         new_run.text = source_text
                         _apply_run_font_attributes(new_run, *attrs)
+                        break
+                else:
+                    continue
+                break
+
+    # Replace [spx_view] placeholder with market assessment text
+    if view_text is not None:
+        view_placeholder = "spx_view"
+        view_patterns = ["[spx_view]", "spx_view"]
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == view_placeholder:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = view_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    print(f"[Tech V2] Replaced spx_view with: {view_text}")
+                break
+            if shape.has_text_frame:
+                for pattern in view_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                        try:
+                            new_text = (shape.text or "").replace(pattern, view_text)
+                        except Exception:
+                            new_text = view_text
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        _apply_run_font_attributes(new_run, *attrs)
+                        print(f"[Tech V2] Replaced {pattern} with: {view_text}")
+                        break
+                else:
+                    continue
+                break
+
+    # Replace [spx_text] placeholder with subtitle text
+    if subtitle_text is not None:
+        text_placeholder = "spx_text"
+        text_patterns = ["[spx_text]", "spx_text"]
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == text_placeholder:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = subtitle_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    print(f"[Tech V2] Replaced spx_text with subtitle")
+                break
+            if shape.has_text_frame:
+                for pattern in text_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                        try:
+                            new_text = (shape.text or "").replace(pattern, subtitle_text)
+                        except Exception:
+                            new_text = subtitle_text
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        _apply_run_font_attributes(new_run, *attrs)
+                        print(f"[Tech V2] Replaced {pattern} with subtitle")
                         break
                 else:
                     continue

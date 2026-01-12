@@ -4461,12 +4461,18 @@ def show_generate_presentation_page():
                 days_gap=spx_days_gap,
                 previous_date=spx_prev_date,
             )
+            # Get the same view and subtitle used for V1 slide
+            v2_view_text = st.session_state.get("spx_selected_view")
+            v2_subtitle = st.session_state.get("spx_subtitle", "")
+
             prs = insert_technical_analysis_v2_slide(
                 prs,
                 v2_bytes,
                 used_date=v2_date,
                 price_mode=pmode,
                 placeholder_name="spx_v2",
+                view_text=v2_view_text,
+                subtitle_text=v2_subtitle,
             )
         except Exception as e:
             print(f"[Tech V2] SPX v2 chart error: {e}")
