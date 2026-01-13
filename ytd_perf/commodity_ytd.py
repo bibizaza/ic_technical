@@ -166,7 +166,7 @@ def create_commodity_chart(df: pd.DataFrame) -> plt.Figure:
         if col == "Date":
             continue
         colour = COMMO_COLOURS.get(col, None)
-        ax.plot(df["Date"], df[col], color=colour, linewidth=2)
+        ax.plot(df["Date"], df[col], color=colour, linewidth=2.5)
     # Determine y-range and sort by final values
     y_min = df[[c for c in df.columns if c != "Date"]].min().min()
     y_max = df[[c for c in df.columns if c != "Date"]].max().max()
