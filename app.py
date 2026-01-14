@@ -98,10 +98,13 @@ def _load_historical_dmas_to_session():
 
         # Map asset names (as stored in history) to ticker keys (as used in session state)
         ASSET_TO_TICKER_KEY = {
+            # Equities
             "S&P 500": "spx",
             "SPX": "spx",
             "CSI 300": "csi",
+            "CSI300": "csi",
             "Nikkei 225": "nikkei",
+            "Nikkei": "nikkei",
             "TASI": "tasi",
             "Sensex": "sensex",
             "Dax": "dax",
@@ -111,13 +114,29 @@ def _load_historical_dmas_to_session():
             "IBOV": "ibov",
             "Bovespa": "ibov",
             "Mexbol": "mexbol",
+            "MEXBOL": "mexbol",
+            # Precious Metals
+            "Gold": "gold",
+            "GOLD": "gold",
+            "Silver": "silver",
+            "SILVER": "silver",
+            "Platinum": "platinum",
+            "PLATINUM": "platinum",
+            "Palladium": "palladium",
+            "PALLADIUM": "palladium",
+            # Energy & Industrial
+            "Oil": "oil",
+            "OIL": "oil",
+            "WTI": "oil",
+            "Copper": "copper",
+            "COPPER": "copper",
+            # Crypto
             "Bitcoin": "bitcoin",
             "BTC": "bitcoin",
             "Ethereum": "ethereum",
             "ETH": "ethereum",
-            "Gold": "gold",
-            "Oil": "oil",
-            "WTI": "oil",
+            "Ripple": "ripple",
+            "XRP": "ripple",
         }
 
         loaded_count = 0
@@ -4468,7 +4487,7 @@ def show_generate_presentation_page():
             prs = insert_technical_analysis_v2_slide(
                 prs,
                 v2_bytes,
-                used_date=v2_date,
+                used_date=used_date_spx,  # Use filtered date from V1 logic, not v2_date
                 price_mode=pmode,
                 placeholder_name="spx_v2",
                 view_text=v2_view_text,
