@@ -272,7 +272,8 @@ def compute_fundamental_ranks(excel_path: str) -> List[FundamentalRow]:
 
         id_col = None
         for col in df.columns:
-            if col.lower() in ["id", "index", "ticker"]:
+            # Skip non-string columns (e.g., NaN from empty Excel headers)
+            if isinstance(col, str) and col.lower() in ["id", "index", "ticker"]:
                 id_col = col
                 break
         if id_col is None:
