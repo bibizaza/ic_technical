@@ -137,6 +137,10 @@ def _load_historical_dmas_to_session():
             "ETH": "ethereum",
             "Ripple": "ripple",
             "XRP": "ripple",
+            "Solana": "solana",
+            "SOL": "solana",
+            "Binance": "binance",
+            "BNB": "binance",
         }
 
         loaded_count = 0
