@@ -4496,6 +4496,9 @@ def show_generate_presentation_page():
             )
             # Get the same view and subtitle used for V1 slide
             v2_view_text = st.session_state.get("spx_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text and not v2_view_text.lower().startswith("s&p 500"):
+                v2_view_text = f"S&P 500: {v2_view_text}"
             v2_subtitle = st.session_state.get("spx_subtitle", "")
 
             prs = insert_technical_analysis_v2_slide(
