@@ -1170,6 +1170,7 @@ def create_technical_analysis_v2_chart(
     technical_prev_week: int = None,
     momentum_score: int = None,
     momentum_prev_week: int = None,
+    rsi_prev_week: int = None,
     lookback_days: int = TECH_V2_LOOKBACK_DAYS,
     days_gap: int = None,
     previous_date: 'date' = None,
@@ -1196,6 +1197,8 @@ def create_technical_analysis_v2_chart(
         Momentum component score. If None, uses placeholder.
     momentum_prev_week : int, optional
         Previous week's Momentum score for trend arrow.
+    rsi_prev_week : int, optional
+        Previous week's RSI value for trend arrow.
     lookback_days : int
         Number of trading days for price chart.
 
@@ -1386,6 +1389,22 @@ def create_technical_analysis_v2_chart(
         momentum_trend = "—"
         momentum_trend_color = "#9CA3AF"  # Gray
 
+    # RSI trend (WoW change)
+    if rsi_prev_week is None:
+        rsi_prev_week = rsi_current
+    else:
+        rsi_prev_week = int(round(rsi_prev_week))
+
+    if rsi_current > rsi_prev_week:
+        rsi_trend = "▲"
+        rsi_trend_color = "#22C55E"  # Green
+    elif rsi_current < rsi_prev_week:
+        rsi_trend = "▼"
+        rsi_trend_color = "#EF4444"  # Red
+    else:
+        rsi_trend = "—"
+        rsi_trend_color = "#9CA3AF"  # Gray
+
     # Debug logging
     print(f"[Tech V2] Data points: {len(price_data)}, RSI current: {rsi_current}")
     print(f"[Tech V2] Scores - DMAS: {dmas_score}, Technical: {technical_score}, Momentum: {momentum_score}")
@@ -1423,6 +1442,8 @@ def create_technical_analysis_v2_chart(
         rsi_color=rsi_color,
         rsi_interpretation=rsi_interpretation,
         rsi_context=rsi_context,
+        rsi_trend=rsi_trend,
+        rsi_trend_color=rsi_trend_color,
         # DMAS panel
         dmas_score=dmas_score,
         dmas_color=dmas_color,

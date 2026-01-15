@@ -656,6 +656,7 @@ def generate_claude_subtitles_batch(
             "at_ath": at_ath,
             "near_52w_low": near_52w_low,
             "ma_cross_event": ma_cross_event,
+            "rsi": asset.get("rsi"),
         })
 
     # Call Claude API for batch generation

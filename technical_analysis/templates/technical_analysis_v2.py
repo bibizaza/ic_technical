@@ -260,74 +260,19 @@ body {
     width: 200px;         /* Same as DMAS panel */
     min-width: 200px;
     background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
-    padding: 8px 15px;
+    padding: 12px 15px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 4px;
+    justify-content: center;  /* Center the card vertically */
     border: 1px solid #1B3A5A;
     border-top: none;
     border-left: none;
     border-radius: 0 0 8px 0;
-    list-style: none;
     box-shadow: -8px 0 20px -5px rgba(27, 58, 90, 0.25);
 }
 
-.rsi-panel * {
-    list-style: none;
-}
-
-.rsi-current-title {
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: rgba(255,255,255,0.5);
-    text-align: center;
-}
-
-.rsi-current-value {
-    font-size: 28px;
-    font-weight: 700;
-    text-align: center;
-    line-height: 1.1;
-    list-style: none;
-}
-
-.rsi-current-value::before,
-.rsi-current-value::after {
-    content: none;
-    display: none;
-}
-
-.rsi-gauge {
-    height: 6px;
-    background: linear-gradient(90deg, #22C55E 0%, #22C55E 30%, #EAB308 50%, #EF4444 70%, #EF4444 100%);
-    border-radius: 3px;
-    position: relative;
-    margin: 4px 0;
-}
-
-.rsi-gauge-marker {
-    position: absolute;
-    width: 4px;
-    height: 12px;
-    background: #FFFFFF;
-    border-radius: 2px;
-    top: -2px;
-    transform: translateX(-50%);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-}
-
-.rsi-interpretation {
-    font-size: 11px;
-    text-align: center;
-    color: rgba(255,255,255,0.8);
-}
-
-.rsi-context {
-    font-size: 9px;
-    text-align: center;
-    color: rgba(255,255,255,0.5);
+.rsi-panel .sub-score-card {
+    margin-bottom: 0;  /* Override default margin for RSI panel */
 }
 
 .chart-legend {
@@ -449,10 +394,22 @@ TECH_V2_HTML_BODY = '''
             </div>
         </div>
         <div class="rsi-panel">
-            <div class="rsi-current-title">RSI</div>
-            <div class="rsi-current-value" style="color: {{ rsi_color }};">{{ rsi_current }}</div>
-            <div class="rsi-interpretation" style="color: {{ rsi_color }};">{{ rsi_interpretation }}</div>
-            <div class="rsi-context" style="color: {{ rsi_color }}; opacity: 0.7;">{{ rsi_context }}</div>
+            <div class="sub-score-card">
+                <div class="sub-score-header">
+                    <span class="sub-score-title">RSI (14)</span>
+                    <span class="sub-score-value">
+                        <span class="score-trend" style="color: {{ rsi_trend_color }};">{{ rsi_trend }}</span>
+                        {{ rsi_current }}
+                    </span>
+                </div>
+                <div class="sub-score-progress">
+                    <div class="sub-score-fill" style="width: {{ rsi_current }}%; background: {{ rsi_color }};"></div>
+                </div>
+                <div class="sub-score-status">
+                    <div class="status-dot" style="background: {{ rsi_color }};"></div>
+                    <span style="color: {{ rsi_color }};">{{ rsi_interpretation }}</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>

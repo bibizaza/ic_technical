@@ -189,6 +189,14 @@ def _load_historical_dmas_to_session():
                         st.session_state[mom_key] = float(prev_mom)
                         print(f"[History] Set {mom_key} = {prev_mom} (from {asset_name})")
 
+                # Load RSI for trend arrow
+                prev_rsi = last_week.get("rsi")
+                if prev_rsi is not None:
+                    rsi_key = f"{ticker_key}_last_week_rsi"
+                    if rsi_key not in st.session_state:
+                        st.session_state[rsi_key] = float(prev_rsi)
+                        print(f"[History] Set {rsi_key} = {prev_rsi} (from {asset_name})")
+
         if loaded_count > 0:
             print(f"[History] Loaded {loaded_count} previous DMAS values from history")
         else:
@@ -4462,10 +4470,11 @@ def show_generate_presentation_page():
             spx_momentum = _get_spx_momentum_score(excel_path_for_ppt)
             print(f"[Tech V2] SPX DMAS: {spx_dmas}, Prev Week: {spx_dmas_prev}, Tech: {spx_tech}, Mom: {spx_momentum}")
 
-            # Get previous week Technical/Momentum scores from history
+            # Get previous week Technical/Momentum/RSI scores from history
             spx_tech_prev = st.session_state.get("spx_last_week_tech", None)
             spx_mom_prev = st.session_state.get("spx_last_week_mom", None)
-            print(f"[Tech V2] Prev week scores - Tech: {spx_tech_prev}, Mom: {spx_mom_prev}")
+            spx_rsi_prev = st.session_state.get("spx_last_week_rsi", None)
+            print(f"[Tech V2] Prev week scores - Tech: {spx_tech_prev}, Mom: {spx_mom_prev}, RSI: {spx_rsi_prev}")
 
             # Get gap information for change text formatting
             spx_days_gap = st.session_state.get("spx_prev_days_gap", None)
@@ -4481,6 +4490,7 @@ def show_generate_presentation_page():
                 technical_prev_week=spx_tech_prev,
                 momentum_score=spx_momentum,
                 momentum_prev_week=spx_mom_prev,
+                rsi_prev_week=spx_rsi_prev,
                 days_gap=spx_days_gap,
                 previous_date=spx_prev_date,
             )

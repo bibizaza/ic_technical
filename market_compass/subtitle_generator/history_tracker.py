@@ -24,6 +24,7 @@ class WeeklySnapshot:
     price_vs_100ma_pct: float
     price_vs_200ma_pct: float
     rating: str
+    rsi: int = None  # RSI(14) value for WoW comparison
 
 
 class HistoryTracker:
@@ -128,7 +129,8 @@ class HistoryTracker:
         price_vs_100ma_pct: float,
         price_vs_200ma_pct: float,
         rating: str,
-        date: str = None
+        date: str = None,
+        rsi: int = None,
     ):
         """
         Record snapshot. Same date = overwrite.
@@ -144,6 +146,7 @@ class HistoryTracker:
             "price_vs_50ma_pct": round(price_vs_50ma_pct, 2),
             "price_vs_100ma_pct": round(price_vs_100ma_pct, 2),
             "price_vs_200ma_pct": round(price_vs_200ma_pct, 2),
+            "rsi": rsi,
             "rating": rating
         }
 
@@ -186,7 +189,8 @@ class HistoryTracker:
                 price_vs_100ma_pct=asset.get("price_vs_100ma_pct", 0),
                 price_vs_200ma_pct=asset.get("price_vs_200ma_pct", 0),
                 rating=asset.get("rating", "Neutral"),
-                date=date
+                date=date,
+                rsi=asset.get("rsi"),
             )
         print(f"[HistoryTracker] Saved to: {self.storage_path}")
 

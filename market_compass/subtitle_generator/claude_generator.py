@@ -779,6 +779,7 @@ def generate_batch(
                     "price_vs_100ma_pct": asset.get("price_vs_100ma_pct", 0),
                     "price_vs_200ma_pct": asset.get("price_vs_200ma_pct", 0),
                     "rating": result.get("rating", "Neutral"),
+                    "rsi": asset.get("rsi"),
                 })
             history_tracker.record_batch(history_data, date=data_as_of)
             print(f"Saved {len(history_data)} assets to history (date={data_as_of})")
