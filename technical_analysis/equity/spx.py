@@ -1103,11 +1103,11 @@ from playwright.sync_api import sync_playwright
 # Chart dimensions for v2 - HTML at base size, Playwright scales up
 # Base dimensions for HTML body (smaller = sharper when scaled)
 TECH_V2_BASE_WIDTH = 950
-TECH_V2_BASE_HEIGHT = 420  # Reduced for better fit
+TECH_V2_BASE_HEIGHT = 445  # Increased to accommodate footnote row
 TECH_V2_DEVICE_SCALE = 4   # Playwright device scale factor for high-res output
 TECH_V2_HTML_SCALE = 1     # Scale factor for HTML elements (1 = base size)
 TECH_V2_PNG_WIDTH_PX = TECH_V2_BASE_WIDTH * TECH_V2_DEVICE_SCALE   # 3800
-TECH_V2_PNG_HEIGHT_PX = TECH_V2_BASE_HEIGHT * TECH_V2_DEVICE_SCALE  # 1680
+TECH_V2_PNG_HEIGHT_PX = TECH_V2_BASE_HEIGHT * TECH_V2_DEVICE_SCALE  # 1780
 TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
 
 def _compute_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
