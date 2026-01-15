@@ -242,7 +242,7 @@ body {
     border: 1px solid #D1D9E6;
     border-top: none;
     border-right: none;
-    border-radius: 0;  /* Footnote spacer has bottom-left radius */
+    border-radius: 0 0 0 8px;  /* Restored bottom-left radius */
     box-shadow: inset -20px 0 30px -15px rgba(27, 58, 90, 0.08);
 }
 
@@ -273,7 +273,7 @@ body {
     border: 1px solid #1B3A5A;
     border-top: none;
     border-left: none;
-    border-radius: 0;  /* Footnote panel has bottom-right radius */
+    border-radius: 0 0 8px 0;  /* Restored bottom-right radius */
     box-shadow: -8px 0 20px -5px rgba(27, 58, 90, 0.25);
 }
 
@@ -281,44 +281,12 @@ body {
     margin-bottom: 0;  /* Override default margin for RSI panel */
 }
 
-.footnote-row {
-    display: flex;
-    height: auto;
-}
-
-.footnote-spacer {
-    flex: 1;
-    background: linear-gradient(90deg,
-        rgba(255,255,255,0.95) 0%,
-        rgba(255,255,255,0.85) 70%,
-        rgba(248,250,252,0.75) 90%,
-        rgba(240,244,248,0.6) 100%
-    );
-    border: 1px solid #D1D9E6;
-    border-top: none;
-    border-right: none;
-    border-radius: 0 0 0 8px;
-}
-
-.footnote-panel {
-    width: 200px;
-    min-width: 200px;
-    background: linear-gradient(180deg, #152D45 0%, #0F2132 100%);
-    padding: 6px 15px;
-    border: 1px solid #1B3A5A;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    border-left: none;
-    border-radius: 0 0 8px 0;
-}
-
-.footnote-text {
+.panel-footnote {
     font-size: 7px;
-    color: rgba(255,255,255,0.45);
-    line-height: 1.4;
-}
-
-.footnote-asterisk {
-    color: rgba(255,255,255,0.6);
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    margin-top: 8px;
+    padding-top: 6px;
 }
 
 .chart-legend {
@@ -456,15 +424,7 @@ TECH_V2_HTML_BODY = '''
                     <span style="color: {{ rsi_color }};">{{ rsi_interpretation }}</span>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="footnote-row">
-        <div class="footnote-spacer"></div>
-        <div class="footnote-panel">
-            <div class="footnote-text">
-                <span class="footnote-asterisk">*</span> Average of Technical & Momentum scores
-            </div>
+            <div class="panel-footnote">* Average of Technical & Momentum scores</div>
         </div>
     </div>
 </div>
