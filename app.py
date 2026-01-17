@@ -322,60 +322,23 @@ try:
         _get_smi_momentum_score,
         _compute_range_bounds as _compute_range_bounds_smi,
     )
-# Import IBOV functions from the dedicated module.  The IBOV module resides
-# in ``technical_analysis/equity/ibov.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX and SMI modules.  These
-# allow technical analysis of the Bovespa (IBOV).  If the module is not
-# available, define fallbacks to avoid errors and use the SPX range computation
-# as a last resort.
+# Import IBOV functions from the dedicated module.  The IBOV module
+# resides in ``technical_analysis/equity/ibov.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.equity.ibov import (
         make_ibov_figure,
-        insert_ibov_technical_chart_with_callout,
-        insert_ibov_technical_chart,
-        insert_ibov_technical_score_number,
-        insert_ibov_momentum_score_number,
-        insert_ibov_subtitle,
-        insert_ibov_average_gauge,
-        insert_ibov_technical_assessment,
-        insert_ibov_source,
         _get_ibov_technical_score,
         _get_ibov_momentum_score,
         _compute_range_bounds as _compute_range_bounds_ibov,
     )
 except Exception:
-    # Define no‑op stand‑ins if the IBOV module is unavailable
-    def make_ibov_figure(*args, **kwargs):  # type: ignore
+    # Define no-op stand-ins if the IBOV module is unavailable
+    def make_ibov_figure(*args, **kwargs):
         return go.Figure()
-
-    def insert_ibov_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_technical_chart(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_technical_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_subtitle(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_average_gauge(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_technical_assessment(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_source(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def _get_ibov_technical_score(*args, **kwargs):  # type: ignore
+    def _get_ibov_technical_score(*args, **kwargs):
         return None
-
-    def _get_ibov_momentum_score(*args, **kwargs):  # type: ignore
+    def _get_ibov_momentum_score(*args, **kwargs):
         return None
 
     # Fallback: if the IBOV module is unavailable, fall back to the SPX range computation
@@ -1325,66 +1288,6 @@ except Exception:
 
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
-        return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import IBOV functions from the dedicated module.  The IBOV module resides
-# in ``technical_analysis/equity/ibov.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX and SMI modules.  These
-# allow technical analysis of the Bovespa (IBOV).  If the module is not
-# available, define fallbacks to avoid errors and use the SPX range computation
-# as a last resort.
-try:
-    from technical_analysis.equity.ibov import (
-        make_ibov_figure,
-        insert_ibov_technical_chart_with_callout,
-        insert_ibov_technical_chart,
-        insert_ibov_technical_score_number,
-        insert_ibov_momentum_score_number,
-        insert_ibov_subtitle,
-        insert_ibov_average_gauge,
-        insert_ibov_technical_assessment,
-        insert_ibov_source,
-        _get_ibov_technical_score,
-        _get_ibov_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_ibov,
-    )
-except Exception:
-    # Define no‑op stand‑ins if the IBOV module is unavailable
-    def make_ibov_figure(*args, **kwargs):  # type: ignore
-        return go.Figure()
-
-    def insert_ibov_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_technical_chart(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_technical_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_subtitle(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_average_gauge(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_technical_assessment(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_ibov_source(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def _get_ibov_technical_score(*args, **kwargs):  # type: ignore
-        return None
-
-    def _get_ibov_momentum_score(*args, **kwargs):  # type: ignore
-        return None
-
-    # Fallback: if the IBOV module is unavailable, fall back to the SPX range computation
-    def _compute_range_bounds_ibov(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Mexbol functions from the dedicated module.  The Mexbol module resides
@@ -5666,64 +5569,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert IBOV technical analysis slide (always)
+        # Insert IBOV Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing IBOV technical analysis...")
-        prs = insert_ibov_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            ibov_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert IBOV technical score number
-        prs = insert_ibov_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert IBOV momentum score number
-        prs = insert_ibov_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert IBOV subtitle from user input
-        prs = insert_ibov_subtitle(
-            prs,
-            st.session_state.get("ibov_subtitle", ""),
-        )
-        # Insert IBOV average gauge (last week's average is 0–100)
-        ibov_last_week_avg = st.session_state.get("ibov_last_week_avg", 50.0)
-        prs = insert_ibov_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            ibov_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'ibov_view' textbox.
-        manual_view_ibov = st.session_state.get("ibov_selected_view")
-        prs = insert_ibov_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_ibov,
-        )
-        # Compute used date for IBOV source footnote
         try:
-            import pandas as pd
-            df_prices_ibov = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices_ibov = df_prices_ibov.drop(index=0)
-            df_prices_ibov = df_prices_ibov[df_prices_ibov[df_prices_ibov.columns[0]] != "DATES"]
-            df_prices_ibov["Date"] = pd.to_datetime(df_prices_ibov[df_prices_ibov.columns[0]], errors="coerce")
-            # Use the IBOV Index column for IBOV prices
-            df_prices_ibov["Price"] = pd.to_numeric(df_prices_ibov["IBOV Index"], errors="coerce")
-            df_prices_ibov = df_prices_ibov.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj_ibov, used_date_ibov = adjust_prices_for_mode(df_prices_ibov, pmode)
-        except Exception:
-            used_date_ibov = None
-        prs = insert_ibov_source(
-            prs,
-            used_date_ibov,
-            pmode,
-        )
+            update_progress("Processing IBOV Technical Analysis...")
+            # Get DMAS scores from session state
+            ibov_dmas = st.session_state.get("ibov_dmas", 50)
+            ibov_dmas_prev = st.session_state.get("ibov_last_week_avg", ibov_dmas)
+            ibov_tech = _get_ibov_technical_score(excel_path_for_ppt)
+            ibov_momentum = _get_ibov_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] IBOV DMAS: {ibov_dmas}, Prev Week: {ibov_dmas_prev}, Tech: {ibov_tech}, Mom: {ibov_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            ibov_tech_prev = st.session_state.get("ibov_last_week_tech", None)
+            ibov_mom_prev = st.session_state.get("ibov_last_week_mom", None)
+            ibov_rsi_prev = st.session_state.get("ibov_last_week_rsi", None)
+            print(f"[Tech V2] IBOV Prev week scores - Tech: {ibov_tech_prev}, Mom: {ibov_mom_prev}, RSI: {ibov_rsi_prev}")
+
+            # Get gap information for change text formatting
+            ibov_days_gap = st.session_state.get("ibov_prev_days_gap", None)
+            ibov_prev_date = st.session_state.get("ibov_prev_date", None)
+
+            # Compute used date for IBOV source footnote
+            try:
+                import pandas as pd
+                df_prices_ibov = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_ibov = df_prices_ibov.drop(index=0)
+                df_prices_ibov = df_prices_ibov[df_prices_ibov[df_prices_ibov.columns[0]] != "DATES"]
+                df_prices_ibov["Date"] = pd.to_datetime(df_prices_ibov[df_prices_ibov.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_ibov = df_prices_ibov[df_prices_ibov["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_ibov["Price"] = pd.to_numeric(df_prices_ibov["IBOV Index"], errors="coerce")
+                df_prices_ibov = df_prices_ibov.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_ibov, used_date_ibov = adjust_prices_for_mode(df_prices_ibov, pmode)
+            except Exception:
+                used_date_ibov = None
+
+            v2_bytes_ibov, v2_date_ibov = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="IBOV Index",
+                price_mode=pmode,
+                dmas_score=int(ibov_dmas),
+                dmas_prev_week=int(ibov_dmas_prev),
+                technical_score=ibov_tech,
+                technical_prev_week=ibov_tech_prev,
+                momentum_score=ibov_momentum,
+                momentum_prev_week=ibov_mom_prev,
+                rsi_prev_week=ibov_rsi_prev,
+                days_gap=ibov_days_gap,
+                previous_date=ibov_prev_date,
+            )
+            # Get the view and subtitle
+            v2_view_text_ibov = st.session_state.get("ibov_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text_ibov and not v2_view_text_ibov.lower().startswith("ibov"):
+                v2_view_text_ibov = f"Bovespa: {v2_view_text_ibov}"
+            v2_subtitle_ibov = st.session_state.get("ibov_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_ibov,
+                used_date=used_date_ibov,
+                price_mode=pmode,
+                placeholder_name="ibov_v2",
+                view_text=v2_view_text_ibov,
+                subtitle_text=v2_subtitle_ibov,
+            )
+        except Exception as e:
+            print(f"[Tech V2] IBOV v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Mexbol technical analysis slide (always)
