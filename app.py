@@ -613,21 +613,12 @@ except Exception:
         def _compute_range_bounds_ethereum(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Ripple functions from the dedicated module.  The Ripple module resides
-# in ``technical_analysis/crypto/ripple.py`` and provides helper functions
-# analogous to the other crypto assets.  If unavailable, fall back to a
-# top‑level ``ripple`` module or define no‑op stand‑ins.
+# Import Ripple functions from the dedicated module.  The Ripple module
+# resides in ``technical_analysis/crypto/ripple.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.crypto.ripple import (
         make_ripple_figure,
-        insert_ripple_technical_chart_with_callout,
-        insert_ripple_technical_chart,
-        insert_ripple_technical_score_number,
-        insert_ripple_momentum_score_number,
-        insert_ripple_subtitle,
-        insert_ripple_average_gauge,
-        insert_ripple_technical_assessment,
-        insert_ripple_source,
         _get_ripple_technical_score,
         _get_ripple_momentum_score,
         _compute_range_bounds as _compute_range_bounds_ripple,
@@ -636,42 +627,19 @@ except Exception:
     try:
         from ripple import (
             make_ripple_figure,
-            insert_ripple_technical_chart_with_callout,
-            insert_ripple_technical_chart,
-            insert_ripple_technical_score_number,
-            insert_ripple_momentum_score_number,
-            insert_ripple_subtitle,
-            insert_ripple_average_gauge,
-            insert_ripple_technical_assessment,
-            insert_ripple_source,
             _get_ripple_technical_score,
             _get_ripple_momentum_score,
             _compute_range_bounds as _compute_range_bounds_ripple,
         )
     except Exception:
-        def make_ripple_figure(*args, **kwargs):  # type: ignore
+        # Define no-op stand-ins if the Ripple module is unavailable
+        def make_ripple_figure(*args, **kwargs):
             return go.Figure()
-        def insert_ripple_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_ripple_technical_score(*args, **kwargs):  # type: ignore
+        def _get_ripple_technical_score(*args, **kwargs):
             return None
-        def _get_ripple_momentum_score(*args, **kwargs):  # type: ignore
+        def _get_ripple_momentum_score(*args, **kwargs):
             return None
-        def _compute_range_bounds_ripple(*args, **kwargs):  # type: ignore
+        def _compute_range_bounds_ripple(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Solana functions from the dedicated module.  The Solana module resides
@@ -910,67 +878,6 @@ except Exception:
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Ripple functions from the dedicated module.  The Ripple module resides
-# in ``technical_analysis/crypto/ripple.py`` and provides helper functions
-# analogous to the other crypto assets.  If unavailable, fall back to a
-# top‑level ``ripple`` module or define no‑op stand‑ins.
-try:
-    from technical_analysis.crypto.ripple import (
-        make_ripple_figure,
-        insert_ripple_technical_chart_with_callout,
-        insert_ripple_technical_chart,
-        insert_ripple_technical_score_number,
-        insert_ripple_momentum_score_number,
-        insert_ripple_subtitle,
-        insert_ripple_average_gauge,
-        insert_ripple_technical_assessment,
-        insert_ripple_source,
-        _get_ripple_technical_score,
-        _get_ripple_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_ripple,
-    )
-except Exception:
-    try:
-        from ripple import (
-            make_ripple_figure,
-            insert_ripple_technical_chart_with_callout,
-            insert_ripple_technical_chart,
-            insert_ripple_technical_score_number,
-            insert_ripple_momentum_score_number,
-            insert_ripple_subtitle,
-            insert_ripple_average_gauge,
-            insert_ripple_technical_assessment,
-            insert_ripple_source,
-            _get_ripple_technical_score,
-            _get_ripple_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_ripple,
-        )
-    except Exception:
-        def make_ripple_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_ripple_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ripple_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_ripple_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_ripple_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_ripple(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Solana functions from the dedicated module.  The Solana module resides
 # in ``technical_analysis/crypto/solana.py`` and provides helper functions
@@ -5293,78 +5200,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Ripple technical analysis slide (crypto)
+        # Insert Ripple Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Ripple technical analysis...")
         try:
-            # Insert the Ripple chart with call-out and regression channel anchored at ripple_anchor_dt
-            prs = insert_ripple_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                ripple_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Ripple technical and momentum scores
-            prs = insert_ripple_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_ripple_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Ripple subtitle from user input
-            prs = insert_ripple_subtitle(
-                prs,
-                st.session_state.get("ripple_subtitle", ""),
-            )
-            # Insert Ripple average gauge (last week's average DMAS)
-            ripple_last_week_avg = st.session_state.get("ripple_last_week_avg", 50.0)
-            prs = insert_ripple_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                ripple_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'ripple_view' textbox
-            manual_view_ripple = st.session_state.get("ripple_selected_view")
-            prs = insert_ripple_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_ripple,
-            )
+            update_progress("Processing Ripple Technical Analysis...")
+            # Get DMAS scores from session state
+            ripple_dmas = st.session_state.get("ripple_dmas", 50)
+            ripple_dmas_prev = st.session_state.get("ripple_last_week_avg", ripple_dmas)
+            ripple_tech = _get_ripple_technical_score(excel_path_for_ppt)
+            ripple_momentum = _get_ripple_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Ripple DMAS: {ripple_dmas}, Prev Week: {ripple_dmas_prev}, Tech: {ripple_tech}, Mom: {ripple_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            ripple_tech_prev = st.session_state.get("ripple_last_week_tech", None)
+            ripple_mom_prev = st.session_state.get("ripple_last_week_mom", None)
+            ripple_rsi_prev = st.session_state.get("ripple_last_week_rsi", None)
+            print(f"[Tech V2] Ripple Prev week scores - Tech: {ripple_tech_prev}, Mom: {ripple_mom_prev}, RSI: {ripple_rsi_prev}")
+
+            # Get gap information for change text formatting
+            ripple_days_gap = st.session_state.get("ripple_prev_days_gap", None)
+            ripple_prev_date = st.session_state.get("ripple_prev_date", None)
+
             # Compute used date for Ripple source footnote
             try:
                 import pandas as pd
                 df_prices_ripple = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_ripple = df_prices_ripple.drop(index=0)
-                df_prices_ripple = df_prices_ripple[
-                    df_prices_ripple[df_prices_ripple.columns[0]] != "DATES"
-                ]
-                df_prices_ripple["Date"] = pd.to_datetime(
-                    df_prices_ripple[df_prices_ripple.columns[0]], errors="coerce"
-                )
-                # Use the XRPUSD Curncy column for Ripple prices
-                df_prices_ripple["Price"] = pd.to_numeric(
-                    df_prices_ripple["XRPUSD Curncy"], errors="coerce"
-                )
-                df_prices_ripple = df_prices_ripple.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[
+                df_prices_ripple = df_prices_ripple[df_prices_ripple[df_prices_ripple.columns[0]] != "DATES"]
+                df_prices_ripple["Date"] = pd.to_datetime(df_prices_ripple[df_prices_ripple.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_ripple = df_prices_ripple[df_prices_ripple["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_ripple["Price"] = pd.to_numeric(df_prices_ripple["XRPUSD Curncy"], errors="coerce")
+                df_prices_ripple = df_prices_ripple.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
                 ]
-                df_adj_ripple, used_date_ripple = adjust_prices_for_mode(
-                    df_prices_ripple, pmode
-                )
+                df_adj_ripple, used_date_ripple = adjust_prices_for_mode(df_prices_ripple, pmode)
             except Exception:
                 used_date_ripple = None
-            prs = insert_ripple_source(
-                prs,
-                used_date_ripple,
-                pmode,
+
+            v2_bytes_ripple, v2_date_ripple = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="XRPUSD Curncy",
+                price_mode=pmode,
+                dmas_score=int(ripple_dmas),
+                dmas_prev_week=int(ripple_dmas_prev),
+                technical_score=ripple_tech,
+                technical_prev_week=ripple_tech_prev,
+                momentum_score=ripple_momentum,
+                momentum_prev_week=ripple_mom_prev,
+                rsi_prev_week=ripple_rsi_prev,
+                days_gap=ripple_days_gap,
+                previous_date=ripple_prev_date,
             )
-        except Exception:
-            # If the Ripple module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_ripple = st.session_state.get("ripple_selected_view")
+            # Prepend crypto name if not already present
+            if v2_view_text_ripple and not v2_view_text_ripple.lower().startswith("ripple"):
+                v2_view_text_ripple = f"Ripple: {v2_view_text_ripple}"
+            v2_subtitle_ripple = st.session_state.get("ripple_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_ripple,
+                used_date=used_date_ripple,
+                price_mode=pmode,
+                placeholder_name="ripple_v2",
+                view_text=v2_view_text_ripple,
+                subtitle_text=v2_subtitle_ripple,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Ripple v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Solana technical analysis slide (crypto)
