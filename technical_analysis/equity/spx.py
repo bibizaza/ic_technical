@@ -1479,13 +1479,33 @@ def create_technical_analysis_v2_chart(
     if price_max > price_y_max:
         price_y_max = price_max * (1 + Y_PADDING_PCT)
 
-    # Convert to native Python floats and round for clean axis labels
-    price_y_min = float(round(price_y_min, 0))
-    price_y_max = float(round(price_y_max, 0))
+    # Smart rounding: preserve padding by using floor for min, ceil for max
+    # Determine decimal places based on price magnitude
+    import math
+    def _smart_round_min(value):
+        """Round down to preserve padding below."""
+        if value >= 100:
+            return float(math.floor(value))
+        elif value >= 10:
+            return float(math.floor(value * 10) / 10)
+        else:
+            return float(math.floor(value * 100) / 100)
+
+    def _smart_round_max(value):
+        """Round up to preserve padding above."""
+        if value >= 100:
+            return float(math.ceil(value))
+        elif value >= 10:
+            return float(math.ceil(value * 10) / 10)
+        else:
+            return float(math.ceil(value * 100) / 100)
+
+    price_y_min = _smart_round_min(price_y_min)
+    price_y_max = _smart_round_max(price_y_max)
 
     # Debug logging
     print(f"[Tech V2] Trading Ranges: Lower={lower_range:.2f}, Higher={higher_range:.2f}")
-    print(f"[Tech V2] Y-axis bounds: {price_y_min:.0f} - {price_y_max:.0f} (2% padding)")
+    print(f"[Tech V2] Y-axis bounds: {price_y_min} - {price_y_max} (2% padding, smart rounded)")
 
     # RSI current
     rsi_current = int(round(df["RSI"].iloc[-1], 0)) if not pd.isna(df["RSI"].iloc[-1]) else 50
