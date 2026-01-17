@@ -1395,52 +1395,1110 @@ except Exception:
     def _compute_range_bounds_sensex(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import DAX functions from the dedicated module.  The DAX module resides
-# in ``technical_analysis/equity/dax.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI and Sensex functions.  These allow
-# technical analysis of the German DAX index.  If the module is not present,
-# Streamlit will fall back gracefully when DAX analysis is not requested.
+# Import DAX functions from the dedicated module.  The DAX module
+# resides in ``technical_analysis/equity/dax.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.equity.dax import (
         make_dax_figure,
-        insert_dax_technical_chart_with_callout,
-        insert_dax_technical_chart,
-        insert_dax_technical_score_number,
-        insert_dax_momentum_score_number,
-        insert_dax_subtitle,
-        insert_dax_average_gauge,
-        insert_dax_technical_assessment,
-        insert_dax_source,
         _get_dax_technical_score,
         _get_dax_momentum_score,
         _compute_range_bounds as _compute_range_bounds_dax,
     )
 except Exception:
-    # Define no‑op stand-ins if the DAX module is unavailable
+    # Define no-op stand-ins if the DAX module is unavailable
     def make_dax_figure(*args, **kwargs):
         return go.Figure()
-    def insert_dax_technical_chart_with_callout(prs, *args, **kwargs):
-        return prs
-    def insert_dax_technical_chart(prs, *args, **kwargs):
-        return prs
-    def insert_dax_technical_score_number(prs, *args, **kwargs):
-        return prs
-    def insert_dax_momentum_score_number(prs, *args, **kwargs):
-        return prs
-    def insert_dax_subtitle(prs, *args, **kwargs):
-        return prs
-    def insert_dax_average_gauge(prs, *args, **kwargs):
-        return prs
-    def insert_dax_technical_assessment(prs, *args, **kwargs):
-        return prs
-    def insert_dax_source(prs, *args, **kwargs):
-        return prs
     def _get_dax_technical_score(*args, **kwargs):
         return None
     def _get_dax_momentum_score(*args, **kwargs):
         return None
-    # Fallback: use the SPX range computation as a generic fallback
+
+    # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import SMI functions from the dedicated module.  The SMI module resides
+# in ``technical_analysis/equity/smi.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei, TASI, Sensex and DAX functions.  These
+# allow technical analysis of the Swiss Market Index (SMI).  If the module is
+# not present (e.g. during development), we define no‑op stand‑ins so that
+# the application continues to run without error.  The fallback for the
+# range computation uses the SPX range bounds to avoid crashing when the
+# SMI module is missing.
+try:
+    from technical_analysis.equity.smi import (
+        make_smi_figure,
+        insert_smi_technical_chart_with_callout,
+        insert_smi_technical_chart,
+        insert_smi_technical_score_number,
+        insert_smi_momentum_score_number,
+        insert_smi_subtitle,
+        insert_smi_average_gauge,
+        insert_smi_technical_assessment,
+        insert_smi_source,
+        _get_smi_technical_score,
+        _get_smi_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_smi,
+    )
+except Exception:
+    # Define no‑op stand‑ins if the SMI module is unavailable
+    def make_smi_figure(*args, **kwargs):  # type: ignore
+        return go.Figure()
+
+    def insert_smi_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_chart(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_subtitle(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_average_gauge(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_assessment(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_source(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def _get_smi_technical_score(*args, **kwargs):  # type: ignore
+        return None
+
+    def _get_smi_momentum_score(*args, **kwargs):  # type: ignore
+        return None
+
+    # Fallback: if the SMI module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import IBOV functions from the dedicated module.  The IBOV module resides
+# in ``technical_analysis/equity/ibov.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX and SMI modules.  These
+# allow technical analysis of the Bovespa (IBOV).  If the module is not
+# available, define fallbacks to avoid errors and use the SPX range computation
+# as a last resort.
+try:
+    from technical_analysis.equity.ibov import (
+        make_ibov_figure,
+        insert_ibov_technical_chart_with_callout,
+        insert_ibov_technical_chart,
+        insert_ibov_technical_score_number,
+        insert_ibov_momentum_score_number,
+        insert_ibov_subtitle,
+        insert_ibov_average_gauge,
+        insert_ibov_technical_assessment,
+        insert_ibov_source,
+        _get_ibov_technical_score,
+        _get_ibov_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_ibov,
+    )
+except Exception:
+    # Define no‑op stand‑ins if the IBOV module is unavailable
+    def make_ibov_figure(*args, **kwargs):  # type: ignore
+        return go.Figure()
+
+    def insert_ibov_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_ibov_technical_chart(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_ibov_technical_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_ibov_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_ibov_subtitle(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_ibov_average_gauge(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_ibov_technical_assessment(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_ibov_source(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def _get_ibov_technical_score(*args, **kwargs):  # type: ignore
+        return None
+
+    def _get_ibov_momentum_score(*args, **kwargs):  # type: ignore
+        return None
+
+    # Fallback: if the IBOV module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_ibov(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Mexbol functions from the dedicated module.  The Mexbol module resides
+# in ``technical_analysis/equity/mexbol.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
+# These allow technical analysis of the Mexbol index.  If the module is not
+# available, define fallbacks to avoid errors and use the SPX range computation
+# as a last resort.
+try:
+    from technical_analysis.equity.mexbol import (
+        make_mexbol_figure,
+        insert_mexbol_technical_chart_with_callout,
+        insert_mexbol_technical_chart,
+        insert_mexbol_technical_score_number,
+        insert_mexbol_momentum_score_number,
+        insert_mexbol_subtitle,
+        insert_mexbol_average_gauge,
+        insert_mexbol_technical_assessment,
+        insert_mexbol_source,
+        _get_mexbol_technical_score,
+        _get_mexbol_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_mexbol,
+    )
+except Exception:
+    # Define no‑op stand‑ins if the Mexbol module is unavailable
+    def make_mexbol_figure(*args, **kwargs):  # type: ignore
+        return go.Figure()
+
+    def insert_mexbol_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_technical_chart(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_technical_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_subtitle(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_average_gauge(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_technical_assessment(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_mexbol_source(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def _get_mexbol_technical_score(*args, **kwargs):  # type: ignore
+        return None
+
+    def _get_mexbol_momentum_score(*args, **kwargs):  # type: ignore
+        return None
+
+    # Fallback: if the Mexbol module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_mexbol(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Gold functions from the dedicated module.  The Gold module resides
+# in ``technical_analysis/commodity/gold.py`` and provides helper functions
+# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
+# To support running locally (e.g. when the technical_analysis package is
+# unavailable), a second import attempt is made from a top‑level ``gold``
+# module.  Fallbacks ensure the application remains functional even if the
+# Gold module cannot be imported.
+try:
+    from technical_analysis.commodity.gold import (
+        make_gold_figure,
+        insert_gold_technical_chart_with_callout,
+        insert_gold_technical_chart,
+        insert_gold_technical_score_number,
+        insert_gold_momentum_score_number,
+        insert_gold_subtitle,
+        insert_gold_average_gauge,
+        insert_gold_technical_assessment,
+        insert_gold_source,
+        _get_gold_technical_score,
+        _get_gold_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_gold,
+    )
+except Exception:
+    try:
+        from gold import (
+            make_gold_figure,
+            insert_gold_technical_chart_with_callout,
+            insert_gold_technical_chart,
+            insert_gold_technical_score_number,
+            insert_gold_momentum_score_number,
+            insert_gold_subtitle,
+            insert_gold_average_gauge,
+            insert_gold_technical_assessment,
+            insert_gold_source,
+            _get_gold_technical_score,
+            _get_gold_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_gold,
+        )
+    except Exception:
+        # Define no‑op stand‑ins if the Gold module is unavailable
+        def make_gold_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+
+        def insert_gold_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def insert_gold_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+
+        def _get_gold_technical_score(*args, **kwargs):  # type: ignore
+            return None
+
+        def _get_gold_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+
+        # Fallback: if the Gold module is unavailable, fall back to the SPX range computation
+        def _compute_range_bounds_gold(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Silver functions from the dedicated module.  Similar to Gold, these
+# helpers reside in ``technical_analysis/commodity/silver.py``.  If that
+# package is unavailable, a second attempt is made to import a top‑level
+# ``silver`` module.  No‑op fallbacks are defined if both imports fail.
+try:
+    from technical_analysis.commodity.silver import (
+        make_silver_figure,
+        insert_silver_technical_chart_with_callout,
+        insert_silver_technical_chart,
+        insert_silver_technical_score_number,
+        insert_silver_momentum_score_number,
+        insert_silver_subtitle,
+        insert_silver_average_gauge,
+        insert_silver_technical_assessment,
+        insert_silver_source,
+        _get_silver_technical_score,
+        _get_silver_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_silver,
+    )
+except Exception:
+    try:
+        from silver import (
+            make_silver_figure,
+            insert_silver_technical_chart_with_callout,
+            insert_silver_technical_chart,
+            insert_silver_technical_score_number,
+            insert_silver_momentum_score_number,
+            insert_silver_subtitle,
+            insert_silver_average_gauge,
+            insert_silver_technical_assessment,
+            insert_silver_source,
+            _get_silver_technical_score,
+            _get_silver_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_silver,
+        )
+    except Exception:
+        def make_silver_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_silver_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_silver_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_silver_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_silver_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_silver(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Platinum functions from the dedicated module.  Similar to Gold and Silver,
+# these helpers reside in ``technical_analysis/commodity/platinum.py``.  If that
+# package is unavailable, a second attempt is made to import a top‑level
+# ``platinum`` module.  No‑op fallbacks are defined if both imports fail.
+try:
+    from technical_analysis.commodity.platinum import (
+        make_platinum_figure,
+        insert_platinum_technical_chart_with_callout,
+        insert_platinum_technical_chart,
+        insert_platinum_technical_score_number,
+        insert_platinum_momentum_score_number,
+        insert_platinum_subtitle,
+        insert_platinum_average_gauge,
+        insert_platinum_technical_assessment,
+        insert_platinum_source,
+        _get_platinum_technical_score,
+        _get_platinum_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_platinum,
+    )
+except Exception:
+    try:
+        from platinum import (
+            make_platinum_figure,
+            insert_platinum_technical_chart_with_callout,
+            insert_platinum_technical_chart,
+            insert_platinum_technical_score_number,
+            insert_platinum_momentum_score_number,
+            insert_platinum_subtitle,
+            insert_platinum_average_gauge,
+            insert_platinum_technical_assessment,
+            insert_platinum_source,
+            _get_platinum_technical_score,
+            _get_platinum_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_platinum,
+        )
+    except Exception:
+        def make_platinum_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_platinum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_platinum_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_platinum_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_platinum_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_platinum(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+except Exception:
+    # Define no‑op stand‑ins if the SMI module is unavailable
+    def make_smi_figure(*args, **kwargs):  # type: ignore
+        return go.Figure()
+
+    def insert_smi_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_chart(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_subtitle(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_average_gauge(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_technical_assessment(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def insert_smi_source(prs, *args, **kwargs):  # type: ignore
+        return prs
+
+    def _get_smi_technical_score(*args, **kwargs):  # type: ignore
+        return None
+
+    def _get_smi_momentum_score(*args, **kwargs):  # type: ignore
+        return None
+
+    # Fallback: if the SMI module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Oil functions from the dedicated module.  Similar to Gold, Silver and Platinum,
+# these helpers reside in ``technical_analysis/commodity/oil.py``.  If that
+# package is unavailable, a second attempt is made to import a top‑level
+# ``oil`` module.  No‑op fallbacks are defined if both imports fail.
+try:
+    from technical_analysis.commodity.oil import (
+        make_oil_figure,
+        insert_oil_technical_chart_with_callout,
+        insert_oil_technical_chart,
+        insert_oil_technical_score_number,
+        insert_oil_momentum_score_number,
+        insert_oil_subtitle,
+        insert_oil_average_gauge,
+        insert_oil_technical_assessment,
+        insert_oil_source,
+        _get_oil_technical_score,
+        _get_oil_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_oil,
+    )
+except Exception:
+    try:
+        from oil import (
+            make_oil_figure,
+            insert_oil_technical_chart_with_callout,
+            insert_oil_technical_chart,
+            insert_oil_technical_score_number,
+            insert_oil_momentum_score_number,
+            insert_oil_subtitle,
+            insert_oil_average_gauge,
+            insert_oil_technical_assessment,
+            insert_oil_source,
+            _get_oil_technical_score,
+            _get_oil_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_oil,
+        )
+    except Exception:
+        def make_oil_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_oil_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_oil_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_oil_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_oil_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_oil(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Copper functions from the dedicated module.  Similar to other commodities,
+# helpers reside in ``technical_analysis/commodity/copper.py``.  If that package
+# is unavailable, a second attempt is made to import a top‑level ``copper``
+# module.  Fallback functions ensure the application remains functional when
+# copper analysis is not available.
+try:
+    from technical_analysis.commodity.copper import (
+        make_copper_figure,
+        insert_copper_technical_chart_with_callout,
+        insert_copper_technical_chart,
+        insert_copper_technical_score_number,
+        insert_copper_momentum_score_number,
+        insert_copper_subtitle,
+        insert_copper_average_gauge,
+        insert_copper_technical_assessment,
+        insert_copper_source,
+        _get_copper_technical_score,
+        _get_copper_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_copper,
+    )
+except Exception:
+    try:
+        from copper import (
+            make_copper_figure,
+            insert_copper_technical_chart_with_callout,
+            insert_copper_technical_chart,
+            insert_copper_technical_score_number,
+            insert_copper_momentum_score_number,
+            insert_copper_subtitle,
+            insert_copper_average_gauge,
+            insert_copper_technical_assessment,
+            insert_copper_source,
+            _get_copper_technical_score,
+            _get_copper_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_copper,
+        )
+    except Exception:
+        def make_copper_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_copper_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_copper_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_copper_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_copper_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_copper(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Palladium functions from the dedicated module.  Similar to other commodities,
+# these helpers reside in ``technical_analysis/commodity/palladium.py``.  If that
+# package is unavailable, a second attempt is made to import a top‑level
+# ``palladium`` module.  No‑op fallbacks are defined if both imports fail.
+try:
+    # Preferred: import from the standard technical_analysis package
+    from technical_analysis.commodity.palladium import (
+        make_palladium_figure,
+        insert_palladium_technical_chart_with_callout,
+        insert_palladium_technical_chart,
+        insert_palladium_technical_score_number,
+        insert_palladium_momentum_score_number,
+        insert_palladium_subtitle,
+        insert_palladium_average_gauge,
+        insert_palladium_technical_assessment,
+        insert_palladium_source,
+        _get_palladium_technical_score,
+        _get_palladium_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_palladium,
+    )
+except Exception:
+    try:
+        # Secondary: import from our extended implementation if available
+        from palladium_full import (
+            make_palladium_figure,
+            insert_palladium_technical_chart_with_callout,
+            insert_palladium_technical_chart,
+            insert_palladium_technical_score_number,
+            insert_palladium_momentum_score_number,
+            insert_palladium_subtitle,
+            insert_palladium_average_gauge,
+            insert_palladium_technical_assessment,
+            insert_palladium_source,
+            _get_palladium_technical_score,
+            _get_palladium_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_palladium,
+        )
+    except Exception:
+        try:
+            # Fallback: import from the lean palladium module
+            from palladium import (
+                make_palladium_figure,
+                insert_palladium_technical_chart_with_callout,
+                insert_palladium_technical_chart,
+                insert_palladium_technical_score_number,
+                insert_palladium_momentum_score_number,
+                insert_palladium_subtitle,
+                insert_palladium_average_gauge,
+                insert_palladium_technical_assessment,
+                insert_palladium_source,
+                _get_palladium_technical_score,
+                _get_palladium_momentum_score,
+                _compute_range_bounds as _compute_range_bounds_palladium,
+            )
+        except Exception:
+            # No implementation found – define harmless stand‑ins
+            def make_palladium_figure(*args, **kwargs):  # type: ignore
+                return go.Figure()
+            def insert_palladium_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_technical_chart(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_technical_score_number(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_subtitle(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_average_gauge(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_technical_assessment(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def insert_palladium_source(prs, *args, **kwargs):  # type: ignore
+                return prs
+            def _get_palladium_technical_score(*args, **kwargs):  # type: ignore
+                return None
+            def _get_palladium_momentum_score(*args, **kwargs):  # type: ignore
+                return None
+            def _compute_range_bounds_palladium(*args, **kwargs):  # type: ignore
+                return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
+# in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
+# analogous to those for commodities.  If that package cannot be imported,
+# a fallback attempt is made to import from a top‑level ``bitcoin`` module.
+# When both imports fail, define no‑op stand‑ins to keep the app running.
+try:
+    from technical_analysis.crypto.bitcoin import (
+        make_bitcoin_figure,
+        insert_bitcoin_technical_chart_with_callout,
+        insert_bitcoin_technical_chart,
+        insert_bitcoin_technical_score_number,
+        insert_bitcoin_momentum_score_number,
+        insert_bitcoin_subtitle,
+        insert_bitcoin_average_gauge,
+        insert_bitcoin_technical_assessment,
+        insert_bitcoin_source,
+        _get_bitcoin_technical_score,
+        _get_bitcoin_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_bitcoin,
+    )
+except Exception:
+    try:
+        from bitcoin import (
+            make_bitcoin_figure,
+            insert_bitcoin_technical_chart_with_callout,
+            insert_bitcoin_technical_chart,
+            insert_bitcoin_technical_score_number,
+            insert_bitcoin_momentum_score_number,
+            insert_bitcoin_subtitle,
+            insert_bitcoin_average_gauge,
+            insert_bitcoin_technical_assessment,
+            insert_bitcoin_source,
+            _get_bitcoin_technical_score,
+            _get_bitcoin_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_bitcoin,
+        )
+    except Exception:
+        def make_bitcoin_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_bitcoin_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_bitcoin_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_bitcoin_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_bitcoin_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_bitcoin(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Ethereum functions from the dedicated module.  The Ethereum module resides
+# in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
+# analogous to those for other crypto assets.  If unavailable, fall back to a
+# top‑level ``ethereum`` module.  Define no‑op stand‑ins as a last resort.
+try:
+    from technical_analysis.crypto.ethereum import (
+        make_ethereum_figure,
+        insert_ethereum_technical_chart_with_callout,
+        insert_ethereum_technical_chart,
+        insert_ethereum_technical_score_number,
+        insert_ethereum_momentum_score_number,
+        insert_ethereum_subtitle,
+        insert_ethereum_average_gauge,
+        insert_ethereum_technical_assessment,
+        insert_ethereum_source,
+        _get_ethereum_technical_score,
+        _get_ethereum_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_ethereum,
+    )
+except Exception:
+    try:
+        from ethereum import (
+            make_ethereum_figure,
+            insert_ethereum_technical_chart_with_callout,
+            insert_ethereum_technical_chart,
+            insert_ethereum_technical_score_number,
+            insert_ethereum_momentum_score_number,
+            insert_ethereum_subtitle,
+            insert_ethereum_average_gauge,
+            insert_ethereum_technical_assessment,
+            insert_ethereum_source,
+            _get_ethereum_technical_score,
+            _get_ethereum_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_ethereum,
+        )
+    except Exception:
+        def make_ethereum_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_ethereum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_ethereum_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_ethereum_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_ethereum(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Ripple functions from the dedicated module.  The Ripple module resides
+# in ``technical_analysis/crypto/ripple.py`` and provides helper functions
+# analogous to the other crypto assets.  If unavailable, fall back to a
+# top‑level ``ripple`` module or define no‑op stand‑ins.
+try:
+    from technical_analysis.crypto.ripple import (
+        make_ripple_figure,
+        insert_ripple_technical_chart_with_callout,
+        insert_ripple_technical_chart,
+        insert_ripple_technical_score_number,
+        insert_ripple_momentum_score_number,
+        insert_ripple_subtitle,
+        insert_ripple_average_gauge,
+        insert_ripple_technical_assessment,
+        insert_ripple_source,
+        _get_ripple_technical_score,
+        _get_ripple_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_ripple,
+    )
+except Exception:
+    try:
+        from ripple import (
+            make_ripple_figure,
+            insert_ripple_technical_chart_with_callout,
+            insert_ripple_technical_chart,
+            insert_ripple_technical_score_number,
+            insert_ripple_momentum_score_number,
+            insert_ripple_subtitle,
+            insert_ripple_average_gauge,
+            insert_ripple_technical_assessment,
+            insert_ripple_source,
+            _get_ripple_technical_score,
+            _get_ripple_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_ripple,
+        )
+    except Exception:
+        def make_ripple_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_ripple_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ripple_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_ripple_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_ripple_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_ripple(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Solana functions from the dedicated module.  The Solana module resides
+# in ``technical_analysis/crypto/solana.py`` and provides helper functions
+# analogous to the other crypto assets.  If unavailable, fall back to a
+# top‑level ``solana`` module or define no‑op stand‑ins.
+try:
+    from technical_analysis.crypto.solana import (
+        make_solana_figure,
+        insert_solana_technical_chart_with_callout,
+        insert_solana_technical_chart,
+        insert_solana_technical_score_number,
+        insert_solana_momentum_score_number,
+        insert_solana_subtitle,
+        insert_solana_average_gauge,
+        insert_solana_technical_assessment,
+        insert_solana_source,
+        _get_solana_technical_score,
+        _get_solana_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_solana,
+    )
+except Exception:
+    try:
+        from solana import (
+            make_solana_figure,
+            insert_solana_technical_chart_with_callout,
+            insert_solana_technical_chart,
+            insert_solana_technical_score_number,
+            insert_solana_momentum_score_number,
+            insert_solana_subtitle,
+            insert_solana_average_gauge,
+            insert_solana_technical_assessment,
+            insert_solana_source,
+            _get_solana_technical_score,
+            _get_solana_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_solana,
+        )
+    except Exception:
+        def make_solana_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_solana_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_solana_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_solana_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_solana_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_solana(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Binance functions from the dedicated module.  The Binance module resides
+# in ``technical_analysis/crypto/binance.py`` and provides helper functions
+# analogous to the other crypto assets.  If unavailable, fall back to a
+# top‑level ``binance`` module or define no‑op stand‑ins.
+try:
+    from technical_analysis.crypto.binance import (
+        make_binance_figure,
+        insert_binance_technical_chart_with_callout,
+        insert_binance_technical_chart,
+        insert_binance_technical_score_number,
+        insert_binance_momentum_score_number,
+        insert_binance_subtitle,
+        insert_binance_average_gauge,
+        insert_binance_technical_assessment,
+        insert_binance_source,
+        _get_binance_technical_score,
+        _get_binance_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_binance,
+    )
+except Exception:
+    try:
+        from binance import (
+            make_binance_figure,
+            insert_binance_technical_chart_with_callout,
+            insert_binance_technical_chart,
+            insert_binance_technical_score_number,
+            insert_binance_momentum_score_number,
+            insert_binance_subtitle,
+            insert_binance_average_gauge,
+            insert_binance_technical_assessment,
+            insert_binance_source,
+            _get_binance_technical_score,
+            _get_binance_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_binance,
+        )
+    except Exception:
+        def make_binance_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_binance_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_binance_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_binance_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_binance_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_binance(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Ethereum functions from the dedicated module.  The Ethereum module resides
+# in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
+# analogous to the Bitcoin module.  If it cannot be imported, a fallback to a
+# top‑level ``ethereum`` module is attempted.  When both imports fail, no‑op
+# stand‑ins are defined.
+try:
+    from technical_analysis.crypto.ethereum import (
+        make_ethereum_figure,
+        insert_ethereum_technical_chart_with_callout,
+        insert_ethereum_technical_chart,
+        insert_ethereum_technical_score_number,
+        insert_ethereum_momentum_score_number,
+        insert_ethereum_subtitle,
+        insert_ethereum_average_gauge,
+        insert_ethereum_technical_assessment,
+        insert_ethereum_source,
+        _get_ethereum_technical_score,
+        _get_ethereum_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_ethereum,
+    )
+except Exception:
+    try:
+        from ethereum import (
+            make_ethereum_figure,
+            insert_ethereum_technical_chart_with_callout,
+            insert_ethereum_technical_chart,
+            insert_ethereum_technical_score_number,
+            insert_ethereum_momentum_score_number,
+            insert_ethereum_subtitle,
+            insert_ethereum_average_gauge,
+            insert_ethereum_technical_assessment,
+            insert_ethereum_source,
+            _get_ethereum_technical_score,
+            _get_ethereum_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_ethereum,
+        )
+    except Exception:
+        def make_ethereum_figure(*args, **kwargs):  # type: ignore
+            return go.Figure()
+        def insert_ethereum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_technical_chart(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_technical_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_subtitle(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_average_gauge(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_technical_assessment(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def insert_ethereum_source(prs, *args, **kwargs):  # type: ignore
+            return prs
+        def _get_ethereum_technical_score(*args, **kwargs):  # type: ignore
+            return None
+        def _get_ethereum_momentum_score(*args, **kwargs):  # type: ignore
+            return None
+        def _compute_range_bounds_ethereum(*args, **kwargs):  # type: ignore
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import CSI functions from the dedicated module.  The CSI module resides
+# in ``technical_analysis/equity/csi.py`` and provides helper functions
+# for V2 chart generation (score/momentum retrieval, range computation).
+try:
+    from technical_analysis.equity.csi import (
+        make_csi_figure,
+        _get_csi_technical_score,
+        _get_csi_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_csi,
+    )
+except Exception:
+    # Define no-op stand-ins if the CSI module is unavailable
+    def make_csi_figure(*args, **kwargs):
+        return go.Figure()
+    def _get_csi_technical_score(*args, **kwargs):
+        return None
+    def _get_csi_momentum_score(*args, **kwargs):
+        return None
+
+    # Fallback: if the CSI module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_csi(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Nikkei functions from the dedicated module.  The Nikkei module
+# resides in ``technical_analysis/equity/nikkei.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
+try:
+    from technical_analysis.equity.nikkei import (
+        make_nikkei_figure,
+        _get_nikkei_technical_score,
+        _get_nikkei_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_nikkei,
+    )
+except Exception:
+    # Define no-op stand-ins if the Nikkei module is unavailable
+    def make_nikkei_figure(*args, **kwargs):
+        return go.Figure()
+    def _get_nikkei_technical_score(*args, **kwargs):
+        return None
+    def _get_nikkei_momentum_score(*args, **kwargs):
+        return None
+
+    # Fallback: if the Nikkei module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_nikkei(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import TASI functions from the dedicated module.  The TASI module
+# resides in ``technical_analysis/equity/tasi.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
+try:
+    from technical_analysis.equity.tasi import (
+        make_tasi_figure,
+        _get_tasi_technical_score,
+        _get_tasi_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_tasi,
+    )
+except Exception:
+    # Define no-op stand-ins if the TASI module is unavailable
+    def make_tasi_figure(*args, **kwargs):
+        return go.Figure()
+    def _get_tasi_technical_score(*args, **kwargs):
+        return None
+    def _get_tasi_momentum_score(*args, **kwargs):
+        return None
+
+    # Fallback: if the TASI module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_tasi(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Sensex functions from the dedicated module.  The Sensex module
+# resides in ``technical_analysis/equity/sensex.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
+try:
+    from technical_analysis.equity.sensex import (
+        make_sensex_figure,
+        _get_sensex_technical_score,
+        _get_sensex_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_sensex,
+    )
+except Exception:
+    # Define no-op stand-ins if the Sensex module is unavailable
+    def make_sensex_figure(*args, **kwargs):
+        return go.Figure()
+    def _get_sensex_technical_score(*args, **kwargs):
+        return None
+    def _get_sensex_momentum_score(*args, **kwargs):
+        return None
+
+    # Fallback: if the Sensex module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_sensex(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import helper to adjust price data according to price mode.  The utils
@@ -4650,64 +5708,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert DAX technical analysis slide (always)
+        # Insert DAX Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing DAX technical analysis...")
-        prs = insert_dax_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            dax_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert DAX technical score number
-        prs = insert_dax_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert DAX momentum score number
-        prs = insert_dax_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert DAX subtitle from user input
-        prs = insert_dax_subtitle(
-            prs,
-            st.session_state.get("dax_subtitle", ""),
-        )
-        # Insert DAX average gauge (last week's average is 0–100)
-        dax_last_week_avg = st.session_state.get("dax_last_week_avg", 50.0)
-        prs = insert_dax_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            dax_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'dax_view' textbox.
-        manual_view_dax = st.session_state.get("dax_selected_view")
-        prs = insert_dax_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_dax,
-        )
-        # Compute used date for DAX source footnote
         try:
-            import pandas as pd
-            df_prices_dax = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices_dax = df_prices_dax.drop(index=0)
-            df_prices_dax = df_prices_dax[df_prices_dax[df_prices_dax.columns[0]] != "DATES"]
-            df_prices_dax["Date"] = pd.to_datetime(df_prices_dax[df_prices_dax.columns[0]], errors="coerce")
-            # Use the DAX Index column for DAX prices
-            df_prices_dax["Price"] = pd.to_numeric(df_prices_dax["DAX Index"], errors="coerce")
-            df_prices_dax = df_prices_dax.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj_dax, used_date_dax = adjust_prices_for_mode(df_prices_dax, pmode)
-        except Exception:
-            used_date_dax = None
-        prs = insert_dax_source(
-            prs,
-            used_date_dax,
-            pmode,
-        )
+            update_progress("Processing DAX Technical Analysis...")
+            # Get DMAS scores from session state
+            dax_dmas = st.session_state.get("dax_dmas", 50)
+            dax_dmas_prev = st.session_state.get("dax_last_week_avg", dax_dmas)
+            dax_tech = _get_dax_technical_score(excel_path_for_ppt)
+            dax_momentum = _get_dax_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] DAX DMAS: {dax_dmas}, Prev Week: {dax_dmas_prev}, Tech: {dax_tech}, Mom: {dax_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            dax_tech_prev = st.session_state.get("dax_last_week_tech", None)
+            dax_mom_prev = st.session_state.get("dax_last_week_mom", None)
+            dax_rsi_prev = st.session_state.get("dax_last_week_rsi", None)
+            print(f"[Tech V2] DAX Prev week scores - Tech: {dax_tech_prev}, Mom: {dax_mom_prev}, RSI: {dax_rsi_prev}")
+
+            # Get gap information for change text formatting
+            dax_days_gap = st.session_state.get("dax_prev_days_gap", None)
+            dax_prev_date = st.session_state.get("dax_prev_date", None)
+
+            # Compute used date for DAX source footnote
+            try:
+                import pandas as pd
+                df_prices_dax = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_dax = df_prices_dax.drop(index=0)
+                df_prices_dax = df_prices_dax[df_prices_dax[df_prices_dax.columns[0]] != "DATES"]
+                df_prices_dax["Date"] = pd.to_datetime(df_prices_dax[df_prices_dax.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_dax = df_prices_dax[df_prices_dax["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_dax["Price"] = pd.to_numeric(df_prices_dax["DAX Index"], errors="coerce")
+                df_prices_dax = df_prices_dax.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_dax, used_date_dax = adjust_prices_for_mode(df_prices_dax, pmode)
+            except Exception:
+                used_date_dax = None
+
+            v2_bytes_dax, v2_date_dax = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="DAX Index",
+                price_mode=pmode,
+                dmas_score=int(dax_dmas),
+                dmas_prev_week=int(dax_dmas_prev),
+                technical_score=dax_tech,
+                technical_prev_week=dax_tech_prev,
+                momentum_score=dax_momentum,
+                momentum_prev_week=dax_mom_prev,
+                rsi_prev_week=dax_rsi_prev,
+                days_gap=dax_days_gap,
+                previous_date=dax_prev_date,
+            )
+            # Get the view and subtitle
+            v2_view_text_dax = st.session_state.get("dax_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text_dax and not v2_view_text_dax.lower().startswith("dax"):
+                v2_view_text_dax = f"DAX: {v2_view_text_dax}"
+            v2_subtitle_dax = st.session_state.get("dax_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_dax,
+                used_date=used_date_dax,
+                price_mode=pmode,
+                placeholder_name="dax_v2",
+                view_text=v2_view_text_dax,
+                subtitle_text=v2_subtitle_dax,
+            )
+        except Exception as e:
+            print(f"[Tech V2] DAX v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert SMI technical analysis slide (always)
