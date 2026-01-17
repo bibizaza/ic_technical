@@ -1351,50 +1351,24 @@ except Exception:
 
 # Import TASI functions from the dedicated module.  The TASI module
 # resides in ``technical_analysis/equity/tasi.py`` and provides helper
-# functions analogous to the SPX, CSI and Nikkei functions.  These allow
-# technical analysis of the TASI (Saudi) index.  If the module is not
-# present, Streamlit will fall back gracefully when TASI analysis is
-# not requested.
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.equity.tasi import (
         make_tasi_figure,
-        insert_tasi_technical_chart_with_callout,
-        insert_tasi_technical_chart,
-        insert_tasi_technical_score_number,
-        insert_tasi_momentum_score_number,
-        insert_tasi_subtitle,
-        insert_tasi_average_gauge,
-        insert_tasi_technical_assessment,
-        insert_tasi_source,
         _get_tasi_technical_score,
         _get_tasi_momentum_score,
         _compute_range_bounds as _compute_range_bounds_tasi,
     )
 except Exception:
-    # Define no-op stand‑ins if the TASI module is unavailable
+    # Define no-op stand-ins if the TASI module is unavailable
     def make_tasi_figure(*args, **kwargs):
         return go.Figure()
-    def insert_tasi_technical_chart_with_callout(prs, *args, **kwargs):
-        return prs
-    def insert_tasi_technical_chart(prs, *args, **kwargs):
-        return prs
-    def insert_tasi_technical_score_number(prs, *args, **kwargs):
-        return prs
-    def insert_tasi_momentum_score_number(prs, *args, **kwargs):
-        return prs
-    def insert_tasi_subtitle(prs, *args, **kwargs):
-        return prs
-    def insert_tasi_average_gauge(prs, *args, **kwargs):
-        return prs
-    def insert_tasi_technical_assessment(prs, *args, **kwargs):
-        return prs
-    def insert_tasi_source(prs, *args, **kwargs):
-        return prs
     def _get_tasi_technical_score(*args, **kwargs):
         return None
     def _get_tasi_momentum_score(*args, **kwargs):
         return None
-    # Fallback: use the SPX range computation as a generic fallback
+
+    # Fallback: if the TASI module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_tasi(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
@@ -4551,64 +4525,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert TASI technical analysis slide (always)
+        # Insert TASI Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing TASI technical analysis...")
-        prs = insert_tasi_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            tasi_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert TASI technical score number
-        prs = insert_tasi_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert TASI momentum score number
-        prs = insert_tasi_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert TASI subtitle from user input
-        prs = insert_tasi_subtitle(
-            prs,
-            st.session_state.get("tasi_subtitle", ""),
-        )
-        # Insert TASI average gauge (last week's average is 0–100)
-        tasi_last_week_avg = st.session_state.get("tasi_last_week_avg", 50.0)
-        prs = insert_tasi_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            tasi_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'tasi_view' textbox
-        manual_view_tasi = st.session_state.get("tasi_selected_view")
-        prs = insert_tasi_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_tasi,
-        )
-        # Compute used date for TASI source footnote
         try:
-            import pandas as pd
-            df_prices_tasi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices_tasi = df_prices_tasi.drop(index=0)
-            df_prices_tasi = df_prices_tasi[df_prices_tasi[df_prices_tasi.columns[0]] != "DATES"]
-            df_prices_tasi["Date"] = pd.to_datetime(df_prices_tasi[df_prices_tasi.columns[0]], errors="coerce")
-            # Use the SASEIDX Index column for TASI prices
-            df_prices_tasi["Price"] = pd.to_numeric(df_prices_tasi["SASEIDX Index"], errors="coerce")
-            df_prices_tasi = df_prices_tasi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj_tasi, used_date_tasi = adjust_prices_for_mode(df_prices_tasi, pmode)
-        except Exception:
-            used_date_tasi = None
-        prs = insert_tasi_source(
-            prs,
-            used_date_tasi,
-            pmode,
-        )
+            update_progress("Processing TASI Technical Analysis...")
+            # Get DMAS scores from session state
+            tasi_dmas = st.session_state.get("tasi_dmas", 50)
+            tasi_dmas_prev = st.session_state.get("tasi_last_week_avg", tasi_dmas)
+            tasi_tech = _get_tasi_technical_score(excel_path_for_ppt)
+            tasi_momentum = _get_tasi_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] TASI DMAS: {tasi_dmas}, Prev Week: {tasi_dmas_prev}, Tech: {tasi_tech}, Mom: {tasi_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            tasi_tech_prev = st.session_state.get("tasi_last_week_tech", None)
+            tasi_mom_prev = st.session_state.get("tasi_last_week_mom", None)
+            tasi_rsi_prev = st.session_state.get("tasi_last_week_rsi", None)
+            print(f"[Tech V2] TASI Prev week scores - Tech: {tasi_tech_prev}, Mom: {tasi_mom_prev}, RSI: {tasi_rsi_prev}")
+
+            # Get gap information for change text formatting
+            tasi_days_gap = st.session_state.get("tasi_prev_days_gap", None)
+            tasi_prev_date = st.session_state.get("tasi_prev_date", None)
+
+            # Compute used date for TASI source footnote
+            try:
+                import pandas as pd
+                df_prices_tasi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_tasi = df_prices_tasi.drop(index=0)
+                df_prices_tasi = df_prices_tasi[df_prices_tasi[df_prices_tasi.columns[0]] != "DATES"]
+                df_prices_tasi["Date"] = pd.to_datetime(df_prices_tasi[df_prices_tasi.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_tasi = df_prices_tasi[df_prices_tasi["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_tasi["Price"] = pd.to_numeric(df_prices_tasi["SASEIDX Index"], errors="coerce")
+                df_prices_tasi = df_prices_tasi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_tasi, used_date_tasi = adjust_prices_for_mode(df_prices_tasi, pmode)
+            except Exception:
+                used_date_tasi = None
+
+            v2_bytes_tasi, v2_date_tasi = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="SASEIDX Index",
+                price_mode=pmode,
+                dmas_score=int(tasi_dmas),
+                dmas_prev_week=int(tasi_dmas_prev),
+                technical_score=tasi_tech,
+                technical_prev_week=tasi_tech_prev,
+                momentum_score=tasi_momentum,
+                momentum_prev_week=tasi_mom_prev,
+                rsi_prev_week=tasi_rsi_prev,
+                days_gap=tasi_days_gap,
+                previous_date=tasi_prev_date,
+            )
+            # Get the view and subtitle
+            v2_view_text_tasi = st.session_state.get("tasi_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text_tasi and not v2_view_text_tasi.lower().startswith("tasi"):
+                v2_view_text_tasi = f"TASI: {v2_view_text_tasi}"
+            v2_subtitle_tasi = st.session_state.get("tasi_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_tasi,
+                used_date=used_date_tasi,
+                price_mode=pmode,
+                placeholder_name="tasi_v2",
+                view_text=v2_view_text_tasi,
+                subtitle_text=v2_subtitle_tasi,
+            )
+        except Exception as e:
+            print(f"[Tech V2] TASI v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Sensex technical analysis slide
