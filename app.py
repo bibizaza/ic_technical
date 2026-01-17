@@ -381,24 +381,12 @@ except Exception:
     def _compute_range_bounds_mexbol(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Gold functions from the dedicated module.  The Gold module resides
-# in ``technical_analysis/commodity/gold.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
-# To support running locally (e.g. when the technical_analysis package is
-# unavailable), a second import attempt is made from a top‑level ``gold``
-# module.  Fallbacks ensure the application remains functional even if the
-# Gold module cannot be imported.
+# Import Gold functions from the dedicated module.  The Gold module
+# resides in ``technical_analysis/commodity/gold.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.commodity.gold import (
         make_gold_figure,
-        insert_gold_technical_chart_with_callout,
-        insert_gold_technical_chart,
-        insert_gold_technical_score_number,
-        insert_gold_momentum_score_number,
-        insert_gold_subtitle,
-        insert_gold_average_gauge,
-        insert_gold_technical_assessment,
-        insert_gold_source,
         _get_gold_technical_score,
         _get_gold_momentum_score,
         _compute_range_bounds as _compute_range_bounds_gold,
@@ -407,55 +395,19 @@ except Exception:
     try:
         from gold import (
             make_gold_figure,
-            insert_gold_technical_chart_with_callout,
-            insert_gold_technical_chart,
-            insert_gold_technical_score_number,
-            insert_gold_momentum_score_number,
-            insert_gold_subtitle,
-            insert_gold_average_gauge,
-            insert_gold_technical_assessment,
-            insert_gold_source,
             _get_gold_technical_score,
             _get_gold_momentum_score,
             _compute_range_bounds as _compute_range_bounds_gold,
         )
     except Exception:
-        # Define no‑op stand‑ins if the Gold module is unavailable
-        def make_gold_figure(*args, **kwargs):  # type: ignore
+        # Define no-op stand-ins if the Gold module is unavailable
+        def make_gold_figure(*args, **kwargs):
             return go.Figure()
-
-        def insert_gold_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def _get_gold_technical_score(*args, **kwargs):  # type: ignore
+        def _get_gold_technical_score(*args, **kwargs):
             return None
-
-        def _get_gold_momentum_score(*args, **kwargs):  # type: ignore
+        def _get_gold_momentum_score(*args, **kwargs):
             return None
-
-        # Fallback: if the Gold module is unavailable, fall back to the SPX range computation
-        def _compute_range_bounds_gold(*args, **kwargs):  # type: ignore
+        def _compute_range_bounds_gold(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Silver functions from the dedicated module.  Similar to Gold, these
@@ -1265,83 +1217,6 @@ except Exception:
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Gold functions from the dedicated module.  The Gold module resides
-# in ``technical_analysis/commodity/gold.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
-# To support running locally (e.g. when the technical_analysis package is
-# unavailable), a second import attempt is made from a top‑level ``gold``
-# module.  Fallbacks ensure the application remains functional even if the
-# Gold module cannot be imported.
-try:
-    from technical_analysis.commodity.gold import (
-        make_gold_figure,
-        insert_gold_technical_chart_with_callout,
-        insert_gold_technical_chart,
-        insert_gold_technical_score_number,
-        insert_gold_momentum_score_number,
-        insert_gold_subtitle,
-        insert_gold_average_gauge,
-        insert_gold_technical_assessment,
-        insert_gold_source,
-        _get_gold_technical_score,
-        _get_gold_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_gold,
-    )
-except Exception:
-    try:
-        from gold import (
-            make_gold_figure,
-            insert_gold_technical_chart_with_callout,
-            insert_gold_technical_chart,
-            insert_gold_technical_score_number,
-            insert_gold_momentum_score_number,
-            insert_gold_subtitle,
-            insert_gold_average_gauge,
-            insert_gold_technical_assessment,
-            insert_gold_source,
-            _get_gold_technical_score,
-            _get_gold_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_gold,
-        )
-    except Exception:
-        # Define no‑op stand‑ins if the Gold module is unavailable
-        def make_gold_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-
-        def insert_gold_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def insert_gold_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-
-        def _get_gold_technical_score(*args, **kwargs):  # type: ignore
-            return None
-
-        def _get_gold_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-
-        # Fallback: if the Gold module is unavailable, fall back to the SPX range computation
-        def _compute_range_bounds_gold(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Silver functions from the dedicated module.  Similar to Gold, these
 # helpers reside in ``technical_analysis/commodity/silver.py``.  If that
@@ -5635,46 +5510,27 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Gold technical analysis slide (commodity)
+        # Insert Gold Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Gold technical analysis...")
-        # Only attempt if Gold helper functions are available (imported above)
         try:
-            # Insert the Gold chart with call-out and regression channel anchored at gold_anchor_dt
-            prs = insert_gold_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                gold_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Gold technical and momentum scores
-            prs = insert_gold_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_gold_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Gold subtitle from user input
-            prs = insert_gold_subtitle(
-                prs,
-                st.session_state.get("gold_subtitle", ""),
-            )
-            # Insert Gold average gauge (last week's average DMAS)
-            gold_last_week_avg = st.session_state.get("gold_last_week_avg", 50.0)
-            prs = insert_gold_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                gold_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'gold_view' textbox
-            manual_view_gold = st.session_state.get("gold_selected_view")
-            prs = insert_gold_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_gold,
-            )
+            update_progress("Processing Gold Technical Analysis...")
+            # Get DMAS scores from session state
+            gold_dmas = st.session_state.get("gold_dmas", 50)
+            gold_dmas_prev = st.session_state.get("gold_last_week_avg", gold_dmas)
+            gold_tech = _get_gold_technical_score(excel_path_for_ppt)
+            gold_momentum = _get_gold_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Gold DMAS: {gold_dmas}, Prev Week: {gold_dmas_prev}, Tech: {gold_tech}, Mom: {gold_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            gold_tech_prev = st.session_state.get("gold_last_week_tech", None)
+            gold_mom_prev = st.session_state.get("gold_last_week_mom", None)
+            gold_rsi_prev = st.session_state.get("gold_last_week_rsi", None)
+            print(f"[Tech V2] Gold Prev week scores - Tech: {gold_tech_prev}, Mom: {gold_mom_prev}, RSI: {gold_rsi_prev}")
+
+            # Get gap information for change text formatting
+            gold_days_gap = st.session_state.get("gold_prev_days_gap", None)
+            gold_prev_date = st.session_state.get("gold_prev_date", None)
+
             # Compute used date for Gold source footnote
             try:
                 import pandas as pd
@@ -5682,7 +5538,9 @@ def show_generate_presentation_page():
                 df_prices_gold = df_prices_gold.drop(index=0)
                 df_prices_gold = df_prices_gold[df_prices_gold[df_prices_gold.columns[0]] != "DATES"]
                 df_prices_gold["Date"] = pd.to_datetime(df_prices_gold[df_prices_gold.columns[0]], errors="coerce")
-                # Use the GCA Comdty column for Gold prices
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_gold = df_prices_gold[df_prices_gold["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
                 df_prices_gold["Price"] = pd.to_numeric(df_prices_gold["GCA Comdty"], errors="coerce")
                 df_prices_gold = df_prices_gold.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
@@ -5690,14 +5548,41 @@ def show_generate_presentation_page():
                 df_adj_gold, used_date_gold = adjust_prices_for_mode(df_prices_gold, pmode)
             except Exception:
                 used_date_gold = None
-            prs = insert_gold_source(
-                prs,
-                used_date_gold,
-                pmode,
+
+            v2_bytes_gold, v2_date_gold = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="GCA Comdty",
+                price_mode=pmode,
+                dmas_score=int(gold_dmas),
+                dmas_prev_week=int(gold_dmas_prev),
+                technical_score=gold_tech,
+                technical_prev_week=gold_tech_prev,
+                momentum_score=gold_momentum,
+                momentum_prev_week=gold_mom_prev,
+                rsi_prev_week=gold_rsi_prev,
+                days_gap=gold_days_gap,
+                previous_date=gold_prev_date,
             )
-        except Exception:
-            # If any part of the Gold insertion fails, continue to Silver without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_gold = st.session_state.get("gold_selected_view")
+            # Prepend commodity name if not already present
+            if v2_view_text_gold and not v2_view_text_gold.lower().startswith("gold"):
+                v2_view_text_gold = f"Gold: {v2_view_text_gold}"
+            v2_subtitle_gold = st.session_state.get("gold_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_gold,
+                used_date=used_date_gold,
+                price_mode=pmode,
+                placeholder_name="gold_v2",
+                view_text=v2_view_text_gold,
+                subtitle_text=v2_subtitle_gold,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Gold v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Silver technical analysis slide (commodity)
