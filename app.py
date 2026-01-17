@@ -410,21 +410,12 @@ except Exception:
         def _compute_range_bounds_gold(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Silver functions from the dedicated module.  Similar to Gold, these
-# helpers reside in ``technical_analysis/commodity/silver.py``.  If that
-# package is unavailable, a second attempt is made to import a top‑level
-# ``silver`` module.  No‑op fallbacks are defined if both imports fail.
+# Import Silver functions from the dedicated module.  The Silver module
+# resides in ``technical_analysis/commodity/silver.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.commodity.silver import (
         make_silver_figure,
-        insert_silver_technical_chart_with_callout,
-        insert_silver_technical_chart,
-        insert_silver_technical_score_number,
-        insert_silver_momentum_score_number,
-        insert_silver_subtitle,
-        insert_silver_average_gauge,
-        insert_silver_technical_assessment,
-        insert_silver_source,
         _get_silver_technical_score,
         _get_silver_momentum_score,
         _compute_range_bounds as _compute_range_bounds_silver,
@@ -433,42 +424,19 @@ except Exception:
     try:
         from silver import (
             make_silver_figure,
-            insert_silver_technical_chart_with_callout,
-            insert_silver_technical_chart,
-            insert_silver_technical_score_number,
-            insert_silver_momentum_score_number,
-            insert_silver_subtitle,
-            insert_silver_average_gauge,
-            insert_silver_technical_assessment,
-            insert_silver_source,
             _get_silver_technical_score,
             _get_silver_momentum_score,
             _compute_range_bounds as _compute_range_bounds_silver,
         )
     except Exception:
-        def make_silver_figure(*args, **kwargs):  # type: ignore
+        # Define no-op stand-ins if the Silver module is unavailable
+        def make_silver_figure(*args, **kwargs):
             return go.Figure()
-        def insert_silver_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_silver_technical_score(*args, **kwargs):  # type: ignore
+        def _get_silver_technical_score(*args, **kwargs):
             return None
-        def _get_silver_momentum_score(*args, **kwargs):  # type: ignore
+        def _get_silver_momentum_score(*args, **kwargs):
             return None
-        def _compute_range_bounds_silver(*args, **kwargs):  # type: ignore
+        def _compute_range_bounds_silver(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Platinum functions from the dedicated module.  Similar to Gold and Silver,
@@ -1217,67 +1185,6 @@ except Exception:
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Silver functions from the dedicated module.  Similar to Gold, these
-# helpers reside in ``technical_analysis/commodity/silver.py``.  If that
-# package is unavailable, a second attempt is made to import a top‑level
-# ``silver`` module.  No‑op fallbacks are defined if both imports fail.
-try:
-    from technical_analysis.commodity.silver import (
-        make_silver_figure,
-        insert_silver_technical_chart_with_callout,
-        insert_silver_technical_chart,
-        insert_silver_technical_score_number,
-        insert_silver_momentum_score_number,
-        insert_silver_subtitle,
-        insert_silver_average_gauge,
-        insert_silver_technical_assessment,
-        insert_silver_source,
-        _get_silver_technical_score,
-        _get_silver_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_silver,
-    )
-except Exception:
-    try:
-        from silver import (
-            make_silver_figure,
-            insert_silver_technical_chart_with_callout,
-            insert_silver_technical_chart,
-            insert_silver_technical_score_number,
-            insert_silver_momentum_score_number,
-            insert_silver_subtitle,
-            insert_silver_average_gauge,
-            insert_silver_technical_assessment,
-            insert_silver_source,
-            _get_silver_technical_score,
-            _get_silver_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_silver,
-        )
-    except Exception:
-        def make_silver_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_silver_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_silver_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_silver_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_silver_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_silver(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Platinum functions from the dedicated module.  Similar to Gold and Silver,
 # these helpers reside in ``technical_analysis/commodity/platinum.py``.  If that
@@ -5585,46 +5492,37 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Silver technical analysis slide (commodity)
+        # Insert Silver Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Silver technical analysis...")
         try:
-            prs = insert_silver_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                silver_anchor_dt,
-                price_mode=pmode,
-            )
-            prs = insert_silver_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_silver_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_silver_subtitle(
-                prs,
-                st.session_state.get("silver_subtitle", ""),
-            )
-            silver_last_week_avg = st.session_state.get("silver_last_week_avg", 50.0)
-            prs = insert_silver_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                silver_last_week_avg,
-            )
-            manual_view_silver = st.session_state.get("silver_selected_view")
-            prs = insert_silver_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_silver,
-            )
+            update_progress("Processing Silver Technical Analysis...")
+            # Get DMAS scores from session state
+            silver_dmas = st.session_state.get("silver_dmas", 50)
+            silver_dmas_prev = st.session_state.get("silver_last_week_avg", silver_dmas)
+            silver_tech = _get_silver_technical_score(excel_path_for_ppt)
+            silver_momentum = _get_silver_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Silver DMAS: {silver_dmas}, Prev Week: {silver_dmas_prev}, Tech: {silver_tech}, Mom: {silver_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            silver_tech_prev = st.session_state.get("silver_last_week_tech", None)
+            silver_mom_prev = st.session_state.get("silver_last_week_mom", None)
+            silver_rsi_prev = st.session_state.get("silver_last_week_rsi", None)
+            print(f"[Tech V2] Silver Prev week scores - Tech: {silver_tech_prev}, Mom: {silver_mom_prev}, RSI: {silver_rsi_prev}")
+
+            # Get gap information for change text formatting
+            silver_days_gap = st.session_state.get("silver_prev_days_gap", None)
+            silver_prev_date = st.session_state.get("silver_prev_date", None)
+
+            # Compute used date for Silver source footnote
             try:
                 import pandas as pd
                 df_prices_silver = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_silver = df_prices_silver.drop(index=0)
                 df_prices_silver = df_prices_silver[df_prices_silver[df_prices_silver.columns[0]] != "DATES"]
                 df_prices_silver["Date"] = pd.to_datetime(df_prices_silver[df_prices_silver.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_silver = df_prices_silver[df_prices_silver["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
                 df_prices_silver["Price"] = pd.to_numeric(df_prices_silver["SIA Comdty"], errors="coerce")
                 df_prices_silver = df_prices_silver.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
@@ -5632,14 +5530,41 @@ def show_generate_presentation_page():
                 df_adj_silver, used_date_silver = adjust_prices_for_mode(df_prices_silver, pmode)
             except Exception:
                 used_date_silver = None
-            prs = insert_silver_source(
-                prs,
-                used_date_silver,
-                pmode,
+
+            v2_bytes_silver, v2_date_silver = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="SIA Comdty",
+                price_mode=pmode,
+                dmas_score=int(silver_dmas),
+                dmas_prev_week=int(silver_dmas_prev),
+                technical_score=silver_tech,
+                technical_prev_week=silver_tech_prev,
+                momentum_score=silver_momentum,
+                momentum_prev_week=silver_mom_prev,
+                rsi_prev_week=silver_rsi_prev,
+                days_gap=silver_days_gap,
+                previous_date=silver_prev_date,
             )
-        except Exception:
-            # If Gold or Silver module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_silver = st.session_state.get("silver_selected_view")
+            # Prepend commodity name if not already present
+            if v2_view_text_silver and not v2_view_text_silver.lower().startswith("silver"):
+                v2_view_text_silver = f"Silver: {v2_view_text_silver}"
+            v2_subtitle_silver = st.session_state.get("silver_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_silver,
+                used_date=used_date_silver,
+                price_mode=pmode,
+                placeholder_name="silver_v2",
+                view_text=v2_view_text_silver,
+                subtitle_text=v2_subtitle_silver,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Silver v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Platinum technical analysis slide (commodity)
