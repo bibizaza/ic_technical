@@ -156,6 +156,46 @@ def _load_price_data(
 # moving averages when displaying a shorter slice of data.
 PLOT_LOOKBACK_DAYS: int = 90
 
+# Technical Analysis V2 lookback days (can be overridden at runtime)
+TECH_V2_LOOKBACK_DAYS: int = 90
+
+# ---------------------------------------------------------------------------
+# Volatility Index Mapping for Trading Range Calculation
+# ---------------------------------------------------------------------------
+# Maps instrument tickers to their corresponding volatility indices.
+# Instruments not in this mapping will use price-based fallback.
+VOLATILITY_INDEX_MAP = {
+    # Equities
+    "SPX Index": "VIX Index",
+    "DAX Index": "V1X Index",
+    "NKY Index": "VNKY Index",
+    "IBOV Index": "VBOV Index",
+    "SENSEX Index": "INVIXN Index",
+    "SMI Index": "VSMI1M Index",
+
+    # Commodities
+    "GCA Comdty": "XAUUSDV1M BGN Curncy",  # Gold
+    "SIA Comdty": "XAGUSDV1M BGN Curncy",  # Silver
+    "XPT Comdty": "XPTUSDV1M BGN Curncy",  # Platinum
+    "CL1 Comdty": "WTI US 1M 50D VOL",     # Oil (WTI)
+    "LP1 Comdty": "LPR1 Index",            # Copper
+
+    # Crypto
+    "XBTUSD Curncy": "BVXS Index",         # Bitcoin
+}
+
+# Instruments without volatility index - will use price-based fallback
+NO_VOL_INDEX_TICKERS = [
+    "SHSZ300 Index",    # CSI 300
+    "SASEIDX Index",    # TASI
+    "MEXBOL Index",     # Mexbol
+    "XPD Curncy",       # Palladium
+    "XETUSD Curncy",    # Ethereum
+    "XRPUSD Curncy",    # Ripple
+    "XSOUSD Curncy",    # Solana
+    "XBIUSD Curncy",    # Binance
+]
+
 # Import helper for adjusting price data according to price mode.  The utils
 # module must reside at the project root.  It is deliberately not imported
 # from ``technical_analysis.utils`` so that this module can be reused when
@@ -204,6 +244,160 @@ def _get_vol_index_value(
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
     except Exception:
         return None
+    # Drop first row and metadata rows
+    df = df.drop(index=0)
+    df = df[df[df.columns[0]] != "DATES"]
+    # Parse dates and the volatility index column
+    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
+    # Ensure the volatility index column exists
+    if vol_ticker not in df.columns:
+        return None
+    df["Vol"] = pd.to_numeric(df[vol_ticker], errors="coerce")
+    df_clean = df.dropna(subset=["Date", "Vol"]).sort_values("Date").reset_index(drop=True)[
+        ["Date", "Vol"]
+    ]
+    # Apply price mode adjustment if possible
+    if adjust_prices_for_mode is not None and price_mode:
+        try:
+            # Temporarily rename Vol to Price for adjust_prices_for_mode
+            df_clean = df_clean.rename(columns={"Vol": "Price"})
+            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
+            df_clean = df_clean.rename(columns={"Price": "Vol"})
+        except Exception:
+            pass
+    if df_clean.empty:
+        return None
+    return float(df_clean["Vol"].iloc[-1])
+
+
+def _calculate_price_based_range(
+    df: pd.DataFrame,
+    lookback: int = 63,
+    pct_low: float = 10,
+    pct_high: float = 90,
+) -> Tuple[float, float]:
+    """
+    Calculate trading range from price percentiles (fallback method).
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame with 'Price' column.
+    lookback : int, default 63
+        Number of trading days to look back (approx. 3 months).
+    pct_low : float, default 10
+        Percentile for lower bound.
+    pct_high : float, default 90
+        Percentile for upper bound.
+
+    Returns
+    -------
+    tuple[float, float]
+        (lower_range, higher_range)
+    """
+    recent = df["Price"].tail(lookback)
+    lower = float(np.percentile(recent, pct_low))
+    higher = float(np.percentile(recent, pct_high))
+    return (lower, higher)
+
+
+def _apply_range_guards(
+    lower: float,
+    higher: float,
+    current_price: float,
+    min_pct: float = 0.03,
+    max_pct: float = 0.20,
+) -> Tuple[float, float]:
+    """
+    Ensure range width is sensible (3% to 20% of price).
+
+    Parameters
+    ----------
+    lower : float
+        Lower range bound.
+    higher : float
+        Higher range bound.
+    current_price : float
+        Current price of the instrument.
+    min_pct : float, default 0.03
+        Minimum range as percentage of price (3%).
+    max_pct : float, default 0.20
+        Maximum range as percentage of price (20%).
+
+    Returns
+    -------
+    tuple[float, float]
+        Adjusted (lower, higher) range.
+    """
+    range_pct = (higher - lower) / current_price if current_price > 0 else 0
+
+    if range_pct < min_pct:
+        half_range = (min_pct * current_price) / 2
+        lower = current_price - half_range
+        higher = current_price + half_range
+
+    if range_pct > max_pct:
+        half_range = (max_pct * current_price) / 2
+        lower = current_price - half_range
+        higher = current_price + half_range
+
+    return (lower, higher)
+
+
+def get_trading_range(
+    ticker: str,
+    current_price: float,
+    df: pd.DataFrame,
+    excel_path,
+    price_mode: str = "Last Price",
+    days_forward: int = 21,
+) -> Tuple[float, float]:
+    """
+    Calculate trading range using volatility index (primary) or price history (fallback).
+
+    Parameters
+    ----------
+    ticker : str
+        Bloomberg ticker of the instrument.
+    current_price : float
+        Current price.
+    df : pandas.DataFrame
+        DataFrame with 'Price' column (price history).
+    excel_path : str or Path
+        Path to Excel file containing volatility data.
+    price_mode : str, default "Last Price"
+        Price mode for data adjustment.
+    days_forward : int, default 21
+        Projection period (default 21 days = ~1 month).
+
+    Returns
+    -------
+    tuple[float, float]
+        (lower_range, higher_range)
+    """
+    # Try volatility-based method first
+    vol_ticker = VOLATILITY_INDEX_MAP.get(ticker)
+
+    if vol_ticker:
+        vol_value = _get_vol_index_value(excel_path, price_mode=price_mode, vol_ticker=vol_ticker)
+
+        if vol_value and vol_value > 0:
+            # Volatility-based calculation: annualized vol to period move
+            annual_vol = vol_value / 100  # e.g., 18 -> 0.18
+            period_vol = annual_vol * (days_forward / 252) ** 0.5
+            expected_move = current_price * period_vol
+
+            lower = current_price - expected_move
+            higher = current_price + expected_move
+
+            print(f"[{ticker}] Using volatility-based range (vol={vol_value:.1f}%, move=±{expected_move:.2f})")
+            return _apply_range_guards(lower, higher, current_price)
+
+    # Fallback to price-based
+    lower, higher = _calculate_price_based_range(df)
+    print(f"[{ticker}] Using price-based range (no volatility data)")
+    return _apply_range_guards(lower, higher, current_price)
+
 
 # ---------------------------------------------------------------------------
 # Momentum score helpers
@@ -1250,16 +1444,18 @@ def create_technical_analysis_v2_chart(
     period_low = df["Price"].min()
     fib_levels = _compute_fibonacci_levels(period_high, period_low)
 
-    # Trading range (use volatility-based if available)
-    vol_val = _get_vol_index_value(excel_path, price_mode=price_mode, vol_ticker="VIX Index")
-    if vol_val:
-        expected_move = (last_price * (vol_val / 100)) / (52 ** 0.5)
-        higher_range = float(round(last_price + expected_move, 0))
-        lower_range = float(round(last_price - expected_move, 0))
-    else:
-        # Fallback: 2% range
-        higher_range = float(round(last_price * 1.02, 0))
-        lower_range = float(round(last_price * 0.98, 0))
+    # Trading range (use volatility index if available, else price-based fallback)
+    lower_range, higher_range = get_trading_range(
+        ticker=ticker,
+        current_price=last_price,
+        df=df,
+        excel_path=excel_path,
+        price_mode=price_mode,
+        days_forward=21,  # 1-month forward projection
+    )
+    # Round for clean display
+    higher_range = float(round(higher_range, 0))
+    lower_range = float(round(lower_range, 0))
 
     higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
