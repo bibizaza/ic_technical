@@ -5380,78 +5380,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Copper technical analysis slide (commodity)
+        # Insert Copper Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Copper technical analysis...")
         try:
-            # Insert the Copper chart with call-out and regression channel anchored at copper_anchor_dt
-            prs = insert_copper_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                copper_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Copper technical and momentum scores
-            prs = insert_copper_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_copper_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Copper subtitle from user input
-            prs = insert_copper_subtitle(
-                prs,
-                st.session_state.get("copper_subtitle", ""),
-            )
-            # Insert Copper average gauge (last week's average DMAS)
-            copper_last_week_avg = st.session_state.get("copper_last_week_avg", 50.0)
-            prs = insert_copper_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                copper_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'copper_view' textbox
-            manual_view_copper = st.session_state.get("copper_selected_view")
-            prs = insert_copper_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_copper,
-            )
+            update_progress("Processing Copper Technical Analysis...")
+            # Get DMAS scores from session state
+            copper_dmas = st.session_state.get("copper_dmas", 50)
+            copper_dmas_prev = st.session_state.get("copper_last_week_avg", copper_dmas)
+            copper_tech = _get_copper_technical_score(excel_path_for_ppt)
+            copper_momentum = _get_copper_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Copper DMAS: {copper_dmas}, Prev Week: {copper_dmas_prev}, Tech: {copper_tech}, Mom: {copper_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            copper_tech_prev = st.session_state.get("copper_last_week_tech", None)
+            copper_mom_prev = st.session_state.get("copper_last_week_mom", None)
+            copper_rsi_prev = st.session_state.get("copper_last_week_rsi", None)
+            print(f"[Tech V2] Copper Prev week scores - Tech: {copper_tech_prev}, Mom: {copper_mom_prev}, RSI: {copper_rsi_prev}")
+
+            # Get gap information for change text formatting
+            copper_days_gap = st.session_state.get("copper_prev_days_gap", None)
+            copper_prev_date = st.session_state.get("copper_prev_date", None)
+
             # Compute used date for Copper source footnote
             try:
                 import pandas as pd
                 df_prices_copper = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_copper = df_prices_copper.drop(index=0)
-                df_prices_copper = df_prices_copper[
-                    df_prices_copper[df_prices_copper.columns[0]] != "DATES"
-                ]
-                df_prices_copper["Date"] = pd.to_datetime(
-                    df_prices_copper[df_prices_copper.columns[0]], errors="coerce"
-                )
-                # Use the LP1 Comdty column for Copper prices
-                df_prices_copper["Price"] = pd.to_numeric(
-                    df_prices_copper["LP1 Comdty"], errors="coerce"
-                )
-                df_prices_copper = df_prices_copper.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[
+                df_prices_copper = df_prices_copper[df_prices_copper[df_prices_copper.columns[0]] != "DATES"]
+                df_prices_copper["Date"] = pd.to_datetime(df_prices_copper[df_prices_copper.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_copper = df_prices_copper[df_prices_copper["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_copper["Price"] = pd.to_numeric(df_prices_copper["LP1 Comdty"], errors="coerce")
+                df_prices_copper = df_prices_copper.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
                 ]
-                df_adj_copper, used_date_copper = adjust_prices_for_mode(
-                    df_prices_copper, pmode
-                )
+                df_adj_copper, used_date_copper = adjust_prices_for_mode(df_prices_copper, pmode)
             except Exception:
                 used_date_copper = None
-            prs = insert_copper_source(
-                prs,
-                used_date_copper,
-                pmode,
+
+            v2_bytes_copper, v2_date_copper = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="LP1 Comdty",
+                price_mode=pmode,
+                dmas_score=int(copper_dmas),
+                dmas_prev_week=int(copper_dmas_prev),
+                technical_score=copper_tech,
+                technical_prev_week=copper_tech_prev,
+                momentum_score=copper_momentum,
+                momentum_prev_week=copper_mom_prev,
+                rsi_prev_week=copper_rsi_prev,
+                days_gap=copper_days_gap,
+                previous_date=copper_prev_date,
             )
-        except Exception:
-            # If Copper module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_copper = st.session_state.get("copper_selected_view")
+            # Prepend commodity name if not already present
+            if v2_view_text_copper and not v2_view_text_copper.lower().startswith("copper"):
+                v2_view_text_copper = f"Copper: {v2_view_text_copper}"
+            v2_subtitle_copper = st.session_state.get("copper_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_copper,
+                used_date=used_date_copper,
+                price_mode=pmode,
+                placeholder_name="copper_v2",
+                view_text=v2_view_text_copper,
+                subtitle_text=v2_subtitle_copper,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Copper v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Bitcoin technical analysis slide (crypto)
