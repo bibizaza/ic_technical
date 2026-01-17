@@ -439,21 +439,12 @@ except Exception:
         def _compute_range_bounds_silver(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Platinum functions from the dedicated module.  Similar to Gold and Silver,
-# these helpers reside in ``technical_analysis/commodity/platinum.py``.  If that
-# package is unavailable, a second attempt is made to import a top‑level
-# ``platinum`` module.  No‑op fallbacks are defined if both imports fail.
+# Import Platinum functions from the dedicated module.  The Platinum module
+# resides in ``technical_analysis/commodity/platinum.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.commodity.platinum import (
         make_platinum_figure,
-        insert_platinum_technical_chart_with_callout,
-        insert_platinum_technical_chart,
-        insert_platinum_technical_score_number,
-        insert_platinum_momentum_score_number,
-        insert_platinum_subtitle,
-        insert_platinum_average_gauge,
-        insert_platinum_technical_assessment,
-        insert_platinum_source,
         _get_platinum_technical_score,
         _get_platinum_momentum_score,
         _compute_range_bounds as _compute_range_bounds_platinum,
@@ -462,164 +453,19 @@ except Exception:
     try:
         from platinum import (
             make_platinum_figure,
-            insert_platinum_technical_chart_with_callout,
-            insert_platinum_technical_chart,
-            insert_platinum_technical_score_number,
-            insert_platinum_momentum_score_number,
-            insert_platinum_subtitle,
-            insert_platinum_average_gauge,
-            insert_platinum_technical_assessment,
-            insert_platinum_source,
             _get_platinum_technical_score,
             _get_platinum_momentum_score,
             _compute_range_bounds as _compute_range_bounds_platinum,
         )
     except Exception:
-        def make_platinum_figure(*args, **kwargs):  # type: ignore
+        # Define no-op stand-ins if the Platinum module is unavailable
+        def make_platinum_figure(*args, **kwargs):
             return go.Figure()
-        def insert_platinum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_platinum_technical_score(*args, **kwargs):  # type: ignore
+        def _get_platinum_technical_score(*args, **kwargs):
             return None
-        def _get_platinum_momentum_score(*args, **kwargs):  # type: ignore
+        def _get_platinum_momentum_score(*args, **kwargs):
             return None
-        def _compute_range_bounds_platinum(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
-# Import Oil functions from the dedicated module.  Similar to Gold, Silver and Platinum,
-# these helpers reside in ``technical_analysis/commodity/oil.py``.  If that
-# package is unavailable, a second attempt is made to import a top‑level
-# ``oil`` module.  No‑op fallbacks are defined if both imports fail.
-try:
-    from technical_analysis.commodity.oil import (
-        make_oil_figure,
-        insert_oil_technical_chart_with_callout,
-        insert_oil_technical_chart,
-        insert_oil_technical_score_number,
-        insert_oil_momentum_score_number,
-        insert_oil_subtitle,
-        insert_oil_average_gauge,
-        insert_oil_technical_assessment,
-        insert_oil_source,
-        _get_oil_technical_score,
-        _get_oil_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_oil,
-    )
-except Exception:
-    try:
-        from oil import (
-            make_oil_figure,
-            insert_oil_technical_chart_with_callout,
-            insert_oil_technical_chart,
-            insert_oil_technical_score_number,
-            insert_oil_momentum_score_number,
-            insert_oil_subtitle,
-            insert_oil_average_gauge,
-            insert_oil_technical_assessment,
-            insert_oil_source,
-            _get_oil_technical_score,
-            _get_oil_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_oil,
-        )
-    except Exception:
-        def make_oil_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_oil_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_oil_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_oil_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_oil(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Copper functions from the dedicated module.  Similar to other commodities,
-# helpers reside in ``technical_analysis/commodity/copper.py``.  If that package
-# is unavailable, a second attempt is made to import a top‑level ``copper``
-# module.  Fallback functions ensure the application remains functional when
-# copper analysis is not available.
-try:
-    from technical_analysis.commodity.copper import (
-        make_copper_figure,
-        insert_copper_technical_chart_with_callout,
-        insert_copper_technical_chart,
-        insert_copper_technical_score_number,
-        insert_copper_momentum_score_number,
-        insert_copper_subtitle,
-        insert_copper_average_gauge,
-        insert_copper_technical_assessment,
-        insert_copper_source,
-        _get_copper_technical_score,
-        _get_copper_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_copper,
-    )
-except Exception:
-    try:
-        from copper import (
-            make_copper_figure,
-            insert_copper_technical_chart_with_callout,
-            insert_copper_technical_chart,
-            insert_copper_technical_score_number,
-            insert_copper_momentum_score_number,
-            insert_copper_subtitle,
-            insert_copper_average_gauge,
-            insert_copper_technical_assessment,
-            insert_copper_source,
-            _get_copper_technical_score,
-            _get_copper_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_copper,
-        )
-    except Exception:
-        def make_copper_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_copper_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_copper_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_copper_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_copper(*args, **kwargs):  # type: ignore
+        def _compute_range_bounds_platinum(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Palladium functions from the dedicated module.  Similar to other commodities,
@@ -1185,189 +1031,6 @@ except Exception:
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Platinum functions from the dedicated module.  Similar to Gold and Silver,
-# these helpers reside in ``technical_analysis/commodity/platinum.py``.  If that
-# package is unavailable, a second attempt is made to import a top‑level
-# ``platinum`` module.  No‑op fallbacks are defined if both imports fail.
-try:
-    from technical_analysis.commodity.platinum import (
-        make_platinum_figure,
-        insert_platinum_technical_chart_with_callout,
-        insert_platinum_technical_chart,
-        insert_platinum_technical_score_number,
-        insert_platinum_momentum_score_number,
-        insert_platinum_subtitle,
-        insert_platinum_average_gauge,
-        insert_platinum_technical_assessment,
-        insert_platinum_source,
-        _get_platinum_technical_score,
-        _get_platinum_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_platinum,
-    )
-except Exception:
-    try:
-        from platinum import (
-            make_platinum_figure,
-            insert_platinum_technical_chart_with_callout,
-            insert_platinum_technical_chart,
-            insert_platinum_technical_score_number,
-            insert_platinum_momentum_score_number,
-            insert_platinum_subtitle,
-            insert_platinum_average_gauge,
-            insert_platinum_technical_assessment,
-            insert_platinum_source,
-            _get_platinum_technical_score,
-            _get_platinum_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_platinum,
-        )
-    except Exception:
-        def make_platinum_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_platinum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_platinum_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_platinum_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_platinum_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_platinum(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
-# Import Oil functions from the dedicated module.  Similar to Gold, Silver and Platinum,
-# these helpers reside in ``technical_analysis/commodity/oil.py``.  If that
-# package is unavailable, a second attempt is made to import a top‑level
-# ``oil`` module.  No‑op fallbacks are defined if both imports fail.
-try:
-    from technical_analysis.commodity.oil import (
-        make_oil_figure,
-        insert_oil_technical_chart_with_callout,
-        insert_oil_technical_chart,
-        insert_oil_technical_score_number,
-        insert_oil_momentum_score_number,
-        insert_oil_subtitle,
-        insert_oil_average_gauge,
-        insert_oil_technical_assessment,
-        insert_oil_source,
-        _get_oil_technical_score,
-        _get_oil_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_oil,
-    )
-except Exception:
-    try:
-        from oil import (
-            make_oil_figure,
-            insert_oil_technical_chart_with_callout,
-            insert_oil_technical_chart,
-            insert_oil_technical_score_number,
-            insert_oil_momentum_score_number,
-            insert_oil_subtitle,
-            insert_oil_average_gauge,
-            insert_oil_technical_assessment,
-            insert_oil_source,
-            _get_oil_technical_score,
-            _get_oil_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_oil,
-        )
-    except Exception:
-        def make_oil_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_oil_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_oil_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_oil_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_oil_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_oil(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Copper functions from the dedicated module.  Similar to other commodities,
-# helpers reside in ``technical_analysis/commodity/copper.py``.  If that package
-# is unavailable, a second attempt is made to import a top‑level ``copper``
-# module.  Fallback functions ensure the application remains functional when
-# copper analysis is not available.
-try:
-    from technical_analysis.commodity.copper import (
-        make_copper_figure,
-        insert_copper_technical_chart_with_callout,
-        insert_copper_technical_chart,
-        insert_copper_technical_score_number,
-        insert_copper_momentum_score_number,
-        insert_copper_subtitle,
-        insert_copper_average_gauge,
-        insert_copper_technical_assessment,
-        insert_copper_source,
-        _get_copper_technical_score,
-        _get_copper_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_copper,
-    )
-except Exception:
-    try:
-        from copper import (
-            make_copper_figure,
-            insert_copper_technical_chart_with_callout,
-            insert_copper_technical_chart,
-            insert_copper_technical_score_number,
-            insert_copper_momentum_score_number,
-            insert_copper_subtitle,
-            insert_copper_average_gauge,
-            insert_copper_technical_assessment,
-            insert_copper_source,
-            _get_copper_technical_score,
-            _get_copper_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_copper,
-        )
-    except Exception:
-        def make_copper_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_copper_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_copper_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_copper_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_copper_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_copper(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Palladium functions from the dedicated module.  Similar to other commodities,
 # these helpers reside in ``technical_analysis/commodity/palladium.py``.  If that
@@ -5567,78 +5230,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Platinum technical analysis slide (commodity)
+        # Insert Platinum Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Platinum technical analysis...")
         try:
-            # Insert the Platinum chart with call-out and regression channel anchored at platinum_anchor_dt
-            prs = insert_platinum_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                platinum_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Platinum technical and momentum scores
-            prs = insert_platinum_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_platinum_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Platinum subtitle from user input
-            prs = insert_platinum_subtitle(
-                prs,
-                st.session_state.get("platinum_subtitle", ""),
-            )
-            # Insert Platinum average gauge (last week's average DMAS)
-            platinum_last_week_avg = st.session_state.get("platinum_last_week_avg", 50.0)
-            prs = insert_platinum_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                platinum_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'platinum_view' textbox
-            manual_view_platinum = st.session_state.get("platinum_selected_view")
-            prs = insert_platinum_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_platinum,
-            )
+            update_progress("Processing Platinum Technical Analysis...")
+            # Get DMAS scores from session state
+            platinum_dmas = st.session_state.get("platinum_dmas", 50)
+            platinum_dmas_prev = st.session_state.get("platinum_last_week_avg", platinum_dmas)
+            platinum_tech = _get_platinum_technical_score(excel_path_for_ppt)
+            platinum_momentum = _get_platinum_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Platinum DMAS: {platinum_dmas}, Prev Week: {platinum_dmas_prev}, Tech: {platinum_tech}, Mom: {platinum_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            platinum_tech_prev = st.session_state.get("platinum_last_week_tech", None)
+            platinum_mom_prev = st.session_state.get("platinum_last_week_mom", None)
+            platinum_rsi_prev = st.session_state.get("platinum_last_week_rsi", None)
+            print(f"[Tech V2] Platinum Prev week scores - Tech: {platinum_tech_prev}, Mom: {platinum_mom_prev}, RSI: {platinum_rsi_prev}")
+
+            # Get gap information for change text formatting
+            platinum_days_gap = st.session_state.get("platinum_prev_days_gap", None)
+            platinum_prev_date = st.session_state.get("platinum_prev_date", None)
+
             # Compute used date for Platinum source footnote
             try:
                 import pandas as pd
                 df_prices_platinum = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_platinum = df_prices_platinum.drop(index=0)
-                df_prices_platinum = df_prices_platinum[
-                    df_prices_platinum[df_prices_platinum.columns[0]] != "DATES"
-                ]
-                df_prices_platinum["Date"] = pd.to_datetime(
-                    df_prices_platinum[df_prices_platinum.columns[0]], errors="coerce"
-                )
-                # Use the XPT Comdty column for Platinum prices
-                df_prices_platinum["Price"] = pd.to_numeric(
-                    df_prices_platinum["XPT Comdty"], errors="coerce"
-                )
-                df_prices_platinum = df_prices_platinum.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[
+                df_prices_platinum = df_prices_platinum[df_prices_platinum[df_prices_platinum.columns[0]] != "DATES"]
+                df_prices_platinum["Date"] = pd.to_datetime(df_prices_platinum[df_prices_platinum.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_platinum = df_prices_platinum[df_prices_platinum["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_platinum["Price"] = pd.to_numeric(df_prices_platinum["XPT Comdty"], errors="coerce")
+                df_prices_platinum = df_prices_platinum.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
                 ]
-                df_adj_platinum, used_date_platinum = adjust_prices_for_mode(
-                    df_prices_platinum, pmode
-                )
+                df_adj_platinum, used_date_platinum = adjust_prices_for_mode(df_prices_platinum, pmode)
             except Exception:
                 used_date_platinum = None
-            prs = insert_platinum_source(
-                prs,
-                used_date_platinum,
-                pmode,
+
+            v2_bytes_platinum, v2_date_platinum = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="XPT Comdty",
+                price_mode=pmode,
+                dmas_score=int(platinum_dmas),
+                dmas_prev_week=int(platinum_dmas_prev),
+                technical_score=platinum_tech,
+                technical_prev_week=platinum_tech_prev,
+                momentum_score=platinum_momentum,
+                momentum_prev_week=platinum_mom_prev,
+                rsi_prev_week=platinum_rsi_prev,
+                days_gap=platinum_days_gap,
+                previous_date=platinum_prev_date,
             )
-        except Exception:
-            # If Platinum module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_platinum = st.session_state.get("platinum_selected_view")
+            # Prepend commodity name if not already present
+            if v2_view_text_platinum and not v2_view_text_platinum.lower().startswith("platinum"):
+                v2_view_text_platinum = f"Platinum: {v2_view_text_platinum}"
+            v2_subtitle_platinum = st.session_state.get("platinum_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_platinum,
+                used_date=used_date_platinum,
+                price_mode=pmode,
+                placeholder_name="platinum_v2",
+                view_text=v2_view_text_platinum,
+                subtitle_text=v2_subtitle_platinum,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Platinum v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Palladium technical analysis slide (commodity)
