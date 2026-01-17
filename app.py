@@ -497,6 +497,64 @@ except Exception:
         def _compute_range_bounds_palladium(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
+# Import Oil functions from the dedicated module.  The Oil module
+# resides in ``technical_analysis/commodity/oil.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
+try:
+    from technical_analysis.commodity.oil import (
+        make_oil_figure,
+        _get_oil_technical_score,
+        _get_oil_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_oil,
+    )
+except Exception:
+    try:
+        from oil import (
+            make_oil_figure,
+            _get_oil_technical_score,
+            _get_oil_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_oil,
+        )
+    except Exception:
+        # Define no-op stand-ins if the Oil module is unavailable
+        def make_oil_figure(*args, **kwargs):
+            return go.Figure()
+        def _get_oil_technical_score(*args, **kwargs):
+            return None
+        def _get_oil_momentum_score(*args, **kwargs):
+            return None
+        def _compute_range_bounds_oil(*args, **kwargs):
+            return _compute_range_bounds_spx(*args, **kwargs)
+
+# Import Copper functions from the dedicated module.  The Copper module
+# resides in ``technical_analysis/commodity/copper.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
+try:
+    from technical_analysis.commodity.copper import (
+        make_copper_figure,
+        _get_copper_technical_score,
+        _get_copper_momentum_score,
+        _compute_range_bounds as _compute_range_bounds_copper,
+    )
+except Exception:
+    try:
+        from copper import (
+            make_copper_figure,
+            _get_copper_technical_score,
+            _get_copper_momentum_score,
+            _compute_range_bounds as _compute_range_bounds_copper,
+        )
+    except Exception:
+        # Define no-op stand-ins if the Copper module is unavailable
+        def make_copper_figure(*args, **kwargs):
+            return go.Figure()
+        def _get_copper_technical_score(*args, **kwargs):
+            return None
+        def _get_copper_momentum_score(*args, **kwargs):
+            return None
+        def _compute_range_bounds_copper(*args, **kwargs):
+            return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
 # in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
 # analogous to those for commodities.  If that package cannot be imported,
@@ -5247,78 +5305,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Oil technical analysis slide (commodity)
+        # Insert Oil Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Oil technical analysis...")
         try:
-            # Insert the Oil chart with call-out and regression channel anchored at oil_anchor_dt
-            prs = insert_oil_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                oil_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Oil technical and momentum scores
-            prs = insert_oil_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_oil_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Oil subtitle from user input
-            prs = insert_oil_subtitle(
-                prs,
-                st.session_state.get("oil_subtitle", ""),
-            )
-            # Insert Oil average gauge (last week's average DMAS)
-            oil_last_week_avg = st.session_state.get("oil_last_week_avg", 50.0)
-            prs = insert_oil_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                oil_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'oil_view' textbox
-            manual_view_oil = st.session_state.get("oil_selected_view")
-            prs = insert_oil_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_oil,
-            )
+            update_progress("Processing Oil Technical Analysis...")
+            # Get DMAS scores from session state
+            oil_dmas = st.session_state.get("oil_dmas", 50)
+            oil_dmas_prev = st.session_state.get("oil_last_week_avg", oil_dmas)
+            oil_tech = _get_oil_technical_score(excel_path_for_ppt)
+            oil_momentum = _get_oil_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Oil DMAS: {oil_dmas}, Prev Week: {oil_dmas_prev}, Tech: {oil_tech}, Mom: {oil_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            oil_tech_prev = st.session_state.get("oil_last_week_tech", None)
+            oil_mom_prev = st.session_state.get("oil_last_week_mom", None)
+            oil_rsi_prev = st.session_state.get("oil_last_week_rsi", None)
+            print(f"[Tech V2] Oil Prev week scores - Tech: {oil_tech_prev}, Mom: {oil_mom_prev}, RSI: {oil_rsi_prev}")
+
+            # Get gap information for change text formatting
+            oil_days_gap = st.session_state.get("oil_prev_days_gap", None)
+            oil_prev_date = st.session_state.get("oil_prev_date", None)
+
             # Compute used date for Oil source footnote
             try:
                 import pandas as pd
                 df_prices_oil = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_oil = df_prices_oil.drop(index=0)
-                df_prices_oil = df_prices_oil[
-                    df_prices_oil[df_prices_oil.columns[0]] != "DATES"
-                ]
-                df_prices_oil["Date"] = pd.to_datetime(
-                    df_prices_oil[df_prices_oil.columns[0]], errors="coerce"
-                )
-                # Use the CL1 Comdty column for Oil prices
-                df_prices_oil["Price"] = pd.to_numeric(
-                    df_prices_oil["CL1 Comdty"], errors="coerce"
-                )
-                df_prices_oil = df_prices_oil.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[
+                df_prices_oil = df_prices_oil[df_prices_oil[df_prices_oil.columns[0]] != "DATES"]
+                df_prices_oil["Date"] = pd.to_datetime(df_prices_oil[df_prices_oil.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_oil = df_prices_oil[df_prices_oil["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_oil["Price"] = pd.to_numeric(df_prices_oil["CL1 Comdty"], errors="coerce")
+                df_prices_oil = df_prices_oil.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
                 ]
-                df_adj_oil, used_date_oil = adjust_prices_for_mode(
-                    df_prices_oil, pmode
-                )
+                df_adj_oil, used_date_oil = adjust_prices_for_mode(df_prices_oil, pmode)
             except Exception:
                 used_date_oil = None
-            prs = insert_oil_source(
-                prs,
-                used_date_oil,
-                pmode,
+
+            v2_bytes_oil, v2_date_oil = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="CL1 Comdty",
+                price_mode=pmode,
+                dmas_score=int(oil_dmas),
+                dmas_prev_week=int(oil_dmas_prev),
+                technical_score=oil_tech,
+                technical_prev_week=oil_tech_prev,
+                momentum_score=oil_momentum,
+                momentum_prev_week=oil_mom_prev,
+                rsi_prev_week=oil_rsi_prev,
+                days_gap=oil_days_gap,
+                previous_date=oil_prev_date,
             )
-        except Exception:
-            # If Oil module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_oil = st.session_state.get("oil_selected_view")
+            # Prepend commodity name if not already present
+            if v2_view_text_oil and not v2_view_text_oil.lower().startswith("oil"):
+                v2_view_text_oil = f"Oil: {v2_view_text_oil}"
+            v2_subtitle_oil = st.session_state.get("oil_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_oil,
+                used_date=used_date_oil,
+                price_mode=pmode,
+                placeholder_name="oil_v2",
+                view_text=v2_view_text_oil,
+                subtitle_text=v2_subtitle_oil,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Oil v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Copper technical analysis slide (commodity)
