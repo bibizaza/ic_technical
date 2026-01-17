@@ -6,6 +6,22 @@ On Windows/Linux: Uses image flags from flagcdn.com (emoji don't render well)
 
 import sys
 
+# Codes that represent emerging markets / global (get globe icon instead of flag)
+EM_CODES = {'un', 'em', 'emerging', 'world', 'global'}
+
+# Herculis brand colors for EM globe icon
+HERCULIS_NAVY = "#0d1b40"
+HERCULIS_GOLD = "#c5a258"
+
+# SVG globe icon for emerging markets (navy with gold accents)
+EM_GLOBE_SVG = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+  <circle cx="12" cy="12" r="10" fill="{HERCULIS_NAVY}" stroke="{HERCULIS_GOLD}" stroke-width="1.5"/>
+  <ellipse cx="12" cy="12" rx="4" ry="10" fill="none" stroke="{HERCULIS_GOLD}" stroke-width="0.8"/>
+  <line x1="2" y1="12" x2="22" y2="12" stroke="{HERCULIS_GOLD}" stroke-width="0.8"/>
+  <path d="M3.5 7.5 Q12 9 20.5 7.5" fill="none" stroke="{HERCULIS_GOLD}" stroke-width="0.6"/>
+  <path d="M3.5 16.5 Q12 15 20.5 16.5" fill="none" stroke="{HERCULIS_GOLD}" stroke-width="0.6"/>
+</svg>'''
+
 # Emoji flags mapping (country code -> emoji)
 FLAG_EMOJI = {
     'us': '🇺🇸',
@@ -57,15 +73,21 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
     """Return flag HTML - emoji on Mac, PNG on Windows/Linux.
 
     Note: Size is controlled by CSS in the templates (scaled appropriately).
+    Special handling: EM/global codes return a globe icon with Herculis branding.
 
     Args:
         country_code: ISO 3166-1 alpha-2 country code (e.g., 'us', 'jp')
+                      or EM code ('un', 'em', 'emerging', 'world', 'global')
         size: Not used - kept for backward compatibility
 
     Returns:
-        HTML string for the flag
+        HTML string for the flag or globe icon
     """
     code = country_code.lower()
+
+    # Check for emerging market / global codes - return globe icon
+    if code in EM_CODES:
+        return f'<span class="flag em-globe" style="display:inline-flex; align-items:center;">{EM_GLOBE_SVG}</span>'
 
     if sys.platform == 'darwin':  # Mac - use emoji flags
         emoji = FLAG_EMOJI.get(code, '🏳️')
