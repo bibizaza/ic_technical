@@ -584,21 +584,12 @@ except Exception:
         def _compute_range_bounds_bitcoin(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Ethereum functions from the dedicated module.  The Ethereum module resides
-# in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
-# analogous to those for other crypto assets.  If unavailable, fall back to a
-# top‑level ``ethereum`` module.  Define no‑op stand‑ins as a last resort.
+# Import Ethereum functions from the dedicated module.  The Ethereum module
+# resides in ``technical_analysis/crypto/ethereum.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.crypto.ethereum import (
         make_ethereum_figure,
-        insert_ethereum_technical_chart_with_callout,
-        insert_ethereum_technical_chart,
-        insert_ethereum_technical_score_number,
-        insert_ethereum_momentum_score_number,
-        insert_ethereum_subtitle,
-        insert_ethereum_average_gauge,
-        insert_ethereum_technical_assessment,
-        insert_ethereum_source,
         _get_ethereum_technical_score,
         _get_ethereum_momentum_score,
         _compute_range_bounds as _compute_range_bounds_ethereum,
@@ -607,42 +598,19 @@ except Exception:
     try:
         from ethereum import (
             make_ethereum_figure,
-            insert_ethereum_technical_chart_with_callout,
-            insert_ethereum_technical_chart,
-            insert_ethereum_technical_score_number,
-            insert_ethereum_momentum_score_number,
-            insert_ethereum_subtitle,
-            insert_ethereum_average_gauge,
-            insert_ethereum_technical_assessment,
-            insert_ethereum_source,
             _get_ethereum_technical_score,
             _get_ethereum_momentum_score,
             _compute_range_bounds as _compute_range_bounds_ethereum,
         )
     except Exception:
-        def make_ethereum_figure(*args, **kwargs):  # type: ignore
+        # Define no-op stand-ins if the Ethereum module is unavailable
+        def make_ethereum_figure(*args, **kwargs):
             return go.Figure()
-        def insert_ethereum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_ethereum_technical_score(*args, **kwargs):  # type: ignore
+        def _get_ethereum_technical_score(*args, **kwargs):
             return None
-        def _get_ethereum_momentum_score(*args, **kwargs):  # type: ignore
+        def _get_ethereum_momentum_score(*args, **kwargs):
             return None
-        def _compute_range_bounds_ethereum(*args, **kwargs):  # type: ignore
+        def _compute_range_bounds_ethereum(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Ripple functions from the dedicated module.  The Ripple module resides
@@ -826,68 +794,6 @@ except Exception:
         def _get_binance_momentum_score(*args, **kwargs):  # type: ignore
             return None
         def _compute_range_bounds_binance(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Ethereum functions from the dedicated module.  The Ethereum module resides
-# in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
-# analogous to the Bitcoin module.  If it cannot be imported, a fallback to a
-# top‑level ``ethereum`` module is attempted.  When both imports fail, no‑op
-# stand‑ins are defined.
-try:
-    from technical_analysis.crypto.ethereum import (
-        make_ethereum_figure,
-        insert_ethereum_technical_chart_with_callout,
-        insert_ethereum_technical_chart,
-        insert_ethereum_technical_score_number,
-        insert_ethereum_momentum_score_number,
-        insert_ethereum_subtitle,
-        insert_ethereum_average_gauge,
-        insert_ethereum_technical_assessment,
-        insert_ethereum_source,
-        _get_ethereum_technical_score,
-        _get_ethereum_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_ethereum,
-    )
-except Exception:
-    try:
-        from ethereum import (
-            make_ethereum_figure,
-            insert_ethereum_technical_chart_with_callout,
-            insert_ethereum_technical_chart,
-            insert_ethereum_technical_score_number,
-            insert_ethereum_momentum_score_number,
-            insert_ethereum_subtitle,
-            insert_ethereum_average_gauge,
-            insert_ethereum_technical_assessment,
-            insert_ethereum_source,
-            _get_ethereum_technical_score,
-            _get_ethereum_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_ethereum,
-        )
-    except Exception:
-        def make_ethereum_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_ethereum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_ethereum_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_ethereum_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_ethereum(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import CSI functions from the dedicated module.  The CSI module resides
@@ -1005,67 +911,6 @@ except Exception:
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Ethereum functions from the dedicated module.  The Ethereum module resides
-# in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
-# analogous to those for other crypto assets.  If unavailable, fall back to a
-# top‑level ``ethereum`` module.  Define no‑op stand‑ins as a last resort.
-try:
-    from technical_analysis.crypto.ethereum import (
-        make_ethereum_figure,
-        insert_ethereum_technical_chart_with_callout,
-        insert_ethereum_technical_chart,
-        insert_ethereum_technical_score_number,
-        insert_ethereum_momentum_score_number,
-        insert_ethereum_subtitle,
-        insert_ethereum_average_gauge,
-        insert_ethereum_technical_assessment,
-        insert_ethereum_source,
-        _get_ethereum_technical_score,
-        _get_ethereum_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_ethereum,
-    )
-except Exception:
-    try:
-        from ethereum import (
-            make_ethereum_figure,
-            insert_ethereum_technical_chart_with_callout,
-            insert_ethereum_technical_chart,
-            insert_ethereum_technical_score_number,
-            insert_ethereum_momentum_score_number,
-            insert_ethereum_subtitle,
-            insert_ethereum_average_gauge,
-            insert_ethereum_technical_assessment,
-            insert_ethereum_source,
-            _get_ethereum_technical_score,
-            _get_ethereum_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_ethereum,
-        )
-    except Exception:
-        def make_ethereum_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_ethereum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_ethereum_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_ethereum_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_ethereum(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
-
 # Import Ripple functions from the dedicated module.  The Ripple module resides
 # in ``technical_analysis/crypto/ripple.py`` and provides helper functions
 # analogous to the other crypto assets.  If unavailable, fall back to a
@@ -1247,68 +1092,6 @@ except Exception:
         def _get_binance_momentum_score(*args, **kwargs):  # type: ignore
             return None
         def _compute_range_bounds_binance(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Ethereum functions from the dedicated module.  The Ethereum module resides
-# in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
-# analogous to the Bitcoin module.  If it cannot be imported, a fallback to a
-# top‑level ``ethereum`` module is attempted.  When both imports fail, no‑op
-# stand‑ins are defined.
-try:
-    from technical_analysis.crypto.ethereum import (
-        make_ethereum_figure,
-        insert_ethereum_technical_chart_with_callout,
-        insert_ethereum_technical_chart,
-        insert_ethereum_technical_score_number,
-        insert_ethereum_momentum_score_number,
-        insert_ethereum_subtitle,
-        insert_ethereum_average_gauge,
-        insert_ethereum_technical_assessment,
-        insert_ethereum_source,
-        _get_ethereum_technical_score,
-        _get_ethereum_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_ethereum,
-    )
-except Exception:
-    try:
-        from ethereum import (
-            make_ethereum_figure,
-            insert_ethereum_technical_chart_with_callout,
-            insert_ethereum_technical_chart,
-            insert_ethereum_technical_score_number,
-            insert_ethereum_momentum_score_number,
-            insert_ethereum_subtitle,
-            insert_ethereum_average_gauge,
-            insert_ethereum_technical_assessment,
-            insert_ethereum_source,
-            _get_ethereum_technical_score,
-            _get_ethereum_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_ethereum,
-        )
-    except Exception:
-        def make_ethereum_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_ethereum_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_ethereum_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_ethereum_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_ethereum_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_ethereum(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import CSI functions from the dedicated module.  The CSI module resides
@@ -5435,152 +5218,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Ethereum technical analysis slide (crypto)
+        # Insert Ethereum Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Ethereum technical analysis...")
         try:
-            # Insert the Ethereum chart with call-out and regression channel anchored at ethereum_anchor_dt
-            prs = insert_ethereum_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                ethereum_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Ethereum technical and momentum scores
-            prs = insert_ethereum_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_ethereum_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Ethereum subtitle from user input
-            prs = insert_ethereum_subtitle(
-                prs,
-                st.session_state.get("ethereum_subtitle", ""),
-            )
-            # Insert Ethereum average gauge (last week's average DMAS)
-            ethereum_last_week_avg = st.session_state.get("ethereum_last_week_avg", 50.0)
-            prs = insert_ethereum_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                ethereum_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'ethereum_view' textbox
-            manual_view_ethereum = st.session_state.get("ethereum_selected_view")
-            prs = insert_ethereum_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_ethereum,
-            )
-            # Compute used date for Ethereum source footnote
-            try:
-                import pandas as pd
-                df_prices_ethereum = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-                df_prices_ethereum = df_prices_ethereum.drop(index=0)
-                df_prices_ethereum = df_prices_ethereum[
-                    df_prices_ethereum[df_prices_ethereum.columns[0]] != "DATES"
-                ]
-                df_prices_ethereum["Date"] = pd.to_datetime(
-                    df_prices_ethereum[df_prices_ethereum.columns[0]], errors="coerce"
-                )
-                # Use the XETUSD Curncy column for Ethereum prices
-                df_prices_ethereum["Price"] = pd.to_numeric(
-                    df_prices_ethereum["XETUSD Curncy"], errors="coerce"
-                )
-                df_prices_ethereum = df_prices_ethereum.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[
-                    ["Date", "Price"]
-                ]
-                df_adj_ethereum, used_date_ethereum = adjust_prices_for_mode(
-                    df_prices_ethereum, pmode
-                )
-            except Exception:
-                used_date_ethereum = None
-            prs = insert_ethereum_source(
-                prs,
-                used_date_ethereum,
-                pmode,
-            )
-        except Exception:
-            # If the Ethereum module is unavailable or insertion fails, continue without error
-            pass
+            update_progress("Processing Ethereum Technical Analysis...")
+            # Get DMAS scores from session state
+            ethereum_dmas = st.session_state.get("ethereum_dmas", 50)
+            ethereum_dmas_prev = st.session_state.get("ethereum_last_week_avg", ethereum_dmas)
+            ethereum_tech = _get_ethereum_technical_score(excel_path_for_ppt)
+            ethereum_momentum = _get_ethereum_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Ethereum DMAS: {ethereum_dmas}, Prev Week: {ethereum_dmas_prev}, Tech: {ethereum_tech}, Mom: {ethereum_momentum}")
 
-        # ------------------------------------------------------------------
-        # Insert Ethereum technical analysis slide (crypto)
-        # ------------------------------------------------------------------
-        update_progress("Processing Ethereum technical analysis...")
-        try:
-            # Insert the Ethereum chart with call-out and regression channel anchored at ethereum_anchor_dt
-            prs = insert_ethereum_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                ethereum_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Ethereum technical and momentum scores
-            prs = insert_ethereum_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_ethereum_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Ethereum subtitle from user input
-            prs = insert_ethereum_subtitle(
-                prs,
-                st.session_state.get("ethereum_subtitle", ""),
-            )
-            # Insert Ethereum average gauge (last week's average DMAS)
-            ethereum_last_week_avg = st.session_state.get("ethereum_last_week_avg", 50.0)
-            prs = insert_ethereum_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                ethereum_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'ethereum_view' textbox
-            manual_view_ethereum = st.session_state.get("ethereum_selected_view")
-            prs = insert_ethereum_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_ethereum,
-            )
+            # Get previous week Technical/Momentum/RSI scores from history
+            ethereum_tech_prev = st.session_state.get("ethereum_last_week_tech", None)
+            ethereum_mom_prev = st.session_state.get("ethereum_last_week_mom", None)
+            ethereum_rsi_prev = st.session_state.get("ethereum_last_week_rsi", None)
+            print(f"[Tech V2] Ethereum Prev week scores - Tech: {ethereum_tech_prev}, Mom: {ethereum_mom_prev}, RSI: {ethereum_rsi_prev}")
+
+            # Get gap information for change text formatting
+            ethereum_days_gap = st.session_state.get("ethereum_prev_days_gap", None)
+            ethereum_prev_date = st.session_state.get("ethereum_prev_date", None)
+
             # Compute used date for Ethereum source footnote
             try:
                 import pandas as pd
                 df_prices_ethereum = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_ethereum = df_prices_ethereum.drop(index=0)
-                df_prices_ethereum = df_prices_ethereum[
-                    df_prices_ethereum[df_prices_ethereum.columns[0]] != "DATES"
-                ]
-                df_prices_ethereum["Date"] = pd.to_datetime(
-                    df_prices_ethereum[df_prices_ethereum.columns[0]], errors="coerce"
-                )
-                # Use the XETUSD Curncy column for Ethereum prices
-                df_prices_ethereum["Price"] = pd.to_numeric(
-                    df_prices_ethereum["XETUSD Curncy"], errors="coerce"
-                )
-                df_prices_ethereum = df_prices_ethereum.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[
+                df_prices_ethereum = df_prices_ethereum[df_prices_ethereum[df_prices_ethereum.columns[0]] != "DATES"]
+                df_prices_ethereum["Date"] = pd.to_datetime(df_prices_ethereum[df_prices_ethereum.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_ethereum = df_prices_ethereum[df_prices_ethereum["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_ethereum["Price"] = pd.to_numeric(df_prices_ethereum["XETUSD Curncy"], errors="coerce")
+                df_prices_ethereum = df_prices_ethereum.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
                 ]
-                df_adj_ethereum, used_date_ethereum = adjust_prices_for_mode(
-                    df_prices_ethereum, pmode
-                )
+                df_adj_ethereum, used_date_ethereum = adjust_prices_for_mode(df_prices_ethereum, pmode)
             except Exception:
                 used_date_ethereum = None
-            prs = insert_ethereum_source(
-                prs,
-                used_date_ethereum,
-                pmode,
+
+            v2_bytes_ethereum, v2_date_ethereum = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="XETUSD Curncy",
+                price_mode=pmode,
+                dmas_score=int(ethereum_dmas),
+                dmas_prev_week=int(ethereum_dmas_prev),
+                technical_score=ethereum_tech,
+                technical_prev_week=ethereum_tech_prev,
+                momentum_score=ethereum_momentum,
+                momentum_prev_week=ethereum_mom_prev,
+                rsi_prev_week=ethereum_rsi_prev,
+                days_gap=ethereum_days_gap,
+                previous_date=ethereum_prev_date,
             )
-        except Exception:
-            # If the Ethereum module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_ethereum = st.session_state.get("ethereum_selected_view")
+            # Prepend crypto name if not already present
+            if v2_view_text_ethereum and not v2_view_text_ethereum.lower().startswith("ethereum"):
+                v2_view_text_ethereum = f"Ethereum: {v2_view_text_ethereum}"
+            v2_subtitle_ethereum = st.session_state.get("ethereum_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_ethereum,
+                used_date=used_date_ethereum,
+                price_mode=pmode,
+                placeholder_name="ethereum_v2",
+                view_text=v2_view_text_ethereum,
+                subtitle_text=v2_subtitle_ethereum,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Ethereum v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Ripple technical analysis slide (crypto)
