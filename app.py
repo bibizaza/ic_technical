@@ -1305,44 +1305,18 @@ except Exception:
 
 # Import CSI functions from the dedicated module.  The CSI module resides
 # in ``technical_analysis/equity/csi.py`` and provides helper functions
-# analogous to the SPX functions.  These allow technical analysis of the
-# Shenzhen CSI 300 index.  If the module is not present, Streamlit
-# will fall back gracefully when CSI analysis is not requested.
+# for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.equity.csi import (
         make_csi_figure,
-        insert_csi_technical_chart_with_callout,
-        insert_csi_technical_chart,
-        insert_csi_technical_score_number,
-        insert_csi_momentum_score_number,
-        insert_csi_subtitle,
-        insert_csi_average_gauge,
-        insert_csi_technical_assessment,
-        insert_csi_source,
         _get_csi_technical_score,
         _get_csi_momentum_score,
         _compute_range_bounds as _compute_range_bounds_csi,
     )
 except Exception:
-    # Define no-op stand‑ins if the CSI module is unavailable
+    # Define no-op stand-ins if the CSI module is unavailable
     def make_csi_figure(*args, **kwargs):
         return go.Figure()
-    def insert_csi_technical_chart_with_callout(prs, *args, **kwargs):
-        return prs
-    def insert_csi_technical_chart(prs, *args, **kwargs):
-        return prs
-    def insert_csi_technical_score_number(prs, *args, **kwargs):
-        return prs
-    def insert_csi_momentum_score_number(prs, *args, **kwargs):
-        return prs
-    def insert_csi_subtitle(prs, *args, **kwargs):
-        return prs
-    def insert_csi_average_gauge(prs, *args, **kwargs):
-        return prs
-    def insert_csi_technical_assessment(prs, *args, **kwargs):
-        return prs
-    def insert_csi_source(prs, *args, **kwargs):
-        return prs
     def _get_csi_technical_score(*args, **kwargs):
         return None
     def _get_csi_momentum_score(*args, **kwargs):
@@ -4464,63 +4438,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert CSI technical analysis slide (always)
+        # Insert CSI Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing CSI 300 technical analysis...")
-        prs = insert_csi_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            csi_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert CSI technical score number
-        prs = insert_csi_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert CSI momentum score number
-        prs = insert_csi_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert CSI subtitle from user input
-        prs = insert_csi_subtitle(
-            prs,
-            st.session_state.get("csi_subtitle", ""),
-        )
-        # Insert CSI average gauge (last week's average is 0–100)
-        csi_last_week_avg = st.session_state.get("csi_last_week_avg", 50.0)
-        prs = insert_csi_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            csi_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'csi_view' textbox.
-        manual_view_csi = st.session_state.get("csi_selected_view")
-        prs = insert_csi_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_csi,
-        )
-        # Compute used date for CSI source footnote
         try:
-            import pandas as pd
-            df_prices_csi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices_csi = df_prices_csi.drop(index=0)
-            df_prices_csi = df_prices_csi[df_prices_csi[df_prices_csi.columns[0]] != "DATES"]
-            df_prices_csi["Date"] = pd.to_datetime(df_prices_csi[df_prices_csi.columns[0]], errors="coerce")
-            df_prices_csi["Price"] = pd.to_numeric(df_prices_csi["SHSZ300 Index"], errors="coerce")
-            df_prices_csi = df_prices_csi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj_csi, used_date_csi = adjust_prices_for_mode(df_prices_csi, pmode)
-        except Exception:
-            used_date_csi = None
-        prs = insert_csi_source(
-            prs,
-            used_date_csi,
-            pmode,
-        )
+            update_progress("Processing CSI 300 Technical Analysis...")
+            # Get DMAS scores from session state
+            csi_dmas = st.session_state.get("csi_dmas", 50)
+            csi_dmas_prev = st.session_state.get("csi_last_week_avg", csi_dmas)
+            csi_tech = _get_csi_technical_score(excel_path_for_ppt)
+            csi_momentum = _get_csi_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] CSI DMAS: {csi_dmas}, Prev Week: {csi_dmas_prev}, Tech: {csi_tech}, Mom: {csi_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            csi_tech_prev = st.session_state.get("csi_last_week_tech", None)
+            csi_mom_prev = st.session_state.get("csi_last_week_mom", None)
+            csi_rsi_prev = st.session_state.get("csi_last_week_rsi", None)
+            print(f"[Tech V2] CSI Prev week scores - Tech: {csi_tech_prev}, Mom: {csi_mom_prev}, RSI: {csi_rsi_prev}")
+
+            # Get gap information for change text formatting
+            csi_days_gap = st.session_state.get("csi_prev_days_gap", None)
+            csi_prev_date = st.session_state.get("csi_prev_date", None)
+
+            # Compute used date for CSI source footnote
+            try:
+                import pandas as pd
+                df_prices_csi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_csi = df_prices_csi.drop(index=0)
+                df_prices_csi = df_prices_csi[df_prices_csi[df_prices_csi.columns[0]] != "DATES"]
+                df_prices_csi["Date"] = pd.to_datetime(df_prices_csi[df_prices_csi.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_csi = df_prices_csi[df_prices_csi["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_csi["Price"] = pd.to_numeric(df_prices_csi["SHSZ300 Index"], errors="coerce")
+                df_prices_csi = df_prices_csi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_csi, used_date_csi = adjust_prices_for_mode(df_prices_csi, pmode)
+            except Exception:
+                used_date_csi = None
+
+            v2_bytes_csi, v2_date_csi = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="SHSZ300 Index",
+                price_mode=pmode,
+                dmas_score=int(csi_dmas),
+                dmas_prev_week=int(csi_dmas_prev),
+                technical_score=csi_tech,
+                technical_prev_week=csi_tech_prev,
+                momentum_score=csi_momentum,
+                momentum_prev_week=csi_mom_prev,
+                rsi_prev_week=csi_rsi_prev,
+                days_gap=csi_days_gap,
+                previous_date=csi_prev_date,
+            )
+            # Get the view and subtitle
+            v2_view_text_csi = st.session_state.get("csi_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text_csi and not v2_view_text_csi.lower().startswith("csi"):
+                v2_view_text_csi = f"CSI 300: {v2_view_text_csi}"
+            v2_subtitle_csi = st.session_state.get("csi_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_csi,
+                used_date=used_date_csi,
+                price_mode=pmode,
+                placeholder_name="csi_v2",
+                view_text=v2_view_text_csi,
+                subtitle_text=v2_subtitle_csi,
+            )
+        except Exception as e:
+            print(f"[Tech V2] CSI v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Nikkei technical analysis slide (always)
