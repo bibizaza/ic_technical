@@ -1264,36 +1264,32 @@ def create_technical_analysis_v2_chart(
     higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
 
-    # Y-axis bounds: First Fibonacci below (floor) to Higher Trading Range (ceiling)
-    # This focuses the chart on relevant price action
-    # Asymmetric buffers: tighter on top, more room on bottom
-    Y_MAX_BUFFER_PCT = 0.005  # 0.5% buffer above Higher Trading Range
-    Y_MIN_BUFFER_PCT = 0.015  # 1.5% buffer below First Fibonacci
+    # Y-axis bounds: symmetric padding around trading ranges
+    # This ensures both upper and lower range lines have visual breathing room
+    Y_PADDING_PCT = 0.02  # 2% symmetric padding
 
-    # Y-MAX: Higher Trading Range (volatility-based) + buffer
-    price_y_max = higher_range * (1 + Y_MAX_BUFFER_PCT)
+    # Y-MAX: Higher Trading Range + 2% padding
+    price_y_max = higher_range * (1 + Y_PADDING_PCT)
 
-    # Y-MIN: First Fibonacci below current price - buffer
-    fib_below = [f for f in fib_levels if f < last_price]
-    first_fib_below = max(fib_below) if fib_below else min(fib_levels)
-    price_y_min = first_fib_below * (1 - Y_MIN_BUFFER_PCT)
+    # Y-MIN: Lower Trading Range - 2% padding
+    price_y_min = lower_range * (1 - Y_PADDING_PCT)
 
     # Safety: extend if actual price data exceeds bounds
     price_min = float(df["Price"].min())
     price_max = float(df["Price"].max())
 
     if price_min < price_y_min:
-        price_y_min = price_min * 0.995  # 0.5% below min price
+        price_y_min = price_min * (1 - Y_PADDING_PCT)
     if price_max > price_y_max:
-        price_y_max = price_max * 1.005  # 0.5% above max price
+        price_y_max = price_max * (1 + Y_PADDING_PCT)
 
     # Convert to native Python floats and round for clean axis labels
     price_y_min = float(round(price_y_min, 0))
     price_y_max = float(round(price_y_max, 0))
 
     # Debug logging
-    print(f"[Tech V2] First Fib below: {first_fib_below:.2f}, Higher Range: {higher_range:.2f}")
-    print(f"[Tech V2] Y-axis bounds: {price_y_min:.0f} - {price_y_max:.0f}")
+    print(f"[Tech V2] Trading Ranges: Lower={lower_range:.2f}, Higher={higher_range:.2f}")
+    print(f"[Tech V2] Y-axis bounds: {price_y_min:.0f} - {price_y_max:.0f} (2% padding)")
 
     # RSI current
     rsi_current = int(round(df["RSI"].iloc[-1], 0)) if not pd.isna(df["RSI"].iloc[-1]) else 50
