@@ -286,14 +286,6 @@ except ImportError:
 
 from technical_analysis.equity.spx import (
     make_spx_figure,
-    insert_spx_technical_chart_with_callout,
-    insert_spx_technical_chart,
-    insert_spx_technical_score_number,
-    insert_spx_momentum_score_number,
-    insert_spx_subtitle,
-    insert_spx_average_gauge,
-    insert_spx_technical_assessment,
-    insert_spx_source,
     _get_spx_technical_score,
     _get_spx_momentum_score,
     generate_range_gauge_only_image,
@@ -4397,72 +4389,10 @@ def show_generate_presentation_page():
         # ===================================================================
 
         # ------------------------------------------------------------------
-        # Insert SPX technical analysis slide (always)
-        # ------------------------------------------------------------------
-        update_progress("Processing S&P 500 technical analysis...")
-        prs = insert_spx_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            spx_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert SPX technical score number
-        prs = insert_spx_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert SPX momentum score number
-        prs = insert_spx_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert SPX subtitle from user input
-        prs = insert_spx_subtitle(
-            prs,
-            st.session_state.get("spx_subtitle", ""),
-        )
-        # Insert SPX average gauge (last week's average is 0–100)
-        spx_last_week_avg = st.session_state.get("spx_last_week_avg", 50.0)
-        prs = insert_spx_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            spx_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'spx_view' textbox.
-        manual_view_spx = st.session_state.get("spx_selected_view")
-        prs = insert_spx_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_spx,
-        )
-        # Compute used date for SPX source footnote
-        try:
-            import pandas as pd
-            df_prices = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices = df_prices.drop(index=0)
-            df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
-            df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
-            # Filter by "Data As Of" date if set
-            if "data_as_of" in st.session_state:
-                df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
-            df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
-            df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj, used_date_spx = adjust_prices_for_mode(df_prices, pmode)
-        except Exception:
-            used_date_spx = None
-        prs = insert_spx_source(
-            prs,
-            used_date_spx,
-            pmode,
-        )
-
-        # ------------------------------------------------------------------
         # Insert SPX Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
         try:
-            update_progress("Processing S&P 500 Technical Analysis v2...")
+            update_progress("Processing S&P 500 Technical Analysis...")
             # Get DMAS scores from session state (uses individual keys like "spx_dmas")
             spx_dmas = st.session_state.get("spx_dmas", 50)
             spx_dmas_prev = st.session_state.get("spx_last_week_avg", spx_dmas)
@@ -4480,6 +4410,24 @@ def show_generate_presentation_page():
             spx_days_gap = st.session_state.get("spx_prev_days_gap", None)
             spx_prev_date = st.session_state.get("spx_prev_date", None)
 
+            # Compute used date for SPX source footnote
+            try:
+                import pandas as pd
+                df_prices = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices = df_prices.drop(index=0)
+                df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
+                df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices["Price"] = pd.to_numeric(df_prices["SPX Index"], errors="coerce")
+                df_prices = df_prices.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj, used_date_spx = adjust_prices_for_mode(df_prices, pmode)
+            except Exception:
+                used_date_spx = None
+
             v2_bytes, v2_date = create_technical_analysis_v2_chart(
                 excel_path_for_ppt,
                 ticker="SPX Index",
@@ -4494,7 +4442,7 @@ def show_generate_presentation_page():
                 days_gap=spx_days_gap,
                 previous_date=spx_prev_date,
             )
-            # Get the same view and subtitle used for V1 slide
+            # Get the same view and subtitle
             v2_view_text = st.session_state.get("spx_selected_view")
             # Prepend index name if not already present
             if v2_view_text and not v2_view_text.lower().startswith("s&p 500"):
@@ -4504,7 +4452,7 @@ def show_generate_presentation_page():
             prs = insert_technical_analysis_v2_slide(
                 prs,
                 v2_bytes,
-                used_date=used_date_spx,  # Use filtered date from V1 logic, not v2_date
+                used_date=used_date_spx,
                 price_mode=pmode,
                 placeholder_name="spx_v2",
                 view_text=v2_view_text,
