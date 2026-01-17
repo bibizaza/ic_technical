@@ -468,86 +468,34 @@ except Exception:
         def _compute_range_bounds_platinum(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Palladium functions from the dedicated module.  Similar to other commodities,
-# these helpers reside in ``technical_analysis/commodity/palladium.py``.  If that
-# package is unavailable, a second attempt is made to import a top‑level
-# ``palladium`` module.  No‑op fallbacks are defined if both imports fail.
+# Import Palladium functions from the dedicated module.  The Palladium module
+# resides in ``technical_analysis/commodity/palladium.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
-    # Preferred: import from the standard technical_analysis package
     from technical_analysis.commodity.palladium import (
         make_palladium_figure,
-        insert_palladium_technical_chart_with_callout,
-        insert_palladium_technical_chart,
-        insert_palladium_technical_score_number,
-        insert_palladium_momentum_score_number,
-        insert_palladium_subtitle,
-        insert_palladium_average_gauge,
-        insert_palladium_technical_assessment,
-        insert_palladium_source,
         _get_palladium_technical_score,
         _get_palladium_momentum_score,
         _compute_range_bounds as _compute_range_bounds_palladium,
     )
 except Exception:
     try:
-        # Secondary: import from our extended implementation if available
-        from palladium_full import (
+        from palladium import (
             make_palladium_figure,
-            insert_palladium_technical_chart_with_callout,
-            insert_palladium_technical_chart,
-            insert_palladium_technical_score_number,
-            insert_palladium_momentum_score_number,
-            insert_palladium_subtitle,
-            insert_palladium_average_gauge,
-            insert_palladium_technical_assessment,
-            insert_palladium_source,
             _get_palladium_technical_score,
             _get_palladium_momentum_score,
             _compute_range_bounds as _compute_range_bounds_palladium,
         )
     except Exception:
-        try:
-            # Fallback: import from the lean palladium module
-            from palladium import (
-                make_palladium_figure,
-                insert_palladium_technical_chart_with_callout,
-                insert_palladium_technical_chart,
-                insert_palladium_technical_score_number,
-                insert_palladium_momentum_score_number,
-                insert_palladium_subtitle,
-                insert_palladium_average_gauge,
-                insert_palladium_technical_assessment,
-                insert_palladium_source,
-                _get_palladium_technical_score,
-                _get_palladium_momentum_score,
-                _compute_range_bounds as _compute_range_bounds_palladium,
-            )
-        except Exception:
-            # No implementation found – define harmless stand‑ins
-            def make_palladium_figure(*args, **kwargs):  # type: ignore
-                return go.Figure()
-            def insert_palladium_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_technical_chart(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_technical_score_number(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_subtitle(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_average_gauge(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_technical_assessment(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_source(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def _get_palladium_technical_score(*args, **kwargs):  # type: ignore
-                return None
-            def _get_palladium_momentum_score(*args, **kwargs):  # type: ignore
-                return None
-            def _compute_range_bounds_palladium(*args, **kwargs):  # type: ignore
-                return _compute_range_bounds_spx(*args, **kwargs)
+        # Define no-op stand-ins if the Palladium module is unavailable
+        def make_palladium_figure(*args, **kwargs):
+            return go.Figure()
+        def _get_palladium_technical_score(*args, **kwargs):
+            return None
+        def _get_palladium_momentum_score(*args, **kwargs):
+            return None
+        def _compute_range_bounds_palladium(*args, **kwargs):
+            return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
 # in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
@@ -1031,87 +979,6 @@ except Exception:
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Palladium functions from the dedicated module.  Similar to other commodities,
-# these helpers reside in ``technical_analysis/commodity/palladium.py``.  If that
-# package is unavailable, a second attempt is made to import a top‑level
-# ``palladium`` module.  No‑op fallbacks are defined if both imports fail.
-try:
-    # Preferred: import from the standard technical_analysis package
-    from technical_analysis.commodity.palladium import (
-        make_palladium_figure,
-        insert_palladium_technical_chart_with_callout,
-        insert_palladium_technical_chart,
-        insert_palladium_technical_score_number,
-        insert_palladium_momentum_score_number,
-        insert_palladium_subtitle,
-        insert_palladium_average_gauge,
-        insert_palladium_technical_assessment,
-        insert_palladium_source,
-        _get_palladium_technical_score,
-        _get_palladium_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_palladium,
-    )
-except Exception:
-    try:
-        # Secondary: import from our extended implementation if available
-        from palladium_full import (
-            make_palladium_figure,
-            insert_palladium_technical_chart_with_callout,
-            insert_palladium_technical_chart,
-            insert_palladium_technical_score_number,
-            insert_palladium_momentum_score_number,
-            insert_palladium_subtitle,
-            insert_palladium_average_gauge,
-            insert_palladium_technical_assessment,
-            insert_palladium_source,
-            _get_palladium_technical_score,
-            _get_palladium_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_palladium,
-        )
-    except Exception:
-        try:
-            # Fallback: import from the lean palladium module
-            from palladium import (
-                make_palladium_figure,
-                insert_palladium_technical_chart_with_callout,
-                insert_palladium_technical_chart,
-                insert_palladium_technical_score_number,
-                insert_palladium_momentum_score_number,
-                insert_palladium_subtitle,
-                insert_palladium_average_gauge,
-                insert_palladium_technical_assessment,
-                insert_palladium_source,
-                _get_palladium_technical_score,
-                _get_palladium_momentum_score,
-                _compute_range_bounds as _compute_range_bounds_palladium,
-            )
-        except Exception:
-            # No implementation found – define harmless stand‑ins
-            def make_palladium_figure(*args, **kwargs):  # type: ignore
-                return go.Figure()
-            def insert_palladium_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_technical_chart(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_technical_score_number(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_subtitle(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_average_gauge(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_technical_assessment(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def insert_palladium_source(prs, *args, **kwargs):  # type: ignore
-                return prs
-            def _get_palladium_technical_score(*args, **kwargs):  # type: ignore
-                return None
-            def _get_palladium_momentum_score(*args, **kwargs):  # type: ignore
-                return None
-            def _compute_range_bounds_palladium(*args, **kwargs):  # type: ignore
-                return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
 # in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
@@ -5305,78 +5172,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Palladium technical analysis slide (commodity)
+        # Insert Palladium Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Palladium technical analysis...")
         try:
-            # Insert the Palladium chart with call-out and regression channel anchored at palladium_anchor_dt
-            prs = insert_palladium_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                palladium_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Palladium technical and momentum scores
-            prs = insert_palladium_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_palladium_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Palladium subtitle from user input
-            prs = insert_palladium_subtitle(
-                prs,
-                st.session_state.get("palladium_subtitle", ""),
-            )
-            # Insert Palladium average gauge (last week's average DMAS)
-            palladium_last_week_avg = st.session_state.get("palladium_last_week_avg", 50.0)
-            prs = insert_palladium_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                palladium_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'palladium_view' textbox
-            manual_view_palladium = st.session_state.get("palladium_selected_view")
-            prs = insert_palladium_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_palladium,
-            )
+            update_progress("Processing Palladium Technical Analysis...")
+            # Get DMAS scores from session state
+            palladium_dmas = st.session_state.get("palladium_dmas", 50)
+            palladium_dmas_prev = st.session_state.get("palladium_last_week_avg", palladium_dmas)
+            palladium_tech = _get_palladium_technical_score(excel_path_for_ppt)
+            palladium_momentum = _get_palladium_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Palladium DMAS: {palladium_dmas}, Prev Week: {palladium_dmas_prev}, Tech: {palladium_tech}, Mom: {palladium_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            palladium_tech_prev = st.session_state.get("palladium_last_week_tech", None)
+            palladium_mom_prev = st.session_state.get("palladium_last_week_mom", None)
+            palladium_rsi_prev = st.session_state.get("palladium_last_week_rsi", None)
+            print(f"[Tech V2] Palladium Prev week scores - Tech: {palladium_tech_prev}, Mom: {palladium_mom_prev}, RSI: {palladium_rsi_prev}")
+
+            # Get gap information for change text formatting
+            palladium_days_gap = st.session_state.get("palladium_prev_days_gap", None)
+            palladium_prev_date = st.session_state.get("palladium_prev_date", None)
+
             # Compute used date for Palladium source footnote
             try:
                 import pandas as pd
                 df_prices_palladium = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_palladium = df_prices_palladium.drop(index=0)
-                df_prices_palladium = df_prices_palladium[
-                    df_prices_palladium[df_prices_palladium.columns[0]] != "DATES"
-                ]
-                df_prices_palladium["Date"] = pd.to_datetime(
-                    df_prices_palladium[df_prices_palladium.columns[0]], errors="coerce"
-                )
-                # Use the XPD Curncy column for Palladium prices
-                df_prices_palladium["Price"] = pd.to_numeric(
-                    df_prices_palladium["XPD Curncy"], errors="coerce"
-                )
-                df_prices_palladium = df_prices_palladium.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[
+                df_prices_palladium = df_prices_palladium[df_prices_palladium[df_prices_palladium.columns[0]] != "DATES"]
+                df_prices_palladium["Date"] = pd.to_datetime(df_prices_palladium[df_prices_palladium.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_palladium = df_prices_palladium[df_prices_palladium["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_palladium["Price"] = pd.to_numeric(df_prices_palladium["XPD Curncy"], errors="coerce")
+                df_prices_palladium = df_prices_palladium.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
                 ]
-                df_adj_palladium, used_date_palladium = adjust_prices_for_mode(
-                    df_prices_palladium, pmode
-                )
+                df_adj_palladium, used_date_palladium = adjust_prices_for_mode(df_prices_palladium, pmode)
             except Exception:
                 used_date_palladium = None
-            prs = insert_palladium_source(
-                prs,
-                used_date_palladium,
-                pmode,
+
+            v2_bytes_palladium, v2_date_palladium = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="XPD Curncy",
+                price_mode=pmode,
+                dmas_score=int(palladium_dmas),
+                dmas_prev_week=int(palladium_dmas_prev),
+                technical_score=palladium_tech,
+                technical_prev_week=palladium_tech_prev,
+                momentum_score=palladium_momentum,
+                momentum_prev_week=palladium_mom_prev,
+                rsi_prev_week=palladium_rsi_prev,
+                days_gap=palladium_days_gap,
+                previous_date=palladium_prev_date,
             )
-        except Exception:
-            # If Palladium module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_palladium = st.session_state.get("palladium_selected_view")
+            # Prepend commodity name if not already present
+            if v2_view_text_palladium and not v2_view_text_palladium.lower().startswith("palladium"):
+                v2_view_text_palladium = f"Palladium: {v2_view_text_palladium}"
+            v2_subtitle_palladium = st.session_state.get("palladium_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_palladium,
+                used_date=used_date_palladium,
+                price_mode=pmode,
+                placeholder_name="palladium_v2",
+                view_text=v2_view_text_palladium,
+                subtitle_text=v2_subtitle_palladium,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Palladium v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Oil technical analysis slide (commodity)
