@@ -282,11 +282,12 @@ body {
 }
 
 .panel-footnote {
-    font-size: 7px;
+    font-size: 6px;
     color: rgba(255,255,255,0.4);
-    text-align: center;
-    margin-top: 8px;
-    padding-top: 6px;
+    text-align: left;
+    margin-top: 6px;
+    padding-top: 4px;
+    line-height: 1.3;
 }
 
 .chart-legend {
@@ -424,7 +425,7 @@ TECH_V2_HTML_BODY = '''
                     <span style="color: {{ rsi_color }};">{{ rsi_interpretation }}</span>
                 </div>
             </div>
-            <div class="panel-footnote">* Average of Technical & Momentum scores</div>
+            <div class="panel-footnote">* DMAS score is a proprietary scoring of Herculis and is calculated as the average of the technical and momentum scores</div>
         </div>
     </div>
 </div>
