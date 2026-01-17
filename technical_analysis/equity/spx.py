@@ -1597,11 +1597,15 @@ def insert_technical_analysis_v2_slide(
         date_str = used_date.strftime("%d/%m/%Y")
         source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
 
-        # Support both spx_v2_source and spx_source patterns
+        # Derive base name from placeholder_name (e.g., "mexbol_v2" -> "mexbol")
+        base_name = placeholder_name.replace("_v2", "").lower()
+
+        # Support both v2_source and base_source patterns
         source_placeholder = f"{placeholder_name}_source"
+        base_source_placeholder = f"{base_name}_source"
         source_patterns = [
-            f"[{source_placeholder}]", source_placeholder,  # e.g., [spx_v2_source], spx_v2_source
-            "[spx_source]", "spx_source",  # Also check for V1-style placeholder
+            f"[{source_placeholder}]", source_placeholder,  # e.g., [mexbol_v2_source], mexbol_v2_source
+            f"[{base_source_placeholder}]", base_source_placeholder,  # e.g., [mexbol_source], mexbol_source
         ]
 
         replaced_source = False
@@ -1610,7 +1614,7 @@ def insert_technical_analysis_v2_slide(
                 break
             name_attr = getattr(shape, "name", "")
             # Check by shape name
-            if name_attr and name_attr.lower() in [source_placeholder.lower(), "spx_source"]:
+            if name_attr and name_attr.lower() in [source_placeholder.lower(), base_source_placeholder.lower()]:
                 if shape.has_text_frame:
                     runs = shape.text_frame.paragraphs[0].runs
                     attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
@@ -1639,10 +1643,13 @@ def insert_technical_analysis_v2_slide(
                 if replaced_source:
                     break
 
-    # Replace [spx_view] placeholder with market assessment text
+    # Derive base name from placeholder_name (e.g., "mexbol_v2" -> "mexbol")
+    base_name = placeholder_name.replace("_v2", "").lower()
+
+    # Replace [<base>_view] placeholder with market assessment text
     if view_text is not None:
-        view_placeholder = "spx_view"
-        view_patterns = ["[spx_view]", "spx_view"]
+        view_placeholder = f"{base_name}_view"
+        view_patterns = [f"[{view_placeholder}]", view_placeholder]
         for shape in target_slide.shapes:
             name_attr = getattr(shape, "name", "")
             if name_attr and name_attr.lower() == view_placeholder:
@@ -1654,7 +1661,7 @@ def insert_technical_analysis_v2_slide(
                     new_run = p.add_run()
                     new_run.text = view_text
                     _apply_run_font_attributes(new_run, *attrs)
-                    print(f"[Tech V2] Replaced spx_view with: {view_text}")
+                    print(f"[Tech V2] Replaced {view_placeholder} with: {view_text}")
                 break
             if shape.has_text_frame:
                 for pattern in view_patterns:
@@ -1676,10 +1683,10 @@ def insert_technical_analysis_v2_slide(
                     continue
                 break
 
-    # Replace [spx_text] placeholder with subtitle text
+    # Replace [<base>_text] placeholder with subtitle text
     if subtitle_text is not None:
-        text_placeholder = "spx_text"
-        text_patterns = ["[spx_text]", "spx_text"]
+        text_placeholder = f"{base_name}_text"
+        text_patterns = [f"[{text_placeholder}]", text_placeholder]
         for shape in target_slide.shapes:
             name_attr = getattr(shape, "name", "")
             if name_attr and name_attr.lower() == text_placeholder:
@@ -1691,7 +1698,7 @@ def insert_technical_analysis_v2_slide(
                     new_run = p.add_run()
                     new_run.text = subtitle_text
                     _apply_run_font_attributes(new_run, *attrs)
-                    print(f"[Tech V2] Replaced spx_text with subtitle")
+                    print(f"[Tech V2] Replaced {text_placeholder} with subtitle")
                 break
             if shape.has_text_frame:
                 for pattern in text_patterns:
