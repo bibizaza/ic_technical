@@ -555,22 +555,12 @@ except Exception:
         def _compute_range_bounds_copper(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
-# in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
-# analogous to those for commodities.  If that package cannot be imported,
-# a fallback attempt is made to import from a top‑level ``bitcoin`` module.
-# When both imports fail, define no‑op stand‑ins to keep the app running.
+# Import Bitcoin functions from the dedicated module.  The Bitcoin module
+# resides in ``technical_analysis/crypto/bitcoin.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.crypto.bitcoin import (
         make_bitcoin_figure,
-        insert_bitcoin_technical_chart_with_callout,
-        insert_bitcoin_technical_chart,
-        insert_bitcoin_technical_score_number,
-        insert_bitcoin_momentum_score_number,
-        insert_bitcoin_subtitle,
-        insert_bitcoin_average_gauge,
-        insert_bitcoin_technical_assessment,
-        insert_bitcoin_source,
         _get_bitcoin_technical_score,
         _get_bitcoin_momentum_score,
         _compute_range_bounds as _compute_range_bounds_bitcoin,
@@ -579,42 +569,19 @@ except Exception:
     try:
         from bitcoin import (
             make_bitcoin_figure,
-            insert_bitcoin_technical_chart_with_callout,
-            insert_bitcoin_technical_chart,
-            insert_bitcoin_technical_score_number,
-            insert_bitcoin_momentum_score_number,
-            insert_bitcoin_subtitle,
-            insert_bitcoin_average_gauge,
-            insert_bitcoin_technical_assessment,
-            insert_bitcoin_source,
             _get_bitcoin_technical_score,
             _get_bitcoin_momentum_score,
             _compute_range_bounds as _compute_range_bounds_bitcoin,
         )
     except Exception:
-        def make_bitcoin_figure(*args, **kwargs):  # type: ignore
+        # Define no-op stand-ins if the Bitcoin module is unavailable
+        def make_bitcoin_figure(*args, **kwargs):
             return go.Figure()
-        def insert_bitcoin_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_bitcoin_technical_score(*args, **kwargs):  # type: ignore
+        def _get_bitcoin_technical_score(*args, **kwargs):
             return None
-        def _get_bitcoin_momentum_score(*args, **kwargs):  # type: ignore
+        def _get_bitcoin_momentum_score(*args, **kwargs):
             return None
-        def _compute_range_bounds_bitcoin(*args, **kwargs):  # type: ignore
+        def _compute_range_bounds_bitcoin(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Ethereum functions from the dedicated module.  The Ethereum module resides
@@ -1037,68 +1004,6 @@ except Exception:
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Bitcoin functions from the dedicated module.  The Bitcoin module resides
-# in ``technical_analysis/crypto/bitcoin.py`` and provides helper functions
-# analogous to those for commodities.  If that package cannot be imported,
-# a fallback attempt is made to import from a top‑level ``bitcoin`` module.
-# When both imports fail, define no‑op stand‑ins to keep the app running.
-try:
-    from technical_analysis.crypto.bitcoin import (
-        make_bitcoin_figure,
-        insert_bitcoin_technical_chart_with_callout,
-        insert_bitcoin_technical_chart,
-        insert_bitcoin_technical_score_number,
-        insert_bitcoin_momentum_score_number,
-        insert_bitcoin_subtitle,
-        insert_bitcoin_average_gauge,
-        insert_bitcoin_technical_assessment,
-        insert_bitcoin_source,
-        _get_bitcoin_technical_score,
-        _get_bitcoin_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_bitcoin,
-    )
-except Exception:
-    try:
-        from bitcoin import (
-            make_bitcoin_figure,
-            insert_bitcoin_technical_chart_with_callout,
-            insert_bitcoin_technical_chart,
-            insert_bitcoin_technical_score_number,
-            insert_bitcoin_momentum_score_number,
-            insert_bitcoin_subtitle,
-            insert_bitcoin_average_gauge,
-            insert_bitcoin_technical_assessment,
-            insert_bitcoin_source,
-            _get_bitcoin_technical_score,
-            _get_bitcoin_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_bitcoin,
-        )
-    except Exception:
-        def make_bitcoin_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_bitcoin_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_bitcoin_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_bitcoin_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_bitcoin_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_bitcoin(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Ethereum functions from the dedicated module.  The Ethereum module resides
 # in ``technical_analysis/crypto/ethereum.py`` and provides helper functions
@@ -5455,78 +5360,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Bitcoin technical analysis slide (crypto)
+        # Insert Bitcoin Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Bitcoin technical analysis...")
         try:
-            # Insert the Bitcoin chart with call-out and regression channel anchored at bitcoin_anchor_dt
-            prs = insert_bitcoin_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                bitcoin_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Bitcoin technical and momentum scores
-            prs = insert_bitcoin_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_bitcoin_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Bitcoin subtitle from user input
-            prs = insert_bitcoin_subtitle(
-                prs,
-                st.session_state.get("bitcoin_subtitle", ""),
-            )
-            # Insert Bitcoin average gauge (last week's average DMAS)
-            bitcoin_last_week_avg = st.session_state.get("bitcoin_last_week_avg", 50.0)
-            prs = insert_bitcoin_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                bitcoin_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'bitcoin_view' textbox
-            manual_view_bitcoin = st.session_state.get("bitcoin_selected_view")
-            prs = insert_bitcoin_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_bitcoin,
-            )
+            update_progress("Processing Bitcoin Technical Analysis...")
+            # Get DMAS scores from session state
+            bitcoin_dmas = st.session_state.get("bitcoin_dmas", 50)
+            bitcoin_dmas_prev = st.session_state.get("bitcoin_last_week_avg", bitcoin_dmas)
+            bitcoin_tech = _get_bitcoin_technical_score(excel_path_for_ppt)
+            bitcoin_momentum = _get_bitcoin_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Bitcoin DMAS: {bitcoin_dmas}, Prev Week: {bitcoin_dmas_prev}, Tech: {bitcoin_tech}, Mom: {bitcoin_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            bitcoin_tech_prev = st.session_state.get("bitcoin_last_week_tech", None)
+            bitcoin_mom_prev = st.session_state.get("bitcoin_last_week_mom", None)
+            bitcoin_rsi_prev = st.session_state.get("bitcoin_last_week_rsi", None)
+            print(f"[Tech V2] Bitcoin Prev week scores - Tech: {bitcoin_tech_prev}, Mom: {bitcoin_mom_prev}, RSI: {bitcoin_rsi_prev}")
+
+            # Get gap information for change text formatting
+            bitcoin_days_gap = st.session_state.get("bitcoin_prev_days_gap", None)
+            bitcoin_prev_date = st.session_state.get("bitcoin_prev_date", None)
+
             # Compute used date for Bitcoin source footnote
             try:
                 import pandas as pd
                 df_prices_bitcoin = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_bitcoin = df_prices_bitcoin.drop(index=0)
-                df_prices_bitcoin = df_prices_bitcoin[
-                    df_prices_bitcoin[df_prices_bitcoin.columns[0]] != "DATES"
-                ]
-                df_prices_bitcoin["Date"] = pd.to_datetime(
-                    df_prices_bitcoin[df_prices_bitcoin.columns[0]], errors="coerce"
-                )
-                # Use the XBTUSD Curncy column for Bitcoin prices
-                df_prices_bitcoin["Price"] = pd.to_numeric(
-                    df_prices_bitcoin["XBTUSD Curncy"], errors="coerce"
-                )
-                df_prices_bitcoin = df_prices_bitcoin.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[
+                df_prices_bitcoin = df_prices_bitcoin[df_prices_bitcoin[df_prices_bitcoin.columns[0]] != "DATES"]
+                df_prices_bitcoin["Date"] = pd.to_datetime(df_prices_bitcoin[df_prices_bitcoin.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_bitcoin = df_prices_bitcoin[df_prices_bitcoin["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_bitcoin["Price"] = pd.to_numeric(df_prices_bitcoin["XBTUSD Curncy"], errors="coerce")
+                df_prices_bitcoin = df_prices_bitcoin.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
                     ["Date", "Price"]
                 ]
-                df_adj_bitcoin, used_date_bitcoin = adjust_prices_for_mode(
-                    df_prices_bitcoin, pmode
-                )
+                df_adj_bitcoin, used_date_bitcoin = adjust_prices_for_mode(df_prices_bitcoin, pmode)
             except Exception:
                 used_date_bitcoin = None
-            prs = insert_bitcoin_source(
-                prs,
-                used_date_bitcoin,
-                pmode,
+
+            v2_bytes_bitcoin, v2_date_bitcoin = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="XBTUSD Curncy",
+                price_mode=pmode,
+                dmas_score=int(bitcoin_dmas),
+                dmas_prev_week=int(bitcoin_dmas_prev),
+                technical_score=bitcoin_tech,
+                technical_prev_week=bitcoin_tech_prev,
+                momentum_score=bitcoin_momentum,
+                momentum_prev_week=bitcoin_mom_prev,
+                rsi_prev_week=bitcoin_rsi_prev,
+                days_gap=bitcoin_days_gap,
+                previous_date=bitcoin_prev_date,
             )
-        except Exception:
-            # If the Bitcoin module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_bitcoin = st.session_state.get("bitcoin_selected_view")
+            # Prepend crypto name if not already present
+            if v2_view_text_bitcoin and not v2_view_text_bitcoin.lower().startswith("bitcoin"):
+                v2_view_text_bitcoin = f"Bitcoin: {v2_view_text_bitcoin}"
+            v2_subtitle_bitcoin = st.session_state.get("bitcoin_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_bitcoin,
+                used_date=used_date_bitcoin,
+                price_mode=pmode,
+                placeholder_name="bitcoin_v2",
+                view_text=v2_view_text_bitcoin,
+                subtitle_text=v2_subtitle_bitcoin,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Bitcoin v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Ethereum technical analysis slide (crypto)
