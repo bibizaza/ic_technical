@@ -322,6 +322,19 @@ try:
         _get_smi_momentum_score,
         _compute_range_bounds as _compute_range_bounds_smi,
     )
+except Exception:
+    # Define no-op stand-ins if the SMI module is unavailable
+    def make_smi_figure(*args, **kwargs):
+        return go.Figure()
+    def _get_smi_technical_score(*args, **kwargs):
+        return None
+    def _get_smi_momentum_score(*args, **kwargs):
+        return None
+
+    # Fallback: if the SMI module is unavailable, fall back to the SPX range computation
+    def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
+        return _compute_range_bounds_spx(*args, **kwargs)
+
 # Import IBOV functions from the dedicated module.  The IBOV module
 # resides in ``technical_analysis/equity/ibov.py`` and provides helper
 # functions for V2 chart generation (score/momentum retrieval, range computation).
@@ -345,60 +358,23 @@ except Exception:
     def _compute_range_bounds_ibov(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Mexbol functions from the dedicated module.  The Mexbol module resides
-# in ``technical_analysis/equity/mexbol.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
-# These allow technical analysis of the Mexbol index.  If the module is not
-# available, define fallbacks to avoid errors and use the SPX range computation
-# as a last resort.
+# Import Mexbol functions from the dedicated module.  The Mexbol module
+# resides in ``technical_analysis/equity/mexbol.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.equity.mexbol import (
         make_mexbol_figure,
-        insert_mexbol_technical_chart_with_callout,
-        insert_mexbol_technical_chart,
-        insert_mexbol_technical_score_number,
-        insert_mexbol_momentum_score_number,
-        insert_mexbol_subtitle,
-        insert_mexbol_average_gauge,
-        insert_mexbol_technical_assessment,
-        insert_mexbol_source,
         _get_mexbol_technical_score,
         _get_mexbol_momentum_score,
         _compute_range_bounds as _compute_range_bounds_mexbol,
     )
 except Exception:
-    # Define no‑op stand‑ins if the Mexbol module is unavailable
-    def make_mexbol_figure(*args, **kwargs):  # type: ignore
+    # Define no-op stand-ins if the Mexbol module is unavailable
+    def make_mexbol_figure(*args, **kwargs):
         return go.Figure()
-
-    def insert_mexbol_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_technical_chart(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_technical_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_subtitle(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_average_gauge(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_technical_assessment(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_source(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def _get_mexbol_technical_score(*args, **kwargs):  # type: ignore
+    def _get_mexbol_technical_score(*args, **kwargs):
         return None
-
-    def _get_mexbol_momentum_score(*args, **kwargs):  # type: ignore
+    def _get_mexbol_momentum_score(*args, **kwargs):
         return None
 
     # Fallback: if the Mexbol module is unavailable, fall back to the SPX range computation
@@ -1288,66 +1264,6 @@ except Exception:
 
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
-        return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Mexbol functions from the dedicated module.  The Mexbol module resides
-# in ``technical_analysis/equity/mexbol.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX, SMI and IBOV modules.
-# These allow technical analysis of the Mexbol index.  If the module is not
-# available, define fallbacks to avoid errors and use the SPX range computation
-# as a last resort.
-try:
-    from technical_analysis.equity.mexbol import (
-        make_mexbol_figure,
-        insert_mexbol_technical_chart_with_callout,
-        insert_mexbol_technical_chart,
-        insert_mexbol_technical_score_number,
-        insert_mexbol_momentum_score_number,
-        insert_mexbol_subtitle,
-        insert_mexbol_average_gauge,
-        insert_mexbol_technical_assessment,
-        insert_mexbol_source,
-        _get_mexbol_technical_score,
-        _get_mexbol_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_mexbol,
-    )
-except Exception:
-    # Define no‑op stand‑ins if the Mexbol module is unavailable
-    def make_mexbol_figure(*args, **kwargs):  # type: ignore
-        return go.Figure()
-
-    def insert_mexbol_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_technical_chart(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_technical_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_subtitle(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_average_gauge(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_technical_assessment(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_mexbol_source(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def _get_mexbol_technical_score(*args, **kwargs):  # type: ignore
-        return None
-
-    def _get_mexbol_momentum_score(*args, **kwargs):  # type: ignore
-        return None
-
-    # Fallback: if the Mexbol module is unavailable, fall back to the SPX range computation
-    def _compute_range_bounds_mexbol(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import Gold functions from the dedicated module.  The Gold module resides
@@ -5644,64 +5560,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Mexbol technical analysis slide (always)
+        # Insert Mexbol Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Mexbol technical analysis...")
-        prs = insert_mexbol_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            mexbol_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert Mexbol technical score number
-        prs = insert_mexbol_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert Mexbol momentum score number
-        prs = insert_mexbol_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert Mexbol subtitle from user input
-        prs = insert_mexbol_subtitle(
-            prs,
-            st.session_state.get("mexbol_subtitle", ""),
-        )
-        # Insert Mexbol average gauge (last week's average is 0–100)
-        mexbol_last_week_avg = st.session_state.get("mexbol_last_week_avg", 50.0)
-        prs = insert_mexbol_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            mexbol_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'mexbol_view' textbox.
-        manual_view_mexbol = st.session_state.get("mexbol_selected_view")
-        prs = insert_mexbol_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_mexbol,
-        )
-        # Compute used date for Mexbol source footnote
         try:
-            import pandas as pd
-            df_prices_mexbol = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices_mexbol = df_prices_mexbol.drop(index=0)
-            df_prices_mexbol = df_prices_mexbol[df_prices_mexbol[df_prices_mexbol.columns[0]] != "DATES"]
-            df_prices_mexbol["Date"] = pd.to_datetime(df_prices_mexbol[df_prices_mexbol.columns[0]], errors="coerce")
-            # Use the MEXBOL Index column for Mexbol prices
-            df_prices_mexbol["Price"] = pd.to_numeric(df_prices_mexbol["MEXBOL Index"], errors="coerce")
-            df_prices_mexbol = df_prices_mexbol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj_mexbol, used_date_mexbol = adjust_prices_for_mode(df_prices_mexbol, pmode)
-        except Exception:
-            used_date_mexbol = None
-        prs = insert_mexbol_source(
-            prs,
-            used_date_mexbol,
-            pmode,
-        )
+            update_progress("Processing Mexbol Technical Analysis...")
+            # Get DMAS scores from session state
+            mexbol_dmas = st.session_state.get("mexbol_dmas", 50)
+            mexbol_dmas_prev = st.session_state.get("mexbol_last_week_avg", mexbol_dmas)
+            mexbol_tech = _get_mexbol_technical_score(excel_path_for_ppt)
+            mexbol_momentum = _get_mexbol_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Mexbol DMAS: {mexbol_dmas}, Prev Week: {mexbol_dmas_prev}, Tech: {mexbol_tech}, Mom: {mexbol_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            mexbol_tech_prev = st.session_state.get("mexbol_last_week_tech", None)
+            mexbol_mom_prev = st.session_state.get("mexbol_last_week_mom", None)
+            mexbol_rsi_prev = st.session_state.get("mexbol_last_week_rsi", None)
+            print(f"[Tech V2] Mexbol Prev week scores - Tech: {mexbol_tech_prev}, Mom: {mexbol_mom_prev}, RSI: {mexbol_rsi_prev}")
+
+            # Get gap information for change text formatting
+            mexbol_days_gap = st.session_state.get("mexbol_prev_days_gap", None)
+            mexbol_prev_date = st.session_state.get("mexbol_prev_date", None)
+
+            # Compute used date for Mexbol source footnote
+            try:
+                import pandas as pd
+                df_prices_mexbol = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_mexbol = df_prices_mexbol.drop(index=0)
+                df_prices_mexbol = df_prices_mexbol[df_prices_mexbol[df_prices_mexbol.columns[0]] != "DATES"]
+                df_prices_mexbol["Date"] = pd.to_datetime(df_prices_mexbol[df_prices_mexbol.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_mexbol = df_prices_mexbol[df_prices_mexbol["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_mexbol["Price"] = pd.to_numeric(df_prices_mexbol["MEXBOL Index"], errors="coerce")
+                df_prices_mexbol = df_prices_mexbol.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_mexbol, used_date_mexbol = adjust_prices_for_mode(df_prices_mexbol, pmode)
+            except Exception:
+                used_date_mexbol = None
+
+            v2_bytes_mexbol, v2_date_mexbol = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="MEXBOL Index",
+                price_mode=pmode,
+                dmas_score=int(mexbol_dmas),
+                dmas_prev_week=int(mexbol_dmas_prev),
+                technical_score=mexbol_tech,
+                technical_prev_week=mexbol_tech_prev,
+                momentum_score=mexbol_momentum,
+                momentum_prev_week=mexbol_mom_prev,
+                rsi_prev_week=mexbol_rsi_prev,
+                days_gap=mexbol_days_gap,
+                previous_date=mexbol_prev_date,
+            )
+            # Get the view and subtitle
+            v2_view_text_mexbol = st.session_state.get("mexbol_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text_mexbol and not v2_view_text_mexbol.lower().startswith("mexbol"):
+                v2_view_text_mexbol = f"Mexbol: {v2_view_text_mexbol}"
+            v2_subtitle_mexbol = st.session_state.get("mexbol_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_mexbol,
+                used_date=used_date_mexbol,
+                price_mode=pmode,
+                placeholder_name="mexbol_v2",
+                view_text=v2_view_text_mexbol,
+                subtitle_text=v2_subtitle_mexbol,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Mexbol v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert Gold technical analysis slide (commodity)
