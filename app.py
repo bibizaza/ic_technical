@@ -1372,22 +1372,12 @@ except Exception:
     def _compute_range_bounds_tasi(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Sensex functions from the dedicated module.  The Sensex module resides
-# in ``technical_analysis/equity/sensex.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei and TASI functions.  These allow
-# technical analysis of the BSE Sensex 30 index.  If the module is not present,
-# Streamlit will fall back gracefully when Sensex analysis is not requested.
+# Import Sensex functions from the dedicated module.  The Sensex module
+# resides in ``technical_analysis/equity/sensex.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.equity.sensex import (
         make_sensex_figure,
-        insert_sensex_technical_chart_with_callout,
-        insert_sensex_technical_chart,
-        insert_sensex_technical_score_number,
-        insert_sensex_momentum_score_number,
-        insert_sensex_subtitle,
-        insert_sensex_average_gauge,
-        insert_sensex_technical_assessment,
-        insert_sensex_source,
         _get_sensex_technical_score,
         _get_sensex_momentum_score,
         _compute_range_bounds as _compute_range_bounds_sensex,
@@ -1396,27 +1386,12 @@ except Exception:
     # Define no-op stand-ins if the Sensex module is unavailable
     def make_sensex_figure(*args, **kwargs):
         return go.Figure()
-    def insert_sensex_technical_chart_with_callout(prs, *args, **kwargs):
-        return prs
-    def insert_sensex_technical_chart(prs, *args, **kwargs):
-        return prs
-    def insert_sensex_technical_score_number(prs, *args, **kwargs):
-        return prs
-    def insert_sensex_momentum_score_number(prs, *args, **kwargs):
-        return prs
-    def insert_sensex_subtitle(prs, *args, **kwargs):
-        return prs
-    def insert_sensex_average_gauge(prs, *args, **kwargs):
-        return prs
-    def insert_sensex_technical_assessment(prs, *args, **kwargs):
-        return prs
-    def insert_sensex_source(prs, *args, **kwargs):
-        return prs
     def _get_sensex_technical_score(*args, **kwargs):
         return None
     def _get_sensex_momentum_score(*args, **kwargs):
         return None
-    # Fallback: use the SPX range computation as a generic fallback
+
+    # Fallback: if the Sensex module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_sensex(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
@@ -4600,65 +4575,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Sensex technical analysis slide
+        # Insert Sensex Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Sensex technical analysis...")
-        # Sensex technical analysis uses realised volatility and a separate implied vol index (INVIXN)
-        prs = insert_sensex_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            sensex_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert Sensex technical score number
-        prs = insert_sensex_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert Sensex momentum score number
-        prs = insert_sensex_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert Sensex subtitle from user input
-        prs = insert_sensex_subtitle(
-            prs,
-            st.session_state.get("sensex_subtitle", ""),
-        )
-        # Insert Sensex average gauge (last week's average is 0–100)
-        sensex_last_week_avg = st.session_state.get("sensex_last_week_avg", 50.0)
-        prs = insert_sensex_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            sensex_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'sensex_view' textbox.
-        manual_view_sensex = st.session_state.get("sensex_selected_view")
-        prs = insert_sensex_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_sensex,
-        )
-        # Compute used date for Sensex source footnote
         try:
-            import pandas as pd
-            df_prices_sensex = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices_sensex = df_prices_sensex.drop(index=0)
-            df_prices_sensex = df_prices_sensex[df_prices_sensex[df_prices_sensex.columns[0]] != "DATES"]
-            df_prices_sensex["Date"] = pd.to_datetime(df_prices_sensex[df_prices_sensex.columns[0]], errors="coerce")
-            # Use the SENSEX Index column for Sensex prices
-            df_prices_sensex["Price"] = pd.to_numeric(df_prices_sensex["SENSEX Index"], errors="coerce")
-            df_prices_sensex = df_prices_sensex.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj_sensex, used_date_sensex = adjust_prices_for_mode(df_prices_sensex, pmode)
-        except Exception:
-            used_date_sensex = None
-        prs = insert_sensex_source(
-            prs,
-            used_date_sensex,
-            pmode,
-        )
+            update_progress("Processing Sensex Technical Analysis...")
+            # Get DMAS scores from session state
+            sensex_dmas = st.session_state.get("sensex_dmas", 50)
+            sensex_dmas_prev = st.session_state.get("sensex_last_week_avg", sensex_dmas)
+            sensex_tech = _get_sensex_technical_score(excel_path_for_ppt)
+            sensex_momentum = _get_sensex_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Sensex DMAS: {sensex_dmas}, Prev Week: {sensex_dmas_prev}, Tech: {sensex_tech}, Mom: {sensex_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            sensex_tech_prev = st.session_state.get("sensex_last_week_tech", None)
+            sensex_mom_prev = st.session_state.get("sensex_last_week_mom", None)
+            sensex_rsi_prev = st.session_state.get("sensex_last_week_rsi", None)
+            print(f"[Tech V2] Sensex Prev week scores - Tech: {sensex_tech_prev}, Mom: {sensex_mom_prev}, RSI: {sensex_rsi_prev}")
+
+            # Get gap information for change text formatting
+            sensex_days_gap = st.session_state.get("sensex_prev_days_gap", None)
+            sensex_prev_date = st.session_state.get("sensex_prev_date", None)
+
+            # Compute used date for Sensex source footnote
+            try:
+                import pandas as pd
+                df_prices_sensex = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_sensex = df_prices_sensex.drop(index=0)
+                df_prices_sensex = df_prices_sensex[df_prices_sensex[df_prices_sensex.columns[0]] != "DATES"]
+                df_prices_sensex["Date"] = pd.to_datetime(df_prices_sensex[df_prices_sensex.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_sensex = df_prices_sensex[df_prices_sensex["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_sensex["Price"] = pd.to_numeric(df_prices_sensex["SENSEX Index"], errors="coerce")
+                df_prices_sensex = df_prices_sensex.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_sensex, used_date_sensex = adjust_prices_for_mode(df_prices_sensex, pmode)
+            except Exception:
+                used_date_sensex = None
+
+            v2_bytes_sensex, v2_date_sensex = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="SENSEX Index",
+                price_mode=pmode,
+                dmas_score=int(sensex_dmas),
+                dmas_prev_week=int(sensex_dmas_prev),
+                technical_score=sensex_tech,
+                technical_prev_week=sensex_tech_prev,
+                momentum_score=sensex_momentum,
+                momentum_prev_week=sensex_mom_prev,
+                rsi_prev_week=sensex_rsi_prev,
+                days_gap=sensex_days_gap,
+                previous_date=sensex_prev_date,
+            )
+            # Get the view and subtitle
+            v2_view_text_sensex = st.session_state.get("sensex_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text_sensex and not v2_view_text_sensex.lower().startswith("sensex"):
+                v2_view_text_sensex = f"Sensex: {v2_view_text_sensex}"
+            v2_subtitle_sensex = st.session_state.get("sensex_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_sensex,
+                used_date=used_date_sensex,
+                price_mode=pmode,
+                placeholder_name="sensex_v2",
+                view_text=v2_view_text_sensex,
+                subtitle_text=v2_subtitle_sensex,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Sensex v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert DAX technical analysis slide (always)
