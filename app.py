@@ -671,21 +671,12 @@ except Exception:
         def _compute_range_bounds_solana(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import Binance functions from the dedicated module.  The Binance module resides
-# in ``technical_analysis/crypto/binance.py`` and provides helper functions
-# analogous to the other crypto assets.  If unavailable, fall back to a
-# top‑level ``binance`` module or define no‑op stand‑ins.
+# Import Binance functions from the dedicated module.  The Binance module
+# resides in ``technical_analysis/crypto/binance.py`` and provides helper
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.crypto.binance import (
         make_binance_figure,
-        insert_binance_technical_chart_with_callout,
-        insert_binance_technical_chart,
-        insert_binance_technical_score_number,
-        insert_binance_momentum_score_number,
-        insert_binance_subtitle,
-        insert_binance_average_gauge,
-        insert_binance_technical_assessment,
-        insert_binance_source,
         _get_binance_technical_score,
         _get_binance_momentum_score,
         _compute_range_bounds as _compute_range_bounds_binance,
@@ -694,42 +685,19 @@ except Exception:
     try:
         from binance import (
             make_binance_figure,
-            insert_binance_technical_chart_with_callout,
-            insert_binance_technical_chart,
-            insert_binance_technical_score_number,
-            insert_binance_momentum_score_number,
-            insert_binance_subtitle,
-            insert_binance_average_gauge,
-            insert_binance_technical_assessment,
-            insert_binance_source,
             _get_binance_technical_score,
             _get_binance_momentum_score,
             _compute_range_bounds as _compute_range_bounds_binance,
         )
     except Exception:
-        def make_binance_figure(*args, **kwargs):  # type: ignore
+        # Define no-op stand-ins if the Binance module is unavailable
+        def make_binance_figure(*args, **kwargs):
             return go.Figure()
-        def insert_binance_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_binance_technical_score(*args, **kwargs):  # type: ignore
+        def _get_binance_technical_score(*args, **kwargs):
             return None
-        def _get_binance_momentum_score(*args, **kwargs):  # type: ignore
+        def _get_binance_momentum_score(*args, **kwargs):
             return None
-        def _compute_range_bounds_binance(*args, **kwargs):  # type: ignore
+        def _compute_range_bounds_binance(*args, **kwargs):
             return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import CSI functions from the dedicated module.  The CSI module resides
@@ -846,67 +814,6 @@ except Exception:
     # Fallback: if the DAX module is unavailable, fall back to the SPX range computation
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
-
-# Import Binance functions from the dedicated module.  The Binance module resides
-# in ``technical_analysis/crypto/binance.py`` and provides helper functions
-# analogous to the other crypto assets.  If unavailable, fall back to a
-# top‑level ``binance`` module or define no‑op stand‑ins.
-try:
-    from technical_analysis.crypto.binance import (
-        make_binance_figure,
-        insert_binance_technical_chart_with_callout,
-        insert_binance_technical_chart,
-        insert_binance_technical_score_number,
-        insert_binance_momentum_score_number,
-        insert_binance_subtitle,
-        insert_binance_average_gauge,
-        insert_binance_technical_assessment,
-        insert_binance_source,
-        _get_binance_technical_score,
-        _get_binance_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_binance,
-    )
-except Exception:
-    try:
-        from binance import (
-            make_binance_figure,
-            insert_binance_technical_chart_with_callout,
-            insert_binance_technical_chart,
-            insert_binance_technical_score_number,
-            insert_binance_momentum_score_number,
-            insert_binance_subtitle,
-            insert_binance_average_gauge,
-            insert_binance_technical_assessment,
-            insert_binance_source,
-            _get_binance_technical_score,
-            _get_binance_momentum_score,
-            _compute_range_bounds as _compute_range_bounds_binance,
-        )
-    except Exception:
-        def make_binance_figure(*args, **kwargs):  # type: ignore
-            return go.Figure()
-        def insert_binance_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_technical_chart(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_technical_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_subtitle(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_average_gauge(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_technical_assessment(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def insert_binance_source(prs, *args, **kwargs):  # type: ignore
-            return prs
-        def _get_binance_technical_score(*args, **kwargs):  # type: ignore
-            return None
-        def _get_binance_momentum_score(*args, **kwargs):  # type: ignore
-            return None
-        def _compute_range_bounds_binance(*args, **kwargs):  # type: ignore
-            return _compute_range_bounds_spx(*args, **kwargs)
 
 # Import CSI functions from the dedicated module.  The CSI module resides
 # in ``technical_analysis/equity/csi.py`` and provides helper functions
@@ -5257,74 +5164,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Binance technical analysis slide (crypto)
+        # Insert Binance Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Binance technical analysis...")
         try:
-            # Insert the Binance chart with call-out and regression channel anchored at binance_anchor_dt
-            prs = insert_binance_technical_chart_with_callout(
-                prs,
-                excel_path_for_ppt,
-                binance_anchor_dt,
-                price_mode=pmode,
-            )
-            # Insert Binance technical and momentum scores
-            prs = insert_binance_technical_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            prs = insert_binance_momentum_score_number(
-                prs,
-                excel_path_for_ppt,
-            )
-            # Insert Binance subtitle from user input
-            prs = insert_binance_subtitle(
-                prs,
-                st.session_state.get("binance_subtitle", ""),
-            )
-            # Insert Binance average gauge (last week's average DMAS)
-            binance_last_week_avg = st.session_state.get("binance_last_week_avg", 50.0)
-            prs = insert_binance_average_gauge(
-                prs,
-                excel_path_for_ppt,
-                binance_last_week_avg,
-            )
-            # Insert the technical assessment text into the 'binance_view' textbox
-            manual_view_binance = st.session_state.get("binance_selected_view")
-            prs = insert_binance_technical_assessment(
-                prs,
-                excel_path_for_ppt,
-                manual_desc=manual_view_binance,
-            )
+            update_progress("Processing Binance Technical Analysis...")
+            # Get DMAS scores from session state
+            binance_dmas = st.session_state.get("binance_dmas", 50)
+            binance_dmas_prev = st.session_state.get("binance_last_week_avg", binance_dmas)
+            binance_tech = _get_binance_technical_score(excel_path_for_ppt)
+            binance_momentum = _get_binance_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Binance DMAS: {binance_dmas}, Prev Week: {binance_dmas_prev}, Tech: {binance_tech}, Mom: {binance_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            binance_tech_prev = st.session_state.get("binance_last_week_tech", None)
+            binance_mom_prev = st.session_state.get("binance_last_week_mom", None)
+            binance_rsi_prev = st.session_state.get("binance_last_week_rsi", None)
+            print(f"[Tech V2] Binance Prev week scores - Tech: {binance_tech_prev}, Mom: {binance_mom_prev}, RSI: {binance_rsi_prev}")
+
+            # Get gap information for change text formatting
+            binance_days_gap = st.session_state.get("binance_prev_days_gap", None)
+            binance_prev_date = st.session_state.get("binance_prev_date", None)
+
             # Compute used date for Binance source footnote
             try:
                 import pandas as pd
                 df_prices_binance = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
                 df_prices_binance = df_prices_binance.drop(index=0)
                 df_prices_binance = df_prices_binance[df_prices_binance[df_prices_binance.columns[0]] != "DATES"]
-                df_prices_binance["Date"] = pd.to_datetime(
-                    df_prices_binance[df_prices_binance.columns[0]], errors="coerce"
-                )
-                # Use the XBIUSD Curncy column for Binance prices
-                df_prices_binance["Price"] = pd.to_numeric(
-                    df_prices_binance["XBIUSD Curncy"], errors="coerce"
-                )
-                df_prices_binance = df_prices_binance.dropna(subset=["Date", "Price"]).sort_values(
-                    "Date"
-                ).reset_index(drop=True)[["Date", "Price"]]
-                df_adj_binance, used_date_binance = adjust_prices_for_mode(
-                    df_prices_binance, pmode
-                )
+                df_prices_binance["Date"] = pd.to_datetime(df_prices_binance[df_prices_binance.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_binance = df_prices_binance[df_prices_binance["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_binance["Price"] = pd.to_numeric(df_prices_binance["XBIUSD Curncy"], errors="coerce")
+                df_prices_binance = df_prices_binance.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_binance, used_date_binance = adjust_prices_for_mode(df_prices_binance, pmode)
             except Exception:
                 used_date_binance = None
-            prs = insert_binance_source(
-                prs,
-                used_date_binance,
-                pmode,
+
+            v2_bytes_binance, v2_date_binance = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="XBIUSD Curncy",
+                price_mode=pmode,
+                dmas_score=int(binance_dmas),
+                dmas_prev_week=int(binance_dmas_prev),
+                technical_score=binance_tech,
+                technical_prev_week=binance_tech_prev,
+                momentum_score=binance_momentum,
+                momentum_prev_week=binance_mom_prev,
+                rsi_prev_week=binance_rsi_prev,
+                days_gap=binance_days_gap,
+                previous_date=binance_prev_date,
             )
-        except Exception:
-            # If the Binance module is unavailable or insertion fails, continue without error
-            pass
+            # Get the view and subtitle
+            v2_view_text_binance = st.session_state.get("binance_selected_view")
+            # Prepend crypto name if not already present
+            if v2_view_text_binance and not v2_view_text_binance.lower().startswith("binance"):
+                v2_view_text_binance = f"Binance: {v2_view_text_binance}"
+            v2_subtitle_binance = st.session_state.get("binance_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_binance,
+                used_date=used_date_binance,
+                price_mode=pmode,
+                placeholder_name="binance_v2",
+                view_text=v2_view_text_binance,
+                subtitle_text=v2_subtitle_binance,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Binance v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # When CSI 300 is the selected index, the technical analysis slides
         # for CSI have already been inserted in the branch above.  Avoid
