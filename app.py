@@ -1328,57 +1328,20 @@ except Exception:
 
 # Import Nikkei functions from the dedicated module.  The Nikkei module
 # resides in ``technical_analysis/equity/nikkei.py`` and provides helper
-# functions analogous to the SPX and CSI functions.  These allow
-# technical analysis of the Nikkei 225 index.  If the module is not
-# present, Streamlit will fall back gracefully when Nikkei analysis is
-# not requested.
+# functions for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.equity.nikkei import (
         make_nikkei_figure,
-        insert_nikkei_technical_chart_with_callout,
-        insert_nikkei_technical_chart,
-        insert_nikkei_technical_score_number,
-        insert_nikkei_momentum_score_number,
-        insert_nikkei_subtitle,
-        insert_nikkei_average_gauge,
-        insert_nikkei_technical_assessment,
-        insert_nikkei_source,
         _get_nikkei_technical_score,
         _get_nikkei_momentum_score,
         _compute_range_bounds as _compute_range_bounds_nikkei,
     )
 except Exception:
-    # Define no-op stand‑ins if the Nikkei module is unavailable
+    # Define no-op stand-ins if the Nikkei module is unavailable
     def make_nikkei_figure(*args, **kwargs):
         return go.Figure()
-
-    def insert_nikkei_technical_chart_with_callout(prs, *args, **kwargs):
-        return prs
-
-    def insert_nikkei_technical_chart(prs, *args, **kwargs):
-        return prs
-
-    def insert_nikkei_technical_score_number(prs, *args, **kwargs):
-        return prs
-
-    def insert_nikkei_momentum_score_number(prs, *args, **kwargs):
-        return prs
-
-    def insert_nikkei_subtitle(prs, *args, **kwargs):
-        return prs
-
-    def insert_nikkei_average_gauge(prs, *args, **kwargs):
-        return prs
-
-    def insert_nikkei_technical_assessment(prs, *args, **kwargs):
-        return prs
-
-    def insert_nikkei_source(prs, *args, **kwargs):
-        return prs
-
     def _get_nikkei_technical_score(*args, **kwargs):
         return None
-
     def _get_nikkei_momentum_score(*args, **kwargs):
         return None
 
@@ -4513,63 +4476,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert Nikkei technical analysis slide (always)
+        # Insert Nikkei Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing Nikkei 225 technical analysis...")
-        prs = insert_nikkei_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            nikkei_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert Nikkei technical score number
-        prs = insert_nikkei_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert Nikkei momentum score number
-        prs = insert_nikkei_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert Nikkei subtitle from user input
-        prs = insert_nikkei_subtitle(
-            prs,
-            st.session_state.get("nikkei_subtitle", ""),
-        )
-        # Insert Nikkei average gauge (last week's average is 0–100)
-        nikkei_last_week_avg = st.session_state.get("nikkei_last_week_avg", 50.0)
-        prs = insert_nikkei_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            nikkei_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'nikkei_view' textbox
-        manual_view_nikkei = st.session_state.get("nikkei_selected_view")
-        prs = insert_nikkei_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_nikkei,
-        )
-        # Compute used date for Nikkei source footnote
         try:
-            import pandas as pd
-            df_prices_nikkei = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices_nikkei = df_prices_nikkei.drop(index=0)
-            df_prices_nikkei = df_prices_nikkei[df_prices_nikkei[df_prices_nikkei.columns[0]] != "DATES"]
-            df_prices_nikkei["Date"] = pd.to_datetime(df_prices_nikkei[df_prices_nikkei.columns[0]], errors="coerce")
-            df_prices_nikkei["Price"] = pd.to_numeric(df_prices_nikkei["NKY Index"], errors="coerce")
-            df_prices_nikkei = df_prices_nikkei.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj_nikkei, used_date_nikkei = adjust_prices_for_mode(df_prices_nikkei, pmode)
-        except Exception:
-            used_date_nikkei = None
-        prs = insert_nikkei_source(
-            prs,
-            used_date_nikkei,
-            pmode,
-        )
+            update_progress("Processing Nikkei 225 Technical Analysis...")
+            # Get DMAS scores from session state
+            nikkei_dmas = st.session_state.get("nikkei_dmas", 50)
+            nikkei_dmas_prev = st.session_state.get("nikkei_last_week_avg", nikkei_dmas)
+            nikkei_tech = _get_nikkei_technical_score(excel_path_for_ppt)
+            nikkei_momentum = _get_nikkei_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] Nikkei DMAS: {nikkei_dmas}, Prev Week: {nikkei_dmas_prev}, Tech: {nikkei_tech}, Mom: {nikkei_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            nikkei_tech_prev = st.session_state.get("nikkei_last_week_tech", None)
+            nikkei_mom_prev = st.session_state.get("nikkei_last_week_mom", None)
+            nikkei_rsi_prev = st.session_state.get("nikkei_last_week_rsi", None)
+            print(f"[Tech V2] Nikkei Prev week scores - Tech: {nikkei_tech_prev}, Mom: {nikkei_mom_prev}, RSI: {nikkei_rsi_prev}")
+
+            # Get gap information for change text formatting
+            nikkei_days_gap = st.session_state.get("nikkei_prev_days_gap", None)
+            nikkei_prev_date = st.session_state.get("nikkei_prev_date", None)
+
+            # Compute used date for Nikkei source footnote
+            try:
+                import pandas as pd
+                df_prices_nikkei = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_nikkei = df_prices_nikkei.drop(index=0)
+                df_prices_nikkei = df_prices_nikkei[df_prices_nikkei[df_prices_nikkei.columns[0]] != "DATES"]
+                df_prices_nikkei["Date"] = pd.to_datetime(df_prices_nikkei[df_prices_nikkei.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_nikkei = df_prices_nikkei[df_prices_nikkei["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_nikkei["Price"] = pd.to_numeric(df_prices_nikkei["NKY Index"], errors="coerce")
+                df_prices_nikkei = df_prices_nikkei.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_nikkei, used_date_nikkei = adjust_prices_for_mode(df_prices_nikkei, pmode)
+            except Exception:
+                used_date_nikkei = None
+
+            v2_bytes_nikkei, v2_date_nikkei = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="NKY Index",
+                price_mode=pmode,
+                dmas_score=int(nikkei_dmas),
+                dmas_prev_week=int(nikkei_dmas_prev),
+                technical_score=nikkei_tech,
+                technical_prev_week=nikkei_tech_prev,
+                momentum_score=nikkei_momentum,
+                momentum_prev_week=nikkei_mom_prev,
+                rsi_prev_week=nikkei_rsi_prev,
+                days_gap=nikkei_days_gap,
+                previous_date=nikkei_prev_date,
+            )
+            # Get the view and subtitle
+            v2_view_text_nikkei = st.session_state.get("nikkei_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text_nikkei and not v2_view_text_nikkei.lower().startswith("nikkei"):
+                v2_view_text_nikkei = f"Nikkei 225: {v2_view_text_nikkei}"
+            v2_subtitle_nikkei = st.session_state.get("nikkei_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_nikkei,
+                used_date=used_date_nikkei,
+                price_mode=pmode,
+                placeholder_name="nikkei_v2",
+                view_text=v2_view_text_nikkei,
+                subtitle_text=v2_subtitle_nikkei,
+            )
+        except Exception as e:
+            print(f"[Tech V2] Nikkei v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert TASI technical analysis slide (always)
