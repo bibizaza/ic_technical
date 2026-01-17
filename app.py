@@ -314,66 +314,14 @@ from importlib import reload
 
 # Import SMI functions from the dedicated module.  The SMI module resides
 # in ``technical_analysis/equity/smi.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI, Sensex and DAX functions.  These
-# allow technical analysis of the Swiss Market Index (SMI).  If the module is
-# not present (e.g. during development), we define no‑op stand‑ins so that
-# the application continues to run without error.  The fallback for the
-# range computation uses the SPX range bounds to avoid crashing when the
-# SMI module is missing.
+# for V2 chart generation (score/momentum retrieval, range computation).
 try:
     from technical_analysis.equity.smi import (
         make_smi_figure,
-        insert_smi_technical_chart_with_callout,
-        insert_smi_technical_chart,
-        insert_smi_technical_score_number,
-        insert_smi_momentum_score_number,
-        insert_smi_subtitle,
-        insert_smi_average_gauge,
-        insert_smi_technical_assessment,
-        insert_smi_source,
         _get_smi_technical_score,
         _get_smi_momentum_score,
         _compute_range_bounds as _compute_range_bounds_smi,
     )
-except Exception:
-    # Define no‑op stand‑ins if the SMI module is unavailable
-    def make_smi_figure(*args, **kwargs):  # type: ignore
-        return go.Figure()
-
-    def insert_smi_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_chart(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_subtitle(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_average_gauge(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_assessment(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_source(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def _get_smi_technical_score(*args, **kwargs):  # type: ignore
-        return None
-
-    def _get_smi_momentum_score(*args, **kwargs):  # type: ignore
-        return None
-
-    # Fallback: if the SMI module is unavailable, fall back to the SPX range computation
-    def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
-        return _compute_range_bounds_spx(*args, **kwargs)
-
 # Import IBOV functions from the dedicated module.  The IBOV module resides
 # in ``technical_analysis/equity/ibov.py`` and provides helper functions
 # analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX and SMI modules.  These
@@ -692,45 +640,6 @@ except Exception:
             return None
         def _compute_range_bounds_platinum(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
-except Exception:
-    # Define no‑op stand‑ins if the SMI module is unavailable
-    def make_smi_figure(*args, **kwargs):  # type: ignore
-        return go.Figure()
-
-    def insert_smi_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_chart(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_subtitle(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_average_gauge(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_assessment(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_source(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def _get_smi_technical_score(*args, **kwargs):  # type: ignore
-        return None
-
-    def _get_smi_momentum_score(*args, **kwargs):  # type: ignore
-        return None
-
-    # Fallback: if the SMI module is unavailable, fall back to the SPX range computation
-    def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
-        return _compute_range_bounds_spx(*args, **kwargs)
-
 # Import Oil functions from the dedicated module.  Similar to Gold, Silver and Platinum,
 # these helpers reside in ``technical_analysis/commodity/oil.py``.  If that
 # package is unavailable, a second attempt is made to import a top‑level
@@ -1418,68 +1327,6 @@ except Exception:
     def _compute_range_bounds_dax(*args, **kwargs):  # type: ignore
         return _compute_range_bounds_spx(*args, **kwargs)
 
-# Import SMI functions from the dedicated module.  The SMI module resides
-# in ``technical_analysis/equity/smi.py`` and provides helper functions
-# analogous to the SPX, CSI, Nikkei, TASI, Sensex and DAX functions.  These
-# allow technical analysis of the Swiss Market Index (SMI).  If the module is
-# not present (e.g. during development), we define no‑op stand‑ins so that
-# the application continues to run without error.  The fallback for the
-# range computation uses the SPX range bounds to avoid crashing when the
-# SMI module is missing.
-try:
-    from technical_analysis.equity.smi import (
-        make_smi_figure,
-        insert_smi_technical_chart_with_callout,
-        insert_smi_technical_chart,
-        insert_smi_technical_score_number,
-        insert_smi_momentum_score_number,
-        insert_smi_subtitle,
-        insert_smi_average_gauge,
-        insert_smi_technical_assessment,
-        insert_smi_source,
-        _get_smi_technical_score,
-        _get_smi_momentum_score,
-        _compute_range_bounds as _compute_range_bounds_smi,
-    )
-except Exception:
-    # Define no‑op stand‑ins if the SMI module is unavailable
-    def make_smi_figure(*args, **kwargs):  # type: ignore
-        return go.Figure()
-
-    def insert_smi_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_chart(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_subtitle(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_average_gauge(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_assessment(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_source(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def _get_smi_technical_score(*args, **kwargs):  # type: ignore
-        return None
-
-    def _get_smi_momentum_score(*args, **kwargs):  # type: ignore
-        return None
-
-    # Fallback: if the SMI module is unavailable, fall back to the SPX range computation
-    def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
-        return _compute_range_bounds_spx(*args, **kwargs)
-
 # Import IBOV functions from the dedicated module.  The IBOV module resides
 # in ``technical_analysis/equity/ibov.py`` and provides helper functions
 # analogous to the SPX, CSI, Nikkei, TASI, Sensex, DAX and SMI modules.  These
@@ -1798,45 +1645,6 @@ except Exception:
             return None
         def _compute_range_bounds_platinum(*args, **kwargs):  # type: ignore
             return _compute_range_bounds_spx(*args, **kwargs)
-except Exception:
-    # Define no‑op stand‑ins if the SMI module is unavailable
-    def make_smi_figure(*args, **kwargs):  # type: ignore
-        return go.Figure()
-
-    def insert_smi_technical_chart_with_callout(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_chart(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_momentum_score_number(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_subtitle(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_average_gauge(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_technical_assessment(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def insert_smi_source(prs, *args, **kwargs):  # type: ignore
-        return prs
-
-    def _get_smi_technical_score(*args, **kwargs):  # type: ignore
-        return None
-
-    def _get_smi_momentum_score(*args, **kwargs):  # type: ignore
-        return None
-
-    # Fallback: if the SMI module is unavailable, fall back to the SPX range computation
-    def _compute_range_bounds_smi(*args, **kwargs):  # type: ignore
-        return _compute_range_bounds_spx(*args, **kwargs)
-
 # Import Oil functions from the dedicated module.  Similar to Gold, Silver and Platinum,
 # these helpers reside in ``technical_analysis/commodity/oil.py``.  If that
 # package is unavailable, a second attempt is made to import a top‑level
@@ -5783,64 +5591,79 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Insert SMI technical analysis slide (always)
+        # Insert SMI Technical Analysis v2 chart (Chart.js + Playwright)
         # ------------------------------------------------------------------
-        update_progress("Processing SMI technical analysis...")
-        prs = insert_smi_technical_chart_with_callout(
-            prs,
-            excel_path_for_ppt,
-            smi_anchor_dt,
-            price_mode=pmode,
-        )
-        # Insert SMI technical score number
-        prs = insert_smi_technical_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert SMI momentum score number
-        prs = insert_smi_momentum_score_number(
-            prs,
-            excel_path_for_ppt,
-        )
-        # Insert SMI subtitle from user input
-        prs = insert_smi_subtitle(
-            prs,
-            st.session_state.get("smi_subtitle", ""),
-        )
-        # Insert SMI average gauge (last week's average is 0–100)
-        smi_last_week_avg = st.session_state.get("smi_last_week_avg", 50.0)
-        prs = insert_smi_average_gauge(
-            prs,
-            excel_path_for_ppt,
-            smi_last_week_avg,
-        )
-        # Insert the technical assessment text into the 'smi_view' textbox.
-        manual_view_smi = st.session_state.get("smi_selected_view")
-        prs = insert_smi_technical_assessment(
-            prs,
-            excel_path_for_ppt,
-            manual_desc=manual_view_smi,
-        )
-        # Compute used date for SMI source footnote
         try:
-            import pandas as pd
-            df_prices_smi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
-            df_prices_smi = df_prices_smi.drop(index=0)
-            df_prices_smi = df_prices_smi[df_prices_smi[df_prices_smi.columns[0]] != "DATES"]
-            df_prices_smi["Date"] = pd.to_datetime(df_prices_smi[df_prices_smi.columns[0]], errors="coerce")
-            # Use the SMI Index column for SMI prices
-            df_prices_smi["Price"] = pd.to_numeric(df_prices_smi["SMI Index"], errors="coerce")
-            df_prices_smi = df_prices_smi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-                ["Date", "Price"]
-            ]
-            df_adj_smi, used_date_smi = adjust_prices_for_mode(df_prices_smi, pmode)
-        except Exception:
-            used_date_smi = None
-        prs = insert_smi_source(
-            prs,
-            used_date_smi,
-            pmode,
-        )
+            update_progress("Processing SMI Technical Analysis...")
+            # Get DMAS scores from session state
+            smi_dmas = st.session_state.get("smi_dmas", 50)
+            smi_dmas_prev = st.session_state.get("smi_last_week_avg", smi_dmas)
+            smi_tech = _get_smi_technical_score(excel_path_for_ppt)
+            smi_momentum = _get_smi_momentum_score(excel_path_for_ppt)
+            print(f"[Tech V2] SMI DMAS: {smi_dmas}, Prev Week: {smi_dmas_prev}, Tech: {smi_tech}, Mom: {smi_momentum}")
+
+            # Get previous week Technical/Momentum/RSI scores from history
+            smi_tech_prev = st.session_state.get("smi_last_week_tech", None)
+            smi_mom_prev = st.session_state.get("smi_last_week_mom", None)
+            smi_rsi_prev = st.session_state.get("smi_last_week_rsi", None)
+            print(f"[Tech V2] SMI Prev week scores - Tech: {smi_tech_prev}, Mom: {smi_mom_prev}, RSI: {smi_rsi_prev}")
+
+            # Get gap information for change text formatting
+            smi_days_gap = st.session_state.get("smi_prev_days_gap", None)
+            smi_prev_date = st.session_state.get("smi_prev_date", None)
+
+            # Compute used date for SMI source footnote
+            try:
+                import pandas as pd
+                df_prices_smi = pd.read_excel(excel_path_for_ppt, sheet_name="data_prices")
+                df_prices_smi = df_prices_smi.drop(index=0)
+                df_prices_smi = df_prices_smi[df_prices_smi[df_prices_smi.columns[0]] != "DATES"]
+                df_prices_smi["Date"] = pd.to_datetime(df_prices_smi[df_prices_smi.columns[0]], errors="coerce")
+                # Filter by "Data As Of" date if set
+                if "data_as_of" in st.session_state:
+                    df_prices_smi = df_prices_smi[df_prices_smi["Date"] <= pd.Timestamp(st.session_state["data_as_of"])]
+                df_prices_smi["Price"] = pd.to_numeric(df_prices_smi["SMI Index"], errors="coerce")
+                df_prices_smi = df_prices_smi.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
+                    ["Date", "Price"]
+                ]
+                df_adj_smi, used_date_smi = adjust_prices_for_mode(df_prices_smi, pmode)
+            except Exception:
+                used_date_smi = None
+
+            v2_bytes_smi, v2_date_smi = create_technical_analysis_v2_chart(
+                excel_path_for_ppt,
+                ticker="SMI Index",
+                price_mode=pmode,
+                dmas_score=int(smi_dmas),
+                dmas_prev_week=int(smi_dmas_prev),
+                technical_score=smi_tech,
+                technical_prev_week=smi_tech_prev,
+                momentum_score=smi_momentum,
+                momentum_prev_week=smi_mom_prev,
+                rsi_prev_week=smi_rsi_prev,
+                days_gap=smi_days_gap,
+                previous_date=smi_prev_date,
+            )
+            # Get the view and subtitle
+            v2_view_text_smi = st.session_state.get("smi_selected_view")
+            # Prepend index name if not already present
+            if v2_view_text_smi and not v2_view_text_smi.lower().startswith("smi"):
+                v2_view_text_smi = f"SMI: {v2_view_text_smi}"
+            v2_subtitle_smi = st.session_state.get("smi_subtitle", "")
+
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                v2_bytes_smi,
+                used_date=used_date_smi,
+                price_mode=pmode,
+                placeholder_name="smi_v2",
+                view_text=v2_view_text_smi,
+                subtitle_text=v2_subtitle_smi,
+            )
+        except Exception as e:
+            print(f"[Tech V2] SMI v2 chart error: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ------------------------------------------------------------------
         # Insert IBOV technical analysis slide (always)
