@@ -283,7 +283,18 @@ def _load_price_data_generic(
     df = df.drop(index=0)
     df = df[df[df.columns[0]] != "DATES"]
     df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
+
+    # Case-insensitive column matching: find the actual column name
+    ticker_col = ticker
+    if ticker not in df.columns:
+        # Try case-insensitive match
+        ticker_upper = ticker.upper()
+        for col in df.columns:
+            if col.upper() == ticker_upper:
+                ticker_col = col
+                break
+
+    df["Price"] = pd.to_numeric(df[ticker_col], errors="coerce")
     df_clean = (
         df.dropna(subset=["Date", "Price"])
         .sort_values("Date")
@@ -600,7 +611,18 @@ def _load_price_data_from_obj(
     df = df.drop(index=0)
     df = df[df[df.columns[0]] != "DATES"]
     df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
+
+    # Case-insensitive column matching: find the actual column name
+    ticker_col = ticker
+    if ticker not in df.columns:
+        # Try case-insensitive match
+        ticker_upper = ticker.upper()
+        for col in df.columns:
+            if col.upper() == ticker_upper:
+                ticker_col = col
+                break
+
+    df["Price"] = pd.to_numeric(df[ticker_col], errors="coerce")
     df_clean = (
         df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
             ["Date", "Price"]
