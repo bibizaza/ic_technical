@@ -127,6 +127,16 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
             line-height: 1;
         }
 
+        /* SVG icons (EM globe) */
+        .flag svg,
+        .em-globe svg {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 22 * scale }}px !important;
+            min-width: {{ 22 * scale }}px;
+            min-height: {{ 22 * scale }}px;
+            flex-shrink: 0;
+        }
+
         /* Flag images */
         .market-info img,
         .market-info .flag-img {
@@ -341,6 +351,16 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
             line-height: 1;
         }
 
+        /* SVG icons (EM globe) */
+        .flag svg,
+        .em-globe svg {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 22 * scale }}px !important;
+            min-width: {{ 22 * scale }}px;
+            min-height: {{ 22 * scale }}px;
+            flex-shrink: 0;
+        }
+
         /* Flag images */
         .market-col img,
         .market-col .flag-img {
@@ -483,6 +503,16 @@ BONDS_RATES_HTML_TEMPLATE = '''
         .country-header .flag {
             font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* SVG icons (EM globe) in country headers */
+        .country-header .flag svg,
+        .country-header .em-globe svg {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 22 * scale }}px !important;
+            min-width: {{ 22 * scale }}px;
+            min-height: {{ 22 * scale }}px;
+            flex-shrink: 0;
         }
 
         /* Flag images in country headers */
@@ -763,6 +793,16 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
             line-height: 1;
         }
 
+        /* SVG icons (EM globe) in country headers */
+        .country-header .flag svg,
+        .country-header .em-globe svg {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 22 * scale }}px !important;
+            min-width: {{ 22 * scale }}px;
+            min-height: {{ 22 * scale }}px;
+            flex-shrink: 0;
+        }
+
         /* Flag images */
         .country-header img,
         .country-header .flag-img {
@@ -944,6 +984,16 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
         .flag {
             font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* SVG icons (EM globe) */
+        .flag svg,
+        .em-globe svg {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 22 * scale }}px !important;
+            min-width: {{ 22 * scale }}px;
+            min-height: {{ 22 * scale }}px;
+            flex-shrink: 0;
         }
 
         /* Flag images */
@@ -1175,6 +1225,16 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         .flag {
             font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* SVG icons (EM globe) */
+        .flag svg,
+        .em-globe svg {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 22 * scale }}px !important;
+            min-width: {{ 22 * scale }}px;
+            min-height: {{ 22 * scale }}px;
+            flex-shrink: 0;
         }
 
         /* Flag images */
@@ -1754,6 +1814,16 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
             line-height: 1;
         }
 
+        /* SVG icons (EM globe) */
+        .flag svg,
+        .em-globe svg {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 22 * scale }}px !important;
+            min-width: {{ 22 * scale }}px;
+            min-height: {{ 22 * scale }}px;
+            flex-shrink: 0;
+        }
+
         /* Flag images */
         .currency-col img,
         .currency-col .flag-img {
@@ -1965,6 +2035,16 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         .flag {
             font-size: {{ 22 * scale }}px;
             line-height: 1;
+        }
+
+        /* SVG icons (EM globe) */
+        .flag svg,
+        .em-globe svg {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 22 * scale }}px !important;
+            min-width: {{ 22 * scale }}px;
+            min-height: {{ 22 * scale }}px;
+            flex-shrink: 0;
         }
 
         /* Flag images */
