@@ -131,9 +131,13 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
     # Regular country flags
     if sys.platform == 'darwin':  # Mac - use emoji flags
         emoji = FLAG_EMOJI.get(code, '🏳️')
-        return f'<span class="flag">{emoji}</span>'
+        # Use same size multiplier as EM globe for consistent emoji sizing
+        emoji_size = int(size * 3.0)
+        return f'<span class="flag" style="font-size:{emoji_size}px; line-height:1; vertical-align:middle;">{emoji}</span>'
     else:  # Windows/Linux - use PNG images
-        return f'<img class="flag-img" src="https://flagcdn.com/w40/{code}.png" style="width:{size}px; height:auto; vertical-align:middle; flex-shrink:0;">'
+        # Use 2x size for PNG flags to match crypto logo sizing
+        img_size = int(size * 2)
+        return f'<img class="flag-img" src="https://flagcdn.com/w40/{code}.png" style="width:{img_size}px; height:auto; vertical-align:middle; flex-shrink:0;">'
 
 
 def get_flag_css() -> str:
