@@ -73,10 +73,10 @@ def _prepare_row(row: AssetRow) -> dict:
     rsi = int(row.rsi)
     vs_50d = row.vs_50d_ma
 
-    # Generate flag HTML for crypto logos (size 18 for table cells)
+    # Generate flag HTML for crypto logos (size 28 for table cells, gets 2x in flag_utils)
     flag_html = ""
     if hasattr(row, 'flag') and row.flag:
-        flag_html = get_flag_html(row.flag, size=18)
+        flag_html = get_flag_html(row.flag, size=28)
 
     return {
         "name": row.name,
@@ -177,9 +177,19 @@ def insert_technical_analysis_slide(
     for slide_idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
             name = getattr(shape, "name", "")
-            if placeholder_name.lower() in name.lower():
+            # Only remove the specific chart placeholder, not titles or other elements
+            # Exact match or chart-specific placeholder
+            if name.lower() == placeholder_name.lower() or f"{placeholder_name}_chart" in name.lower():
                 target_slide = slide
-                print(f"[Technical Nutshell] Found on slide {slide_idx + 1}")
+                print(f"[Technical Nutshell] Found placeholder '{name}' on slide {slide_idx + 1}")
+                # Remove placeholder shape
+                sp = shape._element
+                sp.getparent().remove(sp)
+                break
+            # Also check for slide containing the placeholder (but don't remove titles)
+            elif placeholder_name.lower() in name.lower() and "title" not in name.lower():
+                target_slide = slide
+                print(f"[Technical Nutshell] Found placeholder '{name}' on slide {slide_idx + 1}")
                 # Remove placeholder shape
                 sp = shape._element
                 sp.getparent().remove(sp)
