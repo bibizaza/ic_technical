@@ -28,11 +28,11 @@ COMMO_ASSETS = [
 ]
 
 CRYPTO_ASSETS = [
-    ("Bitcoin", "XBTUSD Curncy"),
-    ("Ethereum", "XETUSD Curncy"),
-    ("Ripple", "XRPUSD Curncy"),
-    ("Solana", "XSOUSD Curncy"),
-    ("Binance", "XBIUSD Curncy"),
+    ("Bitcoin", "XBTUSD Curncy", "btc"),
+    ("Ethereum", "XETUSD Curncy", "eth"),
+    ("Ripple", "XRPUSD Curncy", "xrp"),
+    ("Solana", "XSOUSD Curncy", "sol"),
+    ("Binance", "XBIUSD Curncy", "bnb"),
 ]
 
 # =============================================================================

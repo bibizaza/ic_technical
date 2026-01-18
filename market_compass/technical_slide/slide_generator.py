@@ -19,6 +19,7 @@ from pptx.util import Cm
 
 from .html_template import TABLES_HTML_TEMPLATE
 from .data_prep import AssetRow
+from helpers.flag_utils import get_flag_html
 
 
 # ============================================================
@@ -72,6 +73,11 @@ def _prepare_row(row: AssetRow) -> dict:
     rsi = int(row.rsi)
     vs_50d = row.vs_50d_ma
 
+    # Generate flag HTML for crypto logos (size 18 for table cells)
+    flag_html = ""
+    if hasattr(row, 'flag') and row.flag:
+        flag_html = get_flag_html(row.flag, size=18)
+
     return {
         "name": row.name,
         "market_cap": row.market_cap,
@@ -83,6 +89,7 @@ def _prepare_row(row: AssetRow) -> dict:
         "dmas_class": _get_dmas_class(dmas),
         "outlook": row.outlook,
         "outlook_lower": row.outlook.lower(),
+        "flag_html": flag_html,
     }
 
 

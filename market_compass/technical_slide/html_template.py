@@ -155,6 +155,22 @@ TABLES_HTML_TEMPLATE = '''
         .outlook-neutral { background: #FEF9C3; color: #854D0E; }
         .outlook-cautious { background: #FFEDD5; color: #C2410C; }
         .outlook-bearish { background: #FEE2E2; color: #DC2626; }
+
+        /* Crypto logo styling */
+        .name-with-flag {
+            display: flex;
+            align-items: center;
+            gap: {{ 6 * scale }}px;
+        }
+
+        .flag-img {
+            width: {{ 36 * scale }}px;
+            height: {{ 36 * scale }}px;
+            border-radius: 50%;
+            vertical-align: middle;
+            flex-shrink: 0;
+            object-fit: cover;
+        }
     </style>
 </head>
 <body>
@@ -238,7 +254,12 @@ TABLES_HTML_TEMPLATE = '''
                 <tbody>
                     {% for row in crypto_rows %}
                     <tr>
-                        <td>{{ row.name }}</td>
+                        <td>
+                            <div class="name-with-flag">
+                                {% if row.flag_html %}{{ row.flag_html | safe }}{% endif %}
+                                <span>{{ row.name }}</span>
+                            </div>
+                        </td>
                         <td>{{ row.market_cap }}</td>
                         <td class="{{ row.rsi_class }}">{{ row.rsi }}</td>
                         <td class="{{ row.ma_class }}">{{ row.vs_50d_ma_fmt }}</td>

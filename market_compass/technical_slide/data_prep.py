@@ -22,6 +22,7 @@ class AssetRow:
     dmas: int
     outlook: str
     asset_class: str  # "equity", "commodities", "crypto"
+    flag: str = ""  # Optional flag code for crypto logos
 
 
 def calculate_rsi(prices: pd.Series, period: int = 14) -> float:
@@ -320,7 +321,14 @@ def prepare_slide_data(
         ))
 
     # CRYPTO
-    for display_name, ticker in CRYPTO_ASSETS:
+    for crypto_item in CRYPTO_ASSETS:
+        # Handle both 2-tuple (old) and 3-tuple (new with flag) formats
+        if len(crypto_item) == 3:
+            display_name, ticker, flag = crypto_item
+        else:
+            display_name, ticker = crypto_item
+            flag = ""
+
         prices = _get_price_series(prices_df, ticker)
         if prices is None or len(prices) < 50:
             print(f"[Technical Nutshell] Skipping {display_name}: insufficient price data")
@@ -337,7 +345,8 @@ def prepare_slide_data(
             vs_50d_ma=calculate_vs_ma(prices, 50),
             dmas=dmas,
             outlook=get_outlook(dmas),
-            asset_class="crypto"
+            asset_class="crypto",
+            flag=flag
         ))
 
     return rows
