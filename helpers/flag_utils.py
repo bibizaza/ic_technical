@@ -80,7 +80,7 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
     if code in EM_CODES:
         if sys.platform == 'darwin':
             # Emojis need larger font-size to match PNG flag dimensions
-            emoji_size = int(size * 1.4)
+            emoji_size = int(size * 1.8)
             return f'<span class="flag" style="font-size:{emoji_size}px; line-height:1; vertical-align:middle;">🌍</span>'
         else:
             return f'<img class="flag-img" src="https://flagcdn.com/w40/un.png" style="width:{size}px; height:auto; vertical-align:middle; flex-shrink:0;">'
