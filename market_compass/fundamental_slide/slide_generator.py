@@ -16,19 +16,19 @@ from .html_template import FUNDAMENTAL_HTML_TEMPLATE
 
 
 # =============================================================================
-# RESOLUTION SETTINGS
+# RESOLUTION SETTINGS (Full-width standalone slide)
 # =============================================================================
 
 SCALE_FACTOR = 4
-FUNDAMENTAL_BASE_WIDTH = 440
+FUNDAMENTAL_BASE_WIDTH = 750  # Wider for full-width display
 FUNDAMENTAL_BASE_HEIGHT = 331
-FUNDAMENTAL_WIDTH_PX = FUNDAMENTAL_BASE_WIDTH * SCALE_FACTOR   # 1320
-FUNDAMENTAL_HEIGHT_PX = FUNDAMENTAL_BASE_HEIGHT * SCALE_FACTOR  # 993
+FUNDAMENTAL_WIDTH_PX = FUNDAMENTAL_BASE_WIDTH * SCALE_FACTOR   # 3000
+FUNDAMENTAL_HEIGHT_PX = FUNDAMENTAL_BASE_HEIGHT * SCALE_FACTOR  # 1324
 
-# PowerPoint placement (cm)
-FUNDAMENTAL_LEFT_CM = 13.3
+# PowerPoint placement (cm) - centered on slide
+FUNDAMENTAL_LEFT_CM = 2.7   # Centered: (25.4 - 20) / 2
 FUNDAMENTAL_TOP_CM = 6.13
-FUNDAMENTAL_WIDTH_CM = 11.63
+FUNDAMENTAL_WIDTH_CM = 20.0  # Full width
 FUNDAMENTAL_HEIGHT_CM = 8.76
 
 
@@ -336,7 +336,7 @@ def _html_to_png(html: str, output_path: str) -> str:
 def insert_fundamental_rank(
     prs: Presentation,
     rows: List[FundamentalRow],
-    slide_title: str = "Global Indices Insight"
+    slide_title: str = "Fundamental Analysis"
 ) -> Presentation:
     """
     Insert Fundamental Rank table into PowerPoint slide.
@@ -409,7 +409,7 @@ def insert_fundamental_rank(
 def generate_fundamental_slide(
     prs: Presentation,
     excel_path: str,
-    slide_title: str = "Global Indices Insight"
+    slide_title: str = "Fundamental Analysis"
 ) -> Presentation:
     """
     Generate Fundamental Rank slide from Excel data.

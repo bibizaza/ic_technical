@@ -15,19 +15,19 @@ from .html_template import BREADTH_HTML_TEMPLATE
 
 
 # =============================================================================
-# RESOLUTION SETTINGS
+# RESOLUTION SETTINGS (Full-width standalone slide)
 # =============================================================================
 
 SCALE_FACTOR = 4
-BREADTH_BASE_WIDTH = 440
+BREADTH_BASE_WIDTH = 750  # Wider for full-width display
 BREADTH_BASE_HEIGHT = 331
-BREADTH_WIDTH_PX = BREADTH_BASE_WIDTH * SCALE_FACTOR   # 1320
-BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 993
+BREADTH_WIDTH_PX = BREADTH_BASE_WIDTH * SCALE_FACTOR   # 3000
+BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 1324
 
-# PowerPoint placement (cm)
-BREADTH_LEFT_CM = 1.13
+# PowerPoint placement (cm) - centered on slide
+BREADTH_LEFT_CM = 2.7   # Centered: (25.4 - 20) / 2
 BREADTH_TOP_CM = 6.13
-BREADTH_WIDTH_CM = 11.63
+BREADTH_WIDTH_CM = 20.0  # Full width
 BREADTH_HEIGHT_CM = 8.76
 
 
@@ -227,7 +227,7 @@ def _html_to_png(html: str, output_path: str) -> str:
 def insert_breadth_rank(
     prs: Presentation,
     rows: List[BreadthRow],
-    slide_title: str = "Global Indices Insight"
+    slide_title: str = "Market Breadth"
 ) -> Presentation:
     """
     Insert Breadth Rank table into PowerPoint slide.
@@ -303,7 +303,7 @@ def insert_breadth_rank(
 def generate_breadth_slide(
     prs: Presentation,
     excel_path: str,
-    slide_title: str = "Global Indices Insight"
+    slide_title: str = "Market Breadth"
 ) -> Presentation:
     """
     Generate Breadth Rank slide from Excel data.

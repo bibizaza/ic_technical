@@ -5575,21 +5575,40 @@ def show_generate_presentation_page():
             traceback.print_exc()
 
         # ------------------------------------------------------------------
-        # Global Indices Insight slide (combined Breadth & Fundamental)
+        # Market Breadth slide (full-width)
         # ------------------------------------------------------------------
-        update_progress("Generating Global Indices slide...")
+        update_progress("Generating Market Breadth slide...")
         try:
-            from market_compass.global_indices_slide import generate_global_indices_slide
+            from market_compass.breadth_slide import generate_breadth_slide
 
-            prs = generate_global_indices_slide(
+            prs = generate_breadth_slide(
                 prs,
                 excel_path=str(excel_path_for_ppt),
-                slide_title="Global Indices Insight",
+                slide_title="Market Breadth",
             )
-            print("[Global Indices] Slide generation complete")
+            print("[Market Breadth] Slide generation complete")
 
         except Exception as e:
-            print(f"Global Indices slide error: {e}")
+            print(f"Market Breadth slide error: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # ------------------------------------------------------------------
+        # Fundamental Analysis slide (full-width)
+        # ------------------------------------------------------------------
+        update_progress("Generating Fundamental Analysis slide...")
+        try:
+            from market_compass.fundamental_slide import generate_fundamental_slide
+
+            prs = generate_fundamental_slide(
+                prs,
+                excel_path=str(excel_path_for_ppt),
+                slide_title="Fundamental Analysis",
+            )
+            print("[Fundamental Analysis] Slide generation complete")
+
+        except Exception as e:
+            print(f"Fundamental Analysis slide error: {e}")
             import traceback
             traceback.print_exc()
 
