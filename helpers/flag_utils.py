@@ -31,7 +31,7 @@ EM_CODES = {'un', 'em', 'emerging', 'world', 'global', ''}
 COMMODITY_EMOJI = {
     'gold': '🥇',
     'silver': '🥈',
-    'platinum': '⬜',
+    'platinum': '💠',
     'palladium': '🔘',
     'oil': '🛢️',
     'copper': '🟤',
