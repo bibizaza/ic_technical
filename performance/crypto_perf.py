@@ -73,6 +73,7 @@ from html2image import Html2Image
 from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
+from helpers.flag_utils import get_flag_html
 from market_compass.weekly_performance.html_template import (
     CRYPTO_WEEKLY_HTML_TEMPLATE,
     CRYPTO_HISTORICAL_HTML_TEMPLATE,
@@ -710,18 +711,18 @@ def insert_crypto_performance_histo_slide(
 # HTML-BASED CRYPTO WEEKLY PERFORMANCE CHART
 # =============================================================================
 
-# Crypto configuration with display names
+# Crypto configuration with display names and flag codes for logos
 CRYPTO_CONFIG = [
-    {"ticker": "CCTON Curncy", "name": "Ton"},
-    {"ticker": "CHYPEE Index", "name": "HyperLiquid"},
-    {"ticker": "XDOUSD Curncy", "name": "Polkadot"},
-    {"ticker": "XSOUSD Curncy", "name": "Solana"},
-    {"ticker": "XBIUSD Curncy", "name": "Binance"},
-    {"ticker": "XBTUSD Curncy", "name": "Bitcoin"},
-    {"ticker": "XETUSD Curncy", "name": "Ethereum"},
-    {"ticker": "BGCI Index", "name": "Bloomberg Galaxy Crypto"},
-    {"ticker": "XVV Curncy", "name": "AAVE"},
-    {"ticker": "XRPUSD Curncy", "name": "Ripple"},
+    {"ticker": "CCTON Curncy", "name": "Ton", "flag": ""},
+    {"ticker": "CHYPEE Index", "name": "HyperLiquid", "flag": ""},
+    {"ticker": "XDOUSD Curncy", "name": "Polkadot", "flag": ""},
+    {"ticker": "XSOUSD Curncy", "name": "Solana", "flag": "sol"},
+    {"ticker": "XBIUSD Curncy", "name": "Binance", "flag": "bnb"},
+    {"ticker": "XBTUSD Curncy", "name": "Bitcoin", "flag": "btc"},
+    {"ticker": "XETUSD Curncy", "name": "Ethereum", "flag": "eth"},
+    {"ticker": "BGCI Index", "name": "Bloomberg Galaxy Crypto", "flag": ""},
+    {"ticker": "XVV Curncy", "name": "AAVE", "flag": ""},
+    {"ticker": "XRPUSD Curncy", "name": "Ripple", "flag": "xrp"},
 ]
 
 # Chart dimensions (hardcoded)
@@ -784,6 +785,7 @@ def create_weekly_html_performance_chart(
         rows_data.append({
             "name": config["name"],
             "value": ret_val,
+            "flag": config.get("flag", ""),
         })
 
     # Sort by value descending (best performers first)
@@ -809,9 +811,15 @@ def create_weekly_html_performance_chart(
         else:
             highlight_class = ""
 
+        # Generate flag HTML (empty string if no flag)
+        flag_code = row.get("flag", "")
+        flag_html = get_flag_html(flag_code, size=22) if flag_code else ""
+
         prepared_rows.append({
             "name": row["name"],
             "value": value,
+            "flag": flag_code,
+            "flag_html": flag_html,
             "bar_class": "positive" if value >= 0 else "negative",
             "bar_width": bar_width,
             "value_class": "positive" if value >= 0 else "negative",
@@ -1007,6 +1015,7 @@ def create_historical_html_performance_chart(
     # Get all tickers from configuration
     tickers = [c["ticker"] for c in CRYPTO_CONFIG]
     ticker_to_name = {c["ticker"]: c["name"] for c in CRYPTO_CONFIG}
+    name_to_flag = {c["name"]: c.get("flag", "") for c in CRYPTO_CONFIG}
 
     # Load and adjust price data
     df = _load_price_data(excel_path, tickers)
@@ -1027,8 +1036,14 @@ def create_historical_html_performance_chart(
         m6_val = row["6M"] if not pd.isna(row["6M"]) else 0.0
         m12_val = row["12M"] if not pd.isna(row["12M"]) else 0.0
 
+        # Get flag for this crypto
+        flag_code = name_to_flag.get(row["Name"], "")
+        flag_html = get_flag_html(flag_code, size=20) if flag_code else ""
+
         rows_data.append({
             "name": row["Name"],
+            "flag": flag_code,
+            "flag_html": flag_html,
             "ytd_class": _get_crypto_historical_color_class(ytd_val),
             "ytd_formatted": _format_crypto_large_percentage(ytd_val),
             "m1_class": _get_crypto_historical_color_class(m1_val),

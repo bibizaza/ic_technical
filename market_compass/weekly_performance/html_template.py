@@ -2119,12 +2119,23 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
             width: {{ 160 * scale }}px;
             display: flex;
             align-items: center;
+            gap: {{ 6 * scale }}px;
         }
 
         .crypto-name {
             font-size: {{ 10 * scale }}px;
             font-weight: 600;
             color: #334155;
+        }
+
+        /* Crypto logo */
+        .flag-img {
+            width: {{ 22 * scale }}px;
+            height: {{ 22 * scale }}px;
+            border-radius: 50%;
+            vertical-align: middle;
+            flex-shrink: 0;
+            object-fit: cover;
         }
 
         /* Bar container */
@@ -2214,6 +2225,7 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="row {{ row.highlight_class }}">
             <div class="crypto-col">
+                {% if row.flag_html %}{{ row.flag_html | safe }}{% endif %}
                 <span class="crypto-name">{{ row.name }}</span>
             </div>
             <div class="bar-container">
@@ -2313,6 +2325,7 @@ CRYPTO_HISTORICAL_HTML_TEMPLATE = '''
             width: {{ 160 * scale }}px;
             display: flex;
             align-items: center;
+            gap: {{ 6 * scale }}px;
             padding-right: {{ 10 * scale }}px;
         }
 
@@ -2320,6 +2333,16 @@ CRYPTO_HISTORICAL_HTML_TEMPLATE = '''
             font-size: {{ 9 * scale }}px;
             font-weight: 600;
             color: #334155;
+        }
+
+        /* Crypto logo */
+        .flag-img {
+            width: {{ 20 * scale }}px;
+            height: {{ 20 * scale }}px;
+            border-radius: 50%;
+            vertical-align: middle;
+            flex-shrink: 0;
+            object-fit: cover;
         }
 
         /* Value cells */
@@ -2377,6 +2400,7 @@ CRYPTO_HISTORICAL_HTML_TEMPLATE = '''
         {% for row in rows %}
         <div class="data-row">
             <div class="crypto-col">
+                {% if row.flag_html %}{{ row.flag_html | safe }}{% endif %}
                 <span class="crypto-name">{{ row.name }}</span>
             </div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
