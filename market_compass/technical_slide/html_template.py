@@ -191,7 +191,12 @@ TABLES_HTML_TEMPLATE = '''
                 <tbody>
                     {% for row in equity_rows %}
                     <tr>
-                        <td>{{ row.name }}</td>
+                        <td>
+                            <div class="name-with-flag">
+                                {% if row.flag_html %}{{ row.flag_html | safe }}{% endif %}
+                                <span>{{ row.name }}</span>
+                            </div>
+                        </td>
                         <td>{{ row.market_cap }}</td>
                         <td class="{{ row.rsi_class }}">{{ row.rsi }}</td>
                         <td class="{{ row.ma_class }}">{{ row.vs_50d_ma_fmt }}</td>
@@ -224,7 +229,12 @@ TABLES_HTML_TEMPLATE = '''
                 <tbody>
                     {% for row in commodity_rows %}
                     <tr>
-                        <td>{{ row.name }}</td>
+                        <td>
+                            <div class="name-with-flag">
+                                {% if row.flag_html %}{{ row.flag_html | safe }}{% endif %}
+                                <span>{{ row.name }}</span>
+                            </div>
+                        </td>
                         <td>{{ row.market_cap }}</td>
                         <td class="{{ row.rsi_class }}">{{ row.rsi }}</td>
                         <td class="{{ row.ma_class }}">{{ row.vs_50d_ma_fmt }}</td>

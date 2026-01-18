@@ -7,24 +7,24 @@ from pptx.dml.color import RGBColor
 # =============================================================================
 
 EQUITY_ASSETS = [
-    ("S&P 500", "SPX Index"),
-    ("CSI 300", "SHSZ300 Index"),
-    ("Nikkei 225", "NKY Index"),
-    ("TASI", "SASEIDX Index"),
-    ("Sensex", "SENSEX Index"),
-    ("DAX", "DAX Index"),
-    ("SMI", "SMI Index"),
-    ("Mexbol", "MEXBOL Index"),
-    ("IBOV", "IBOV Index"),
+    ("S&P 500", "SPX Index", "us"),
+    ("CSI 300", "SHSZ300 Index", "cn"),
+    ("Nikkei 225", "NKY Index", "jp"),
+    ("TASI", "SASEIDX Index", "sa"),
+    ("Sensex", "SENSEX Index", "in"),
+    ("DAX", "DAX Index", "de"),
+    ("SMI", "SMI Index", "ch"),
+    ("Mexbol", "MEXBOL Index", "mx"),
+    ("IBOV", "IBOV Index", "br"),
 ]
 
 COMMO_ASSETS = [
-    ("Gold", "GCA Comdty"),
-    ("Silver", "SIA Comdty"),
-    ("Platinum", "XPT Comdty"),
-    ("Palladium", "XPD Curncy"),
-    ("Oil (WTI)", "CL1 Comdty"),
-    ("Copper", "LP1 Comdty"),
+    ("Gold", "GCA Comdty", "gold"),
+    ("Silver", "SIA Comdty", "silver"),
+    ("Platinum", "XPT Comdty", "platinum"),
+    ("Palladium", "XPD Curncy", "palladium"),
+    ("Oil (WTI)", "CL1 Comdty", "oil"),
+    ("Copper", "LP1 Comdty", "copper"),
 ]
 
 CRYPTO_ASSETS = [

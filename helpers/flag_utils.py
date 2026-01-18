@@ -27,6 +27,16 @@ CRYPTO_LOGOS = {
 # Codes that represent emerging markets / global (get globe emoji/image instead of flag)
 EM_CODES = {'un', 'em', 'emerging', 'world', 'global', ''}
 
+# Commodity emoji icons
+COMMODITY_EMOJI = {
+    'gold': '🥇',
+    'silver': '🥈',
+    'platinum': '⬜',
+    'palladium': '🔘',
+    'oil': '🛢️',
+    'copper': '🟤',
+}
+
 # Emoji flags mapping (country code -> emoji)
 FLAG_EMOJI = {
     'us': '🇺🇸',
@@ -101,6 +111,13 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
         # Double the size to match country flags visually
         img_size = int(size * 2)
         return f'<img class="flag-img" src="file://{logo_path}" style="width:{img_size}px; height:{img_size}px; border-radius:50%; vertical-align:middle; flex-shrink:0; object-fit:cover;">'
+
+    # Check for commodity icons
+    if code in COMMODITY_EMOJI:
+        emoji = COMMODITY_EMOJI[code]
+        # Use same size multiplier as other emojis
+        emoji_size = int(size * 2)
+        return f'<span class="flag" style="font-size:{emoji_size}px; line-height:1; vertical-align:middle;">{emoji}</span>'
 
     # Emerging Markets - use globe emoji (Mac) or UN flag PNG (Windows/Linux)
     if code in EM_CODES:

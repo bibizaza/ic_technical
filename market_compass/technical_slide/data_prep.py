@@ -279,7 +279,14 @@ def prepare_slide_data(
         return 50  # Default neutral
 
     # EQUITY
-    for display_name, ticker in EQUITY_ASSETS:
+    for equity_item in EQUITY_ASSETS:
+        # Handle both 2-tuple (old) and 3-tuple (new with flag) formats
+        if len(equity_item) == 3:
+            display_name, ticker, flag = equity_item
+        else:
+            display_name, ticker = equity_item
+            flag = ""
+
         prices = _get_price_series(prices_df, ticker)
         if prices is None or len(prices) < 50:
             print(f"[Technical Nutshell] Skipping {display_name}: insufficient price data")
@@ -296,11 +303,19 @@ def prepare_slide_data(
             vs_50d_ma=calculate_vs_ma(prices, 50),
             dmas=dmas,
             outlook=get_outlook(dmas),
-            asset_class="equity"
+            asset_class="equity",
+            flag=flag
         ))
 
     # COMMODITIES
-    for display_name, ticker in COMMO_ASSETS:
+    for commo_item in COMMO_ASSETS:
+        # Handle both 2-tuple (old) and 3-tuple (new with flag) formats
+        if len(commo_item) == 3:
+            display_name, ticker, flag = commo_item
+        else:
+            display_name, ticker = commo_item
+            flag = ""
+
         prices = _get_price_series(prices_df, ticker)
         if prices is None or len(prices) < 50:
             print(f"[Technical Nutshell] Skipping {display_name}: insufficient price data")
@@ -317,7 +332,8 @@ def prepare_slide_data(
             vs_50d_ma=calculate_vs_ma(prices, 50),
             dmas=dmas,
             outlook=get_outlook(dmas),
-            asset_class="commodities"
+            asset_class="commodities",
+            flag=flag
         ))
 
     # CRYPTO
