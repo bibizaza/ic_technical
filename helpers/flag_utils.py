@@ -4,7 +4,20 @@ On Mac (darwin): Uses emoji flags for better appearance
 On Windows/Linux: Uses image flags from flagcdn.com (emoji don't render well)
 """
 
+import os
 import sys
+
+# Path to crypto logos
+CRYPTO_ASSETS_PATH = os.path.join(os.path.dirname(__file__), '..', 'assets', 'crypto')
+
+# Crypto logo mapping
+CRYPTO_LOGOS = {
+    'btc': 'btc.png',
+    'eth': 'eth.png',
+    'xrp': 'xrp.png',
+    'sol': 'sol.png',
+    'bnb': 'bnb.png',
+}
 
 # Codes that represent emerging markets / global (get globe emoji/image instead of flag)
 EM_CODES = {'un', 'em', 'emerging', 'world', 'global', ''}
@@ -75,6 +88,13 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
         country_code = "em"
 
     code = country_code.lower().strip()
+
+    # Check for crypto logos FIRST
+    if code in CRYPTO_LOGOS:
+        logo_file = CRYPTO_LOGOS[code]
+        logo_path = os.path.join(CRYPTO_ASSETS_PATH, logo_file)
+        # Use file:// protocol for local files in HTML rendering
+        return f'<img class="flag-img" src="file://{logo_path}" style="width:{size}px; height:{size}px; border-radius:50%; vertical-align:middle; flex-shrink:0;">'
 
     # Emerging Markets - use globe emoji (Mac) or UN flag PNG (Windows/Linux)
     if code in EM_CODES:
