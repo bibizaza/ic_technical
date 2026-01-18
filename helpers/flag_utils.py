@@ -10,13 +10,18 @@ import sys
 # Path to crypto logos
 CRYPTO_ASSETS_PATH = os.path.join(os.path.dirname(__file__), '..', 'assets', 'crypto')
 
-# Crypto logo mapping
+# Crypto logo mapping (all 10 cryptos)
 CRYPTO_LOGOS = {
     'btc': 'btc.png',
     'eth': 'eth.png',
     'xrp': 'xrp.png',
     'sol': 'sol.png',
     'bnb': 'bnb.png',
+    'dot': 'dot.png',
+    'aave': 'aave.png',
+    'ton': 'ton.png',
+    'hyper': 'hyper.png',
+    'bloomberg': 'bloomberg.jpeg',
 }
 
 # Codes that represent emerging markets / global (get globe emoji/image instead of flag)
@@ -93,8 +98,9 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
     if code in CRYPTO_LOGOS:
         logo_file = CRYPTO_LOGOS[code]
         logo_path = os.path.join(CRYPTO_ASSETS_PATH, logo_file)
-        # Use file:// protocol for local files in HTML rendering
-        return f'<img class="flag-img" src="file://{logo_path}" style="width:{size}px; height:{size}px; border-radius:50%; vertical-align:middle; flex-shrink:0;">'
+        # Double the size to match country flags visually
+        img_size = int(size * 2)
+        return f'<img class="flag-img" src="file://{logo_path}" style="width:{img_size}px; height:{img_size}px; border-radius:50%; vertical-align:middle; flex-shrink:0; object-fit:cover;">'
 
     # Emerging Markets - use globe emoji (Mac) or UN flag PNG (Windows/Linux)
     if code in EM_CODES:

@@ -713,15 +713,15 @@ def insert_crypto_performance_histo_slide(
 
 # Crypto configuration with display names and flag codes for logos
 CRYPTO_CONFIG = [
-    {"ticker": "CCTON Curncy", "name": "Ton", "flag": ""},
-    {"ticker": "CHYPEE Index", "name": "HyperLiquid", "flag": ""},
-    {"ticker": "XDOUSD Curncy", "name": "Polkadot", "flag": ""},
+    {"ticker": "CCTON Curncy", "name": "Ton", "flag": "ton"},
+    {"ticker": "CHYPEE Index", "name": "HyperLiquid", "flag": "hyper"},
+    {"ticker": "XDOUSD Curncy", "name": "Polkadot", "flag": "dot"},
     {"ticker": "XSOUSD Curncy", "name": "Solana", "flag": "sol"},
     {"ticker": "XBIUSD Curncy", "name": "Binance", "flag": "bnb"},
     {"ticker": "XBTUSD Curncy", "name": "Bitcoin", "flag": "btc"},
     {"ticker": "XETUSD Curncy", "name": "Ethereum", "flag": "eth"},
-    {"ticker": "BGCI Index", "name": "Bloomberg Galaxy Crypto", "flag": ""},
-    {"ticker": "XVV Curncy", "name": "AAVE", "flag": ""},
+    {"ticker": "BGCI Index", "name": "Bloomberg Galaxy Crypto", "flag": "bloomberg"},
+    {"ticker": "XVV Curncy", "name": "AAVE", "flag": "aave"},
     {"ticker": "XRPUSD Curncy", "name": "Ripple", "flag": "xrp"},
 ]
 
