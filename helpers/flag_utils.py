@@ -14,23 +14,23 @@ HERCULIS_NAVY = "#1B3A5A"
 HERCULIS_GOLD = "#C9A227"
 HERCULIS_LIGHT_BLUE = "#E8F0F8"
 
-# SVG globe icon with Africa silhouette for emerging markets
-EM_GLOBE_SVG = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="22" height="22" style="vertical-align: middle;">
-  <!-- Globe outline -->
-  <circle cx="50" cy="50" r="45" fill="{HERCULIS_LIGHT_BLUE}" stroke="{HERCULIS_NAVY}" stroke-width="2"/>
 
-  <!-- Globe grid lines -->
-  <ellipse cx="50" cy="50" rx="20" ry="45" fill="none" stroke="{HERCULIS_NAVY}" stroke-width="0.5" opacity="0.4"/>
-  <line x1="5" y1="50" x2="95" y2="50" stroke="{HERCULIS_NAVY}" stroke-width="0.5" opacity="0.4"/>
+def get_em_globe_svg(size: int = 22) -> str:
+    """Return Africa/Globe SVG icon for Emerging Markets at specified size.
 
-  <!-- Africa silhouette (simplified) -->
-  <path d="M55 18 L60 20 L62 16 L66 20 L70 28 L72 38 L70 48 L74 56 L70 66 L62 78 L52 84 L46 80 L42 70 L38 58 L40 48 L38 40 L42 32 L48 24 L52 20 Z"
-        fill="{HERCULIS_NAVY}" stroke="{HERCULIS_GOLD}" stroke-width="1.5"/>
-
-  <!-- Europe hint (small) -->
-  <path d="M46 22 L52 18 L56 20 L54 26 L48 26 Z"
-        fill="{HERCULIS_NAVY}" opacity="0.5"/>
+    Uses viewBox="0 0 24 24" to match output size directly, with explicit
+    size styles to prevent CSS from shrinking the icon.
+    """
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="{size}" height="{size}" style="width: {size}px; height: {size}px; min-width: {size}px; min-height: {size}px; vertical-align: middle; flex-shrink: 0;">
+  <circle cx="12" cy="12" r="10" fill="{HERCULIS_LIGHT_BLUE}" stroke="{HERCULIS_NAVY}" stroke-width="1"/>
+  <ellipse cx="12" cy="12" rx="4" ry="10" fill="none" stroke="{HERCULIS_NAVY}" stroke-width="0.5" opacity="0.4"/>
+  <line x1="2" y1="12" x2="22" y2="12" stroke="{HERCULIS_NAVY}" stroke-width="0.5" opacity="0.4"/>
+  <path d="M13 4 L14.5 5 L15 4 L16 5 L17 7 L17.5 9 L17 12 L18 14 L17 17 L15 19 L12.5 20 L11 19 L10 17 L9 14 L9.5 12 L9 10 L10 8 L11.5 6 L12.5 5 Z" fill="{HERCULIS_NAVY}" stroke="{HERCULIS_GOLD}" stroke-width="0.5"/>
 </svg>'''
+
+
+# Legacy constant for backward compatibility (uses default size)
+EM_GLOBE_SVG = get_em_globe_svg(22)
 
 # Emoji flags mapping (country code -> emoji)
 FLAG_EMOJI = {
@@ -82,32 +82,32 @@ FLAG_EMOJI = {
 def get_flag_html(country_code: str, size: int = 22) -> str:
     """Return flag HTML - emoji on Mac, PNG on Windows/Linux.
 
-    Note: Size is controlled by CSS in the templates (scaled appropriately).
+    Note: Size parameter now properly controls EM globe icon size.
     Special handling: EM/global codes return a globe icon with Africa silhouette.
 
     Args:
         country_code: ISO 3166-1 alpha-2 country code (e.g., 'us', 'jp')
                       or EM code ('un', 'em', 'emerging', 'world', 'global')
-        size: Not used - kept for backward compatibility
+        size: Icon size in pixels (default 22px to match flag emojis)
 
     Returns:
         HTML string for the flag or globe icon
     """
-    # Handle None or empty
+    # Handle None or empty - return EM globe
     if not country_code:
-        return f'<span class="flag em-globe" style="display:inline-flex; align-items:center;">{EM_GLOBE_SVG}</span>'
+        return f'<span class="flag em-globe" style="display:inline-flex; align-items:center; width:{size}px; height:{size}px;">{get_em_globe_svg(size)}</span>'
 
     code = country_code.lower().strip()
 
     # Check for emerging market / global codes - return Africa/globe icon
     if code in EM_CODES:
-        return f'<span class="flag em-globe" style="display:inline-flex; align-items:center;">{EM_GLOBE_SVG}</span>'
+        return f'<span class="flag em-globe" style="display:inline-flex; align-items:center; width:{size}px; height:{size}px;">{get_em_globe_svg(size)}</span>'
 
     if sys.platform == 'darwin':  # Mac - use emoji flags
         emoji = FLAG_EMOJI.get(code, '🏳️')
         return f'<span class="flag">{emoji}</span>'
     else:  # Windows/Linux - use PNG images
-        return f'<img class="flag-img" src="https://flagcdn.com/w40/{code}.png" style="vertical-align:middle; flex-shrink:0;">'
+        return f'<img class="flag-img" src="https://flagcdn.com/w40/{code}.png" style="width:{size}px; height:auto; vertical-align:middle; flex-shrink:0;">'
 
 
 def get_flag_css() -> str:
