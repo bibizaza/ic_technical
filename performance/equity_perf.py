@@ -68,11 +68,11 @@ import pandas as pd
 from pptx import Presentation
 from pptx.util import Cm
 from jinja2 import Template, Environment
-from html2image import Html2Image
 from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
 from helpers.flag_utils import get_flag_html
+from helpers.html_to_image import render_html_to_image
 from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE
 
 try:
@@ -271,7 +271,6 @@ def create_weekly_performance_chart(
     import tempfile
     from pathlib import Path
     from jinja2 import Template
-    from html2image import Html2Image
     from market_compass.weekly_performance.html_template import WEEKLY_PERFORMANCE_HTML_TEMPLATE
 
     # Index mapping with display names and flag country codes (for flagcdn.com)
@@ -387,14 +386,21 @@ def create_weekly_performance_chart(
         **scale_values,
     )
 
-    # Convert to PNG
-    with tempfile.TemporaryDirectory() as tmpdir:
-        hti = Html2Image(output_path=tmpdir, size=(width_px, height_px))
-        hti.screenshot(html_str=html, save_as="weekly_perf.png")
+    # Convert to PNG using Playwright
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        img_path = f.name
 
-        img_path = Path(tmpdir) / "weekly_perf.png"
-        with open(img_path, "rb") as f:
-            png_bytes = f.read()
+    print(f"[Equity Weekly] Rendering image ({width_px}x{height_px}px)...")
+    render_html_to_image(
+        html_content=html,
+        output_path=img_path,
+        size=(width_px, height_px),
+        device_scale_factor=1  # CSS already scaled by SCALE_FACTOR
+    )
+
+    with open(img_path, "rb") as f:
+        png_bytes = f.read()
+    Path(img_path).unlink(missing_ok=True)
 
     return png_bytes, used_date
 
@@ -438,7 +444,6 @@ def create_historical_performance_table(
     import tempfile
     from pathlib import Path
     from jinja2 import Template
-    from html2image import Html2Image
     from market_compass.weekly_performance.html_template import HISTORICAL_PERFORMANCE_HTML_TEMPLATE
 
     # Index mapping with display names and flag country codes (for flagcdn.com)
@@ -530,14 +535,21 @@ def create_historical_performance_table(
         scale=SCALE_FACTOR,
     )
 
-    # Convert to PNG
-    with tempfile.TemporaryDirectory() as tmpdir:
-        hti = Html2Image(output_path=tmpdir, size=(width_px, height_px))
-        hti.screenshot(html_str=html, save_as="historical_perf.png")
+    # Convert to PNG using Playwright
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        img_path = f.name
 
-        img_path = Path(tmpdir) / "historical_perf.png"
-        with open(img_path, "rb") as f:
-            png_bytes = f.read()
+    print(f"[Equity Historical] Rendering image ({width_px}x{height_px}px)...")
+    render_html_to_image(
+        html_content=html,
+        output_path=img_path,
+        size=(width_px, height_px),
+        device_scale_factor=1  # CSS already scaled by SCALE_FACTOR
+    )
+
+    with open(img_path, "rb") as f:
+        png_bytes = f.read()
+    Path(img_path).unlink(missing_ok=True)
 
     return png_bytes, used_date
 
