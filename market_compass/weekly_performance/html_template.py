@@ -353,7 +353,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
 
         .market-name {
             font-size: {{ 12 * scale }}px;
-            font-weight: 600;
+            font-weight: 400;
             color: #1B3A5A;
         }
 
