@@ -352,9 +352,9 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .market-name {
-            font-size: {{ 10 * scale }}px;
-            font-weight: 500;
-            color: #334155;
+            font-size: {{ 12 * scale }}px;
+            font-weight: 600;
+            color: #1B3A5A;
         }
 
         /* Value cells */
