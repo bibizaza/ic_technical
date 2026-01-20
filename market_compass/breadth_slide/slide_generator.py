@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pandas as pd
 from jinja2 import Template
-from html2image import Html2Image
 from pptx import Presentation
 from pptx.util import Cm
 
 from .html_template import BREADTH_HTML_TEMPLATE
 from helpers.flag_utils import get_flag_html
+from helpers.html_to_image import render_html_to_image
 
 
 # =============================================================================
@@ -218,18 +218,14 @@ def _generate_html(rows: List[BreadthRow]) -> str:
 
 
 def _html_to_png(html: str, output_path: str) -> str:
-    """Convert HTML to PNG image."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        hti = Html2Image(
-            output_path=tmpdir,
-            size=(BREADTH_WIDTH_PX, BREADTH_HEIGHT_PX)
-        )
-        hti.screenshot(html_str=html, save_as="breadth.png")
-
-        import shutil
-        shutil.move(str(Path(tmpdir) / "breadth.png"), output_path)
-
-    return output_path
+    """Convert HTML to PNG image (cross-platform)."""
+    print(f"[Breadth Rank] Rendering image ({BREADTH_WIDTH_PX}x{BREADTH_HEIGHT_PX}px)...")
+    return render_html_to_image(
+        html_content=html,
+        output_path=output_path,
+        size=(BREADTH_WIDTH_PX, BREADTH_HEIGHT_PX),
+        filename="breadth.png"
+    )
 
 
 # =============================================================================
