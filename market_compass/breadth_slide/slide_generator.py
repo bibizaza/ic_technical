@@ -218,13 +218,14 @@ def _generate_html(rows: List[BreadthRow]) -> str:
 
 
 def _html_to_png(html: str, output_path: str) -> str:
-    """Convert HTML to PNG image (cross-platform)."""
+    """Convert HTML to PNG image using Playwright."""
     print(f"[Breadth Rank] Rendering image ({BREADTH_WIDTH_PX}x{BREADTH_HEIGHT_PX}px)...")
     return render_html_to_image(
         html_content=html,
         output_path=output_path,
         size=(BREADTH_WIDTH_PX, BREADTH_HEIGHT_PX),
-        filename="breadth.png"
+        filename="breadth.png",
+        device_scale_factor=1  # CSS already scaled by SCALE_FACTOR
     )
 
 

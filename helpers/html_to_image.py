@@ -1,65 +1,27 @@
-"""Cross-platform HTML-to-image rendering utility.
+"""Cross-platform HTML-to-image rendering utility using Playwright.
 
-Works on both Mac and Windows by auto-detecting Chrome/Chromium location.
+Uses Playwright's bundled Chromium for consistent rendering across Mac, Windows, and Linux.
 """
 import os
 import platform
-import shutil
-import tempfile
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Tuple
 
-from html2image import Html2Image
-
-
-def get_chrome_path() -> Optional[str]:
-    """
-    Find Chrome/Chromium executable path for the current platform.
-
-    Returns
-    -------
-    Optional[str]
-        Path to Chrome executable, or None to let html2image auto-detect
-    """
-    system = platform.system()
-
-    if system == 'Darwin':  # macOS
-        paths = [
-            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-            '/Applications/Chromium.app/Contents/MacOS/Chromium',
-            '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
-            os.path.expanduser('~/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'),
-        ]
-    elif system == 'Windows':
-        paths = [
-            'C:/Program Files/Google/Chrome/Application/chrome.exe',
-            'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-            os.path.expandvars('%LOCALAPPDATA%/Google/Chrome/Application/chrome.exe'),
-            'C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe',
-        ]
-    else:  # Linux
-        paths = [
-            '/usr/bin/google-chrome',
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
-            '/snap/bin/chromium',
-        ]
-
-    for path in paths:
-        if os.path.exists(path):
-            return path
-
-    return None  # Let html2image try to auto-detect
+from playwright.sync_api import sync_playwright
 
 
 def render_html_to_image(
     html_content: str,
     output_path: str,
     size: Tuple[int, int],
-    filename: str = "output.png"
+    filename: str = "output.png",
+    device_scale_factor: int = 1
 ) -> str:
     """
-    Render HTML content to a PNG image (cross-platform).
+    Render HTML content to a PNG image using Playwright.
+
+    Uses Playwright's bundled Chromium browser for consistent cross-platform rendering.
+    The device_scale_factor parameter enables HiDPI rendering for crisp output.
 
     Parameters
     ----------
@@ -68,9 +30,11 @@ def render_html_to_image(
     output_path : str
         Full path where the output PNG should be saved
     size : Tuple[int, int]
-        Width and height of the output image in pixels (width, height)
+        Viewport width and height in CSS pixels (width, height)
     filename : str
-        Temporary filename used during rendering
+        Not used with Playwright (kept for backward compatibility)
+    device_scale_factor : int
+        Device scale factor for HiDPI rendering (default 1, use 2-4 for crisp output)
 
     Returns
     -------
@@ -84,75 +48,59 @@ def render_html_to_image(
     """
     width, height = size
 
-    print(f"[HTML2Image] Starting render...")
-    print(f"[HTML2Image] Output: {output_path}")
-    print(f"[HTML2Image] Size: {width}x{height}px")
-    print(f"[HTML2Image] Platform: {platform.system()}")
-
-    # Find Chrome executable
-    chrome_path = get_chrome_path()
-    if chrome_path:
-        print(f"[HTML2Image] Chrome found: {chrome_path}")
-    else:
-        print(f"[HTML2Image] Chrome not found, using auto-detect")
+    print(f"[Playwright] Starting render...")
+    print(f"[Playwright] Output: {output_path}")
+    print(f"[Playwright] Viewport: {width}x{height}px")
+    print(f"[Playwright] Scale factor: {device_scale_factor}x")
+    print(f"[Playwright] Platform: {platform.system()}")
 
     try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            print(f"[HTML2Image] Temp dir: {tmpdir}")
+        with sync_playwright() as p:
+            # Launch headless Chromium (bundled with Playwright)
+            print(f"[Playwright] Launching Chromium...")
+            browser = p.chromium.launch(headless=True)
 
-            # Create Html2Image instance with Chrome path if found
-            if chrome_path:
-                hti = Html2Image(
-                    output_path=tmpdir,
-                    size=(width, height),
-                    browser_executable=chrome_path
-                )
-            else:
-                hti = Html2Image(
-                    output_path=tmpdir,
-                    size=(width, height)
-                )
+            # Create page with HiDPI scaling
+            page = browser.new_page(
+                viewport={'width': width, 'height': height},
+                device_scale_factor=device_scale_factor
+            )
 
-            # Render the HTML
-            print(f"[HTML2Image] Rendering HTML ({len(html_content)} chars)...")
-            hti.screenshot(html_str=html_content, save_as=filename)
+            # Load HTML content
+            print(f"[Playwright] Loading HTML ({len(html_content)} chars)...")
+            page.set_content(html_content, wait_until='networkidle')
 
-            # Check if file was created
-            temp_output = Path(tmpdir) / filename
-            if not temp_output.exists():
-                raise RuntimeError(f"Image file was not created at {temp_output}")
+            # Brief wait for any final rendering
+            page.wait_for_timeout(100)
 
-            file_size = temp_output.stat().st_size
-            print(f"[HTML2Image] Image created: {file_size} bytes")
+            # Take screenshot
+            print(f"[Playwright] Taking screenshot...")
+            page.screenshot(path=output_path, full_page=True)
 
-            if file_size == 0:
-                raise RuntimeError("Image file is empty (0 bytes)")
+            # Cleanup
+            browser.close()
 
-            # Move to final destination
-            shutil.move(str(temp_output), output_path)
-            print(f"[HTML2Image] Moved to: {output_path}")
+        # Verify output
+        if not Path(output_path).exists():
+            raise RuntimeError(f"Image file was not created at {output_path}")
 
-            # Verify final file
-            if not Path(output_path).exists():
-                raise RuntimeError(f"Failed to move image to {output_path}")
+        file_size = Path(output_path).stat().st_size
+        if file_size == 0:
+            raise RuntimeError("Image file is empty (0 bytes)")
 
-            print(f"[HTML2Image] Render successful!")
-            return output_path
+        print(f"[Playwright] Image saved: {output_path} ({file_size:,} bytes)")
+        return output_path
 
     except Exception as e:
-        print(f"[HTML2Image] ERROR: Render failed!")
-        print(f"[HTML2Image] Error type: {type(e).__name__}")
-        print(f"[HTML2Image] Error message: {e}")
+        print(f"[Playwright] ERROR: Render failed!")
+        print(f"[Playwright] Error type: {type(e).__name__}")
+        print(f"[Playwright] Error message: {e}")
 
         # Provide helpful troubleshooting info
-        print(f"\n[HTML2Image] TROUBLESHOOTING:")
-        print(f"  1. Ensure Chrome/Chromium is installed")
-        if platform.system() == 'Darwin':
-            print(f"     Mac: Install from https://www.google.com/chrome/")
-        elif platform.system() == 'Windows':
-            print(f"     Windows: Install from https://www.google.com/chrome/")
-        print(f"  2. Try running: pip install --upgrade html2image")
-        print(f"  3. Check temp directory permissions: {tempfile.gettempdir()}")
+        print(f"\n[Playwright] TROUBLESHOOTING:")
+        print(f"  1. Ensure Playwright is installed: pip install playwright")
+        print(f"  2. Install Chromium browser: playwright install chromium")
+        print(f"  3. Or install all browsers: playwright install")
 
         import traceback
         traceback.print_exc()

@@ -335,13 +335,14 @@ def _generate_html(rows: List[FundamentalRow]) -> str:
 
 
 def _html_to_png(html: str, output_path: str) -> str:
-    """Convert HTML to PNG image (cross-platform)."""
+    """Convert HTML to PNG image using Playwright."""
     print(f"[Fundamental Rank] Rendering image ({FUNDAMENTAL_WIDTH_PX}x{FUNDAMENTAL_HEIGHT_PX}px)...")
     return render_html_to_image(
         html_content=html,
         output_path=output_path,
         size=(FUNDAMENTAL_WIDTH_PX, FUNDAMENTAL_HEIGHT_PX),
-        filename="fundamental.png"
+        filename="fundamental.png",
+        device_scale_factor=1  # CSS already scaled by SCALE_FACTOR
     )
 
 
