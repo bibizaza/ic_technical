@@ -190,8 +190,8 @@ def _get_pct_class(value: int) -> str:
 
 def _prepare_row_for_template(row: BreadthRow) -> dict:
     """Prepare row for Jinja template."""
-    # Generate flag HTML (size 22 to match other slides)
-    flag_html = get_flag_html(row.flag_code, size=22) if row.flag_code else ""
+    # Generate flag HTML (size 28 for larger rows)
+    flag_html = get_flag_html(row.flag_code, size=28) if row.flag_code else ""
 
     return {
         "index_name": row.index_name,

@@ -25,30 +25,30 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: {{ 9 * scale }}px;
+            font-size: {{ 11 * scale }}px;
         }
 
         th {
             background: #1B3A5A;
             color: #FFFFFF;
             font-weight: 600;
-            padding: {{ 7 * scale }}px {{ 6.5 * scale }}px;
+            padding: {{ 8 * scale }}px {{ 7 * scale }}px;
             text-align: center;
             border: none;
-            height: {{ 12 * scale }}px;
+            height: {{ 15 * scale }}px;
         }
 
         th:first-child {
             text-align: left;
-            padding-left: {{ 8 * scale }}px;
-            width: {{ 80 * scale }}px;
+            padding-left: {{ 10 * scale }}px;
+            width: {{ 90 * scale }}px;
         }
 
         /* Rank column header - GOLD */
         th.rank-col {
             background: #C9A227;
             color: #1B3A5A;
-            width: {{ 45 * scale }}px;
+            width: {{ 50 * scale }}px;
             font-weight: 700;
         }
 
@@ -68,15 +68,15 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             justify-content: center;
-            height: {{ 15 * scale }}px;
-            padding: 0 {{ 6 * scale }}px;
+            height: {{ 19 * scale }}px;
+            padding: 0 {{ 8 * scale }}px;
         }
 
         /* Market column - left align */
         .cell-content.market {
             justify-content: flex-start;
-            gap: {{ 6 * scale }}px;
-            padding-left: {{ 8 * scale }}px;
+            gap: {{ 8 * scale }}px;
+            padding-left: {{ 10 * scale }}px;
             white-space: nowrap;
         }
 
@@ -99,19 +99,19 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
 
         /* ========== DOT STYLING ========== */
         .cell-content.dot {
-            gap: {{ 3 * scale }}px;
+            gap: {{ 4 * scale }}px;
         }
 
         .dot-circle {
-            width: {{ 6 * scale }}px;
-            height: {{ 6 * scale }}px;
+            width: {{ 7 * scale }}px;
+            height: {{ 7 * scale }}px;
             border-radius: 50%;
             flex-shrink: 0;
         }
 
         .dot-value {
             font-weight: 600;
-            font-size: {{ 9 * scale }}px;
+            font-size: {{ 11 * scale }}px;
         }
 
         /* Color zones: 1-3 = good (green), 4-6 = neutral (yellow), 7-9 = bad (red) */

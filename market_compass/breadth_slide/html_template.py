@@ -25,30 +25,30 @@ BREADTH_HTML_TEMPLATE = '''
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: {{ 9 * scale }}px;
+            font-size: {{ 11 * scale }}px;
         }
 
         th {
             background: #1B3A5A;
             color: #FFFFFF;
             font-weight: 600;
-            padding: {{ 7 * scale }}px {{ 6.5 * scale }}px;
+            padding: {{ 8 * scale }}px {{ 7 * scale }}px;
             text-align: center;
             border: none;
-            height: {{ 12 * scale }}px;
+            height: {{ 15 * scale }}px;
         }
 
         th:first-child {
             text-align: left;
-            padding-left: {{ 8 * scale }}px;
-            width: {{ 75 * scale }}px;
+            padding-left: {{ 10 * scale }}px;
+            width: {{ 85 * scale }}px;
         }
 
         /* Rank column header - GOLD */
         th.rank-col {
             background: #C9A227;
             color: #1B3A5A;
-            width: {{ 40 * scale }}px;
+            width: {{ 45 * scale }}px;
             font-weight: 700;
         }
 
@@ -68,15 +68,15 @@ BREADTH_HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             justify-content: center;
-            height: {{ 15 * scale }}px;
-            padding: 0 {{ 6 * scale }}px;
+            height: {{ 19 * scale }}px;
+            padding: 0 {{ 8 * scale }}px;
         }
 
         /* Market/Index column - left align */
         .cell-content.market {
             justify-content: flex-start;
-            gap: {{ 6 * scale }}px;
-            padding-left: {{ 8 * scale }}px;
+            gap: {{ 8 * scale }}px;
+            padding-left: {{ 10 * scale }}px;
             white-space: nowrap;
         }
 
@@ -99,12 +99,12 @@ BREADTH_HTML_TEMPLATE = '''
 
         /* ========== PROGRESS BAR STYLING ========== */
         .cell-content.pct {
-            gap: {{ 4 * scale }}px;
+            gap: {{ 5 * scale }}px;
         }
 
         .pct-gauge {
-            width: {{ 40 * scale }}px;
-            height: {{ 5 * scale }}px;
+            width: {{ 48 * scale }}px;
+            height: {{ 6 * scale }}px;
             background: #E5E7EB;
             border-radius: {{ 3 * scale }}px;
             overflow: hidden;
@@ -118,8 +118,8 @@ BREADTH_HTML_TEMPLATE = '''
 
         .pct-value {
             font-weight: 600;
-            font-size: {{ 9 * scale }}px;
-            min-width: {{ 28 * scale }}px;
+            font-size: {{ 11 * scale }}px;
+            min-width: {{ 34 * scale }}px;
             text-align: right;
         }
 
