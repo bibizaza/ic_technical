@@ -22,9 +22,9 @@ from helpers.flag_utils import get_flag_html
 
 SCALE_FACTOR = 4
 FUNDAMENTAL_BASE_WIDTH = 750  # Wider for full-width display
-FUNDAMENTAL_BASE_HEIGHT = 331
+FUNDAMENTAL_BASE_HEIGHT = 360  # Same as Breadth to fit all 9 rows
 FUNDAMENTAL_WIDTH_PX = FUNDAMENTAL_BASE_WIDTH * SCALE_FACTOR   # 3000
-FUNDAMENTAL_HEIGHT_PX = FUNDAMENTAL_BASE_HEIGHT * SCALE_FACTOR  # 1324
+FUNDAMENTAL_HEIGHT_PX = FUNDAMENTAL_BASE_HEIGHT * SCALE_FACTOR  # 1440
 
 # PowerPoint placement (cm) - same as Breadth slide
 FUNDAMENTAL_LEFT_CM = 2.7    # Horizontal position
@@ -356,7 +356,7 @@ def _html_to_png(html: str, output_path: str) -> str:
 def insert_fundamental_rank(
     prs: Presentation,
     rows: List[FundamentalRow],
-    slide_title: str = "Fundamental"
+    slide_title: str = "Fundamentals"
 ) -> Presentation:
     """
     Insert Fundamental Rank table into PowerPoint slide.
@@ -380,7 +380,7 @@ def insert_fundamental_rank(
         return prs
 
     print(f"[Fundamental Rank] Generating table with {len(rows)} rows...")
-    print(f"[Fundamental Rank] Resolution: {FUNDAMENTAL_WIDTH_PX}x{FUNDAMENTAL_HEIGHT_PX}px (3x)")
+    print(f"[Fundamental Rank] Resolution: {FUNDAMENTAL_WIDTH_PX}x{FUNDAMENTAL_HEIGHT_PX}px (4x)")
 
     # Generate HTML
     html = _generate_html(rows)
@@ -436,7 +436,7 @@ def insert_fundamental_rank(
 def generate_fundamental_slide(
     prs: Presentation,
     excel_path: str,
-    slide_title: str = "Fundamental"
+    slide_title: str = "Fundamentals"
 ) -> Presentation:
     """
     Generate Fundamental Rank slide from Excel data.

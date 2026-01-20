@@ -16,14 +16,14 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
             background: transparent;
             width: {{ width }}px;
-            height: {{ height }}px;
+            min-height: {{ height }}px;
             padding: 0;
             margin: 0;
         }
 
+        /* Table styling - same as Breadth */
         table {
             width: 100%;
-            height: calc(100% - {{ 20 * scale }}px);
             border-collapse: collapse;
             font-size: {{ 9 * scale }}px;
         }
