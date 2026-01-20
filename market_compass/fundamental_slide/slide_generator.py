@@ -352,7 +352,7 @@ def _html_to_png(html: str, output_path: str) -> str:
 def insert_fundamental_rank(
     prs: Presentation,
     rows: List[FundamentalRow],
-    slide_title: str = "Fundamental Analysis"
+    slide_title: str = "Fundamental"
 ) -> Presentation:
     """
     Insert Fundamental Rank table into PowerPoint slide.
@@ -425,7 +425,7 @@ def insert_fundamental_rank(
 def generate_fundamental_slide(
     prs: Presentation,
     excel_path: str,
-    slide_title: str = "Fundamental Analysis"
+    slide_title: str = "Fundamental"
 ) -> Presentation:
     """
     Generate Fundamental Rank slide from Excel data.
