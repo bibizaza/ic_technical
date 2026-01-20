@@ -20,15 +20,15 @@ from .html_template import BREADTH_HTML_TEMPLATE
 
 SCALE_FACTOR = 4
 BREADTH_BASE_WIDTH = 750  # Wider for full-width display
-BREADTH_BASE_HEIGHT = 331
+BREADTH_BASE_HEIGHT = 360  # Taller to fit all 9 rows
 BREADTH_WIDTH_PX = BREADTH_BASE_WIDTH * SCALE_FACTOR   # 3000
-BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 1324
+BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 1440
 
-# PowerPoint placement (cm) - centered on slide
-BREADTH_LEFT_CM = 2.7   # Centered: (25.4 - 20) / 2
-BREADTH_TOP_CM = 6.13
+# PowerPoint placement (cm)
+BREADTH_LEFT_CM = 2.5    # Horizontal position
+BREADTH_TOP_CM = 6.65    # Vertical position
 BREADTH_WIDTH_CM = 20.0  # Full width
-BREADTH_HEIGHT_CM = 8.76
+BREADTH_HEIGHT_CM = 9.5  # Taller to fit all 9 rows
 
 
 # =============================================================================
@@ -254,7 +254,7 @@ def insert_breadth_rank(
         return prs
 
     print(f"[Breadth Rank] Generating table with {len(rows)} rows...")
-    print(f"[Breadth Rank] Resolution: {BREADTH_WIDTH_PX}x{BREADTH_HEIGHT_PX}px (3x)")
+    print(f"[Breadth Rank] Resolution: {BREADTH_WIDTH_PX}x{BREADTH_HEIGHT_PX}px (4x)")
 
     # Generate HTML
     html = _generate_html(rows)
