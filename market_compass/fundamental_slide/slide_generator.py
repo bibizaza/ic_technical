@@ -167,11 +167,11 @@ def _compute_factor_score(df: pd.DataFrame, factor_config: dict) -> pd.Series:
             if values.isna().all():
                 continue
 
-            # Rank based on direction
+            # Rank based on direction (NaN values ranked last)
             if factor_config["direction"] == "lower_is_better":
-                ranks = values.rank(method="min", ascending=True)
+                ranks = values.rank(method="min", ascending=True, na_option='bottom')
             else:
-                ranks = values.rank(method="min", ascending=False)
+                ranks = values.rank(method="min", ascending=False, na_option='bottom')
 
             component_ranks.append(ranks)
 
@@ -197,14 +197,18 @@ def compute_fundamental_ranks(excel_path: str) -> List[FundamentalRow]:
         List of fundamental data rows, sorted by overall rank
     """
     try:
-        # Read data
-        df = pd.read_excel(excel_path, sheet_name="data_fundamental")
+        # Read data with proper NA handling
+        df = pd.read_excel(
+            excel_path,
+            sheet_name="data_fundamental",
+            na_values=["#NA", "#N/A", "N/A", "", "nan", "NaN"]
+        )
         print(f"[Fundamental Rank] Loaded sheet with {len(df)} rows")
 
-        # Try to identify the ID column
+        # Try to identify the ID column (safely handle non-string column names)
         id_col = None
         for col in df.columns:
-            if col.lower() in ["id", "index", "ticker"]:
+            if isinstance(col, str) and col.lower() in ["id", "index", "ticker"]:
                 id_col = col
                 break
 
