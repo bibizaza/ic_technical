@@ -13,6 +13,7 @@ from pptx import Presentation
 from pptx.util import Cm
 
 from .html_template import FUNDAMENTAL_HTML_TEMPLATE
+from helpers.flag_utils import get_flag_html
 
 
 # =============================================================================
@@ -25,27 +26,28 @@ FUNDAMENTAL_BASE_HEIGHT = 331
 FUNDAMENTAL_WIDTH_PX = FUNDAMENTAL_BASE_WIDTH * SCALE_FACTOR   # 3000
 FUNDAMENTAL_HEIGHT_PX = FUNDAMENTAL_BASE_HEIGHT * SCALE_FACTOR  # 1324
 
-# PowerPoint placement (cm) - centered on slide
-FUNDAMENTAL_LEFT_CM = 2.7   # Centered: (25.4 - 20) / 2
-FUNDAMENTAL_TOP_CM = 6.13
+# PowerPoint placement (cm) - same as Breadth slide
+FUNDAMENTAL_LEFT_CM = 2.7    # Horizontal position
+FUNDAMENTAL_TOP_CM = 7.25    # Vertical position (same as Breadth)
 FUNDAMENTAL_WIDTH_CM = 20.0  # Full width
-FUNDAMENTAL_HEIGHT_CM = 8.76
+FUNDAMENTAL_HEIGHT_CM = 9.5  # Same height as Breadth
 
 
 # =============================================================================
 # INDEX NAME MAPPING
 # =============================================================================
 
+# Map tickers to (display_name, flag_code)
 INDEX_NAME_MAP = {
-    "SPX Index": "U.S.",
-    "SHSZ300 Index": "China",
-    "NKY Index": "Japan",
-    "SASEIDX Index": "Saudi Arabia",
-    "SENSEX Index": "India",
-    "DAX Index": "Germany",
-    "SMI Index": "Switzerland",
-    "MEXBOL Index": "Mexico",
-    "IBOV Index": "Brazil",
+    "SPX Index": ("U.S.", "us"),
+    "SHSZ300 Index": ("China", "cn"),
+    "NKY Index": ("Japan", "jp"),
+    "SASEIDX Index": ("Saudi Arabia", "sa"),
+    "SENSEX Index": ("India", "in"),
+    "DAX Index": ("Germany", "de"),
+    "SMI Index": ("Switzerland", "ch"),
+    "MEXBOL Index": ("Mexico", "mx"),
+    "IBOV Index": ("Brazil", "br"),
 }
 
 
@@ -119,6 +121,7 @@ FACTOR_METRICS = {
 class FundamentalRow:
     """Data for a single row in the Fundamental Rank table."""
     index_name: str
+    flag_code: str  # ISO country code for flag
     rank: int
     rv: int
     growth: int
@@ -242,8 +245,17 @@ def compute_fundamental_ranks(excel_path: str) -> List[FundamentalRow]:
         # Build result rows
         results = []
         for idx in df.index:
+            # Get display name and flag code
+            name_flag = INDEX_NAME_MAP.get(idx)
+            if name_flag:
+                display_name, flag_code = name_flag
+            else:
+                display_name = idx
+                flag_code = ""
+
             results.append(FundamentalRow(
-                index_name=INDEX_NAME_MAP.get(idx, idx),
+                index_name=display_name,
+                flag_code=flag_code,
                 rank=int(overall_ranks[idx]),
                 rv=int(factor_ranks["Relative_Valuation"][idx]),
                 growth=int(factor_ranks["Growth"][idx]),
@@ -285,8 +297,12 @@ def _get_rank_class(rank: int) -> str:
 
 def _prepare_row_for_template(row: FundamentalRow) -> dict:
     """Prepare row data for Jinja template."""
+    # Generate flag HTML (size 22 to match other slides)
+    flag_html = get_flag_html(row.flag_code, size=22) if row.flag_code else ""
+
     return {
         "index_name": row.index_name,
+        "flag_html": flag_html,
         "rank": row.rank,
         "rv": row.rv,
         "rv_class": _get_rank_class(row.rv),

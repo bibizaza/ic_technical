@@ -32,7 +32,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             background: #1B3A5A;
             color: #FFFFFF;
             font-weight: 600;
-            padding: {{ 6 * scale }}px {{ 4 * scale }}px;
+            padding: {{ 7 * scale }}px {{ 6.5 * scale }}px;
             text-align: center;
             border: none;
         }
@@ -52,7 +52,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
         }
 
         td {
-            padding: {{ 5 * scale }}px {{ 4 * scale }}px;
+            padding: {{ 6.5 * scale }}px {{ 6.5 * scale }}px;
             text-align: center;
             border-bottom: {{ 1 * scale }}px solid #E8E8E8;
             background: #FFFFFF;
@@ -62,6 +62,13 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             text-align: left;
             padding-left: {{ 8 * scale }}px;
             font-weight: 500;
+        }
+
+        .index-cell {
+            display: flex;
+            align-items: center;
+            gap: {{ 6 * scale }}px;
+            white-space: nowrap;
         }
 
         tr:nth-child(even) td {
@@ -121,7 +128,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
     <table>
         <thead>
             <tr>
-                <th></th>
+                <th>Market</th>
                 <th class="rank-col">Rank</th>
                 <th>RV</th>
                 <th>Grw</th>
@@ -134,7 +141,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
         <tbody>
             {% for row in rows %}
             <tr>
-                <td>{{ row.index_name }}</td>
+                <td class="index-cell">{{ row.flag_html | safe }} {{ row.index_name }}</td>
                 <td class="rank-cell">{{ row.rank }}</td>
                 <td><div class="dot-cell"><span class="dot {{ row.rv_class }}"></span><span class="dot-value {{ row.rv_class }}">{{ row.rv }}</span></div></td>
                 <td><div class="dot-cell"><span class="dot {{ row.growth_class }}"></span><span class="dot-value {{ row.growth_class }}">{{ row.growth }}</span></div></td>
