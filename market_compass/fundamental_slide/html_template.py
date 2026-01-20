@@ -35,7 +35,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             padding: {{ 7 * scale }}px {{ 6.5 * scale }}px;
             text-align: center;
             border: none;
-            vertical-align: middle;
+            height: {{ 12 * scale }}px;
         }
 
         th:first-child {
@@ -52,84 +52,76 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             font-weight: 700;
         }
 
+        /* Remove padding from td - let inner divs handle it */
         td {
-            padding: {{ 6.5 * scale }}px {{ 6.5 * scale }}px;
-            text-align: center;
-            vertical-align: middle;
+            padding: 0;
             border-bottom: {{ 1 * scale }}px solid #E8E8E8;
             background: #FFFFFF;
-        }
-
-        td:first-child {
-            text-align: left;
-            padding-left: {{ 8 * scale }}px;
-            font-weight: 500;
-        }
-
-        .index-cell {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            gap: {{ 6 * scale }}px;
-            white-space: nowrap;
-            height: 100%;
-        }
-
-        .index-cell img,
-        .index-cell .flag,
-        .index-cell span {
-            vertical-align: middle;
-            line-height: 1;
         }
 
         tr:nth-child(even) td {
             background: #F8F9FA;
         }
 
-        /* Rank cell - GOLD tint */
-        .rank-cell {
-            background: #FEF9E7 !important;
-            font-weight: 700;
-            color: #92710C;
-        }
-
-        tr:nth-child(even) .rank-cell {
-            background: #FCF3CD !important;
-        }
-
-        /* ========== DOT STYLING ========== */
-        .dot-cell {
+        /* ========== CELL CONTENT WRAPPER ========== */
+        .cell-content {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: {{ 3 * scale }}px;
-            height: 100%;
+            height: {{ 12 * scale }}px;
+            padding: 0 {{ 6 * scale }}px;
         }
 
-        .dot {
+        /* Market column - left align */
+        .cell-content.market {
+            justify-content: flex-start;
+            gap: {{ 6 * scale }}px;
+            padding-left: {{ 8 * scale }}px;
+            white-space: nowrap;
+        }
+
+        .cell-content.market img,
+        .cell-content.market .flag {
+            flex-shrink: 0;
+        }
+
+        /* Rank column - centered, gold background */
+        .cell-content.rank {
+            justify-content: center;
+            font-weight: 700;
+            color: #92710C;
+            background: #FEF9E7;
+        }
+
+        tr:nth-child(even) .cell-content.rank {
+            background: #FCF3CD;
+        }
+
+        /* ========== DOT STYLING ========== */
+        .cell-content.dot {
+            gap: {{ 3 * scale }}px;
+        }
+
+        .dot-circle {
             width: {{ 6 * scale }}px;
             height: {{ 6 * scale }}px;
             border-radius: 50%;
             flex-shrink: 0;
-            vertical-align: middle;
         }
 
         .dot-value {
             font-weight: 600;
             font-size: {{ 9 * scale }}px;
-            vertical-align: middle;
-            line-height: 1;
         }
 
         /* Color zones: 1-3 = good (green), 4-6 = neutral (yellow), 7-9 = bad (red) */
-        .dot.good { background: #22C55E; }
-        .dot.neutral { background: #EAB308; }
-        .dot.bad { background: #EF4444; }
+        .dot-circle.good { background: #22C55E; }
+        .dot-circle.neutral { background: #EAB308; }
+        .dot-circle.bad { background: #EF4444; }
 
         .dot-value.good { color: #16A34A; }
         .dot-value.neutral { color: #CA8A04; }
         .dot-value.bad { color: #DC2626; }
-
     </style>
 </head>
 <body>
@@ -149,14 +141,53 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
         <tbody>
             {% for row in rows %}
             <tr>
-                <td class="index-cell">{{ row.flag_html | safe }} {{ row.index_name }}</td>
-                <td class="rank-cell">{{ row.rank }}</td>
-                <td><div class="dot-cell"><span class="dot {{ row.rv_class }}"></span><span class="dot-value {{ row.rv_class }}">{{ row.rv }}</span></div></td>
-                <td><div class="dot-cell"><span class="dot {{ row.growth_class }}"></span><span class="dot-value {{ row.growth_class }}">{{ row.growth }}</span></div></td>
-                <td><div class="dot-cell"><span class="dot {{ row.profitability_class }}"></span><span class="dot-value {{ row.profitability_class }}">{{ row.profitability }}</span></div></td>
-                <td><div class="dot-cell"><span class="dot {{ row.quality_class }}"></span><span class="dot-value {{ row.quality_class }}">{{ row.quality }}</span></div></td>
-                <td><div class="dot-cell"><span class="dot {{ row.leverage_class }}"></span><span class="dot-value {{ row.leverage_class }}">{{ row.leverage }}</span></div></td>
-                <td><div class="dot-cell"><span class="dot {{ row.dividend_class }}"></span><span class="dot-value {{ row.dividend_class }}">{{ row.dividend }}</span></div></td>
+                <td>
+                    <div class="cell-content market">
+                        {{ row.flag_html | safe }}
+                        <span>{{ row.index_name }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content rank">
+                        {{ row.rank }}
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content dot">
+                        <span class="dot-circle {{ row.rv_class }}"></span>
+                        <span class="dot-value {{ row.rv_class }}">{{ row.rv }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content dot">
+                        <span class="dot-circle {{ row.growth_class }}"></span>
+                        <span class="dot-value {{ row.growth_class }}">{{ row.growth }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content dot">
+                        <span class="dot-circle {{ row.profitability_class }}"></span>
+                        <span class="dot-value {{ row.profitability_class }}">{{ row.profitability }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content dot">
+                        <span class="dot-circle {{ row.quality_class }}"></span>
+                        <span class="dot-value {{ row.quality_class }}">{{ row.quality }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content dot">
+                        <span class="dot-circle {{ row.leverage_class }}"></span>
+                        <span class="dot-value {{ row.leverage_class }}">{{ row.leverage }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content dot">
+                        <span class="dot-circle {{ row.dividend_class }}"></span>
+                        <span class="dot-value {{ row.dividend_class }}">{{ row.dividend }}</span>
+                    </div>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

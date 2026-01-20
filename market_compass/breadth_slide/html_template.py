@@ -35,7 +35,7 @@ BREADTH_HTML_TEMPLATE = '''
             padding: {{ 7 * scale }}px {{ 6.5 * scale }}px;
             text-align: center;
             border: none;
-            vertical-align: middle;
+            height: {{ 12 * scale }}px;
         }
 
         th:first-child {
@@ -52,60 +52,53 @@ BREADTH_HTML_TEMPLATE = '''
             font-weight: 700;
         }
 
+        /* Remove padding from td - let inner divs handle it */
         td {
-            padding: {{ 6.5 * scale }}px {{ 6.5 * scale }}px;
-            text-align: center;
-            vertical-align: middle;
+            padding: 0;
             border-bottom: {{ 1 * scale }}px solid #E8E8E8;
             background: #FFFFFF;
-        }
-
-        td:first-child {
-            text-align: left;
-            padding-left: {{ 8 * scale }}px;
-            font-weight: 500;
-        }
-
-        .index-cell {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            gap: {{ 6 * scale }}px;
-            white-space: nowrap;
-            height: 100%;
-        }
-
-        .index-cell img,
-        .index-cell .flag,
-        .index-cell span {
-            vertical-align: middle;
-            line-height: 1;
         }
 
         tr:nth-child(even) td {
             background: #F8F9FA;
         }
 
-        /* Rank cell - GOLD tint */
-        .rank-cell {
-            background: #FEF9E7 !important;
-            font-weight: 700;
-            color: #92710C;
-        }
-
-        tr:nth-child(even) .rank-cell {
-            background: #FCF3CD !important;
-        }
-
-        /* ========== PROGRESS BAR STYLING ========== */
-        .pct-cell {
-            padding: {{ 6.5 * scale }}px {{ 6.5 * scale }}px;
-        }
-
-        .pct-container {
+        /* ========== CELL CONTENT WRAPPER ========== */
+        .cell-content {
             display: flex;
             align-items: center;
             justify-content: center;
+            height: {{ 12 * scale }}px;
+            padding: 0 {{ 6 * scale }}px;
+        }
+
+        /* Market/Index column - left align */
+        .cell-content.market {
+            justify-content: flex-start;
+            gap: {{ 6 * scale }}px;
+            padding-left: {{ 8 * scale }}px;
+            white-space: nowrap;
+        }
+
+        .cell-content.market img,
+        .cell-content.market .flag {
+            flex-shrink: 0;
+        }
+
+        /* Rank column - centered, gold background */
+        .cell-content.rank {
+            justify-content: center;
+            font-weight: 700;
+            color: #92710C;
+            background: #FEF9E7;
+        }
+
+        tr:nth-child(even) .cell-content.rank {
+            background: #FCF3CD;
+        }
+
+        /* ========== PROGRESS BAR STYLING ========== */
+        .cell-content.pct {
             gap: {{ 4 * scale }}px;
         }
 
@@ -159,22 +152,31 @@ BREADTH_HTML_TEMPLATE = '''
         <tbody>
             {% for row in rows %}
             <tr>
-                <td class="index-cell">{{ row.flag_html | safe }} {{ row.index_name }}</td>
-                <td class="rank-cell">{{ row.rank }}</td>
-                <td class="pct-cell">
-                    <div class="pct-container">
+                <td>
+                    <div class="cell-content market">
+                        {{ row.flag_html | safe }}
+                        <span>{{ row.index_name }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content rank">
+                        {{ row.rank }}
+                    </div>
+                </td>
+                <td>
+                    <div class="cell-content pct">
                         <div class="pct-gauge"><div class="pct-fill {{ row.pct_both_class }}" style="width: {{ row.pct_both }}%;"></div></div>
                         <span class="pct-value {{ row.pct_both_class }}">{{ row.pct_both }}%</span>
                     </div>
                 </td>
-                <td class="pct-cell">
-                    <div class="pct-container">
+                <td>
+                    <div class="cell-content pct">
                         <div class="pct-gauge"><div class="pct-fill {{ row.pct_20d_class }}" style="width: {{ row.pct_20d }}%;"></div></div>
                         <span class="pct-value {{ row.pct_20d_class }}">{{ row.pct_20d }}%</span>
                     </div>
                 </td>
-                <td class="pct-cell">
-                    <div class="pct-container">
+                <td>
+                    <div class="cell-content pct">
                         <div class="pct-gauge"><div class="pct-fill {{ row.pct_50d_class }}" style="width: {{ row.pct_50d }}%;"></div></div>
                         <span class="pct-value {{ row.pct_50d_class }}">{{ row.pct_50d }}%</span>
                     </div>
