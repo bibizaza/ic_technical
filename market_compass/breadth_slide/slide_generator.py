@@ -296,7 +296,7 @@ def insert_breadth_rank(
         return prs
 
     # Insert image at FIXED position - don't remove any shapes
-    target_slide.shapes.add_picture(
+    picture = target_slide.shapes.add_picture(
         img_path,
         left=Cm(BREADTH_LEFT_CM),
         top=Cm(BREADTH_TOP_CM),
@@ -304,10 +304,16 @@ def insert_breadth_rank(
         height=Cm(BREADTH_HEIGHT_CM)
     )
 
+    # Send picture to back so it doesn't cover "Source:" text
+    spTree = target_slide.shapes._spTree
+    sp = picture._element
+    spTree.remove(sp)
+    spTree.insert(2, sp)  # Position 2 = behind other shapes but above background
+
     # Cleanup
     Path(img_path).unlink(missing_ok=True)
 
-    print(f"[Breadth Rank] ✅ Table inserted at ({BREADTH_LEFT_CM}, {BREADTH_TOP_CM}) cm")
+    print(f"[Breadth Rank] ✅ Table inserted at ({BREADTH_LEFT_CM}, {BREADTH_TOP_CM}) cm (sent to back)")
 
     return prs
 

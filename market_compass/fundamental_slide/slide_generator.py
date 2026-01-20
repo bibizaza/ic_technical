@@ -410,7 +410,7 @@ def insert_fundamental_rank(
         return prs
 
     # Insert image at FIXED position
-    target_slide.shapes.add_picture(
+    picture = target_slide.shapes.add_picture(
         img_path,
         left=Cm(FUNDAMENTAL_LEFT_CM),
         top=Cm(FUNDAMENTAL_TOP_CM),
@@ -418,10 +418,16 @@ def insert_fundamental_rank(
         height=Cm(FUNDAMENTAL_HEIGHT_CM)
     )
 
+    # Send picture to back so it doesn't cover "Source:" text
+    spTree = target_slide.shapes._spTree
+    sp = picture._element
+    spTree.remove(sp)
+    spTree.insert(2, sp)  # Position 2 = behind other shapes but above background
+
     # Cleanup
     Path(img_path).unlink(missing_ok=True)
 
-    print(f"[Fundamental Rank] ✅ Table inserted at ({FUNDAMENTAL_LEFT_CM}, {FUNDAMENTAL_TOP_CM}) cm")
+    print(f"[Fundamental Rank] ✅ Table inserted at ({FUNDAMENTAL_LEFT_CM}, {FUNDAMENTAL_TOP_CM}) cm (sent to back)")
 
     return prs
 
