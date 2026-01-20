@@ -68,6 +68,7 @@ BREADTH_HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             gap: {{ 6 * scale }}px;
+            white-space: nowrap;
         }
 
         tr:nth-child(even) td {
