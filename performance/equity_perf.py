@@ -522,10 +522,11 @@ def create_historical_performance_table(
             "m12_class": get_color_class(row["12M"]),
         })
 
-    # Generate HTML
+    # Generate HTML - PNG must match PowerPoint aspect ratio
+    # Target: 25.0cm × 11.66cm in PowerPoint (from insert_equity_performance_histo_slide)
     SCALE_FACTOR = 4
-    width_px = 2200  # ~19.4cm at 3x
-    height_px = 1500  # Increased for 9 rows at 4x scale
+    width_px = int(25.0 * 37.8 * SCALE_FACTOR)   # = 3780 px
+    height_px = int(11.66 * 37.8 * SCALE_FACTOR) # = 1762 px
 
     template = Template(HISTORICAL_PERFORMANCE_HTML_TEMPLATE)
     html = template.render(
