@@ -5603,7 +5603,7 @@ def show_generate_presentation_page():
             prs = generate_fundamental_slide(
                 prs,
                 excel_path=str(excel_path_for_ppt),
-                slide_title="Fundamentals",
+                slide_name="slide_fundamentals",
             )
             print("[Fundamental Analysis] Slide generation complete")
 

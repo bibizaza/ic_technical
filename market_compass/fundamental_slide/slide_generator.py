@@ -356,7 +356,7 @@ def _html_to_png(html: str, output_path: str) -> str:
 def insert_fundamental_rank(
     prs: Presentation,
     rows: List[FundamentalRow],
-    slide_title: str = "Fundamentals"
+    slide_name: str = "slide_fundamentals"
 ) -> Presentation:
     """
     Insert Fundamental Rank table into PowerPoint slide.
@@ -367,8 +367,8 @@ def insert_fundamental_rank(
         PowerPoint presentation object
     rows : List[FundamentalRow]
         List of fundamental data rows
-    slide_title : str
-        Title text to search for to find the correct slide
+    slide_name : str
+        Exact slide/shape name to search for (from PowerPoint's Selection Pane)
 
     Returns
     -------
@@ -391,28 +391,24 @@ def insert_fundamental_rank(
 
     _html_to_png(html, img_path)
 
-    # Find slide by title text
+    # Find slide by exact shape name (not text content)
     target_slide = None
+    slide_name_lower = slide_name.lower().strip()
 
-    # Debug: print all slide titles/text to help diagnose
-    print(f"[Fundamental Rank] Searching for slide containing '{slide_title}'...")
+    print(f"[Fundamental Rank] Searching for slide with shape named '{slide_name}'...")
     for slide_idx, slide in enumerate(prs.slides):
-        slide_texts = []
         for shape in slide.shapes:
-            if hasattr(shape, "text") and shape.text:
-                text_preview = shape.text[:50].replace('\n', ' ')
-                slide_texts.append(text_preview)
-                if slide_title.lower() in shape.text.lower():
+            # Check shape name (set in PowerPoint's Selection Pane)
+            if hasattr(shape, "name") and shape.name:
+                if shape.name.lower().strip() == slide_name_lower:
                     target_slide = slide
-                    print(f"[Fundamental Rank] Found slide with '{slide_title}' at index {slide_idx + 1}")
+                    print(f"[Fundamental Rank] Found slide by shape name '{slide_name}' at index {slide_idx + 1}")
                     break
-        if not target_slide and slide_texts:
-            print(f"[Fundamental Rank] Slide {slide_idx + 1}: {slide_texts[:3]}")
         if target_slide:
             break
 
     if not target_slide:
-        print(f"[Fundamental Rank] No slide with title '{slide_title}' found")
+        print(f"[Fundamental Rank] ❌ No slide with shape name '{slide_name}' found")
         Path(img_path).unlink(missing_ok=True)
         return prs
 
@@ -436,7 +432,7 @@ def insert_fundamental_rank(
 def generate_fundamental_slide(
     prs: Presentation,
     excel_path: str,
-    slide_title: str = "Fundamentals"
+    slide_name: str = "slide_fundamentals"
 ) -> Presentation:
     """
     Generate Fundamental Rank slide from Excel data.
@@ -447,8 +443,8 @@ def generate_fundamental_slide(
         PowerPoint presentation object
     excel_path : str
         Path to Excel file with data_fundamental sheet
-    slide_title : str
-        Title text to search for to find the correct slide
+    slide_name : str
+        Exact slide/shape name to search for (from PowerPoint's Selection Pane)
 
     Returns
     -------
@@ -463,4 +459,4 @@ def generate_fundamental_slide(
         return prs
 
     # Insert into slide
-    return insert_fundamental_rank(prs, rows, slide_title)
+    return insert_fundamental_rank(prs, rows, slide_name)
