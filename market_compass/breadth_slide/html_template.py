@@ -16,7 +16,7 @@ BREADTH_HTML_TEMPLATE = '''
             font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
             background: transparent;
             width: {{ width }}px;
-            height: {{ height }}px;
+            min-height: {{ height }}px;
             padding: 0;
             margin: 0;
         }
@@ -24,7 +24,6 @@ BREADTH_HTML_TEMPLATE = '''
         /* Table styling */
         table {
             width: 100%;
-            height: 100%;
             border-collapse: collapse;
             font-size: {{ 9 * scale }}px;
         }
