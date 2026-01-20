@@ -35,6 +35,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             padding: {{ 7 * scale }}px {{ 6.5 * scale }}px;
             text-align: center;
             border: none;
+            vertical-align: middle;
         }
 
         th:first-child {
@@ -54,6 +55,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
         td {
             padding: {{ 6.5 * scale }}px {{ 6.5 * scale }}px;
             text-align: center;
+            vertical-align: middle;
             border-bottom: {{ 1 * scale }}px solid #E8E8E8;
             background: #FFFFFF;
         }
@@ -67,8 +69,17 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
         .index-cell {
             display: flex;
             align-items: center;
+            justify-content: flex-start;
             gap: {{ 6 * scale }}px;
             white-space: nowrap;
+            height: 100%;
+        }
+
+        .index-cell img,
+        .index-cell .flag,
+        .index-cell span {
+            vertical-align: middle;
+            line-height: 1;
         }
 
         tr:nth-child(even) td {
@@ -92,6 +103,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             align-items: center;
             justify-content: center;
             gap: {{ 3 * scale }}px;
+            height: 100%;
         }
 
         .dot {
@@ -99,11 +111,14 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             height: {{ 6 * scale }}px;
             border-radius: 50%;
             flex-shrink: 0;
+            vertical-align: middle;
         }
 
         .dot-value {
             font-weight: 600;
             font-size: {{ 9 * scale }}px;
+            vertical-align: middle;
+            line-height: 1;
         }
 
         /* Color zones: 1-3 = good (green), 4-6 = neutral (yellow), 7-9 = bad (red) */
