@@ -12,6 +12,7 @@ from pptx import Presentation
 from pptx.util import Cm
 
 from .html_template import BREADTH_HTML_TEMPLATE
+from helpers.flag_utils import get_flag_html
 
 
 # =============================================================================
@@ -35,17 +36,17 @@ BREADTH_HEIGHT_CM = 9.5  # Taller to fit all 9 rows
 # INDEX NAME MAPPING
 # =============================================================================
 
-# Map tickers to display names
+# Map tickers to (display_name, flag_code)
 INDEX_NAME_MAP = {
-    "SPX Index": "U.S.",
-    "SHSZ300 Index": "China",
-    "NKY Index": "Japan",
-    "SASEIDX Index": "Saudi Arabia",
-    "SENSEX Index": "India",
-    "DAX Index": "Germany",
-    "SMI Index": "Switzerland",
-    "MEXBOL Index": "Mexico",
-    "IBOV Index": "Brazil",
+    "SPX Index": ("U.S.", "us"),
+    "SHSZ300 Index": ("China", "cn"),
+    "NKY Index": ("Japan", "jp"),
+    "SASEIDX Index": ("Saudi Arabia", "sa"),
+    "SENSEX Index": ("India", "in"),
+    "DAX Index": ("Germany", "de"),
+    "SMI Index": ("Switzerland", "ch"),
+    "MEXBOL Index": ("Mexico", "mx"),
+    "IBOV Index": ("Brazil", "br"),
 }
 
 
@@ -57,6 +58,7 @@ INDEX_NAME_MAP = {
 class BreadthRow:
     """Data for a single row in the Breadth Rank table."""
     index_name: str
+    flag_code: str  # ISO country code for flag
     rank: int
     pct_both: int   # % above both MAs
     pct_20d: int    # % above 20D MA
@@ -115,8 +117,13 @@ def prepare_breadth_data(excel_path: str) -> List[BreadthRow]:
             if not ticker or ticker.lower() in ["ticker", "index", ""]:
                 continue
 
-            # Get display name
-            display_name = INDEX_NAME_MAP.get(ticker, ticker.replace(" Index", ""))
+            # Get display name and flag code
+            name_flag = INDEX_NAME_MAP.get(ticker)
+            if name_flag:
+                display_name, flag_code = name_flag
+            else:
+                display_name = ticker.replace(" Index", "")
+                flag_code = ""
 
             # Get percentages (convert to int, handle NaN)
             try:
@@ -136,6 +143,7 @@ def prepare_breadth_data(excel_path: str) -> List[BreadthRow]:
 
             rows.append(BreadthRow(
                 index_name=display_name,
+                flag_code=flag_code,
                 rank=0,  # Will be set after sorting
                 pct_both=pct_both,
                 pct_20d=pct_20d,
@@ -182,8 +190,12 @@ def _get_pct_class(value: int) -> str:
 
 def _prepare_row_for_template(row: BreadthRow) -> dict:
     """Prepare row for Jinja template."""
+    # Generate flag HTML (size 22 to match other slides)
+    flag_html = get_flag_html(row.flag_code, size=22) if row.flag_code else ""
+
     return {
         "index_name": row.index_name,
+        "flag_html": flag_html,
         "rank": row.rank,
         "pct_both": row.pct_both,
         "pct_both_class": _get_pct_class(row.pct_both),

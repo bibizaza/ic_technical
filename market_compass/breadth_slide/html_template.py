@@ -64,6 +64,12 @@ BREADTH_HTML_TEMPLATE = '''
             font-weight: 500;
         }
 
+        .index-cell {
+            display: flex;
+            align-items: center;
+            gap: {{ 6 * scale }}px;
+        }
+
         tr:nth-child(even) td {
             background: #F8F9FA;
         }
@@ -141,7 +147,7 @@ BREADTH_HTML_TEMPLATE = '''
         <tbody>
             {% for row in rows %}
             <tr>
-                <td>{{ row.index_name }}</td>
+                <td class="index-cell">{{ row.flag_html | safe }} {{ row.index_name }}</td>
                 <td class="rank-cell">{{ row.rank }}</td>
                 <td class="pct-cell">
                     <div class="pct-container">
