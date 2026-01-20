@@ -32,7 +32,7 @@ BREADTH_HTML_TEMPLATE = '''
             background: #1B3A5A;
             color: #FFFFFF;
             font-weight: 600;
-            padding: {{ 4 * scale }}px {{ 5 * scale }}px;
+            padding: {{ 5.5 * scale }}px {{ 5 * scale }}px;
             text-align: center;
             border: none;
         }
@@ -52,7 +52,7 @@ BREADTH_HTML_TEMPLATE = '''
         }
 
         td {
-            padding: {{ 3 * scale }}px {{ 5 * scale }}px;
+            padding: {{ 5 * scale }}px {{ 5 * scale }}px;
             text-align: center;
             border-bottom: {{ 1 * scale }}px solid #E8E8E8;
             background: #FFFFFF;
@@ -81,7 +81,7 @@ BREADTH_HTML_TEMPLATE = '''
 
         /* ========== PROGRESS BAR STYLING ========== */
         .pct-cell {
-            padding: {{ 3 * scale }}px {{ 5 * scale }}px;
+            padding: {{ 5 * scale }}px {{ 5 * scale }}px;
         }
 
         .pct-container {
