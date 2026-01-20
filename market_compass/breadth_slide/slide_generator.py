@@ -25,8 +25,8 @@ BREADTH_WIDTH_PX = BREADTH_BASE_WIDTH * SCALE_FACTOR   # 3000
 BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 1440
 
 # PowerPoint placement (cm)
-BREADTH_LEFT_CM = 2.5    # Horizontal position
-BREADTH_TOP_CM = 6.65    # Vertical position
+BREADTH_LEFT_CM = 2.7    # Horizontal position
+BREADTH_TOP_CM = 7.25    # Vertical position
 BREADTH_WIDTH_CM = 20.0  # Full width
 BREADTH_HEIGHT_CM = 9.5  # Taller to fit all 9 rows
 
