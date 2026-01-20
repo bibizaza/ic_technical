@@ -115,13 +115,6 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
         .dot-value.neutral { color: #CA8A04; }
         .dot-value.bad { color: #DC2626; }
 
-        /* Footnote */
-        .footnote {
-            font-size: {{ 7 * scale }}px;
-            color: #666666;
-            padding: {{ 4 * scale }}px {{ 8 * scale }}px;
-            font-style: italic;
-        }
     </style>
 </head>
 <body>
@@ -130,12 +123,12 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             <tr>
                 <th>Market</th>
                 <th class="rank-col">Rank</th>
-                <th>RV</th>
-                <th>Grw</th>
-                <th>Prof</th>
-                <th>Qual</th>
-                <th>Lev</th>
-                <th>Div</th>
+                <th>Valuation</th>
+                <th>Growth</th>
+                <th>Profitability</th>
+                <th>Quality</th>
+                <th>Leverage</th>
+                <th>Dividend</th>
             </tr>
         </thead>
         <tbody>
@@ -153,7 +146,6 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             {% endfor %}
         </tbody>
     </table>
-    <div class="footnote">* RV=Relative Valuation, Grw=Growth, Prof=Profitability, Qual=Quality, Lev=Leverage, Div=Dividend</div>
 </body>
 </html>
 '''
