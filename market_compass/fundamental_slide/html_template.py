@@ -68,7 +68,7 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             display: flex;
             align-items: center;
             justify-content: center;
-            height: {{ 12.25 * scale }}px;
+            height: {{ 15 * scale }}px;
             padding: 0 {{ 6 * scale }}px;
         }
 
