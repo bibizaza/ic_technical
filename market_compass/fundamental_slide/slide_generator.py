@@ -390,13 +390,20 @@ def insert_fundamental_rank(
     # Find slide by title text
     target_slide = None
 
+    # Debug: print all slide titles/text to help diagnose
+    print(f"[Fundamental Rank] Searching for slide containing '{slide_title}'...")
     for slide_idx, slide in enumerate(prs.slides):
+        slide_texts = []
         for shape in slide.shapes:
             if hasattr(shape, "text") and shape.text:
+                text_preview = shape.text[:50].replace('\n', ' ')
+                slide_texts.append(text_preview)
                 if slide_title.lower() in shape.text.lower():
                     target_slide = slide
                     print(f"[Fundamental Rank] Found slide with '{slide_title}' at index {slide_idx + 1}")
                     break
+        if not target_slide and slide_texts:
+            print(f"[Fundamental Rank] Slide {slide_idx + 1}: {slide_texts[:3]}")
         if target_slide:
             break
 
