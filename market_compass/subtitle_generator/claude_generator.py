@@ -403,8 +403,114 @@ Write "potential" rather than "likely" for measured expectations
 Select "trajectory" instead of "path" for directional commentary
 """
 
+# Asset universe reference for better subtitle context (~600 tokens)
+ASSET_UNIVERSE = """
+
+## Asset Universe Reference
+
+### Equity Indices
+
+**S&P 500 (SPX)**: US large-cap benchmark tracking 500 companies. Market-cap weighted, tech-heavy.
+Global risk sentiment leader. When SPX leads, risk-on dominates global markets.
+
+**CSI 300 (SHSZ300)**: China A-shares index covering top 300 stocks on Shanghai and Shenzhen exchanges.
+Sensitive to domestic policy, property sector, and US-China relations.
+
+**Nikkei 225 (NKY)**: Japan's premier price-weighted index. Export-sensitive, benefits from weak yen.
+BOJ policy and USD/JPY are key drivers.
+
+**TASI (SASEIDX)**: Saudi Arabia Tadawul All Share Index. Oil-linked but diversifying.
+Vision 2030 reforms driving non-oil sector growth.
+
+**Sensex (SENSEX)**: India BSE 30 blue-chips. Domestic consumption and IT services driven.
+Strong demographic tailwind, relatively insulated from global cycles.
+
+**DAX (DAX)**: Germany's 40 largest companies. Export-oriented, auto and industrial heavy.
+China demand and energy costs are key sensitivities.
+
+**SMI (SMI)**: Switzerland's 20 largest stocks. Defensive, pharma and consumer staples heavy.
+Safe-haven characteristics, CHF strength sensitivity.
+
+**IBOV (IBOV)**: Brazil Bovespa index. Commodity and banking exposure.
+Real rates, commodity prices, and political risk drive performance.
+
+**Mexbol (MEXBOL)**: Mexico IPC 35-stock index. US nearshoring beneficiary.
+Peso strength and US manufacturing demand are key drivers.
+
+### Commodities
+
+**Gold (GCA)**: Ultimate safe haven and inflation hedge. Central bank reserve asset.
+Inverse correlation to real yields and USD. Flight-to-quality beneficiary.
+
+**Silver (SIA)**: Hybrid precious/industrial metal. Solar panel and electronics demand.
+Higher beta than gold, more volatile. Green energy transition play.
+
+**Platinum (XPT)**: Auto catalyst demand (diesel) plus hydrogen economy potential.
+Supply concentrated in South Africa. Clean energy transition beneficiary.
+
+**Palladium (XPD)**: Gasoline catalytic converter demand. Severe supply constraints.
+Russia supplies 40%+. EV adoption is long-term headwind.
+
+**Oil WTI (CL1)**: US crude benchmark, Cushing Oklahoma delivery. Global growth proxy.
+OPEC+ policy, US shale production, and China demand are key drivers.
+
+**Uranium (UXA1)**: Nuclear fuel. Supply deficit emerging as mines underinvested.
+Nuclear renaissance theme, SMR technology potential catalyst.
+
+**Copper (LP1)**: Dr. Copper - industrial bellwether. Electrification mega-theme.
+EV batteries, grid infrastructure, and China construction demand.
+
+### Cryptocurrencies
+
+**Bitcoin (XBTUSD)**: Digital gold narrative. Institutional adoption accelerating.
+Halving cycles, ETF flows, and macro liquidity drive price action.
+
+**Ethereum (XETUSD)**: Smart contract platform. DeFi and NFT backbone.
+Layer 2 scaling, staking yields, and developer activity are key metrics.
+
+**Solana (XSOUSD)**: High-speed Layer 1 blockchain. Low fees, NFT and DeFi growth.
+Network reliability concerns but strong developer momentum.
+
+**Ripple XRP (XRPUSD)**: Cross-border payments focus. Regulatory clarity improving.
+Banking partnerships and legal outcomes drive sentiment.
+
+**Binance BNB (XBIUSD)**: Exchange token for world's largest crypto exchange.
+Trading volume, regulatory pressure, and ecosystem growth are drivers.
+
+### Cross-Asset Themes to Consider
+
+**Risk-On Environment**: SPX leads, crypto rallies, gold lags, copper outperforms
+**Risk-Off Environment**: Gold leads, bonds rally, SPX falls, crypto crashes
+**Inflation Theme**: Gold and commodities outperform, bonds suffer, crypto mixed
+**USD Strength**: Pressure on EM equities, gold, and commodities
+**USD Weakness**: Supports gold, EM, and commodity exporters
+**China Recovery**: CSI 300, copper, iron ore, and luxury goods benefit
+**Energy Transition**: Uranium, copper, silver, platinum outperform oil long-term
+
+### Correlation Awareness
+
+High correlation pairs (move together):
+- Gold ↔ Silver (0.85+)
+- SPX ↔ DAX (0.80+)
+- Bitcoin ↔ Ethereum (0.90+)
+- Oil ↔ Energy equities (0.75+)
+
+Negative correlation pairs (diversifiers):
+- Gold ↔ USD (typically negative)
+- Gold ↔ Real yields (negative)
+- VIX ↔ SPX (strongly negative)
+
+### Subtitle Differentiation by Asset Type
+
+**Equity subtitles** should reference: technicals, momentum, MA levels, regional factors
+**Commodity subtitles** should reference: supply/demand, safe-haven flows, industrial demand
+**Crypto subtitles** should reference: risk appetite, adoption trends, network metrics
+
+Always ensure subtitles for similar-scoring assets have different structures and vocabulary.
+"""
+
 # Combine examples with padding for caching (need 4096+ tokens for Haiku 4.5)
-EXAMPLES = EXAMPLES + EXAMPLES_PADDING
+EXAMPLES = EXAMPLES + EXAMPLES_PADDING + ASSET_UNIVERSE
 
 
 def build_prompt(
