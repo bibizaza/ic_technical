@@ -334,6 +334,73 @@ Profit targets based on technical resistance levels optimize risk-reward ratios.
 Correlation awareness prevents unintended concentration in similar positions.
 Volatility-adjusted sizing ensures consistent risk exposure across assets.
 Drawdown limits preserve capital for future opportunities.
+
+### Asset Class Specific Considerations
+
+#### Equity Indices
+S&P 500 serves as the primary benchmark for US large-cap equity performance.
+NASDAQ tends to show higher volatility with greater sensitivity to growth expectations.
+International indices like Nikkei and DAX may diverge from US markets on local factors.
+Emerging market indices carry additional currency and geopolitical risk factors.
+Sector rotation within equity markets can create divergent performance patterns.
+Earnings seasons bring elevated volatility requiring adjusted position management.
+
+#### Commodities
+Gold typically exhibits inverse correlation to real interest rates and USD strength.
+Oil prices respond to both supply dynamics and global demand expectations.
+Silver combines precious metal and industrial demand characteristics.
+Copper often serves as a leading indicator for global economic activity.
+Platinum and palladium pricing reflects both investment and industrial demand.
+Uranium has unique supply constraints from limited mining capacity.
+
+#### Cryptocurrencies
+Bitcoin dominates crypto market cap and sets the tone for the broader sector.
+Ethereum represents the leading smart contract platform with distinct use cases.
+Crypto markets trade continuously, creating different volatility patterns than traditional assets.
+Regulatory developments can cause sharp moves across the entire crypto space.
+Institutional adoption trends increasingly influence crypto market dynamics.
+Correlation with risk assets tends to increase during market stress periods.
+
+### Additional Subtitle Patterns
+
+#### Strong Momentum Phrases
+"Exceptional momentum continues to power the advance"
+"Sustained strength builds on solid technical foundation"
+"Robust dynamics suggest further extension higher"
+"Powerful setup points to continued outperformance"
+"Outstanding momentum confirms the bullish trajectory"
+
+#### Consolidation Phrases
+"Consolidating gains while maintaining constructive bias"
+"Digesting recent advance with setup still favoring upside"
+"Sideways action builds base for potential continuation"
+"Range-bound near highs as market awaits catalyst"
+"Pause in uptrend allows technical indicators to reset"
+
+#### Weakness Phrases
+"Deteriorating technicals suggest limited near-term upside"
+"Breakdown below support shifts outlook to cautious"
+"Persistent weakness undermines any bullish expectations"
+"Failure at resistance reinforces the bearish bias"
+"Distribution pattern suggests further downside risk"
+
+### Quality Control Guidelines
+Every subtitle must pass these checks before acceptance:
+- Contains exactly one rating word (Bullish/Constructive/Neutral/Cautious/Bearish)
+- Maximum 12 words total including the rating
+- No period at the end of the subtitle
+- Forward-looking language emphasizing expected moves
+- Specific to current setup, not generic market commentary
+- Avoids repetition of words used in previous subtitles
+- Matches the conviction level implied by the DMAS score
+
+### Vocabulary Refinement
+Prefer "dynamics" over "momentum" for overall market description
+Use "setup" to describe the technical configuration
+Say "pointing to" instead of "will lead to" for uncertainty
+Choose "suggesting" over "indicating" for probabilistic language
+Write "potential" rather than "likely" for measured expectations
+Select "trajectory" instead of "path" for directional commentary
 """
 
 # Combine examples with padding for caching (need 4096+ tokens for Haiku 4.5)
