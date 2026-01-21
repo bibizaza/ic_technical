@@ -117,6 +117,8 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         /* Market info */
         .market-info {
             width: {{ 110 * scale }}px;
+            min-width: {{ 110 * scale }}px;
+            max-width: {{ 110 * scale }}px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
