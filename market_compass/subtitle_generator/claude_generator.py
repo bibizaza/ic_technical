@@ -696,7 +696,10 @@ def generate_subtitle(
             ],
             messages=[
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            extra_headers={
+                "anthropic-beta": "prompt-caching-2024-07-31"
+            }
         )
 
         # DEBUG: Print raw usage on first asset
@@ -1100,7 +1103,10 @@ def generate_recap_subtitle(
             "text": RECAP_SYSTEM_PROMPT,
             "cache_control": {"type": "ephemeral"}
         }],
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
+        extra_headers={
+            "anthropic-beta": "prompt-caching-2024-07-31"
+        }
     )
 
     # Clean subtitle
