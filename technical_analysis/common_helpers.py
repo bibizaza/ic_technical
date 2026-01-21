@@ -702,6 +702,65 @@ def _compute_range_bounds(
     return (float(current_price * 1.02), float(current_price * 0.98))
 
 
+def _enforce_symmetric_range(
+    upper: float,
+    lower: float,
+    current_price: float,
+    min_pct: float = 0.02,
+    max_pct: float = 0.20,
+) -> Tuple[float, float]:
+    """
+    Ensure trading range is symmetric around current price.
+
+    This function recenters any asymmetric range (e.g., from percentile-based
+    calculations) to be symmetric around the current price.
+
+    Parameters
+    ----------
+    upper : float
+        Upper range bound.
+    lower : float
+        Lower range bound.
+    current_price : float
+        Current price of the instrument.
+    min_pct : float, default 0.02
+        Minimum total range as percentage of price (2%).
+    max_pct : float, default 0.20
+        Maximum total range as percentage of price (20%).
+
+    Returns
+    -------
+    Tuple[float, float]
+        Symmetric (upper, lower) range around current_price.
+    """
+    if current_price <= 0 or np.isnan(current_price):
+        return (upper, lower)
+
+    # Calculate average distance from current price
+    upper_dist = abs(upper - current_price)
+    lower_dist = abs(current_price - lower)
+    half_range = (upper_dist + lower_dist) / 2
+
+    # Recalculate symmetrically
+    new_upper = current_price + half_range
+    new_lower = current_price - half_range
+
+    # Apply min/max constraints
+    range_pct = (new_upper - new_lower) / current_price
+
+    if range_pct < min_pct:
+        half_range = (min_pct * current_price) / 2
+        new_upper = current_price + half_range
+        new_lower = current_price - half_range
+
+    if range_pct > max_pct:
+        half_range = (max_pct * current_price) / 2
+        new_upper = current_price + half_range
+        new_lower = current_price - half_range
+
+    return (float(new_upper), float(new_lower))
+
+
 def generate_average_gauge_image(
     tech_score: float,
     mom_score: float,
@@ -1087,6 +1146,9 @@ def generate_range_gauge_chart_image(
         lower_bound = last_price - expected_move
     else:
         upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
+
+    # Enforce symmetric range around current price
+    upper_bound, lower_bound = _enforce_symmetric_range(upper_bound, lower_bound, last_price)
     last_price_str = f"{last_price:,.2f}"
 
     # Determine overall width.  If ``chart_width_cm`` is not provided,
@@ -1390,21 +1452,18 @@ def generate_range_callout_chart_image(
         lower_bound = last_price - expected_move
     else:
         upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
-    # Enforce a minimum total range (e.g. ±1 % of the current price) to avoid overlapping text.
-    min_range_pct = 0.02  # 2% total band → ±1% around the current price
+
+    # Enforce symmetric range around current price (handles min/max constraints)
+    upper_bound, lower_bound = _enforce_symmetric_range(upper_bound, lower_bound, last_price)
+
+    # Compute percentage differences for display
     if last_price and not np.isnan(last_price):
-        range_span_pct = (upper_bound - lower_bound) / last_price if last_price else 0.0
-        if range_span_pct < min_range_pct:
-            half_span = (min_range_pct * last_price) / 2.0
-            upper_bound = last_price + half_span
-            lower_bound = last_price - half_span
-        # Recompute percentage differences after adjusting range
         up_pct = (upper_bound - last_price) / last_price * 100.0
         down_pct = (last_price - lower_bound) / last_price * 100.0
     else:
-        # Handle missing last_price gracefully
         up_pct = 0.0
         down_pct = 0.0
+
 
     # Determine y‑axis limits: ensure the axis includes the entire trading
     # range and the observed price range.  We add a small margin so the
