@@ -1005,7 +1005,7 @@ def generate_recap_subtitle(
     asset_class: str,
     perf_data: List[Dict],
     client=None,
-    model: str = DEFAULT_MODEL
+    model: str = None
 ) -> str:
     """
     Generate a single recap subtitle for an asset class.
@@ -1019,6 +1019,9 @@ def generate_recap_subtitle(
     """
     if client is None:
         client = get_client()
+
+    if model is None:
+        model = MODELS[DEFAULT_MODEL_KEY]
 
     prompt = build_recap_prompt(asset_class, perf_data)
 
@@ -1053,7 +1056,7 @@ def generate_recap_subtitle(
 def generate_all_recaps(
     perf_data: Dict[str, List[Dict]],
     client=None,
-    model: str = DEFAULT_MODEL
+    model: str = None
 ) -> Dict[str, str]:
     """
     Generate all 3 recap subtitles.
@@ -1071,6 +1074,9 @@ def generate_all_recaps(
     """
     if client is None:
         client = get_client()
+
+    if model is None:
+        model = MODELS[DEFAULT_MODEL_KEY]
 
     results = {}
     print("\n📊 Generating YTD Recap Subtitles...")
