@@ -309,7 +309,11 @@ def _apply_range_guards(
     max_pct: float = 0.20,
 ) -> Tuple[float, float]:
     """
-    Ensure range spans current price and width is sensible (3% to 20% of price).
+    Ensure range is symmetric around current price and width is sensible (3% to 20%).
+
+    The price-based fallback uses percentiles which can produce asymmetric ranges
+    (e.g., +0.6% / -4.0% for CSI 300). This function always recenters the range
+    symmetrically around the current price.
 
     Parameters
     ----------
@@ -327,18 +331,19 @@ def _apply_range_guards(
     Returns
     -------
     tuple[float, float]
-        Adjusted (lower, higher) range.
+        Adjusted (lower, higher) range, always symmetric around current_price.
     """
-    # CRITICAL: Ensure range always spans current price
-    # higher must be >= current_price, lower must be <= current_price
-    if higher < current_price or lower > current_price:
-        # Range doesn't span current price - recalculate symmetrically
-        # Use half of the original range width, centered on current price
-        original_width = higher - lower
-        half_range = original_width / 2
-        lower = current_price - half_range
-        higher = current_price + half_range
+    # CRITICAL: Always center range around current price for symmetry
+    # Use the average of upper and lower distances as the half-range
+    upper_dist = abs(higher - current_price)
+    lower_dist = abs(current_price - lower)
+    half_range = (upper_dist + lower_dist) / 2
 
+    # Recalculate symmetrically around current price
+    lower = current_price - half_range
+    higher = current_price + half_range
+
+    # Now apply min/max percentage constraints
     range_pct = (higher - lower) / current_price if current_price > 0 else 0
 
     if range_pct < min_pct:
