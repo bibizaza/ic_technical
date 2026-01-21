@@ -1463,9 +1463,23 @@ def create_technical_analysis_v2_chart(
         price_mode=price_mode,
         days_forward=21,  # 1-month forward projection
     )
-    # Round for clean display
-    higher_range = float(round(higher_range, 0))
-    lower_range = float(round(lower_range, 0))
+
+    # Smart rounding based on price magnitude to preserve meaningful precision
+    # Small prices (crypto, FX) need decimals; large prices (indices) don't
+    def _smart_round_range(value: float, reference_price: float) -> float:
+        """Round range value with appropriate precision based on price magnitude."""
+        if reference_price < 10:
+            # Small prices (Ripple ~$2, etc.) - 2 decimal places
+            return round(value, 2)
+        elif reference_price < 100:
+            # Medium prices (Oil ~$60, etc.) - 1 decimal place
+            return round(value, 1)
+        else:
+            # Large prices (indices, Bitcoin, etc.) - no decimals
+            return round(value, 0)
+
+    higher_range = float(_smart_round_range(higher_range, last_price))
+    lower_range = float(_smart_round_range(lower_range, last_price))
 
     higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
     lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
