@@ -141,6 +141,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         }
 
         .market-name {
+            flex: 1;
             font-size: {{ 10 * scale }}px;
             font-weight: 500;
             color: #334155;
