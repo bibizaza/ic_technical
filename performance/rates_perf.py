@@ -384,6 +384,13 @@ def create_weekly_performance_chart(
                         value_class = ""
                         formatted = "0.0 bps"
 
+                    # Get current yield for the yield column
+                    current_yield = df_adj[ticker].iloc[-1]
+                    if pd.notna(current_yield):
+                        formatted_yield = f"{current_yield:.2f}%"
+                    else:
+                        formatted_yield = ""
+
                     tenors.append({
                         "label": label,
                         "change": change,
@@ -391,6 +398,7 @@ def create_weekly_performance_chart(
                         "bar_width": bar_width,
                         "value_class": value_class,
                         "formatted_change": formatted,
+                        "formatted_yield": formatted_yield,
                     })
 
         if tenors:

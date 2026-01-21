@@ -541,6 +541,17 @@ BONDS_RATES_HTML_TEMPLATE = '''
             color: #64748B;
         }
 
+        /* Yield column */
+        .yield {
+            width: {{ 55 * scale }}px;
+            flex-shrink: 0;
+            text-align: left;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 400;
+            color: #94A3B8;
+            padding-left: {{ 4 * scale }}px;
+        }
+
         /* Bar container */
         .bar-container {
             flex: 1;
@@ -611,7 +622,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
             display: flex;
             justify-content: center;
             padding: {{ 8 * scale }}px 0 0 0;
-            margin-left: {{ 69 * scale }}px;
+            margin-left: {{ 128 * scale }}px;
             margin-right: {{ 55 * scale }}px;
         }
 
@@ -661,6 +672,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         {% for tenor in country.tenors %}
         <div class="row">
             <div class="tenor">{{ tenor.label }}</div>
+            <div class="yield">{{ tenor.formatted_yield }}</div>
             <div class="bar-container">
                 <div class="bar-track">
                     <div class="center-line"></div>
