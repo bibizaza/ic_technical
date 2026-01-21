@@ -1534,6 +1534,7 @@ def show_upload_page():
                             tech_score = scores["technical_score"]
                             mom_score = scores["momentum_score"]
                             dmas = scores["dmas"]
+                            rsi = scores.get("rsi")
 
                             # Store scores in session state
                             st.session_state[f"{ticker_key}_tech_score"] = tech_score
@@ -1551,6 +1552,7 @@ def show_upload_page():
                                 "technical_score": tech_score,
                                 "momentum_score": mom_score,
                                 "dmas_prev_week": dmas_prev,
+                                "rsi": rsi,
                             })
 
                         except Exception as e:

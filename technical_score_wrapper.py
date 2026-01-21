@@ -5,11 +5,14 @@ Computes:
 - Technical score using simple moving average-based calculation
 - Momentum score from mars_score sheet in Excel
 - DMAS as the average of technical and momentum scores
+- RSI (14-day) for momentum context
 """
 
 import pandas as pd
 from pathlib import Path
 from typing import Dict, Optional
+
+from technical_analysis.core.indicators import compute_rsi
 
 
 def compute_technical_score_only(prices: pd.Series, ticker: str = "Unknown") -> float:
@@ -126,7 +129,7 @@ def compute_dmas_scores(prices: pd.Series, ticker: str = "Unknown", excel_path: 
     Returns
     -------
     dict
-        Dictionary with keys: technical_score, momentum_score, dmas
+        Dictionary with keys: technical_score, momentum_score, dmas, rsi
     """
     # Compute technical score
     tech_score = compute_technical_score_only(prices, ticker)
@@ -143,10 +146,19 @@ def compute_dmas_scores(prices: pd.Series, ticker: str = "Unknown", excel_path: 
     # Calculate DMAS as average
     dmas = (tech_score + mom_score) / 2.0
 
+    # Compute RSI(14) for history tracking
+    rsi = None
+    if len(prices) >= 14:
+        rsi_series = compute_rsi(prices, period=14)
+        last_rsi = rsi_series.iloc[-1]
+        if pd.notna(last_rsi):
+            rsi = int(round(last_rsi))
+
     return {
         'technical_score': tech_score,
         'momentum_score': mom_score,
-        'dmas': dmas
+        'dmas': dmas,
+        'rsi': rsi
     }
 
 
