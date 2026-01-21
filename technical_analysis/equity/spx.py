@@ -309,7 +309,7 @@ def _apply_range_guards(
     max_pct: float = 0.20,
 ) -> Tuple[float, float]:
     """
-    Ensure range width is sensible (3% to 20% of price).
+    Ensure range spans current price and width is sensible (3% to 20% of price).
 
     Parameters
     ----------
@@ -329,6 +329,16 @@ def _apply_range_guards(
     tuple[float, float]
         Adjusted (lower, higher) range.
     """
+    # CRITICAL: Ensure range always spans current price
+    # higher must be >= current_price, lower must be <= current_price
+    if higher < current_price or lower > current_price:
+        # Range doesn't span current price - recalculate symmetrically
+        # Use half of the original range width, centered on current price
+        original_width = higher - lower
+        half_range = original_width / 2
+        lower = current_price - half_range
+        higher = current_price + half_range
+
     range_pct = (higher - lower) / current_price if current_price > 0 else 0
 
     if range_pct < min_pct:
