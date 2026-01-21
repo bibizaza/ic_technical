@@ -87,6 +87,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
             height: {{ 32 * scale }}px;
             padding: 0 {{ 10 * scale }}px;
             border-radius: {{ 4 * scale }}px;
+            border-left: {{ 3 * scale }}px solid transparent;
         }
 
         .row:nth-child(odd) {
