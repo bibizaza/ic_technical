@@ -146,11 +146,11 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         /* Price column */
         .price {
             width: {{ 85 * scale }}px;
-            text-align: right;
+            text-align: left;
             font-size: {{ 9 * scale }}px;
             font-weight: 400;
             color: #94A3B8;
-            padding-right: {{ 10 * scale }}px;
+            padding-left: {{ 10 * scale }}px;
         }
 
         /* Bar container */
