@@ -143,6 +143,16 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
             color: #334155;
         }
 
+        /* Price column */
+        .price {
+            width: {{ 85 * scale }}px;
+            text-align: right;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 400;
+            color: #94A3B8;
+            padding-right: {{ 10 * scale }}px;
+        }
+
         /* Bar container */
         .bar-container {
             flex: 1;
@@ -212,7 +222,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
             display: flex;
             justify-content: center;
             padding: {{ 8 * scale }}px 0 0 0;
-            margin-left: {{ 110 * scale }}px;
+            margin-left: {{ 195 * scale }}px;  /* market-info (110) + price (85) */
             margin-right: {{ 55 * scale }}px;
         }
 
@@ -234,6 +244,7 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
                 {{ row.flag_html | safe }}
                 <span class="market-name">{{ row.name }}</span>
             </div>
+            <div class="price">{{ row.formatted_price|default('') }}</div>
             <div class="bar-container">
                 <div class="bar-track">
                     <div class="center-line"></div>

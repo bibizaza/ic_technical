@@ -299,6 +299,12 @@ def create_weekly_performance_chart(
     # Get 1W returns and sort descending
     bar_df = perf[["Name", "1W"]].dropna().sort_values("1W", ascending=False).reset_index(drop=True)
 
+    # Get latest prices for each ticker (for price column)
+    last_prices = {}
+    for ticker in INDEX_CONFIG.keys():
+        if ticker in df_adj.columns:
+            last_prices[ticker] = df_adj[ticker].iloc[-1]
+
     # Prepare rows for HTML template
     rows = []
     max_abs_value = max(abs(bar_df["1W"].max()), abs(bar_df["1W"].min())) if len(bar_df) > 0 else 1
@@ -308,12 +314,18 @@ def create_weekly_performance_chart(
         name = row["Name"]
         value = row["1W"] / 100  # Convert percentage to decimal
 
-        # Find flag for this name
+        # Find flag and ticker for this name
         flag = ""
-        for ticker, config in INDEX_CONFIG.items():
+        ticker = ""
+        for t, config in INDEX_CONFIG.items():
             if config["name"] == name:
                 flag = config["flag"]
+                ticker = t
                 break
+
+        # Get and format price (integer with thousand separator)
+        price = last_prices.get(ticker, 0)
+        formatted_price = f"{int(price):,}" if price else ""
 
         # Determine highlight class
         highlight_class = ""
@@ -345,6 +357,7 @@ def create_weekly_performance_chart(
             "flag": flag,
             "flag_html": get_flag_html(flag),
             "value": value,
+            "formatted_price": formatted_price,
             "highlight_class": highlight_class,
             "bar_class": bar_class,
             "bar_width": bar_width,
