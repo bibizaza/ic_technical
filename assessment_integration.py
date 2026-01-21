@@ -568,6 +568,7 @@ def generate_claude_subtitles_batch(
     assets_list: list,
     prices_dict: dict = None,
     data_as_of: str = None,
+    model_key: str = None,
 ) -> Dict[str, dict]:
     """
     Generate subtitles for multiple assets using Claude API.
@@ -587,6 +588,8 @@ def generate_claude_subtitles_batch(
         - dmas_prev_week (float, optional): Previous week's DMAS
     prices_dict : dict, optional
         Dict mapping ticker_key to price Series for MA calculations
+    model_key : str, optional
+        Model key ('haiku_35' or 'haiku_45'). Default: haiku_35.
 
     Returns
     -------
@@ -661,7 +664,11 @@ def generate_claude_subtitles_batch(
 
     # Call Claude API for batch generation
     try:
-        claude_results = claude_generate_batch(claude_assets, data_as_of=data_as_of)
+        # Pass model_key if specified, otherwise use default
+        kwargs = {"data_as_of": data_as_of}
+        if model_key:
+            kwargs["model_key"] = model_key
+        claude_results = claude_generate_batch(claude_assets, **kwargs)
 
         # Format results
         results = {}

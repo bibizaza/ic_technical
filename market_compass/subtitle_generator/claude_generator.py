@@ -29,8 +29,15 @@ except ImportError:
 # =============================================================================
 ANTHROPIC_API_KEY = None  # Or set via environment variable
 
-# Default model
-DEFAULT_MODEL = "claude-3-5-haiku-20241022"
+# =============================================================================
+# MODEL CONFIGURATION (A/B Testing)
+# =============================================================================
+MODELS = {
+    "haiku_35": "claude-3-5-haiku-20241022",
+    "haiku_45": "claude-haiku-4-5-20251001",
+}
+
+DEFAULT_MODEL_KEY = "haiku_35"  # Current default for production
 
 # =============================================================================
 # VOCABULARY ROTATION (v5.6)
@@ -526,7 +533,7 @@ def generate_subtitle(
     asset_data: dict,
     previous_subtitles: List[str] = None,
     client=None,
-    model: str = DEFAULT_MODEL,
+    model: str = None,
     api_key: str = None,
     historical_context: str = None,
     max_retries: int = 2
@@ -564,6 +571,10 @@ def generate_subtitle(
     """
     if client is None:
         client = get_client(api_key)
+
+    # Use default model if none specified
+    if model is None:
+        model = MODELS[DEFAULT_MODEL_KEY]
 
     if previous_subtitles is None:
         previous_subtitles = []
@@ -694,7 +705,7 @@ def generate_subtitle(
 def generate_batch(
     assets_data: List[dict],
     client=None,
-    model: str = DEFAULT_MODEL,
+    model_key: str = DEFAULT_MODEL_KEY,
     api_key: str = None,
     use_history: bool = True,
     data_as_of: str = None,
@@ -703,9 +714,14 @@ def generate_batch(
 
     Parameters
     ----------
+    model_key : str, optional
+        Model key from MODELS dict ('haiku_35' or 'haiku_45'). Default: haiku_35.
     data_as_of : str, optional
         Date string (YYYY-MM-DD) for history storage. If None, uses today's date.
     """
+    # Convert model key to actual model string
+    model = MODELS.get(model_key, MODELS[DEFAULT_MODEL_KEY])
+    print(f"\n🤖 Using model: {model_key} → {model}")
 
     if client is None:
         client = get_client(api_key)

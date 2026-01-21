@@ -1417,6 +1417,20 @@ def show_upload_page():
                 except Exception as e:
                     st.sidebar.error(f"❌ Error: {str(e)[:100]}")
 
+        # Model selection for subtitle generation
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("🤖 Model Selection")
+        model_choice = st.sidebar.radio(
+            "Claude Model:",
+            options=["Haiku 3.5 (Current)", "Haiku 4.5 (New)"],
+            index=0,
+            help="Haiku 4.5 has better reasoning but costs ~25% more",
+            key="model_choice"
+        )
+        # Map selection to model_key
+        model_key = "haiku_35" if "3.5" in model_choice else "haiku_45"
+        st.session_state["claude_model_key"] = model_key
+
         if st.sidebar.button("🚀 Run Full Analysis", type="primary", help="Compute technical scores, assessments, and subtitles for all assets"):
             with st.spinner("Running analysis for all assets..."):
                 try:
@@ -1571,7 +1585,13 @@ def show_upload_page():
                         data_as_of_str = None
                         if "data_as_of" in st.session_state:
                             data_as_of_str = st.session_state["data_as_of"].strftime("%Y-%m-%d")
-                        subtitle_results = generate_claude_subtitles_batch(assets_for_claude, prices_dict, data_as_of=data_as_of_str)
+                        # Get selected model from session state
+                        selected_model_key = st.session_state.get("claude_model_key", "haiku_35")
+                        subtitle_results = generate_claude_subtitles_batch(
+                            assets_for_claude, prices_dict,
+                            data_as_of=data_as_of_str,
+                            model_key=selected_model_key
+                        )
                     else:
                         # Fall back to individual generation
                         subtitle_results = {}
@@ -1678,12 +1698,15 @@ def show_upload_page():
 
                     # Show results
                     if results:
+                        # Show which model was used
+                        model_display = "Haiku 3.5" if selected_model_key == "haiku_35" else "Haiku 4.5"
                         st.sidebar.success(f"✅ Analysis complete! Processed {len(results)} assets")
+                        st.sidebar.info(f"🤖 Model used: {model_display}")
 
                         # Show summary in main area
                         st.subheader("Analysis Results")
                         st.dataframe(pd.DataFrame(results), use_container_width=True)
-                        st.info("📝 All scores, assessments, and subtitles have been auto-generated and saved. Navigate to asset tabs to review and edit if needed.")
+                        st.info(f"📝 All scores, assessments, and subtitles have been auto-generated using **{model_display}**. Navigate to asset tabs to review and edit if needed.")
                     else:
                         st.sidebar.warning("⚠️ No assets were successfully processed")
 
