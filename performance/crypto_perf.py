@@ -786,6 +786,7 @@ def create_weekly_html_performance_chart(
             "name": config["name"],
             "value": ret_val,
             "flag": config.get("flag", ""),
+            "ticker": ticker,
         })
 
     # Sort by value descending (best performers first)
@@ -815,6 +816,19 @@ def create_weekly_html_performance_chart(
         flag_code = row.get("flag", "")
         flag_html = get_flag_html(flag_code, size=22) if flag_code else ""
 
+        # Get current price for the price column with smart formatting
+        ticker = row["ticker"]
+        current_price = df_adj[ticker].iloc[-1] if ticker in df_adj.columns else 0
+        if pd.notna(current_price):
+            if current_price >= 1000:
+                formatted_price = f"{int(current_price):,}"
+            elif current_price >= 10:
+                formatted_price = f"{int(current_price)}"
+            else:
+                formatted_price = f"{current_price:.2f}"
+        else:
+            formatted_price = ""
+
         prepared_rows.append({
             "name": row["name"],
             "value": value,
@@ -824,6 +838,7 @@ def create_weekly_html_performance_chart(
             "bar_width": bar_width,
             "value_class": "positive" if value >= 0 else "negative",
             "formatted_value": _format_crypto_percentage(value),
+            "formatted_price": formatted_price,
             "highlight_class": highlight_class,
         })
 

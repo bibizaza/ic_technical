@@ -2192,6 +2192,17 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
             object-fit: cover;
         }
 
+        /* Price column */
+        .price {
+            width: {{ 85 * scale }}px;
+            flex-shrink: 0;
+            text-align: left;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 400;
+            color: #94A3B8;
+            padding-left: {{ 4 * scale }}px;
+        }
+
         /* Bar container */
         .bar-container {
             flex: 1;
@@ -2260,7 +2271,7 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
             display: flex;
             justify-content: center;
             padding: {{ 8 * scale }}px 0 0 0;
-            margin-left: {{ 172 * scale }}px;
+            margin-left: {{ 261 * scale }}px;
             margin-right: {{ 60 * scale }}px;
         }
 
@@ -2282,6 +2293,7 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
                 {% if row.flag_html %}{{ row.flag_html | safe }}{% endif %}
                 <span class="crypto-name">{{ row.name }}</span>
             </div>
+            <div class="price">{{ row.formatted_price|default('') }}</div>
             <div class="bar-container">
                 <div class="bar-track">
                     <div class="center-line"></div>
