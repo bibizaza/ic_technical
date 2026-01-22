@@ -1812,6 +1812,17 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
             color: #334155;
         }
 
+        /* Rate column */
+        .rate {
+            width: {{ 70 * scale }}px;
+            flex-shrink: 0;
+            text-align: left;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 400;
+            color: #94A3B8;
+            padding-left: {{ 4 * scale }}px;
+        }
+
         /* Bar container */
         .bar-container {
             flex: 1;
@@ -1880,7 +1891,7 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
             display: flex;
             justify-content: center;
             padding: {{ 10 * scale }}px 0 0 0;
-            margin-left: {{ 132 * scale }}px;
+            margin-left: {{ 206 * scale }}px;
             margin-right: {{ 60 * scale }}px;
         }
 
@@ -1902,6 +1913,7 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
                 {{ row.flag_html | safe }}
                 <span class="currency-name">{{ row.name }}</span>
             </div>
+            <div class="rate">{{ row.formatted_rate|default('') }}</div>
             <div class="bar-container">
                 <div class="bar-track">
                     <div class="center-line"></div>

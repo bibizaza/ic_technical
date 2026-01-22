@@ -743,6 +743,7 @@ def create_weekly_html_performance_chart(
             "flag": config["flag"],
             "flag_html": get_flag_html(config["flag"]),
             "value": value,
+            "ticker": ticker,
         })
 
     # Sort by value descending (best performers first)
@@ -767,6 +768,14 @@ def create_weekly_html_performance_chart(
         else:
             highlight_class = ""
 
+        # Get current exchange rate for the rate column
+        ticker = row["ticker"]
+        current_rate = df_adj[ticker].iloc[-1] if ticker in df_adj.columns else 0
+        if pd.notna(current_rate):
+            formatted_rate = f"{current_rate:.2f}"
+        else:
+            formatted_rate = ""
+
         prepared_rows.append({
             "name": row["name"],
             "flag": row["flag"],
@@ -776,6 +785,7 @@ def create_weekly_html_performance_chart(
             "bar_width": bar_width,
             "value_class": "positive" if value >= 0 else "negative",
             "formatted_value": _format_fx_percentage(value),
+            "formatted_rate": formatted_rate,
             "highlight_class": highlight_class,
         })
 
