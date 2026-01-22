@@ -3299,41 +3299,6 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
             height: 100%;
         }
 
-        /* Header section */
-        .header {
-            display: flex;
-            align-items: center;
-            gap: {{ 12 * scale }}px;
-            margin-bottom: {{ 15 * scale }}px;
-            padding-bottom: {{ 10 * scale }}px;
-            border-bottom: {{ 2 * scale }}px solid #F1F5F9;
-        }
-
-        .header-bar {
-            width: {{ 4 * scale }}px;
-            height: {{ 40 * scale }}px;
-            background: linear-gradient(180deg, #C9A227, #A38520);
-            border-radius: {{ 2 * scale }}px;
-        }
-
-        .header-text {
-            display: flex;
-            flex-direction: column;
-            gap: {{ 2 * scale }}px;
-        }
-
-        .header-title {
-            font-size: {{ 16 * scale }}px;
-            font-weight: 700;
-            color: #1B3A5A;
-        }
-
-        .header-subtitle {
-            font-size: {{ 10 * scale }}px;
-            font-weight: 400;
-            color: #64748B;
-        }
-
         /* Table section */
         .table-container {
             flex: 1;
@@ -3578,14 +3543,6 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="header-bar"></div>
-            <div class="header-text">
-                <div class="header-title">FX Impact Analysis</div>
-                <div class="header-subtitle">YTD Performance Decomposition for European Investors</div>
-            </div>
-        </div>
-
         <div class="table-container">
             <div class="table-header">
                 <div class="col-index">Index</div>
