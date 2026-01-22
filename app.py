@@ -920,6 +920,8 @@ from performance.equity_perf import (
     insert_equity_performance_histo_slide,
     create_equity_ytd_evolution_chart,
     insert_equity_ytd_evolution_slide,
+    create_fx_impact_analysis_chart_eur,
+    insert_fx_impact_analysis_slide_eur,
 )
 
 # Import FX performance functions
@@ -5326,6 +5328,18 @@ def show_generate_presentation_page():
                 used_date=ytd_evo_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
                 subtitle=st.session_state.get("eq_subtitle"),
+            )
+
+            # Generate the FX Impact Analysis chart for EUR investors
+            fx_impact_bytes, fx_impact_date = create_fx_impact_analysis_chart_eur(
+                excel_path_for_ppt,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_fx_impact_analysis_slide_eur(
+                prs,
+                fx_impact_bytes,
+                used_date=fx_impact_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
             )
         except Exception as e:
             print(f"Equity performance charts error: {e}")
