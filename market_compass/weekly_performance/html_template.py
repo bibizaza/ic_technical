@@ -3301,7 +3301,6 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
 
         /* Table section */
         .table-container {
-            flex: 1;
             display: flex;
             flex-direction: column;
             gap: {{ 2 * scale }}px;
@@ -3527,7 +3526,7 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
         .scale {
             display: flex;
             justify-content: center;
-            padding: {{ 2 * scale }}px 0 0 0;
+            padding: {{ 1 * scale }}px 0 0 0;
             margin-left: {{ 350 * scale }}px;
         }
 
