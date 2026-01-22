@@ -1435,10 +1435,9 @@ def create_fx_impact_analysis_chart_eur(
     Shows YTD performance decomposition: Local return, EUR return, and FX effect
     with visual bars showing FX tailwind (green) or headwind (red).
 
-    FX Effect is computed using currency pairs:
-    - FX Effect = -1 * YTD return of EURXXX pair
-    - If EURUSD falls (USD strengthens), FX effect is positive for USD assets
-    - EUR Return = Local Return + FX Effect
+    Uses compounded calculation:
+    - EUR_Return = (price_end / price_start) * (EURXXX_start / EURXXX_end) - 1
+    - FX_Effect = EUR_Return - Local_Return
 
     Parameters
     ----------
@@ -1475,37 +1474,64 @@ def create_fx_impact_analysis_chart_eur(
     df = _load_price_data(excel_path, tickers_to_load)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
 
+    # Get YTD start date
+    last_date = df_adj["Date"].max()
+    year = last_date.year
+    start_of_year = pd.Timestamp(year=year, month=1, day=1)
+
     # Build row data
     rows_data = []
     for index_ticker, config in FX_IMPACT_EUR_CONFIG.items():
-        # Compute local return
+        # Get price at start and end of year
         if index_ticker in df_adj.columns:
-            local_return = _compute_ytd_return(df_adj, index_ticker)
-        else:
-            local_return = float("nan")
+            past_series = df_adj.loc[df_adj["Date"] <= start_of_year, index_ticker]
+            if len(past_series) > 0:
+                price_start = past_series.iloc[-1]
+            else:
+                price_start = float("nan")
+            price_end = df_adj[index_ticker].iloc[-1]
 
-        # Compute FX effect from currency pair
+            if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
+                local_return = (price_end / price_start - 1) * 100
+            else:
+                local_return = 0.0
+        else:
+            local_return = 0.0
+            price_start = float("nan")
+            price_end = float("nan")
+
+        # Compute EUR return using compounded FX calculation
         fx_pair = config.get("fx_pair")
         if fx_pair is None:
             # Already in EUR (e.g., DAX)
+            eur_return = local_return
             fx_effect = 0.0
         elif fx_pair in df_adj.columns:
-            # FX effect = -1 * YTD return of EURXXX
-            # If EURUSD falls (USD strengthens), that's positive for EUR investors
-            fx_return = _compute_ytd_return(df_adj, fx_pair)
-            if pd.isna(fx_return):
-                fx_effect = 0.0
+            # Get FX rate at start and end of year
+            fx_past_series = df_adj.loc[df_adj["Date"] <= start_of_year, fx_pair]
+            if len(fx_past_series) > 0:
+                fx_start = fx_past_series.iloc[-1]
             else:
-                fx_effect = -fx_return
+                fx_start = float("nan")
+            fx_end = df_adj[fx_pair].iloc[-1]
+
+            if pd.notna(fx_start) and fx_start != 0 and pd.notna(fx_end) and fx_end != 0:
+                # Compounded EUR return:
+                # EUR_Return = (price_end / price_start) * (fx_start / fx_end) - 1
+                # For EURXXX pairs, if EURXXX falls (foreign currency strengthens vs EUR),
+                # fx_start / fx_end > 1, which is positive for EUR investors
+                if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
+                    eur_return = ((price_end / price_start) * (fx_start / fx_end) - 1) * 100
+                else:
+                    eur_return = 0.0
+                fx_effect = eur_return - local_return
+            else:
+                eur_return = local_return
+                fx_effect = 0.0
         else:
             # FX pair not available
+            eur_return = local_return
             fx_effect = 0.0
-
-        if pd.isna(local_return):
-            local_return = 0.0
-
-        # EUR Return = Local Return + FX Effect
-        eur_return = local_return + fx_effect
 
         rows_data.append({
             "name": config["name"],
