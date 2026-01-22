@@ -1447,16 +1447,28 @@ def create_fx_impact_analysis_chart_eur(
     tuple
         (PNG bytes, effective date used for computation)
     """
-    # Collect all tickers needed
-    all_tickers = set()
-    for config in FX_IMPACT_EUR_CONFIG.values():
-        all_tickers.add(config["local_ticker"])
-        all_tickers.add(config["eur_ticker"])
+    # First, load the Excel to see which tickers are available
+    df_raw = pd.read_excel(excel_path, sheet_name="data_prices")
+    available_columns = set(df_raw.columns)
 
-    all_tickers = list(all_tickers)
+    # Collect tickers that actually exist
+    tickers_to_load = []
+    for config in FX_IMPACT_EUR_CONFIG.values():
+        local_ticker = config["local_ticker"]
+        eur_ticker = config["eur_ticker"]
+        if local_ticker in available_columns:
+            tickers_to_load.append(local_ticker)
+        if eur_ticker in available_columns and eur_ticker != local_ticker:
+            tickers_to_load.append(eur_ticker)
+
+    tickers_to_load = list(set(tickers_to_load))
+
+    if not tickers_to_load:
+        print("[FX Impact Analysis EUR] No valid tickers found in data")
+        return None, None
 
     # Load and adjust price data
-    df = _load_price_data(excel_path, all_tickers)
+    df = _load_price_data(excel_path, tickers_to_load)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
 
     # Build row data
@@ -1465,13 +1477,20 @@ def create_fx_impact_analysis_chart_eur(
         local_ticker = config["local_ticker"]
         eur_ticker = config["eur_ticker"]
 
-        local_return = _compute_ytd_return(df_adj, local_ticker)
-        eur_return = _compute_ytd_return(df_adj, eur_ticker)
+        # Compute local return
+        if local_ticker in df_adj.columns:
+            local_return = _compute_ytd_return(df_adj, local_ticker)
+        else:
+            local_return = float("nan")
 
-        # If EUR ticker is same as local, try to compute EUR return using FX rate
-        if local_ticker == eur_ticker:
-            # For indices without dedicated EUR version, use local return as EUR return
-            # (FX effect will be 0 - can be enhanced later with FX rate data)
+        # Compute EUR return
+        if eur_ticker in df_adj.columns:
+            eur_return = _compute_ytd_return(df_adj, eur_ticker)
+        elif local_ticker == eur_ticker:
+            # Same ticker for both - no FX effect can be computed
+            eur_return = local_return
+        else:
+            # EUR ticker not available, use local as fallback
             eur_return = local_return
 
         if pd.isna(local_return):
@@ -1610,6 +1629,10 @@ def insert_fx_impact_analysis_slide_eur(
     Presentation
         The modified presentation.
     """
+    if not image_bytes:
+        print("[FX Impact Analysis EUR] No image bytes to insert")
+        return prs
+
     return _insert_dashboard_to_placeholder(
         prs,
         image_bytes,
