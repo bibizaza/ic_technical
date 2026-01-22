@@ -3267,6 +3267,377 @@ CRYPTO_YTD_EVOLUTION_HTML_TEMPLATE = '''
 '''
 
 
+# =============================================================================
+# FX IMPACT ANALYSIS TEMPLATE (EUR)
+# =============================================================================
+
+FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Calibri', Calibri, 'Segoe UI', Arial, sans-serif;
+            background: #FFFFFF;
+            width: {{ width }}px;
+            height: {{ height }}px;
+            padding: {{ 15 * scale }}px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* Header section */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: {{ 12 * scale }}px;
+            margin-bottom: {{ 15 * scale }}px;
+            padding-bottom: {{ 10 * scale }}px;
+            border-bottom: {{ 2 * scale }}px solid #F1F5F9;
+        }
+
+        .header-bar {
+            width: {{ 4 * scale }}px;
+            height: {{ 40 * scale }}px;
+            background: linear-gradient(180deg, #C9A227, #A38520);
+            border-radius: {{ 2 * scale }}px;
+        }
+
+        .header-text {
+            display: flex;
+            flex-direction: column;
+            gap: {{ 2 * scale }}px;
+        }
+
+        .header-title {
+            font-size: {{ 16 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+        }
+
+        .header-subtitle {
+            font-size: {{ 10 * scale }}px;
+            font-weight: 400;
+            color: #64748B;
+        }
+
+        /* Table section */
+        .table-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: {{ 2 * scale }}px;
+        }
+
+        /* Table header */
+        .table-header {
+            display: flex;
+            align-items: center;
+            padding: {{ 8 * scale }}px {{ 10 * scale }}px;
+            background: #F8FAFC;
+            border-radius: {{ 6 * scale }}px;
+        }
+
+        .col-index {
+            width: {{ 130 * scale }}px;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .col-local {
+            width: {{ 70 * scale }}px;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .col-eur {
+            width: {{ 70 * scale }}px;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .col-fx-effect {
+            width: {{ 80 * scale }}px;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .col-bar {
+            flex: 1;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        /* Data rows */
+        .data-row {
+            display: flex;
+            align-items: center;
+            padding: {{ 6 * scale }}px {{ 10 * scale }}px;
+            border-radius: {{ 6 * scale }}px;
+            border: {{ 1 * scale }}px solid transparent;
+        }
+
+        .data-row:nth-child(even) {
+            background: rgba(248, 250, 252, 0.5);
+        }
+
+        /* FX Tailwind highlight (best) */
+        .data-row.fx-tailwind {
+            background: linear-gradient(90deg, rgba(34, 197, 94, 0.08), transparent);
+            border-left: {{ 3 * scale }}px solid #22C55E;
+        }
+
+        /* FX Headwind highlight (worst) */
+        .data-row.fx-headwind {
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), transparent);
+            border-left: {{ 3 * scale }}px solid #EF4444;
+        }
+
+        .data-row .col-index {
+            display: flex;
+            align-items: center;
+            gap: {{ 8 * scale }}px;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        /* Flag images */
+        .col-index img,
+        .col-index .flag-img {
+            width: {{ 22 * scale }}px !important;
+            height: {{ 14 * scale }}px !important;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+
+        .index-name {
+            font-size: {{ 10 * scale }}px;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        .data-row .col-local,
+        .data-row .col-eur {
+            font-size: {{ 10 * scale }}px;
+            font-weight: 500;
+            color: #64748B;
+        }
+
+        .data-row .col-fx-effect {
+            font-size: {{ 10 * scale }}px;
+            font-weight: 700;
+        }
+
+        .col-fx-effect.positive { color: #16A34A; }
+        .col-fx-effect.negative { color: #DC2626; }
+
+        /* Bar container */
+        .bar-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            padding: 0 {{ 10 * scale }}px;
+            position: relative;
+        }
+
+        .bar-track {
+            width: 100%;
+            height: {{ 6 * scale }}px;
+            background: #F1F5F9;
+            border-radius: {{ 3 * scale }}px;
+            position: relative;
+        }
+
+        /* Center line */
+        .center-line {
+            position: absolute;
+            left: 50%;
+            top: {{ -3 * scale }}px;
+            bottom: {{ -3 * scale }}px;
+            width: {{ 2 * scale }}px;
+            background: #CBD5E1;
+            border-radius: {{ 1 * scale }}px;
+            z-index: 10;
+        }
+
+        /* Bars */
+        .bar {
+            position: absolute;
+            height: {{ 10 * scale }}px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+
+        .bar.positive {
+            left: calc(50% + 1px);
+            background: linear-gradient(90deg, #4ADE80, #16A34A);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(34, 197, 94, 0.25);
+            border-radius: 0 {{ 5 * scale }}px {{ 5 * scale }}px 0;
+        }
+
+        .bar.negative {
+            right: calc(50% + 1px);
+            background: linear-gradient(270deg, #F87171, #DC2626);
+            box-shadow: 0 {{ 2 * scale }}px {{ 4 * scale }}px rgba(239, 68, 68, 0.25);
+            border-radius: {{ 5 * scale }}px 0 0 {{ 5 * scale }}px;
+        }
+
+        /* Key Insight box */
+        .insight-box {
+            margin-top: {{ 12 * scale }}px;
+            padding: {{ 12 * scale }}px {{ 15 * scale }}px;
+            background: linear-gradient(90deg, rgba(201, 162, 39, 0.08), rgba(201, 162, 39, 0.02));
+            border-left: {{ 4 * scale }}px solid #C9A227;
+            border-radius: 0 {{ 8 * scale }}px {{ 8 * scale }}px 0;
+        }
+
+        .insight-header {
+            display: flex;
+            align-items: center;
+            gap: {{ 6 * scale }}px;
+            margin-bottom: {{ 6 * scale }}px;
+        }
+
+        .insight-icon {
+            font-size: {{ 12 * scale }}px;
+        }
+
+        .insight-title {
+            font-size: {{ 11 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+        }
+
+        .insight-text {
+            font-size: {{ 9 * scale }}px;
+            font-weight: 400;
+            color: #475569;
+            line-height: 1.5;
+        }
+
+        .insight-text .highlight-positive {
+            color: #16A34A;
+            font-weight: 600;
+        }
+
+        .insight-text .highlight-negative {
+            color: #DC2626;
+            font-weight: 600;
+        }
+
+        /* Scale */
+        .scale {
+            display: flex;
+            justify-content: center;
+            padding: {{ 6 * scale }}px 0 0 0;
+            margin-left: {{ 350 * scale }}px;
+        }
+
+        .scale-inner {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 {{ 10 * scale }}px;
+            font-size: {{ 7 * scale }}px;
+            color: #94A3B8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-bar"></div>
+            <div class="header-text">
+                <div class="header-title">FX Impact Analysis</div>
+                <div class="header-subtitle">YTD Performance Decomposition for European Investors</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <div class="col-index">Index</div>
+                <div class="col-local">Local</div>
+                <div class="col-eur">EUR</div>
+                <div class="col-fx-effect">FX Effect</div>
+                <div class="col-bar">Impact</div>
+            </div>
+
+            {% for row in rows %}
+            <div class="data-row {{ row.highlight_class }}">
+                <div class="col-index">
+                    {{ row.flag_html | safe }}
+                    <span class="index-name">{{ row.name }}</span>
+                </div>
+                <div class="col-local">{{ row.local_formatted }}</div>
+                <div class="col-eur">{{ row.eur_formatted }}</div>
+                <div class="col-fx-effect {{ row.fx_class }}">{{ row.fx_formatted }}</div>
+                <div class="bar-container">
+                    <div class="bar-track">
+                        <div class="center-line"></div>
+                        {% if row.fx_effect != 0 %}
+                        <div class="bar {{ row.bar_class }}" style="width: {{ row.bar_width }}%;"></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="scale">
+            <div class="scale-inner">
+                <span>{{ scale_min }}</span>
+                <span>{{ scale_mid_low }}</span>
+                <span>0</span>
+                <span>{{ scale_mid_high }}</span>
+                <span>{{ scale_max }}</span>
+            </div>
+        </div>
+
+        <div class="insight-box">
+            <div class="insight-header">
+                <span class="insight-icon">💡</span>
+                <span class="insight-title">Key Insight</span>
+            </div>
+            <div class="insight-text">{{ insight_text | safe }}</div>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
 
 # =============================================================================
 # TECHNICAL ANALYSIS CHART V2 - Chart.js + Playwright

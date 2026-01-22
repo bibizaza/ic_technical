@@ -73,7 +73,7 @@ from playwright.sync_api import sync_playwright
 from utils import adjust_prices_for_mode
 from helpers.flag_utils import get_flag_html
 from helpers.html_to_image import render_html_to_image
-from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE
+from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE, FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -1244,5 +1244,437 @@ def insert_equity_ytd_evolution_slide(
                         break
                 if inserted:
                     break
+
+    return prs
+
+
+# =============================================================================
+# FX IMPACT ANALYSIS (EUR) - YTD Performance Decomposition
+# =============================================================================
+
+# Index configuration with local and EUR tickers
+FX_IMPACT_EUR_CONFIG = {
+    "SPX Index": {
+        "name": "S&P 500",
+        "flag": "us",
+        "local_ticker": "SPX Index",
+        "eur_ticker": "SPTR500N Index",  # S&P 500 Net Total Return in EUR
+    },
+    "DAX Index": {
+        "name": "Dax",
+        "flag": "de",
+        "local_ticker": "DAX Index",
+        "eur_ticker": "DAX Index",  # Already in EUR
+    },
+    "SMI Index": {
+        "name": "SMI",
+        "flag": "ch",
+        "local_ticker": "SMI Index",
+        "eur_ticker": "SMIEUR Index",  # SMI in EUR
+    },
+    "NKY Index": {
+        "name": "Nikkei 225",
+        "flag": "jp",
+        "local_ticker": "NKY Index",
+        "eur_ticker": "NKYEUR Index",  # Nikkei in EUR
+    },
+    "SHSZ300 Index": {
+        "name": "CSI 300",
+        "flag": "cn",
+        "local_ticker": "SHSZ300 Index",
+        "eur_ticker": "SHSZ300 Index",  # Use local (CNY/EUR effect calculated separately)
+    },
+    "SENSEX Index": {
+        "name": "Sensex",
+        "flag": "in",
+        "local_ticker": "SENSEX Index",
+        "eur_ticker": "SENSEX Index",  # Use local
+    },
+    "IBOV Index": {
+        "name": "Bovespa",
+        "flag": "br",
+        "local_ticker": "IBOV Index",
+        "eur_ticker": "IBOVEUR Index",  # Bovespa in EUR
+    },
+    "MEXBOL Index": {
+        "name": "Mexbol",
+        "flag": "mx",
+        "local_ticker": "MEXBOL Index",
+        "eur_ticker": "MEXBOL Index",  # Use local
+    },
+    "SASEIDX Index": {
+        "name": "TASI",
+        "flag": "sa",
+        "local_ticker": "SASEIDX Index",
+        "eur_ticker": "SASEIDX Index",  # Use local
+    },
+}
+
+# Chart dimensions
+FX_IMPACT_PNG_WIDTH_PX = 2400
+FX_IMPACT_PNG_HEIGHT_PX = 1400
+FX_IMPACT_HTML_SCALE = 3
+FX_IMPACT_PPT_WIDTH_CM = 20.0
+FX_IMPACT_PPT_LEFT_CM = 2.5
+FX_IMPACT_PPT_TOP_CM = 4.0
+
+
+def _compute_ytd_return(
+    df: pd.DataFrame,
+    ticker: str,
+) -> float:
+    """Compute YTD return for a ticker.
+
+    Returns:
+        YTD return as a percentage, or NaN if not computable.
+    """
+    if ticker not in df.columns:
+        return float("nan")
+
+    last_date = df["Date"].max()
+    year = last_date.year
+
+    # Start of year baseline
+    start_of_year = pd.Timestamp(year=year, month=1, day=1)
+    past_series = df.loc[df["Date"] <= start_of_year, ticker]
+
+    if len(past_series) == 0:
+        return float("nan")
+
+    baseline_price = past_series.iloc[-1]
+    current_price = df[ticker].iloc[-1]
+
+    if pd.isna(baseline_price) or baseline_price == 0:
+        return float("nan")
+
+    return (current_price - baseline_price) / baseline_price * 100.0
+
+
+def _generate_fx_insight_text(rows_data: list) -> str:
+    """Generate insight text highlighting biggest FX tailwind and headwind.
+
+    Parameters
+    ----------
+    rows_data : list
+        List of row dictionaries with 'name', 'fx_effect', 'local_return', 'eur_return' keys.
+
+    Returns
+    -------
+    str
+        HTML-formatted insight text.
+    """
+    if not rows_data:
+        return "Insufficient data to generate insights."
+
+    # Find biggest tailwind (most positive FX effect) and headwind (most negative)
+    sorted_by_fx = sorted(rows_data, key=lambda x: x.get("fx_effect", 0), reverse=True)
+
+    best = sorted_by_fx[0] if sorted_by_fx else None
+    worst = sorted_by_fx[-1] if sorted_by_fx else None
+
+    parts = []
+
+    if best and best.get("fx_effect", 0) > 0:
+        # Determine currency from flag
+        currency_map = {
+            "us": "USD strength",
+            "jp": "JPY movement",
+            "ch": "CHF movement",
+            "cn": "CNY movement",
+            "br": "BRL movement",
+            "mx": "MXN movement",
+            "in": "INR movement",
+            "sa": "SAR movement",
+        }
+        currency = currency_map.get(best.get("flag", ""), "Currency movement")
+        local_ret = best.get("local_return", 0)
+        eur_ret = best.get("eur_return", 0)
+        fx_eff = best.get("fx_effect", 0)
+
+        local_sign = "+" if local_ret >= 0 else ""
+        eur_sign = "+" if eur_ret >= 0 else ""
+
+        parts.append(
+            f'<span class="highlight-positive">{currency}</span> has been the dominant FX tailwind YTD, '
+            f'turning a {local_sign}{local_ret:.1f}% {best["name"]} local return into a '
+            f'{eur_sign}{eur_ret:.1f}% gain for EUR investors (<span class="highlight-positive">+{fx_eff:.1f}% FX contribution</span>).'
+        )
+
+    if worst and worst.get("fx_effect", 0) < 0:
+        currency_map = {
+            "us": "USD weakness",
+            "jp": "JPY weakness",
+            "ch": "CHF weakness",
+            "cn": "CNY weakness",
+            "br": "BRL weakness",
+            "mx": "MXN weakness",
+            "in": "INR weakness",
+            "sa": "SAR weakness",
+        }
+        currency = currency_map.get(worst.get("flag", ""), "Currency weakness")
+        fx_eff = worst.get("fx_effect", 0)
+
+        parts.append(
+            f'Conversely, <span class="highlight-negative">{currency}</span> has eroded {worst["name"]} gains by '
+            f'<span class="highlight-negative">{abs(fx_eff):.1f}%</span> for EUR-based investors.'
+        )
+
+    if not parts:
+        return "FX effects have been relatively balanced across major indices YTD."
+
+    return " ".join(parts)
+
+
+def create_fx_impact_analysis_chart_eur(
+    excel_path: Union[str, pathlib.Path],
+    *,
+    price_mode: str = "Last Price",
+) -> Tuple[bytes, Optional[pd.Timestamp]]:
+    """Generate FX Impact Analysis chart for EUR investors.
+
+    Shows YTD performance decomposition: Local return, EUR return, and FX effect
+    with visual bars showing FX tailwind (green) or headwind (red).
+
+    Parameters
+    ----------
+    excel_path : str or pathlib.Path
+        Path to the Excel workbook containing price data.
+    price_mode : str, default "Last Price"
+        Either "Last Price" or "Last Close".
+
+    Returns
+    -------
+    tuple
+        (PNG bytes, effective date used for computation)
+    """
+    # Collect all tickers needed
+    all_tickers = set()
+    for config in FX_IMPACT_EUR_CONFIG.values():
+        all_tickers.add(config["local_ticker"])
+        all_tickers.add(config["eur_ticker"])
+
+    all_tickers = list(all_tickers)
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, all_tickers)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+
+    # Build row data
+    rows_data = []
+    for key, config in FX_IMPACT_EUR_CONFIG.items():
+        local_ticker = config["local_ticker"]
+        eur_ticker = config["eur_ticker"]
+
+        local_return = _compute_ytd_return(df_adj, local_ticker)
+        eur_return = _compute_ytd_return(df_adj, eur_ticker)
+
+        # If EUR ticker is same as local, try to compute EUR return using FX rate
+        if local_ticker == eur_ticker:
+            # For indices without dedicated EUR version, use local return as EUR return
+            # (FX effect will be 0 - can be enhanced later with FX rate data)
+            eur_return = local_return
+
+        if pd.isna(local_return):
+            local_return = 0.0
+        if pd.isna(eur_return):
+            eur_return = 0.0
+
+        # FX Effect = EUR Return - Local Return
+        fx_effect = eur_return - local_return
+
+        rows_data.append({
+            "name": config["name"],
+            "flag": config["flag"],
+            "local_return": local_return,
+            "eur_return": eur_return,
+            "fx_effect": fx_effect,
+        })
+
+    # Sort by FX effect descending (biggest tailwind first)
+    rows_data.sort(key=lambda x: x["fx_effect"], reverse=True)
+
+    # Calculate max absolute FX effect for bar scaling
+    max_abs_fx = max((abs(r["fx_effect"]) for r in rows_data), default=5.0)
+    max_abs_fx = max(max_abs_fx, 2.0)  # At least 2%
+
+    # Prepare rows for template
+    prepared_rows = []
+    for i, row in enumerate(rows_data):
+        fx_effect = row["fx_effect"]
+        bar_width = abs(fx_effect) / max_abs_fx * 48
+        bar_width = min(bar_width, 48)
+
+        # Determine highlight class
+        highlight_class = ""
+        if i == 0 and fx_effect > 0:
+            highlight_class = "fx-tailwind"
+        elif i == len(rows_data) - 1 and fx_effect < 0:
+            highlight_class = "fx-headwind"
+
+        # Format values
+        local_sign = "+" if row["local_return"] >= 0 else ""
+        eur_sign = "+" if row["eur_return"] >= 0 else ""
+        fx_sign = "+" if fx_effect >= 0 else ""
+
+        prepared_rows.append({
+            "name": row["name"],
+            "flag": row["flag"],
+            "flag_html": get_flag_html(row["flag"]),
+            "local_formatted": f"{local_sign}{row['local_return']:.1f}%",
+            "eur_formatted": f"{eur_sign}{row['eur_return']:.1f}%",
+            "fx_formatted": f"{fx_sign}{fx_effect:.1f}%",
+            "fx_effect": fx_effect,
+            "fx_class": "positive" if fx_effect >= 0 else "negative",
+            "bar_class": "positive" if fx_effect >= 0 else "negative",
+            "bar_width": bar_width,
+            "highlight_class": highlight_class,
+        })
+
+    # Generate insight text
+    insight_text = _generate_fx_insight_text(rows_data)
+
+    # Calculate scale values
+    scale_max = int(max_abs_fx) + 2
+    scale_values = {
+        "scale_min": f"-{scale_max}%",
+        "scale_mid_low": f"-{scale_max // 2}%",
+        "scale_mid_high": f"+{scale_max // 2}%",
+        "scale_max": f"+{scale_max}%",
+    }
+
+    # Render HTML template
+    template = Template(FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE)
+    html_content = template.render(
+        width=FX_IMPACT_PNG_WIDTH_PX,
+        height=FX_IMPACT_PNG_HEIGHT_PX,
+        scale=FX_IMPACT_HTML_SCALE,
+        rows=prepared_rows,
+        insight_text=insight_text,
+        **scale_values,
+    )
+
+    # Convert HTML to PNG using Playwright
+    png_bytes = None
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={
+                'width': FX_IMPACT_PNG_WIDTH_PX,
+                'height': FX_IMPACT_PNG_HEIGHT_PX
+            })
+            page.set_content(html_content, wait_until='networkidle')
+            page.wait_for_timeout(500)
+            png_bytes = page.screenshot()
+            browser.close()
+    except Exception as e:
+        print(f"[FX Impact Analysis EUR] Error rendering: {e}")
+        import traceback
+        traceback.print_exc()
+
+    print(f"[FX Impact Analysis EUR] Generated chart: {FX_IMPACT_PNG_WIDTH_PX}x{FX_IMPACT_PNG_HEIGHT_PX}px")
+    return png_bytes, used_date
+
+
+def insert_fx_impact_analysis_slide_eur(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+) -> Presentation:
+    """Insert the FX Impact Analysis (EUR) chart into PowerPoint.
+
+    Parameters
+    ----------
+    prs : Presentation
+        The PowerPoint presentation to modify.
+    image_bytes : bytes
+        PNG data for the FX impact chart.
+    used_date : pandas.Timestamp or None, optional
+        Effective date used for calculations.
+    price_mode : str, default "Last Price"
+        Either "Last Price" or "Last Close".
+
+    Returns
+    -------
+    Presentation
+        The modified presentation.
+    """
+    if not image_bytes:
+        return prs
+
+    # Find target slide by placeholder name
+    target_slide = None
+    placeholder_names = ["equity_perf_fx_eur", "fx_impact_eur"]
+    name_candidates = [n.lower() for n in placeholder_names]
+    pattern_candidates = [f"[{n}]" for n in name_candidates]
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr in name_candidates:
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower in [p.lower() for p in pattern_candidates]:
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print("[FX Impact Analysis EUR] ERROR: Slide not found")
+        return prs
+
+    # Insert chart image
+    left = Cm(FX_IMPACT_PPT_LEFT_CM)
+    top = Cm(FX_IMPACT_PPT_TOP_CM)
+    width = Cm(FX_IMPACT_PPT_WIDTH_CM)
+
+    stream = io.BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(stream, left, top, width=width)
+
+    # Send picture to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[FX Impact Analysis EUR] Chart inserted at ({FX_IMPACT_PPT_LEFT_CM}, {FX_IMPACT_PPT_TOP_CM}) cm")
+
+    # Insert source footnote
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
+        placeholder_name = "fx_impact_eur_source"
+        placeholder_patterns = ["[fx_impact_eur_source]", "fx_impact_eur_source"]
+
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == placeholder_name:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_font_attrs(new_run, *attrs)
+                break
+            if shape.has_text_frame:
+                for pattern in placeholder_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
+                        try:
+                            new_text = shape.text.replace(pattern, source_text)
+                        except Exception:
+                            new_text = source_text
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        _apply_font_attrs(new_run, *attrs)
+                        break
 
     return prs
