@@ -1398,6 +1398,17 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
             color: #64748B;
         }
 
+        /* Price column */
+        .price {
+            width: {{ 85 * scale }}px;
+            flex-shrink: 0;
+            text-align: left;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 400;
+            color: #94A3B8;
+            padding-left: {{ 4 * scale }}px;
+        }
+
         /* Bar container */
         .bar-container {
             flex: 1;
@@ -1466,7 +1477,7 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
             display: flex;
             justify-content: center;
             padding: {{ 8 * scale }}px 0 0 0;
-            margin-left: {{ 134 * scale }}px;
+            margin-left: {{ 223 * scale }}px;
             margin-right: {{ 55 * scale }}px;
         }
 
@@ -1494,6 +1505,7 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
                 <span class="icon">{{ item.icon }}</span>
                 <span class="name">{{ item.name }}</span>
             </div>
+            <div class="price">{{ item.formatted_price|default('') }}</div>
             <div class="bar-container">
                 <div class="bar-track">
                     <div class="center-line"></div>

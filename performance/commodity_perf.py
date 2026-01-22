@@ -610,11 +610,19 @@ def create_weekly_html_performance_chart(
             # Calculate bar width as percentage of max (48% max to leave margin)
             bar_width = abs(value) / max_abs_value * 48
 
+            # Get current price for the price column
+            current_price = df_adj[ticker].iloc[-1] if ticker in df_adj.columns else 0
+            if pd.notna(current_price):
+                formatted_price = f"{int(current_price):,}"
+            else:
+                formatted_price = ""
+
             items_data.append({
                 "name": item["name"],
                 "icon": item["icon"],
                 "value": value,
                 "formatted_value": _format_commodity_percentage(value),
+                "formatted_price": formatted_price,
                 "bar_class": "positive" if value >= 0 else "negative",
                 "bar_width": bar_width,
                 "value_class": "positive" if value >= 0 else "negative",
