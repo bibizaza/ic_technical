@@ -922,6 +922,8 @@ from performance.equity_perf import (
     insert_equity_ytd_evolution_slide,
     create_fx_impact_analysis_chart_eur,
     insert_fx_impact_analysis_slide_eur,
+    create_fx_impact_analysis_chart_chf,
+    insert_fx_impact_analysis_slide_chf,
 )
 
 # Import FX performance functions
@@ -5339,6 +5341,18 @@ def show_generate_presentation_page():
                 prs,
                 fx_impact_bytes,
                 used_date=fx_impact_date,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+
+            # Generate the FX Impact Analysis chart for CHF investors
+            fx_impact_chf_bytes, fx_impact_chf_date = create_fx_impact_analysis_chart_chf(
+                excel_path_for_ppt,
+                price_mode=st.session_state.get("price_mode", "Last Price"),
+            )
+            prs = insert_fx_impact_analysis_slide_chf(
+                prs,
+                fx_impact_chf_bytes,
+                used_date=fx_impact_chf_date,
                 price_mode=st.session_state.get("price_mode", "Last Price"),
             )
         except Exception as e:

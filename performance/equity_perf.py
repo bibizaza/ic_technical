@@ -73,7 +73,7 @@ from playwright.sync_api import sync_playwright
 from utils import adjust_prices_for_mode
 from helpers.flag_utils import get_flag_html
 from helpers.html_to_image import render_html_to_image
-from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE, FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE
+from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE, FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE, FX_IMPACT_ANALYSIS_CHF_HTML_TEMPLATE
 
 try:
     # Reuse font attribute helpers from the SPX module if available
@@ -1728,4 +1728,431 @@ def insert_fx_impact_analysis_slide_eur(
         used_date=used_date,
         price_mode=price_mode,
         source_placeholder_names=["equity_1w_source3"],
+    )
+
+
+# =============================================================================
+# FX IMPACT ANALYSIS FOR CHF INVESTORS
+# =============================================================================
+
+FX_IMPACT_CHF_CONFIG = {
+    "SPX Index": {
+        "name": "S&P 500",
+        "flag": "us",
+        "currency": "USD",
+        "fx_pair": "USDCHF Curncy",  # CHF per USD
+    },
+    "DAX Index": {
+        "name": "Dax",
+        "flag": "de",
+        "currency": "EUR",
+        "fx_pair": "EURCHF Curncy",  # CHF per EUR
+    },
+    "SMI Index": {
+        "name": "SMI",
+        "flag": "ch",
+        "currency": "CHF",
+        "fx_pair": None,  # Already in CHF
+    },
+    "NKY Index": {
+        "name": "Nikkei 225",
+        "flag": "jp",
+        "currency": "JPY",
+        "fx_pair": "CHFJPY Curncy",  # JPY per CHF (inverted)
+        "fx_inverted": True,
+    },
+    "SHSZ300 Index": {
+        "name": "CSI 300",
+        "flag": "cn",
+        "currency": "CNH",
+        "fx_pair": "USDCNH Curncy",  # Will use USD cross
+        "fx_cross_usd": True,
+    },
+    "SENSEX Index": {
+        "name": "Sensex",
+        "flag": "in",
+        "currency": "INR",
+        "fx_pair": "USDINR Curncy",  # Will use USD cross
+        "fx_cross_usd": True,
+    },
+    "IBOV Index": {
+        "name": "Bovespa",
+        "flag": "br",
+        "currency": "BRL",
+        "fx_pair": "USDBRL Curncy",  # Will use USD cross
+        "fx_cross_usd": True,
+    },
+    "MEXBOL Index": {
+        "name": "Mexbol",
+        "flag": "mx",
+        "currency": "MXN",
+        "fx_pair": "USDMXN Curncy",  # Will use USD cross
+        "fx_cross_usd": True,
+    },
+    "SASEIDX Index": {
+        "name": "TASI",
+        "flag": "sa",
+        "currency": "SAR",
+        "fx_pair": "USDSAR Curncy",  # Will use USD cross
+        "fx_cross_usd": True,
+    },
+}
+
+
+def create_fx_impact_analysis_chart_chf(
+    excel_path: str,
+    price_mode: str = "Last Price",
+) -> tuple:
+    """Create FX Impact Analysis chart for CHF investors.
+
+    Shows YTD performance decomposition: Local Return, CHF Return, FX Effect.
+
+    Parameters
+    ----------
+    excel_path : str
+        Path to the Excel file containing price data.
+    price_mode : str, default "Last Price"
+        Either "Last Price" or "Last Close".
+
+    Returns
+    -------
+    tuple
+        (PNG bytes, effective date used for computation)
+    """
+    print(f"[FX Impact CHF DEBUG] Starting chart generation...")
+    print(f"[FX Impact CHF DEBUG] Excel path: {excel_path}")
+    print(f"[FX Impact CHF DEBUG] Price mode: {price_mode}")
+
+    # First, load the Excel to see which tickers are available
+    df_raw = pd.read_excel(excel_path, sheet_name="data_prices")
+    available_columns = set(df_raw.columns)
+    print(f"[FX Impact CHF DEBUG] Available columns count: {len(available_columns)}")
+
+    # Collect all tickers needed (indices + FX pairs)
+    tickers_to_load = []
+    for index_ticker, config in FX_IMPACT_CHF_CONFIG.items():
+        if index_ticker in available_columns:
+            tickers_to_load.append(index_ticker)
+            print(f"[FX Impact CHF DEBUG] Found index: {index_ticker}")
+        else:
+            print(f"[FX Impact CHF DEBUG] MISSING index: {index_ticker}")
+        fx_pair = config.get("fx_pair")
+        if fx_pair and fx_pair in available_columns:
+            tickers_to_load.append(fx_pair)
+            print(f"[FX Impact CHF DEBUG] Found FX pair: {fx_pair}")
+        elif fx_pair:
+            print(f"[FX Impact CHF DEBUG] MISSING FX pair: {fx_pair}")
+        # For USD cross rates, also need USDCHF
+        if config.get("fx_cross_usd") and "USDCHF Curncy" in available_columns:
+            tickers_to_load.append("USDCHF Curncy")
+
+    tickers_to_load = list(set(tickers_to_load))
+    print(f"[FX Impact CHF DEBUG] Total tickers to load: {len(tickers_to_load)}")
+
+    if not tickers_to_load:
+        print("[FX Impact Analysis CHF] ERROR: No valid tickers found in data")
+        return None, None
+
+    # Load and adjust price data
+    df = _load_price_data(excel_path, tickers_to_load)
+    df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    print(f"[FX Impact CHF DEBUG] Data loaded. Rows: {len(df_adj)}, Used date: {used_date}")
+
+    # Get YTD start date
+    last_date = df_adj["Date"].max()
+    year = last_date.year
+    start_of_year = pd.Timestamp(year=year, month=1, day=1)
+    print(f"[FX Impact CHF DEBUG] Last date: {last_date}, Year: {year}, Start of year: {start_of_year}")
+
+    # Build row data
+    rows_data = []
+    for index_ticker, config in FX_IMPACT_CHF_CONFIG.items():
+        print(f"[FX Impact CHF DEBUG] Processing {config['name']} ({index_ticker})...")
+
+        # Get price at start and end of year
+        if index_ticker in df_adj.columns:
+            past_series = df_adj.loc[df_adj["Date"] <= start_of_year, index_ticker]
+            if len(past_series) > 0:
+                price_start = past_series.iloc[-1]
+            else:
+                price_start = float("nan")
+            price_end = df_adj[index_ticker].iloc[-1]
+
+            if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
+                local_return = (price_end / price_start - 1) * 100
+            else:
+                local_return = 0.0
+            print(f"[FX Impact CHF DEBUG]   Price: {price_start:.2f} -> {price_end:.2f}, Local return: {local_return:.2f}%")
+        else:
+            local_return = 0.0
+            price_start = float("nan")
+            price_end = float("nan")
+            print(f"[FX Impact CHF DEBUG]   Index not in data, local_return = 0")
+
+        # Compute CHF return using compounded FX calculation
+        fx_pair = config.get("fx_pair")
+        fx_inverted = config.get("fx_inverted", False)
+        fx_cross_usd = config.get("fx_cross_usd", False)
+
+        if fx_pair is None:
+            # Already in CHF (e.g., SMI)
+            chf_return = local_return
+            fx_effect = 0.0
+            print(f"[FX Impact CHF DEBUG]   No FX pair (CHF asset), CHF return = local return")
+        elif fx_cross_usd and fx_pair in df_adj.columns and "USDCHF Curncy" in df_adj.columns:
+            # Cross rate via USD: XXXCHF = XXXUSD * USDCHF (where XXXUSD = 1/USDXXX)
+            # Get FX rates at start and end
+            fx_past = df_adj.loc[df_adj["Date"] <= start_of_year, fx_pair]
+            usdchf_past = df_adj.loc[df_adj["Date"] <= start_of_year, "USDCHF Curncy"]
+            if len(fx_past) > 0 and len(usdchf_past) > 0:
+                fx_start_usd = fx_past.iloc[-1]  # USDXXX rate
+                usdchf_start = usdchf_past.iloc[-1]
+            else:
+                fx_start_usd = float("nan")
+                usdchf_start = float("nan")
+            fx_end_usd = df_adj[fx_pair].iloc[-1]
+            usdchf_end = df_adj["USDCHF Curncy"].iloc[-1]
+
+            if (pd.notna(fx_start_usd) and fx_start_usd != 0 and pd.notna(fx_end_usd) and fx_end_usd != 0 and
+                pd.notna(usdchf_start) and usdchf_start != 0 and pd.notna(usdchf_end) and usdchf_end != 0):
+                # Convert to CHF per XXX: XXXCHF = USDCHF / USDXXX
+                fx_start_chf = usdchf_start / fx_start_usd
+                fx_end_chf = usdchf_end / fx_end_usd
+                if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
+                    chf_return = ((price_end / price_start) * (fx_end_chf / fx_start_chf) - 1) * 100
+                else:
+                    chf_return = 0.0
+                fx_effect = chf_return - local_return
+                print(f"[FX Impact CHF DEBUG]   FX cross: {fx_start_chf:.4f} -> {fx_end_chf:.4f}, CHF return: {chf_return:.2f}%, FX effect: {fx_effect:.2f}%")
+            else:
+                chf_return = local_return
+                fx_effect = 0.0
+                print(f"[FX Impact CHF DEBUG]   FX cross data invalid, CHF return = local return")
+        elif fx_pair in df_adj.columns:
+            # Direct FX pair (USDCHF, EURCHF, or CHFJPY)
+            fx_past_series = df_adj.loc[df_adj["Date"] <= start_of_year, fx_pair]
+            if len(fx_past_series) > 0:
+                fx_start = fx_past_series.iloc[-1]
+            else:
+                fx_start = float("nan")
+            fx_end = df_adj[fx_pair].iloc[-1]
+
+            if pd.notna(fx_start) and fx_start != 0 and pd.notna(fx_end) and fx_end != 0:
+                if fx_inverted:
+                    # For CHFJPY (JPY per CHF), we need CHF per JPY = 1/CHFJPY
+                    # CHF_Return = (price_end / price_start) * (fx_start / fx_end) - 1
+                    if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
+                        chf_return = ((price_end / price_start) * (fx_start / fx_end) - 1) * 100
+                    else:
+                        chf_return = 0.0
+                else:
+                    # For USDCHF, EURCHF (CHF per XXX):
+                    # CHF_Return = (price_end / price_start) * (fx_end / fx_start) - 1
+                    if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
+                        chf_return = ((price_end / price_start) * (fx_end / fx_start) - 1) * 100
+                    else:
+                        chf_return = 0.0
+                fx_effect = chf_return - local_return
+                print(f"[FX Impact CHF DEBUG]   FX: {fx_start:.4f} -> {fx_end:.4f}, CHF return: {chf_return:.2f}%, FX effect: {fx_effect:.2f}%")
+            else:
+                chf_return = local_return
+                fx_effect = 0.0
+                print(f"[FX Impact CHF DEBUG]   FX data invalid, CHF return = local return")
+        else:
+            # FX pair not available
+            chf_return = local_return
+            fx_effect = 0.0
+            print(f"[FX Impact CHF DEBUG]   FX pair {fx_pair} not in data, CHF return = local return")
+
+        rows_data.append({
+            "name": config["name"],
+            "flag": config["flag"],
+            "local_return": local_return,
+            "chf_return": chf_return,
+            "fx_effect": fx_effect,
+        })
+
+    print(f"[FX Impact CHF DEBUG] Built {len(rows_data)} rows")
+
+    # Sort by CHF return descending (best CHF performer at top)
+    rows_data.sort(key=lambda x: x["chf_return"], reverse=True)
+
+    # Calculate max absolute FX effect for bar scaling
+    max_abs_fx = max((abs(r["fx_effect"]) for r in rows_data), default=5.0)
+    max_abs_fx = max(max_abs_fx, 2.0)  # At least 2%
+    print(f"[FX Impact CHF DEBUG] Max absolute FX effect: {max_abs_fx:.2f}%")
+
+    # Prepare rows for template
+    prepared_rows = []
+    for i, row in enumerate(rows_data):
+        fx_effect = row["fx_effect"]
+
+        # Format values
+        local_fmt = f"{row['local_return']:+.1f}%"
+        chf_fmt = f"{row['chf_return']:+.1f}%"
+        fx_fmt = f"{fx_effect:+.1f}%"
+
+        # Determine bar properties
+        bar_width = abs(fx_effect) / max_abs_fx * 50  # 50% is max width per side
+        bar_class = "positive" if fx_effect >= 0 else "negative"
+        fx_class = "fx-positive" if fx_effect >= 0 else "fx-negative"
+
+        # Highlight best/worst FX effect
+        highlight_class = ""
+        if i == 0 and fx_effect > 0:
+            highlight_class = "fx-tailwind"
+        elif i == len(rows_data) - 1 and fx_effect < 0:
+            highlight_class = "fx-headwind"
+
+        # Flag HTML
+        flag_html = f'<span class="flag-icon flag-icon-{row["flag"]}"></span>'
+
+        prepared_rows.append({
+            "name": row["name"],
+            "flag_html": flag_html,
+            "local_formatted": local_fmt,
+            "chf_formatted": chf_fmt,
+            "fx_formatted": fx_fmt,
+            "fx_effect": fx_effect,
+            "bar_width": bar_width,
+            "bar_class": bar_class,
+            "fx_class": fx_class,
+            "highlight_class": highlight_class,
+        })
+
+    # Generate insight text
+    insight_text = _generate_fx_insight_text_chf(rows_data)
+    print(f"[FX Impact CHF DEBUG] Insight text generated: {insight_text[:100]}...")
+
+    # Calculate scale values
+    scale_max = int(max_abs_fx) + 2
+    scale_values = {
+        "scale_min": f"-{scale_max}%",
+        "scale_mid_low": f"-{scale_max // 2}%",
+        "scale_mid_high": f"+{scale_max // 2}%",
+        "scale_max": f"+{scale_max}%",
+    }
+
+    # Render HTML template
+    print(f"[FX Impact CHF DEBUG] Rendering HTML template...")
+    template = Template(FX_IMPACT_ANALYSIS_CHF_HTML_TEMPLATE)
+    html_content = template.render(
+        width=FX_IMPACT_PNG_WIDTH_PX,
+        height=FX_IMPACT_PNG_HEIGHT_PX,
+        scale=4,
+        rows=prepared_rows,
+        insight_text=insight_text,
+        **scale_values,
+    )
+    print(f"[FX Impact CHF DEBUG] HTML generated, length: {len(html_content)} chars")
+
+    # Convert HTML to PNG using Playwright
+    print(f"[FX Impact CHF DEBUG] Starting Playwright rendering ({FX_IMPACT_PNG_WIDTH_PX}x{FX_IMPACT_PNG_HEIGHT_PX}px)...")
+    png_bytes = None
+    try:
+        with sync_playwright() as p:
+            print(f"[FX Impact CHF DEBUG] Launching browser...")
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={
+                'width': FX_IMPACT_PNG_WIDTH_PX,
+                'height': FX_IMPACT_PNG_HEIGHT_PX
+            })
+            print(f"[FX Impact CHF DEBUG] Setting page content...")
+            page.set_content(html_content, wait_until='networkidle')
+            page.wait_for_timeout(500)
+            print(f"[FX Impact CHF DEBUG] Taking screenshot...")
+            png_bytes = page.screenshot()
+            browser.close()
+            print(f"[FX Impact CHF DEBUG] Screenshot taken, size: {len(png_bytes)} bytes")
+    except Exception as e:
+        print(f"[FX Impact Analysis CHF] ERROR rendering: {e}")
+        import traceback
+        traceback.print_exc()
+
+    if png_bytes:
+        print(f"[FX Impact CHF DEBUG] SUCCESS: Generated chart {FX_IMPACT_PNG_WIDTH_PX}x{FX_IMPACT_PNG_HEIGHT_PX}px, {len(png_bytes)} bytes")
+    else:
+        print(f"[FX Impact CHF DEBUG] FAILED: No PNG bytes generated")
+
+    return png_bytes, used_date
+
+
+def _generate_fx_insight_text_chf(rows_data: list) -> str:
+    """Generate insight text for FX Impact Analysis CHF."""
+    if not rows_data:
+        return "No data available for FX impact analysis."
+
+    # Find best and worst FX effects
+    best_row = max(rows_data, key=lambda x: x["fx_effect"])
+    worst_row = min(rows_data, key=lambda x: x["fx_effect"])
+
+    # Currency mapping for text
+    currency_map = {
+        "S&P 500": "USD",
+        "Dax": "EUR",
+        "SMI": "CHF",
+        "Nikkei 225": "JPY",
+        "CSI 300": "CNH",
+        "Sensex": "INR",
+        "Bovespa": "BRL",
+        "Mexbol": "MXN",
+        "TASI": "SAR",
+    }
+
+    best_currency = currency_map.get(best_row["name"], "")
+    worst_currency = currency_map.get(worst_row["name"], "")
+
+    if best_row["fx_effect"] > 0.5:
+        insight = (
+            f'<span class="highlight-positive">{best_currency} movement</span> has been the dominant FX tailwind YTD, '
+            f'turning {best_row["name"]}\'s {best_row["local_return"]:+.1f}% local return into '
+            f'{best_row["chf_return"]:+.1f}% for CHF investors.'
+        )
+    elif worst_row["fx_effect"] < -0.5:
+        insight = (
+            f'<span class="highlight-negative">{worst_currency} weakness</span> has been a significant FX headwind YTD, '
+            f'reducing {worst_row["name"]}\'s {worst_row["local_return"]:+.1f}% local return to '
+            f'{worst_row["chf_return"]:+.1f}% for CHF investors.'
+        )
+    else:
+        insight = "FX movements have had minimal impact on CHF investor returns YTD."
+
+    return insight
+
+
+def insert_fx_impact_analysis_slide_chf(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date: Optional[pd.Timestamp] = None,
+    price_mode: str = "Last Price",
+    *,
+    left_cm: float = 1.87,
+    top_cm: float = 4.7,
+    width_cm: float = 20.0,
+    height_cm: Optional[float] = None,
+) -> Presentation:
+    """Insert the FX Impact Analysis (CHF) chart into PowerPoint.
+
+    The slide is identified by a shape named ``equity_perf_fx_chf``.
+    """
+    print(f"[FX Impact CHF DEBUG] insert_fx_impact_analysis_slide_chf called")
+    print(f"[FX Impact CHF DEBUG] image_bytes: {len(image_bytes) if image_bytes else 'None'} bytes")
+    print(f"[FX Impact CHF DEBUG] used_date: {used_date}, price_mode: {price_mode}")
+
+    if not image_bytes:
+        print("[FX Impact Analysis CHF] ERROR: No image bytes to insert")
+        return prs
+
+    print(f"[FX Impact CHF DEBUG] Calling _insert_dashboard_to_placeholder with placeholder_names=['equity_perf_fx_chf']")
+    return _insert_dashboard_to_placeholder(
+        prs,
+        image_bytes,
+        placeholder_names=["equity_perf_fx_chf"],
+        left_cm=left_cm,
+        top_cm=top_cm,
+        width_cm=width_cm,
+        height_cm=height_cm,
+        used_date=used_date,
+        price_mode=price_mode,
+        source_placeholder_names=["equity_1w_source4"],
     )
