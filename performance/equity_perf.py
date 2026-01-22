@@ -1727,5 +1727,5 @@ def insert_fx_impact_analysis_slide_eur(
         height_cm=height_cm,
         used_date=used_date,
         price_mode=price_mode,
-        source_placeholder_names=["fx_impact_eur_source"],
+        source_placeholder_names=["equity_1w_source3"],
     )
