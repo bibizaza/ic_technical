@@ -3539,6 +3539,39 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
             font-size: {{ 7 * scale }}px;
             color: #94A3B8;
         }
+
+        /* Legend */
+        .legend-row {
+            display: flex;
+            gap: {{ 20 * scale }}px;
+            margin-top: {{ 6 * scale }}px;
+            margin-left: {{ 350 * scale }}px;
+            padding-left: {{ 10 * scale }}px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: {{ 6 * scale }}px;
+            font-size: {{ 8 * scale }}px;
+            color: #64748B;
+        }
+
+        .legend-dot {
+            width: {{ 8 * scale }}px;
+            height: {{ 8 * scale }}px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.green {
+            background: linear-gradient(135deg, #10B981, #34D399);
+            box-shadow: 0 {{ 1 * scale }}px {{ 3 * scale }}px rgba(16, 185, 129, 0.4);
+        }
+
+        .legend-dot.red {
+            background: linear-gradient(135deg, #EF4444, #F87171);
+            box-shadow: 0 {{ 1 * scale }}px {{ 3 * scale }}px rgba(239, 68, 68, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -3580,6 +3613,17 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
                 <span>0</span>
                 <span>{{ scale_mid_high }}</span>
                 <span>{{ scale_max }}</span>
+            </div>
+        </div>
+
+        <div class="legend-row">
+            <div class="legend-item">
+                <span class="legend-dot green"></span>
+                <span>FX tailwind (currency strengthened vs EUR)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot red"></span>
+                <span>FX headwind (currency weakened vs EUR)</span>
             </div>
         </div>
 
