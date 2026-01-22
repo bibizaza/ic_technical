@@ -3542,10 +3542,10 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
         /* Legend */
         .legend-row {
             display: flex;
+            justify-content: center;
             gap: {{ 20 * scale }}px;
             margin-top: {{ 6 * scale }}px;
             margin-left: {{ 350 * scale }}px;
-            padding-left: {{ 10 * scale }}px;
         }
 
         .legend-item {

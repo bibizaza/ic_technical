@@ -1575,8 +1575,8 @@ def create_fx_impact_analysis_chart_eur(
 
     print(f"[FX Impact EUR DEBUG] Built {len(rows_data)} rows")
 
-    # Sort by FX effect descending (biggest tailwind first)
-    rows_data.sort(key=lambda x: x["fx_effect"], reverse=True)
+    # Sort by EUR return descending (best EUR performer at top)
+    rows_data.sort(key=lambda x: x["eur_return"], reverse=True)
 
     # Calculate max absolute FX effect for bar scaling
     max_abs_fx = max((abs(r["fx_effect"]) for r in rows_data), default=5.0)
@@ -1679,8 +1679,8 @@ def insert_fx_impact_analysis_slide_eur(
     used_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
     *,
-    left_cm: float = 2.5,
-    top_cm: float = 4.0,
+    left_cm: float = 1.87,
+    top_cm: float = 4.7,
     width_cm: float = 20.0,
     height_cm: Optional[float] = None,
 ) -> Presentation:
