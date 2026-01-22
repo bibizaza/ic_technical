@@ -1580,8 +1580,17 @@ def insert_fx_impact_analysis_slide_eur(
     image_bytes: bytes,
     used_date: Optional[pd.Timestamp] = None,
     price_mode: str = "Last Price",
+    *,
+    left_cm: float = 2.5,
+    top_cm: float = 4.0,
+    width_cm: float = 20.0,
+    height_cm: Optional[float] = None,
 ) -> Presentation:
     """Insert the FX Impact Analysis (EUR) chart into PowerPoint.
+
+    The slide is identified by a shape named ``equity_perf_fx_eur`` (or
+    containing ``[equity_perf_fx_eur]``). The chart is inserted at the
+    specified coordinates.
 
     Parameters
     ----------
@@ -1593,88 +1602,23 @@ def insert_fx_impact_analysis_slide_eur(
         Effective date used for calculations.
     price_mode : str, default "Last Price"
         Either "Last Price" or "Last Close".
+    left_cm, top_cm, width_cm, height_cm : float
+        Position and size for inserting the chart.
 
     Returns
     -------
     Presentation
         The modified presentation.
     """
-    if not image_bytes:
-        return prs
-
-    # Find target slide by placeholder name
-    target_slide = None
-    placeholder_names = ["equity_perf_fx_eur", "fx_impact_eur"]
-    name_candidates = [n.lower() for n in placeholder_names]
-    pattern_candidates = [f"[{n}]" for n in name_candidates]
-
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            if name_attr in name_candidates:
-                target_slide = slide
-                break
-            if shape.has_text_frame:
-                text_lower = (shape.text or "").strip().lower()
-                if text_lower in [p.lower() for p in pattern_candidates]:
-                    target_slide = slide
-                    break
-        if target_slide:
-            break
-
-    if target_slide is None:
-        print("[FX Impact Analysis EUR] ERROR: Slide not found")
-        return prs
-
-    # Insert chart image
-    left = Cm(FX_IMPACT_PPT_LEFT_CM)
-    top = Cm(FX_IMPACT_PPT_TOP_CM)
-    width = Cm(FX_IMPACT_PPT_WIDTH_CM)
-
-    stream = io.BytesIO(image_bytes)
-    picture = target_slide.shapes.add_picture(stream, left, top, width=width)
-
-    # Send picture to back
-    spTree = target_slide.shapes._spTree
-    pic_element = picture._element
-    spTree.remove(pic_element)
-    spTree.insert(2, pic_element)
-
-    print(f"[FX Impact Analysis EUR] Chart inserted at ({FX_IMPACT_PPT_LEFT_CM}, {FX_IMPACT_PPT_TOP_CM}) cm")
-
-    # Insert source footnote
-    if used_date is not None:
-        date_str = used_date.strftime("%d/%m/%Y")
-        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
-        placeholder_name = "fx_impact_eur_source"
-        placeholder_patterns = ["[fx_impact_eur_source]", "fx_impact_eur_source"]
-
-        for shape in target_slide.shapes:
-            name_attr = getattr(shape, "name", "")
-            if name_attr and name_attr.lower() == placeholder_name:
-                if shape.has_text_frame:
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = source_text
-                    _apply_font_attrs(new_run, *attrs)
-                break
-            if shape.has_text_frame:
-                for pattern in placeholder_patterns:
-                    if pattern.lower() in (shape.text or "").lower():
-                        runs = shape.text_frame.paragraphs[0].runs
-                        attrs = _capture_font_attrs(runs[0]) if runs else (None, None, None, None, None, None)
-                        try:
-                            new_text = shape.text.replace(pattern, source_text)
-                        except Exception:
-                            new_text = source_text
-                        shape.text_frame.clear()
-                        p = shape.text_frame.paragraphs[0]
-                        new_run = p.add_run()
-                        new_run.text = new_text
-                        _apply_font_attrs(new_run, *attrs)
-                        break
-
-    return prs
+    return _insert_dashboard_to_placeholder(
+        prs,
+        image_bytes,
+        placeholder_names=["equity_perf_fx_eur"],
+        left_cm=left_cm,
+        top_cm=top_cm,
+        width_cm=width_cm,
+        height_cm=height_cm,
+        used_date=used_date,
+        price_mode=price_mode,
+        source_placeholder_names=["fx_impact_eur_source"],
+    )
