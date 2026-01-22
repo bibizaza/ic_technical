@@ -1252,61 +1252,61 @@ def insert_equity_ytd_evolution_slide(
 # FX IMPACT ANALYSIS (EUR) - YTD Performance Decomposition
 # =============================================================================
 
-# Index configuration with local and EUR tickers
+# Index configuration with local currency and FX pair for EUR conversion
 FX_IMPACT_EUR_CONFIG = {
     "SPX Index": {
         "name": "S&P 500",
         "flag": "us",
-        "local_ticker": "SPX Index",
-        "eur_ticker": "SPTR500N Index",  # S&P 500 Net Total Return in EUR
+        "currency": "USD",
+        "fx_pair": "EURUSD Curncy",  # EUR per USD
     },
     "DAX Index": {
         "name": "Dax",
         "flag": "de",
-        "local_ticker": "DAX Index",
-        "eur_ticker": "DAX Index",  # Already in EUR
+        "currency": "EUR",
+        "fx_pair": None,  # Already in EUR
     },
     "SMI Index": {
         "name": "SMI",
         "flag": "ch",
-        "local_ticker": "SMI Index",
-        "eur_ticker": "SMIEUR Index",  # SMI in EUR
+        "currency": "CHF",
+        "fx_pair": "EURCHF Curncy",  # EUR per CHF
     },
     "NKY Index": {
         "name": "Nikkei 225",
         "flag": "jp",
-        "local_ticker": "NKY Index",
-        "eur_ticker": "NKYEUR Index",  # Nikkei in EUR
+        "currency": "JPY",
+        "fx_pair": "EURJPY Curncy",  # EUR per JPY
     },
     "SHSZ300 Index": {
         "name": "CSI 300",
         "flag": "cn",
-        "local_ticker": "SHSZ300 Index",
-        "eur_ticker": "SHSZ300 Index",  # Use local (CNY/EUR effect calculated separately)
+        "currency": "CNH",
+        "fx_pair": "EURCNH Curncy",  # EUR per CNH
     },
     "SENSEX Index": {
         "name": "Sensex",
         "flag": "in",
-        "local_ticker": "SENSEX Index",
-        "eur_ticker": "SENSEX Index",  # Use local
+        "currency": "INR",
+        "fx_pair": "EURINR Curncy",  # EUR per INR
     },
     "IBOV Index": {
         "name": "Bovespa",
         "flag": "br",
-        "local_ticker": "IBOV Index",
-        "eur_ticker": "IBOVEUR Index",  # Bovespa in EUR
+        "currency": "BRL",
+        "fx_pair": "EURBRL Curncy",  # EUR per BRL
     },
     "MEXBOL Index": {
         "name": "Mexbol",
         "flag": "mx",
-        "local_ticker": "MEXBOL Index",
-        "eur_ticker": "MEXBOL Index",  # Use local
+        "currency": "MXN",
+        "fx_pair": "EURMXN Curncy",  # EUR per MXN
     },
     "SASEIDX Index": {
         "name": "TASI",
         "flag": "sa",
-        "local_ticker": "SASEIDX Index",
-        "eur_ticker": "SASEIDX Index",  # Use local
+        "currency": "SAR",
+        "fx_pair": "EURSAR Curncy",  # EUR per SAR
     },
 }
 
@@ -1435,6 +1435,11 @@ def create_fx_impact_analysis_chart_eur(
     Shows YTD performance decomposition: Local return, EUR return, and FX effect
     with visual bars showing FX tailwind (green) or headwind (red).
 
+    FX Effect is computed using currency pairs:
+    - FX Effect = -1 * YTD return of EURXXX pair
+    - If EURUSD falls (USD strengthens), FX effect is positive for USD assets
+    - EUR Return = Local Return + FX Effect
+
     Parameters
     ----------
     excel_path : str or pathlib.Path
@@ -1451,15 +1456,14 @@ def create_fx_impact_analysis_chart_eur(
     df_raw = pd.read_excel(excel_path, sheet_name="data_prices")
     available_columns = set(df_raw.columns)
 
-    # Collect tickers that actually exist
+    # Collect all tickers needed (indices + FX pairs)
     tickers_to_load = []
-    for config in FX_IMPACT_EUR_CONFIG.values():
-        local_ticker = config["local_ticker"]
-        eur_ticker = config["eur_ticker"]
-        if local_ticker in available_columns:
-            tickers_to_load.append(local_ticker)
-        if eur_ticker in available_columns and eur_ticker != local_ticker:
-            tickers_to_load.append(eur_ticker)
+    for index_ticker, config in FX_IMPACT_EUR_CONFIG.items():
+        if index_ticker in available_columns:
+            tickers_to_load.append(index_ticker)
+        fx_pair = config.get("fx_pair")
+        if fx_pair and fx_pair in available_columns:
+            tickers_to_load.append(fx_pair)
 
     tickers_to_load = list(set(tickers_to_load))
 
@@ -1473,33 +1477,35 @@ def create_fx_impact_analysis_chart_eur(
 
     # Build row data
     rows_data = []
-    for key, config in FX_IMPACT_EUR_CONFIG.items():
-        local_ticker = config["local_ticker"]
-        eur_ticker = config["eur_ticker"]
-
+    for index_ticker, config in FX_IMPACT_EUR_CONFIG.items():
         # Compute local return
-        if local_ticker in df_adj.columns:
-            local_return = _compute_ytd_return(df_adj, local_ticker)
+        if index_ticker in df_adj.columns:
+            local_return = _compute_ytd_return(df_adj, index_ticker)
         else:
             local_return = float("nan")
 
-        # Compute EUR return
-        if eur_ticker in df_adj.columns:
-            eur_return = _compute_ytd_return(df_adj, eur_ticker)
-        elif local_ticker == eur_ticker:
-            # Same ticker for both - no FX effect can be computed
-            eur_return = local_return
+        # Compute FX effect from currency pair
+        fx_pair = config.get("fx_pair")
+        if fx_pair is None:
+            # Already in EUR (e.g., DAX)
+            fx_effect = 0.0
+        elif fx_pair in df_adj.columns:
+            # FX effect = -1 * YTD return of EURXXX
+            # If EURUSD falls (USD strengthens), that's positive for EUR investors
+            fx_return = _compute_ytd_return(df_adj, fx_pair)
+            if pd.isna(fx_return):
+                fx_effect = 0.0
+            else:
+                fx_effect = -fx_return
         else:
-            # EUR ticker not available, use local as fallback
-            eur_return = local_return
+            # FX pair not available
+            fx_effect = 0.0
 
         if pd.isna(local_return):
             local_return = 0.0
-        if pd.isna(eur_return):
-            eur_return = 0.0
 
-        # FX Effect = EUR Return - Local Return
-        fx_effect = eur_return - local_return
+        # EUR Return = Local Return + FX Effect
+        eur_return = local_return + fx_effect
 
         rows_data.append({
             "name": config["name"],
