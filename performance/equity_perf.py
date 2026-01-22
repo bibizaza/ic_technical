@@ -650,23 +650,31 @@ def _insert_dashboard_to_placeholder(
     # Normalise names for comparison
     name_candidates = [n.lower() for n in placeholder_names]
     pattern_candidates = [f"[{n}]" for n in name_candidates]
-    for slide in prs.slides:
+    print(f"[_insert_dashboard DEBUG] Searching for placeholders: {placeholder_names}")
+    print(f"[_insert_dashboard DEBUG] Name candidates: {name_candidates}")
+    print(f"[_insert_dashboard DEBUG] Pattern candidates: {pattern_candidates}")
+    for slide_idx, slide in enumerate(prs.slides):
         for shape in slide.shapes:
             name_attr = getattr(shape, "name", "").lower()
             if name_attr in name_candidates:
+                print(f"[_insert_dashboard DEBUG] FOUND by name on slide {slide_idx}: '{name_attr}'")
                 target_slide = slide
                 placeholder_box = shape
                 break
             if shape.has_text_frame:
                 text_lower = (shape.text or "").strip().lower()
                 if text_lower in [p.lower() for p in pattern_candidates]:
+                    print(f"[_insert_dashboard DEBUG] FOUND by text on slide {slide_idx}: '{text_lower}'")
                     target_slide = slide
                     placeholder_box = shape
                     break
         if target_slide:
             break
     if target_slide is None:
+        print(f"[_insert_dashboard DEBUG] NOT FOUND - using fallback slide")
         target_slide = prs.slides[min(11, len(prs.slides) - 1)]
+    else:
+        print(f"[_insert_dashboard DEBUG] Target slide found at index {slide_idx}")
     # Do not modify or remove the placeholder box; it serves only to locate
     # the slide.  Leave its text intact so the placeholder remains in
     # the template for future reference.
@@ -674,11 +682,13 @@ def _insert_dashboard_to_placeholder(
     top = Cm(top_cm)
     width = Cm(width_cm)
     stream = io.BytesIO(image_bytes)
+    print(f"[_insert_dashboard DEBUG] Inserting image: left={left_cm}cm, top={top_cm}cm, width={width_cm}cm, height={height_cm}cm")
     # Only specify width; let height auto-scale to maintain aspect ratio
     if height_cm is not None:
         pic = target_slide.shapes.add_picture(stream, left, top, width=width, height=Cm(height_cm))
     else:
         pic = target_slide.shapes.add_picture(stream, left, top, width=width)
+    print(f"[_insert_dashboard DEBUG] Image inserted successfully")
 
     # Send to back (behind other elements like footnote)
     spTree = target_slide.shapes._spTree
@@ -1451,37 +1461,53 @@ def create_fx_impact_analysis_chart_eur(
     tuple
         (PNG bytes, effective date used for computation)
     """
+    print(f"[FX Impact EUR DEBUG] Starting chart generation...")
+    print(f"[FX Impact EUR DEBUG] Excel path: {excel_path}")
+    print(f"[FX Impact EUR DEBUG] Price mode: {price_mode}")
+
     # First, load the Excel to see which tickers are available
     df_raw = pd.read_excel(excel_path, sheet_name="data_prices")
     available_columns = set(df_raw.columns)
+    print(f"[FX Impact EUR DEBUG] Available columns count: {len(available_columns)}")
 
     # Collect all tickers needed (indices + FX pairs)
     tickers_to_load = []
     for index_ticker, config in FX_IMPACT_EUR_CONFIG.items():
         if index_ticker in available_columns:
             tickers_to_load.append(index_ticker)
+            print(f"[FX Impact EUR DEBUG] Found index: {index_ticker}")
+        else:
+            print(f"[FX Impact EUR DEBUG] MISSING index: {index_ticker}")
         fx_pair = config.get("fx_pair")
         if fx_pair and fx_pair in available_columns:
             tickers_to_load.append(fx_pair)
+            print(f"[FX Impact EUR DEBUG] Found FX pair: {fx_pair}")
+        elif fx_pair:
+            print(f"[FX Impact EUR DEBUG] MISSING FX pair: {fx_pair}")
 
     tickers_to_load = list(set(tickers_to_load))
+    print(f"[FX Impact EUR DEBUG] Total tickers to load: {len(tickers_to_load)}")
 
     if not tickers_to_load:
-        print("[FX Impact Analysis EUR] No valid tickers found in data")
+        print("[FX Impact Analysis EUR] ERROR: No valid tickers found in data")
         return None, None
 
     # Load and adjust price data
     df = _load_price_data(excel_path, tickers_to_load)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+    print(f"[FX Impact EUR DEBUG] Data loaded. Rows: {len(df_adj)}, Used date: {used_date}")
 
     # Get YTD start date
     last_date = df_adj["Date"].max()
     year = last_date.year
     start_of_year = pd.Timestamp(year=year, month=1, day=1)
+    print(f"[FX Impact EUR DEBUG] Last date: {last_date}, Year: {year}, Start of year: {start_of_year}")
 
     # Build row data
     rows_data = []
     for index_ticker, config in FX_IMPACT_EUR_CONFIG.items():
+        print(f"[FX Impact EUR DEBUG] Processing {config['name']} ({index_ticker})...")
+
         # Get price at start and end of year
         if index_ticker in df_adj.columns:
             past_series = df_adj.loc[df_adj["Date"] <= start_of_year, index_ticker]
@@ -1495,10 +1521,12 @@ def create_fx_impact_analysis_chart_eur(
                 local_return = (price_end / price_start - 1) * 100
             else:
                 local_return = 0.0
+            print(f"[FX Impact EUR DEBUG]   Price: {price_start:.2f} -> {price_end:.2f}, Local return: {local_return:.2f}%")
         else:
             local_return = 0.0
             price_start = float("nan")
             price_end = float("nan")
+            print(f"[FX Impact EUR DEBUG]   Index not in data, local_return = 0")
 
         # Compute EUR return using compounded FX calculation
         fx_pair = config.get("fx_pair")
@@ -1506,6 +1534,7 @@ def create_fx_impact_analysis_chart_eur(
             # Already in EUR (e.g., DAX)
             eur_return = local_return
             fx_effect = 0.0
+            print(f"[FX Impact EUR DEBUG]   No FX pair (EUR asset), EUR return = local return")
         elif fx_pair in df_adj.columns:
             # Get FX rate at start and end of year
             fx_past_series = df_adj.loc[df_adj["Date"] <= start_of_year, fx_pair]
@@ -1525,13 +1554,16 @@ def create_fx_impact_analysis_chart_eur(
                 else:
                     eur_return = 0.0
                 fx_effect = eur_return - local_return
+                print(f"[FX Impact EUR DEBUG]   FX: {fx_start:.4f} -> {fx_end:.4f}, EUR return: {eur_return:.2f}%, FX effect: {fx_effect:.2f}%")
             else:
                 eur_return = local_return
                 fx_effect = 0.0
+                print(f"[FX Impact EUR DEBUG]   FX data invalid, EUR return = local return")
         else:
             # FX pair not available
             eur_return = local_return
             fx_effect = 0.0
+            print(f"[FX Impact EUR DEBUG]   FX pair {fx_pair} not in data, EUR return = local return")
 
         rows_data.append({
             "name": config["name"],
@@ -1541,12 +1573,15 @@ def create_fx_impact_analysis_chart_eur(
             "fx_effect": fx_effect,
         })
 
+    print(f"[FX Impact EUR DEBUG] Built {len(rows_data)} rows")
+
     # Sort by FX effect descending (biggest tailwind first)
     rows_data.sort(key=lambda x: x["fx_effect"], reverse=True)
 
     # Calculate max absolute FX effect for bar scaling
     max_abs_fx = max((abs(r["fx_effect"]) for r in rows_data), default=5.0)
     max_abs_fx = max(max_abs_fx, 2.0)  # At least 2%
+    print(f"[FX Impact EUR DEBUG] Max absolute FX effect: {max_abs_fx:.2f}%")
 
     # Prepare rows for template
     prepared_rows = []
@@ -1583,6 +1618,7 @@ def create_fx_impact_analysis_chart_eur(
 
     # Generate insight text
     insight_text = _generate_fx_insight_text(rows_data)
+    print(f"[FX Impact EUR DEBUG] Insight text generated: {insight_text[:100]}...")
 
     # Calculate scale values
     scale_max = int(max_abs_fx) + 2
@@ -1594,6 +1630,7 @@ def create_fx_impact_analysis_chart_eur(
     }
 
     # Render HTML template
+    print(f"[FX Impact EUR DEBUG] Rendering HTML template...")
     template = Template(FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE)
     html_content = template.render(
         width=FX_IMPACT_PNG_WIDTH_PX,
@@ -1603,26 +1640,36 @@ def create_fx_impact_analysis_chart_eur(
         insight_text=insight_text,
         **scale_values,
     )
+    print(f"[FX Impact EUR DEBUG] HTML generated, length: {len(html_content)} chars")
 
     # Convert HTML to PNG using Playwright
+    print(f"[FX Impact EUR DEBUG] Starting Playwright rendering ({FX_IMPACT_PNG_WIDTH_PX}x{FX_IMPACT_PNG_HEIGHT_PX}px)...")
     png_bytes = None
     try:
         with sync_playwright() as p:
+            print(f"[FX Impact EUR DEBUG] Launching browser...")
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={
                 'width': FX_IMPACT_PNG_WIDTH_PX,
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
+            print(f"[FX Impact EUR DEBUG] Setting page content...")
             page.set_content(html_content, wait_until='networkidle')
             page.wait_for_timeout(500)
+            print(f"[FX Impact EUR DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()
             browser.close()
+            print(f"[FX Impact EUR DEBUG] Screenshot taken, size: {len(png_bytes)} bytes")
     except Exception as e:
-        print(f"[FX Impact Analysis EUR] Error rendering: {e}")
+        print(f"[FX Impact Analysis EUR] ERROR rendering: {e}")
         import traceback
         traceback.print_exc()
 
-    print(f"[FX Impact Analysis EUR] Generated chart: {FX_IMPACT_PNG_WIDTH_PX}x{FX_IMPACT_PNG_HEIGHT_PX}px")
+    if png_bytes:
+        print(f"[FX Impact EUR DEBUG] SUCCESS: Generated chart {FX_IMPACT_PNG_WIDTH_PX}x{FX_IMPACT_PNG_HEIGHT_PX}px, {len(png_bytes)} bytes")
+    else:
+        print(f"[FX Impact EUR DEBUG] FAILED: No PNG bytes generated")
+
     return png_bytes, used_date
 
 
@@ -1661,10 +1708,15 @@ def insert_fx_impact_analysis_slide_eur(
     Presentation
         The modified presentation.
     """
+    print(f"[FX Impact EUR DEBUG] insert_fx_impact_analysis_slide_eur called")
+    print(f"[FX Impact EUR DEBUG] image_bytes: {len(image_bytes) if image_bytes else 'None'} bytes")
+    print(f"[FX Impact EUR DEBUG] used_date: {used_date}, price_mode: {price_mode}")
+
     if not image_bytes:
-        print("[FX Impact Analysis EUR] No image bytes to insert")
+        print("[FX Impact Analysis EUR] ERROR: No image bytes to insert")
         return prs
 
+    print(f"[FX Impact EUR DEBUG] Calling _insert_dashboard_to_placeholder with placeholder_names=['equity_perf_fx_eur']")
     return _insert_dashboard_to_placeholder(
         prs,
         image_bytes,
