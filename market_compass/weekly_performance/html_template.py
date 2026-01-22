@@ -3482,7 +3482,7 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
 
         /* Key Insight box */
         .insight-box {
-            margin-top: {{ 12 * scale }}px;
+            margin-top: {{ 6 * scale }}px;
             padding: {{ 12 * scale }}px {{ 15 * scale }}px;
             background: linear-gradient(90deg, rgba(201, 162, 39, 0.08), rgba(201, 162, 39, 0.02));
             border-left: {{ 4 * scale }}px solid #C9A227;
@@ -3527,7 +3527,7 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
         .scale {
             display: flex;
             justify-content: center;
-            padding: {{ 6 * scale }}px 0 0 0;
+            padding: {{ 2 * scale }}px 0 0 0;
             margin-left: {{ 350 * scale }}px;
         }
 
