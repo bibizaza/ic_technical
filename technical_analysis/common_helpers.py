@@ -1137,18 +1137,21 @@ def generate_range_gauge_chart_image(
             upper_channel = trend + resid.max()
             lower_channel = trend + resid.min()
 
-    # Determine recent high and support levels.  Use the implied volatility
-    # if available to estimate a 1‑week range; otherwise fall back to ATR.
+    # Determine recent high and support levels using rolling 5 trading days
     last_price = df["Price"].iloc[-1]
-    if vol_index_value is not None and last_price and not np.isnan(last_price):
-        expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
-        upper_bound = last_price + expected_move
-        lower_bound = last_price - expected_move
-    else:
-        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
 
-    # Enforce symmetric range around current price
-    upper_bound, lower_bound = _enforce_symmetric_range(upper_bound, lower_bound, last_price)
+    # Rolling 5 trading days high/low (using close prices)
+    recent_5d = df_full["Price"].tail(5)
+    upper_bound = recent_5d.max()
+    lower_bound = recent_5d.min()
+
+    # Enforce minimum range (at least 1% on each side to avoid overlapping labels)
+    min_range_pct = 0.01
+    current_range_pct = (upper_bound - lower_bound) / last_price if last_price > 0 else 0
+    if current_range_pct < min_range_pct * 2:
+        # Expand to minimum 1% on each side
+        upper_bound = last_price * (1 + min_range_pct)
+        lower_bound = last_price * (1 - min_range_pct)
     last_price_str = f"{last_price:,.2f}"
 
     # Determine overall width.  If ``chart_width_cm`` is not provided,
@@ -1439,21 +1442,22 @@ def generate_range_callout_chart_image(
             upper_channel = trend + resid.max()
             lower_channel = trend + resid.min()
 
-    # Compute high/low bounds and current price.  If an implied volatility
-    # value is provided (e.g. the VIX level), use it to estimate the
-    # expected one‑week move.  The expected move is computed as
-    # ``last_price × (vol_index_value/100) / sqrt(52)``.  Otherwise
-    # fall back to the realised‑volatility‑based bounds returned by
-    # ``_compute_range_bounds``.
+    # Compute high/low bounds using rolling 5 trading days
     last_price = df["Price"].iloc[-1]
-    if vol_index_value is not None and last_price and not np.isnan(last_price):
-        expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
-        upper_bound = last_price + expected_move
-        lower_bound = last_price - expected_move
-    else:
-        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
 
-    # Enforce symmetric range around current price (handles min/max constraints)
+    # Rolling 5 trading days high/low (using close prices)
+    recent_5d = df_full["Price"].tail(5)
+    upper_bound = recent_5d.max()
+    lower_bound = recent_5d.min()
+
+    # Enforce minimum range (at least 1% on each side to avoid overlapping labels)
+    min_range_pct = 0.01
+    current_range_pct = (upper_bound - lower_bound) / last_price if last_price > 0 else 0
+    if current_range_pct < min_range_pct * 2:
+        upper_bound = last_price * (1 + min_range_pct)
+        lower_bound = last_price * (1 - min_range_pct)
+
+    # Note: Symmetric range enforcement removed as 5-day high/low is inherently asymmetric
     upper_bound, lower_bound = _enforce_symmetric_range(upper_bound, lower_bound, last_price)
 
     # Compute percentage differences for display

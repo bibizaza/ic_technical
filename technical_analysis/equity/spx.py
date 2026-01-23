@@ -363,12 +363,12 @@ def get_trading_range(
     ticker: str,
     current_price: float,
     df: pd.DataFrame,
-    excel_path,
+    excel_path=None,
     price_mode: str = "Last Price",
-    days_forward: int = 21,
+    days_forward: int = 5,
 ) -> Tuple[float, float]:
     """
-    Calculate trading range using volatility index (primary) or price history (fallback).
+    Calculate trading range using rolling 5 trading days high/low.
 
     Parameters
     ----------
@@ -378,39 +378,24 @@ def get_trading_range(
         Current price.
     df : pandas.DataFrame
         DataFrame with 'Price' column (price history).
-    excel_path : str or Path
-        Path to Excel file containing volatility data.
+    excel_path : str or Path, optional
+        Path to Excel file (unused, kept for compatibility).
     price_mode : str, default "Last Price"
-        Price mode for data adjustment.
-    days_forward : int, default 21
-        Projection period (default 21 days = ~1 month).
+        Price mode for data adjustment (unused, kept for compatibility).
+    days_forward : int, default 5
+        Number of trading days for rolling window.
 
     Returns
     -------
     tuple[float, float]
         (lower_range, higher_range)
     """
-    # Try volatility-based method first
-    vol_ticker = VOLATILITY_INDEX_MAP.get(ticker)
+    # Rolling 5 trading days high/low (using close prices)
+    recent = df["Price"].tail(days_forward)
+    higher = recent.max()
+    lower = recent.min()
 
-    if vol_ticker:
-        vol_value = _get_vol_index_value(excel_path, price_mode=price_mode, vol_ticker=vol_ticker)
-
-        if vol_value and vol_value > 0:
-            # Volatility-based calculation: annualized vol to period move
-            annual_vol = vol_value / 100  # e.g., 18 -> 0.18
-            period_vol = annual_vol * (days_forward / 252) ** 0.5
-            expected_move = current_price * period_vol
-
-            lower = current_price - expected_move
-            higher = current_price + expected_move
-
-            print(f"[{ticker}] Using volatility-based range (vol={vol_value:.1f}%, move=±{expected_move:.2f})")
-            return _apply_range_guards(lower, higher, current_price)
-
-    # Fallback to price-based
-    lower, higher = _calculate_price_based_range(df)
-    print(f"[{ticker}] Using price-based range (no volatility data)")
+    print(f"[{ticker}] Using rolling {days_forward}-day range (high={higher:.2f}, low={lower:.2f})")
     return _apply_range_guards(lower, higher, current_price)
 
 
