@@ -3410,6 +3410,7 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
             font-size: {{ 10 * scale }}px;
             font-weight: 500;
             color: #334155;
+            text-transform: none;
         }
 
         .data-row .col-local,
@@ -3782,6 +3783,7 @@ FX_IMPACT_ANALYSIS_CHF_HTML_TEMPLATE = '''
             font-size: {{ 10 * scale }}px;
             font-weight: 500;
             color: #334155;
+            text-transform: none;
         }
 
         .data-row .col-local,

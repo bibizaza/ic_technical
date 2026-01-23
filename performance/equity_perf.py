@@ -1320,13 +1320,11 @@ FX_IMPACT_EUR_CONFIG = {
     },
 }
 
-# Chart dimensions
-FX_IMPACT_PNG_WIDTH_PX = 2400
-FX_IMPACT_PNG_HEIGHT_PX = 1400
-FX_IMPACT_HTML_SCALE = 3
-FX_IMPACT_PPT_WIDTH_CM = 20.0
-FX_IMPACT_PPT_LEFT_CM = 2.5
-FX_IMPACT_PPT_TOP_CM = 4.0
+# Chart dimensions - match equity weekly/historical approach
+# Target: 20cm × 10cm in PowerPoint
+FX_IMPACT_SCALE_FACTOR = 4
+FX_IMPACT_PNG_WIDTH_PX = int(20.0 * 37.8 * FX_IMPACT_SCALE_FACTOR)   # = 3024 px
+FX_IMPACT_PNG_HEIGHT_PX = int(10.0 * 37.8 * FX_IMPACT_SCALE_FACTOR)  # = 1512 px
 
 
 def _compute_ytd_return(
@@ -1635,7 +1633,7 @@ def create_fx_impact_analysis_chart_eur(
     html_content = template.render(
         width=FX_IMPACT_PNG_WIDTH_PX,
         height=FX_IMPACT_PNG_HEIGHT_PX,
-        scale=FX_IMPACT_HTML_SCALE,
+        scale=FX_IMPACT_SCALE_FACTOR,
         rows=prepared_rows,
         insight_text=insight_text,
         **scale_values,
@@ -1682,7 +1680,7 @@ def insert_fx_impact_analysis_slide_eur(
     left_cm: float = 1.87,
     top_cm: float = 4.7,
     width_cm: float = 20.0,
-    height_cm: Optional[float] = None,
+    height_cm: float = 10.0,
 ) -> Presentation:
     """Insert the FX Impact Analysis (EUR) chart into PowerPoint.
 
@@ -1949,7 +1947,7 @@ def create_fx_impact_analysis_chart_chf(
         # Determine bar properties
         bar_width = abs(fx_effect) / max_abs_fx * 50  # 50% is max width per side
         bar_class = "positive" if fx_effect >= 0 else "negative"
-        fx_class = "fx-positive" if fx_effect >= 0 else "fx-negative"
+        fx_class = "positive" if fx_effect >= 0 else "negative"
 
         # Highlight best/worst FX effect
         highlight_class = ""
@@ -1958,12 +1956,10 @@ def create_fx_impact_analysis_chart_chf(
         elif i == len(rows_data) - 1 and fx_effect < 0:
             highlight_class = "fx-headwind"
 
-        # Flag HTML
-        flag_html = f'<span class="flag-icon flag-icon-{row["flag"]}"></span>'
-
         prepared_rows.append({
             "name": row["name"],
-            "flag_html": flag_html,
+            "flag": row["flag"],
+            "flag_html": get_flag_html(row["flag"]),
             "local_formatted": local_fmt,
             "chf_formatted": chf_fmt,
             "fx_formatted": fx_fmt,
@@ -1993,7 +1989,7 @@ def create_fx_impact_analysis_chart_chf(
     html_content = template.render(
         width=FX_IMPACT_PNG_WIDTH_PX,
         height=FX_IMPACT_PNG_HEIGHT_PX,
-        scale=4,
+        scale=FX_IMPACT_SCALE_FACTOR,
         rows=prepared_rows,
         insight_text=insight_text,
         **scale_values,
@@ -2083,7 +2079,7 @@ def insert_fx_impact_analysis_slide_chf(
     left_cm: float = 1.87,
     top_cm: float = 4.7,
     width_cm: float = 20.0,
-    height_cm: Optional[float] = None,
+    height_cm: float = 10.0,
 ) -> Presentation:
     """Insert the FX Impact Analysis (CHF) chart into PowerPoint.
 
