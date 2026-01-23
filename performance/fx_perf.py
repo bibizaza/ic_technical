@@ -931,34 +931,22 @@ def _get_color_class_for_value(value: float) -> str:
     """Get the CSS color class for a value using fixed thresholds.
 
     Thresholds: 3%, 8%, 15%, 25%
+    All values show green (positive) or red (negative) - no neutral/grey cells.
     """
     abs_val = abs(value)
+    # Always green or red based on sign (zero treated as positive)
+    prefix = "positive" if value >= 0 else "negative"
 
-    if abs_val < 0.5:
-        return "neutral"
-
-    if value > 0:
-        if abs_val >= 25:
-            return "positive-5"
-        elif abs_val >= 15:
-            return "positive-4"
-        elif abs_val >= 8:
-            return "positive-3"
-        elif abs_val >= 3:
-            return "positive-2"
-        else:
-            return "positive-1"
+    if abs_val >= 25:
+        return f"{prefix}-5"
+    elif abs_val >= 15:
+        return f"{prefix}-4"
+    elif abs_val >= 8:
+        return f"{prefix}-3"
+    elif abs_val >= 3:
+        return f"{prefix}-2"
     else:
-        if abs_val >= 25:
-            return "negative-5"
-        elif abs_val >= 15:
-            return "negative-4"
-        elif abs_val >= 8:
-            return "negative-3"
-        elif abs_val >= 3:
-            return "negative-2"
-        else:
-            return "negative-1"
+        return f"{prefix}-1"
 
 
 def _format_percentage_with_sign(value: float) -> str:

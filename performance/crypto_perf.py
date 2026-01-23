@@ -977,11 +977,14 @@ def _get_crypto_historical_color_class(value: float) -> str:
     - Level 3: 50-100%
     - Level 4: 100-200%
     - Level 5: 200%+
+
+    All values show green (positive) or red (negative) - no neutral/grey cells.
     """
     if pd.isna(value):
-        return "neutral"
+        return "positive-1"  # Default to green for missing data
 
     abs_val = abs(value)
+    # Always green or red based on sign (zero treated as positive)
     prefix = "positive" if value >= 0 else "negative"
 
     if abs_val >= 200:
@@ -992,10 +995,8 @@ def _get_crypto_historical_color_class(value: float) -> str:
         return f"{prefix}-3"
     elif abs_val >= 10:
         return f"{prefix}-2"
-    elif abs_val > 0:
-        return f"{prefix}-1"
     else:
-        return "neutral"
+        return f"{prefix}-1"
 
 def _format_crypto_large_percentage(value: float) -> str:
     """Format large crypto percentages without decimal for values >= 100%."""
