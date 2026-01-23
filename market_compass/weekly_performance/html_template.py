@@ -3626,14 +3626,6 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
                 <span>FX headwind (currency weakened vs EUR)</span>
             </div>
         </div>
-
-        <div class="insight-box">
-            <div class="insight-header">
-                <span class="insight-icon">💡</span>
-                <span class="insight-title">Key Insight</span>
-            </div>
-            <div class="insight-text">{{ insight_text | safe }}</div>
-        </div>
     </div>
 </body>
 </html>
@@ -3998,14 +3990,6 @@ FX_IMPACT_ANALYSIS_CHF_HTML_TEMPLATE = '''
                 <span class="legend-dot red"></span>
                 <span>FX headwind (currency weakened vs CHF)</span>
             </div>
-        </div>
-
-        <div class="insight-box">
-            <div class="insight-header">
-                <span class="insight-icon">💡</span>
-                <span class="insight-title">Key Insight</span>
-            </div>
-            <div class="insight-text">{{ insight_text | safe }}</div>
         </div>
     </div>
 </body>
