@@ -857,20 +857,20 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
             box-shadow: 0 {{ 3 * scale }}px {{ 8 * scale }}px rgba(0,0,0,0.15), 0 {{ 1 * scale }}px {{ 3 * scale }}px rgba(0,0,0,0.1);
         }
 
-        /* Color scale - INVERTED for rates */
+        /* Color scale - INVERTED for rates - all with white text */
         /* Rates DOWN = Good = Green (5 levels) */
-        .green-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
-        .green-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
-        .green-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
-        .green-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
-        .green-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        .green-1 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .green-2 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .green-3 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        .green-4 { background: linear-gradient(135deg, #15803D, #166534); color: #FFFFFF; }
+        .green-5 { background: linear-gradient(135deg, #166534, #14532D); color: #FFFFFF; }
 
         /* Rates UP = Bad = Red (5 levels) */
-        .red-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
-        .red-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
-        .red-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
-        .red-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
-        .red-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        .red-1 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .red-2 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .red-3 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        .red-4 { background: linear-gradient(135deg, #B91C1C, #991B1B); color: #FFFFFF; }
+        .red-5 { background: linear-gradient(135deg, #991B1B, #7F1D1D); color: #FFFFFF; }
     </style>
 </head>
 <body>
@@ -1265,19 +1265,19 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
             box-shadow: 0 {{ 3 * scale }}px {{ 10 * scale }}px rgba(0,0,0,0.15), 0 {{ 1 * scale }}px {{ 3 * scale }}px rgba(0,0,0,0.1);
         }
 
-        /* Color scale - Positive (green) - 5 levels */
-        .positive-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
-        .positive-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
-        .positive-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
-        .positive-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
-        .positive-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        /* Color scale - Positive (green) - 5 levels - all with white text */
+        .positive-1 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .positive-2 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .positive-3 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        .positive-4 { background: linear-gradient(135deg, #15803D, #166534); color: #FFFFFF; }
+        .positive-5 { background: linear-gradient(135deg, #166534, #14532D); color: #FFFFFF; }
 
-        /* Color scale - Negative (red) - 5 levels */
-        .negative-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
-        .negative-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
-        .negative-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
-        .negative-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
-        .negative-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        /* Color scale - Negative (red) - 5 levels - all with white text */
+        .negative-1 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .negative-2 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .negative-3 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        .negative-4 { background: linear-gradient(135deg, #B91C1C, #991B1B); color: #FFFFFF; }
+        .negative-5 { background: linear-gradient(135deg, #991B1B, #7F1D1D); color: #FFFFFF; }
     </style>
 </head>
 <body>
@@ -1672,19 +1672,19 @@ COMMODITIES_HISTORICAL_HTML_TEMPLATE = '''
             box-shadow: 0 {{ 2 * scale }}px {{ 6 * scale }}px rgba(0,0,0,0.15), 0 {{ 1 * scale }}px {{ 2 * scale }}px rgba(0,0,0,0.1);
         }
 
-        /* Color scale - Positive (green) - 5 levels */
-        .positive-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
-        .positive-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
-        .positive-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
-        .positive-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
-        .positive-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        /* Color scale - Positive (green) - 5 levels - all with white text */
+        .positive-1 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .positive-2 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .positive-3 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        .positive-4 { background: linear-gradient(135deg, #15803D, #166534); color: #FFFFFF; }
+        .positive-5 { background: linear-gradient(135deg, #166534, #14532D); color: #FFFFFF; }
 
-        /* Color scale - Negative (red) - 5 levels */
-        .negative-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
-        .negative-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
-        .negative-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
-        .negative-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
-        .negative-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        /* Color scale - Negative (red) - 5 levels - all with white text */
+        .negative-1 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .negative-2 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .negative-3 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        .negative-4 { background: linear-gradient(135deg, #B91C1C, #991B1B); color: #FFFFFF; }
+        .negative-5 { background: linear-gradient(135deg, #991B1B, #7F1D1D); color: #FFFFFF; }
     </style>
 </head>
 <body>
@@ -2436,19 +2436,19 @@ CRYPTO_HISTORICAL_HTML_TEMPLATE = '''
             box-shadow: 0 {{ 2 * scale }}px {{ 8 * scale }}px rgba(0,0,0,0.15), 0 {{ 1 * scale }}px {{ 3 * scale }}px rgba(0,0,0,0.1);
         }
 
-        /* Color scale - Positive (green) - 5 levels */
-        .positive-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
-        .positive-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
-        .positive-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
-        .positive-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
-        .positive-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        /* Color scale - Positive (green) - 5 levels - all with white text */
+        .positive-1 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .positive-2 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .positive-3 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        .positive-4 { background: linear-gradient(135deg, #15803D, #166534); color: #FFFFFF; }
+        .positive-5 { background: linear-gradient(135deg, #166534, #14532D); color: #FFFFFF; }
 
-        /* Color scale - Negative (red) - 5 levels */
-        .negative-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
-        .negative-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
-        .negative-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
-        .negative-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
-        .negative-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        /* Color scale - Negative (red) - 5 levels - all with white text */
+        .negative-1 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .negative-2 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .negative-3 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        .negative-4 { background: linear-gradient(135deg, #B91C1C, #991B1B); color: #FFFFFF; }
+        .negative-5 { background: linear-gradient(135deg, #991B1B, #7F1D1D); color: #FFFFFF; }
     </style>
 </head>
 <body>
