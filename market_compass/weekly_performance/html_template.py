@@ -400,22 +400,22 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
             box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        /* Color scale - Positive (green) - 5 levels */
-        .positive-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
-        .positive-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
-        .positive-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
-        .positive-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
-        .positive-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        /* Color scale - Positive (green) - 5 levels - all with white text */
+        .positive-1 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .positive-2 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .positive-3 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        .positive-4 { background: linear-gradient(135deg, #15803D, #166534); color: #FFFFFF; }
+        .positive-5 { background: linear-gradient(135deg, #166534, #14532D); color: #FFFFFF; }
 
-        /* Color scale - Negative (red) - 5 levels */
-        .negative-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
-        .negative-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
-        .negative-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
-        .negative-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
-        .negative-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        /* Color scale - Negative (red) - 5 levels - all with white text */
+        .negative-1 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .negative-2 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .negative-3 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        .negative-4 { background: linear-gradient(135deg, #B91C1C, #991B1B); color: #FFFFFF; }
+        .negative-5 { background: linear-gradient(135deg, #991B1B, #7F1D1D); color: #FFFFFF; }
 
-        /* Neutral (near zero) */
-        .neutral { background: #F1F5F9; color: #64748B; text-shadow: none; }
+        /* Neutral (near zero) - dark gray with white text */
+        .neutral { background: #64748B; color: #FFFFFF; }
     </style>
 </head>
 <body>
@@ -2062,22 +2062,22 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
             box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        /* Color scale - Positive (green) - 5 levels */
-        .positive-1 { background: linear-gradient(135deg, #BBF7D0, #86EFAC); color: #166534; text-shadow: none; }
-        .positive-2 { background: linear-gradient(135deg, #86EFAC, #4ADE80); color: #166534; text-shadow: none; }
-        .positive-3 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
-        .positive-4 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
-        .positive-5 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        /* Color scale - Positive (green) - 5 levels - all with white text */
+        .positive-1 { background: linear-gradient(135deg, #4ADE80, #22C55E); color: #FFFFFF; }
+        .positive-2 { background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; }
+        .positive-3 { background: linear-gradient(135deg, #16A34A, #15803D); color: #FFFFFF; }
+        .positive-4 { background: linear-gradient(135deg, #15803D, #166534); color: #FFFFFF; }
+        .positive-5 { background: linear-gradient(135deg, #166534, #14532D); color: #FFFFFF; }
 
-        /* Color scale - Negative (red) - 5 levels */
-        .negative-1 { background: linear-gradient(135deg, #FECACA, #FCA5A5); color: #991B1B; text-shadow: none; }
-        .negative-2 { background: linear-gradient(135deg, #FCA5A5, #F87171); color: #991B1B; text-shadow: none; }
-        .negative-3 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
-        .negative-4 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
-        .negative-5 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        /* Color scale - Negative (red) - 5 levels - all with white text */
+        .negative-1 { background: linear-gradient(135deg, #F87171, #EF4444); color: #FFFFFF; }
+        .negative-2 { background: linear-gradient(135deg, #EF4444, #DC2626); color: #FFFFFF; }
+        .negative-3 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
+        .negative-4 { background: linear-gradient(135deg, #B91C1C, #991B1B); color: #FFFFFF; }
+        .negative-5 { background: linear-gradient(135deg, #991B1B, #7F1D1D); color: #FFFFFF; }
 
-        /* Neutral (near zero) */
-        .neutral { background: #F1F5F9; color: #64748B; text-shadow: none; }
+        /* Neutral (near zero) - dark gray with white text */
+        .neutral { background: #64748B; color: #FFFFFF; }
     </style>
 </head>
 <body>
