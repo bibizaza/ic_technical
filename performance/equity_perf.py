@@ -1740,13 +1740,13 @@ FX_IMPACT_CHF_CONFIG = {
         "name": "S&P 500",
         "flag": "us",
         "currency": "USD",
-        "fx_pair": "USDCHF Curncy",  # CHF per USD
+        "fx_pair": "CHFUSD Curncy",  # USD per CHF
     },
     "DAX Index": {
         "name": "Dax",
         "flag": "de",
         "currency": "EUR",
-        "fx_pair": "EURCHF Curncy",  # CHF per EUR
+        "fx_pair": "CHFEUR Curncy",  # EUR per CHF
     },
     "SMI Index": {
         "name": "SMI",
@@ -1758,43 +1758,37 @@ FX_IMPACT_CHF_CONFIG = {
         "name": "Nikkei 225",
         "flag": "jp",
         "currency": "JPY",
-        "fx_pair": "CHFJPY Curncy",  # JPY per CHF (inverted)
-        "fx_inverted": True,
+        "fx_pair": "CHFJPY Curncy",  # JPY per CHF
     },
     "SHSZ300 Index": {
         "name": "CSI 300",
         "flag": "cn",
         "currency": "CNH",
-        "fx_pair": "USDCNH Curncy",  # Will use USD cross
-        "fx_cross_usd": True,
+        "fx_pair": "CHFCNH Curncy",  # CNH per CHF
     },
     "SENSEX Index": {
         "name": "Sensex",
         "flag": "in",
         "currency": "INR",
-        "fx_pair": "USDINR Curncy",  # Will use USD cross
-        "fx_cross_usd": True,
+        "fx_pair": "CHFINR Curncy",  # INR per CHF
     },
     "IBOV Index": {
         "name": "Bovespa",
         "flag": "br",
         "currency": "BRL",
-        "fx_pair": "USDBRL Curncy",  # Will use USD cross
-        "fx_cross_usd": True,
+        "fx_pair": "CHFBRL Curncy",  # BRL per CHF
     },
     "MEXBOL Index": {
         "name": "Mexbol",
         "flag": "mx",
         "currency": "MXN",
-        "fx_pair": "USDMXN Curncy",  # Will use USD cross
-        "fx_cross_usd": True,
+        "fx_pair": "CHFMXN Curncy",  # MXN per CHF
     },
     "SASEIDX Index": {
         "name": "TASI",
         "flag": "sa",
         "currency": "SAR",
-        "fx_pair": "USDSAR Curncy",  # Will use USD cross
-        "fx_cross_usd": True,
+        "fx_pair": "CHFSAR Curncy",  # SAR per CHF
     },
 }
 
@@ -1842,9 +1836,6 @@ def create_fx_impact_analysis_chart_chf(
             print(f"[FX Impact CHF DEBUG] Found FX pair: {fx_pair}")
         elif fx_pair:
             print(f"[FX Impact CHF DEBUG] MISSING FX pair: {fx_pair}")
-        # For USD cross rates, also need USDCHF
-        if config.get("fx_cross_usd") and "USDCHF Curncy" in available_columns:
-            tickers_to_load.append("USDCHF Curncy")
 
     tickers_to_load = list(set(tickers_to_load))
     print(f"[FX Impact CHF DEBUG] Total tickers to load: {len(tickers_to_load)}")
@@ -1890,46 +1881,17 @@ def create_fx_impact_analysis_chart_chf(
             print(f"[FX Impact CHF DEBUG]   Index not in data, local_return = 0")
 
         # Compute CHF return using compounded FX calculation
+        # Same formula as EUR: CHF_Return = (price_end / price_start) * (fx_start / fx_end) - 1
+        # For CHFXXX pairs, when CHFXXX falls (foreign currency strengthens vs CHF),
+        # fx_start / fx_end > 1, which is positive for CHF investors
         fx_pair = config.get("fx_pair")
-        fx_inverted = config.get("fx_inverted", False)
-        fx_cross_usd = config.get("fx_cross_usd", False)
-
         if fx_pair is None:
             # Already in CHF (e.g., SMI)
             chf_return = local_return
             fx_effect = 0.0
             print(f"[FX Impact CHF DEBUG]   No FX pair (CHF asset), CHF return = local return")
-        elif fx_cross_usd and fx_pair in df_adj.columns and "USDCHF Curncy" in df_adj.columns:
-            # Cross rate via USD: XXXCHF = XXXUSD * USDCHF (where XXXUSD = 1/USDXXX)
-            # Get FX rates at start and end
-            fx_past = df_adj.loc[df_adj["Date"] <= start_of_year, fx_pair]
-            usdchf_past = df_adj.loc[df_adj["Date"] <= start_of_year, "USDCHF Curncy"]
-            if len(fx_past) > 0 and len(usdchf_past) > 0:
-                fx_start_usd = fx_past.iloc[-1]  # USDXXX rate
-                usdchf_start = usdchf_past.iloc[-1]
-            else:
-                fx_start_usd = float("nan")
-                usdchf_start = float("nan")
-            fx_end_usd = df_adj[fx_pair].iloc[-1]
-            usdchf_end = df_adj["USDCHF Curncy"].iloc[-1]
-
-            if (pd.notna(fx_start_usd) and fx_start_usd != 0 and pd.notna(fx_end_usd) and fx_end_usd != 0 and
-                pd.notna(usdchf_start) and usdchf_start != 0 and pd.notna(usdchf_end) and usdchf_end != 0):
-                # Convert to CHF per XXX: XXXCHF = USDCHF / USDXXX
-                fx_start_chf = usdchf_start / fx_start_usd
-                fx_end_chf = usdchf_end / fx_end_usd
-                if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
-                    chf_return = ((price_end / price_start) * (fx_end_chf / fx_start_chf) - 1) * 100
-                else:
-                    chf_return = 0.0
-                fx_effect = chf_return - local_return
-                print(f"[FX Impact CHF DEBUG]   FX cross: {fx_start_chf:.4f} -> {fx_end_chf:.4f}, CHF return: {chf_return:.2f}%, FX effect: {fx_effect:.2f}%")
-            else:
-                chf_return = local_return
-                fx_effect = 0.0
-                print(f"[FX Impact CHF DEBUG]   FX cross data invalid, CHF return = local return")
         elif fx_pair in df_adj.columns:
-            # Direct FX pair (USDCHF, EURCHF, or CHFJPY)
+            # Get FX rate at start and end of year
             fx_past_series = df_adj.loc[df_adj["Date"] <= start_of_year, fx_pair]
             if len(fx_past_series) > 0:
                 fx_start = fx_past_series.iloc[-1]
@@ -1938,20 +1900,12 @@ def create_fx_impact_analysis_chart_chf(
             fx_end = df_adj[fx_pair].iloc[-1]
 
             if pd.notna(fx_start) and fx_start != 0 and pd.notna(fx_end) and fx_end != 0:
-                if fx_inverted:
-                    # For CHFJPY (JPY per CHF), we need CHF per JPY = 1/CHFJPY
-                    # CHF_Return = (price_end / price_start) * (fx_start / fx_end) - 1
-                    if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
-                        chf_return = ((price_end / price_start) * (fx_start / fx_end) - 1) * 100
-                    else:
-                        chf_return = 0.0
+                # Compounded CHF return:
+                # CHF_Return = (price_end / price_start) * (fx_start / fx_end) - 1
+                if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
+                    chf_return = ((price_end / price_start) * (fx_start / fx_end) - 1) * 100
                 else:
-                    # For USDCHF, EURCHF (CHF per XXX):
-                    # CHF_Return = (price_end / price_start) * (fx_end / fx_start) - 1
-                    if pd.notna(price_start) and price_start != 0 and pd.notna(price_end):
-                        chf_return = ((price_end / price_start) * (fx_end / fx_start) - 1) * 100
-                    else:
-                        chf_return = 0.0
+                    chf_return = 0.0
                 fx_effect = chf_return - local_return
                 print(f"[FX Impact CHF DEBUG]   FX: {fx_start:.4f} -> {fx_end:.4f}, CHF return: {chf_return:.2f}%, FX effect: {fx_effect:.2f}%")
             else:
