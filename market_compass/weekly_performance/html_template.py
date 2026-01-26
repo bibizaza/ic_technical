@@ -145,8 +145,8 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
         .market-name {
             flex: 1;
             font-size: {{ 10 * scale }}px;
-            font-weight: 500;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Price column */
@@ -155,8 +155,8 @@ WEEKLY_PERFORMANCE_HTML_TEMPLATE = '''
             flex-shrink: 0;
             text-align: left;
             font-size: {{ 9 * scale }}px;
-            font-weight: 400;
-            color: #94A3B8;
+            font-weight: 700;
+            color: #040C38;
             padding-left: {{ 4 * scale }}px;
         }
 
@@ -537,8 +537,8 @@ BONDS_RATES_HTML_TEMPLATE = '''
         .tenor {
             width: {{ 45 * scale }}px;
             font-size: {{ 9 * scale }}px;
-            font-weight: 500;
-            color: #64748B;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Yield column */
@@ -547,8 +547,8 @@ BONDS_RATES_HTML_TEMPLATE = '''
             flex-shrink: 0;
             text-align: left;
             font-size: {{ 9 * scale }}px;
-            font-weight: 400;
-            color: #94A3B8;
+            font-weight: 700;
+            color: #040C38;
             padding-left: {{ 4 * scale }}px;
         }
 
@@ -1394,8 +1394,8 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
 
         .commodity-info .name {
             font-size: {{ 9 * scale }}px;
-            font-weight: 500;
-            color: #64748B;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Price column */
@@ -1404,8 +1404,8 @@ COMMODITIES_WEEKLY_HTML_TEMPLATE = '''
             flex-shrink: 0;
             text-align: left;
             font-size: {{ 9 * scale }}px;
-            font-weight: 400;
-            color: #94A3B8;
+            font-weight: 700;
+            color: #040C38;
             padding-left: {{ 4 * scale }}px;
         }
 
@@ -1808,8 +1808,8 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
 
         .currency-name {
             font-size: {{ 11 * scale }}px;
-            font-weight: 600;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Rate column */
@@ -1818,8 +1818,8 @@ CURRENCY_WEEKLY_HTML_TEMPLATE = '''
             flex-shrink: 0;
             text-align: left;
             font-size: {{ 9 * scale }}px;
-            font-weight: 400;
-            color: #94A3B8;
+            font-weight: 700;
+            color: #040C38;
             padding-left: {{ 4 * scale }}px;
         }
 
@@ -2178,8 +2178,8 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
 
         .crypto-name {
             font-size: {{ 10 * scale }}px;
-            font-weight: 600;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Crypto logo */
@@ -2198,8 +2198,8 @@ CRYPTO_WEEKLY_HTML_TEMPLATE = '''
             flex-shrink: 0;
             text-align: left;
             font-size: {{ 9 * scale }}px;
-            font-weight: 400;
-            color: #94A3B8;
+            font-weight: 700;
+            color: #040C38;
             padding-left: {{ 4 * scale }}px;
         }
 
