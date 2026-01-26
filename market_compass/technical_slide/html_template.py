@@ -92,8 +92,15 @@ TABLES_HTML_TEMPLATE = '''
         td:first-child {
             text-align: left;
             padding-left: {{ 12 * scale }}px;
-            font-weight: 500;
+            font-weight: 700;
+            color: #040C38;
             width: {{ 90 * scale }}px;
+        }
+
+        /* Market cap column */
+        td:nth-child(2) {
+            font-weight: 700;
+            color: #040C38;
         }
 
         tr:nth-child(odd) td { background: #FFFFFF; }
@@ -101,7 +108,7 @@ TABLES_HTML_TEMPLATE = '''
 
         .positive { color: #16A34A; font-weight: 600; }
         .negative { color: #DC2626; font-weight: 600; }
-        .neutral { color: #1A1A2E; }
+        .neutral { color: #040C38; font-weight: 700; }
         .rsi-overbought { color: #DC2626; font-weight: 600; }
         .rsi-oversold { color: #16A34A; font-weight: 600; }
 
