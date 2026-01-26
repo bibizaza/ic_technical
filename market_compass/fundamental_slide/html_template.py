@@ -80,6 +80,11 @@ FUNDAMENTAL_HTML_TEMPLATE = '''
             white-space: nowrap;
         }
 
+        .cell-content.market span {
+            font-weight: 700;
+            color: #040C38;
+        }
+
         .cell-content.market img,
         .cell-content.market .flag {
             flex-shrink: 0;
