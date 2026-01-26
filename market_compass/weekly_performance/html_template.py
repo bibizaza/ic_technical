@@ -1643,8 +1643,8 @@ COMMODITIES_HISTORICAL_HTML_TEMPLATE = '''
 
         .commodity-name {
             font-size: {{ 7 * scale }}px;
-            font-weight: 500;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Value cells */
@@ -2033,8 +2033,8 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
 
         .currency-name {
             font-size: {{ 10 * scale }}px;
-            font-weight: 600;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Value cells */
@@ -2397,8 +2397,8 @@ CRYPTO_HISTORICAL_HTML_TEMPLATE = '''
 
         .crypto-name {
             font-size: {{ 9 * scale }}px;
-            font-weight: 600;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Crypto logo */
