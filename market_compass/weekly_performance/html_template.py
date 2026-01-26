@@ -2672,7 +2672,7 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
                 id: 'endLabelsNoOverlap',
                 afterDraw: function(chart) {
                     const ctx = chart.ctx;
-                    const minGap = 16 * scale;
+                    const minGap = 18 * scale;
 
                     // Collect label positions
                     let labelData = [];
@@ -2701,14 +2701,14 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
                     labelData = resolveOverlaps(labelData, minGap);
 
                     // Draw labels
-                    const fontSize = 9 * scale;
+                    const fontSize = 11 * scale;
                     labelData.forEach(item => {
                         ctx.save();
                         ctx.font = `600 ${fontSize}px Calibri`;
                         const textWidth = ctx.measureText(item.label).width;
                         const labelX = item.x + 10 * scale;
                         const labelY = item.y;
-                        const pillHeight = 14 * scale;
+                        const pillHeight = 16 * scale;
                         const pillPadding = 4 * scale;
 
                         // Draw connector line if adjusted
@@ -2935,7 +2935,7 @@ COMMODITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
                 id: 'endLabelsNoOverlap',
                 afterDraw: function(chart) {
                     const ctx = chart.ctx;
-                    const minGap = 16 * scale;
+                    const minGap = 18 * scale;
 
                     let labelData = [];
 
@@ -2961,14 +2961,14 @@ COMMODITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
 
                     labelData = resolveOverlaps(labelData, minGap);
 
-                    const fontSize = 9 * scale;
+                    const fontSize = 11 * scale;
                     labelData.forEach(item => {
                         ctx.save();
                         ctx.font = `600 ${fontSize}px Calibri`;
                         const textWidth = ctx.measureText(item.label).width;
                         const labelX = item.x + 10 * scale;
                         const labelY = item.y;
-                        const pillHeight = 14 * scale;
+                        const pillHeight = 16 * scale;
                         const pillPadding = 4 * scale;
 
                         if (item.adjusted) {
@@ -3191,7 +3191,7 @@ CRYPTO_YTD_EVOLUTION_HTML_TEMPLATE = '''
                 id: 'endLabelsNoOverlap',
                 afterDraw: function(chart) {
                     const ctx = chart.ctx;
-                    const minGap = 16 * scale;
+                    const minGap = 18 * scale;
 
                     let labelData = [];
 
@@ -3217,14 +3217,14 @@ CRYPTO_YTD_EVOLUTION_HTML_TEMPLATE = '''
 
                     labelData = resolveOverlaps(labelData, minGap);
 
-                    const fontSize = 9 * scale;
+                    const fontSize = 11 * scale;
                     labelData.forEach(item => {
                         ctx.save();
                         ctx.font = `600 ${fontSize}px Calibri`;
                         const textWidth = ctx.measureText(item.label).width;
                         const labelX = item.x + 10 * scale;
                         const labelY = item.y;
-                        const pillHeight = 14 * scale;
+                        const pillHeight = 16 * scale;
                         const pillPadding = 4 * scale;
 
                         if (item.adjusted) {
