@@ -1211,7 +1211,7 @@ def generate_range_gauge_chart_image(
     # Hide spines and style ticks on the main chart axis
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+    ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True, labelcolor='#040C38')
     # Format x-axis dates as "Aug-01" to save space
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%b-%d'))
     fig.autofmt_xdate()  # Rotate date labels for better readability
@@ -1541,9 +1541,9 @@ def generate_range_callout_chart_image(
     # themselves.  The x‑axis ticks retain their default length.
     for spine in ax_chart.spines.values():
         spine.set_visible(False)
-    ax_chart.tick_params(axis="y", which="both", length=0)
-    ax_chart.tick_params(axis="x", which="both", length=2)
-    ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+    ax_chart.tick_params(axis="y", which="both", length=0, labelcolor='#040C38')
+    ax_chart.tick_params(axis="x", which="both", length=2, labelcolor='#040C38')
+    ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True, labelcolor='#040C38')
     # Format x-axis dates as "Aug-01" to save space
     ax_chart.xaxis.set_major_formatter(mdates.DateFormatter('%b-%d'))
     fig.autofmt_xdate()  # Rotate date labels for better readability

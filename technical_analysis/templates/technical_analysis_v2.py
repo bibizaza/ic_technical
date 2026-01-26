@@ -567,7 +567,7 @@ const priceChart = new Chart(priceCtx, {
                 grid: { display: false },
                 ticks: {
                     font: { size: 9 * scale, family: 'Calibri' },
-                    color: '#64748B',
+                    color: '#040C38',
                     padding: 5,
                     maxRotation: 0,
                     autoSkip: true,
@@ -588,7 +588,7 @@ const priceChart = new Chart(priceCtx, {
                 },
                 ticks: {
                     font: { size: 9 * scale, family: 'Calibri' },
-                    color: '#64748B',
+                    color: '#040C38',
                     padding: 5,
                     callback: function(value) {
                         return value.toLocaleString();
@@ -857,7 +857,7 @@ const rsiChart = new Chart(rsiCtx, {
                 grid: { display: false },
                 ticks: {
                     font: { size: 9 * scale, family: 'Calibri' },
-                    color: '#64748B',
+                    color: '#040C38',
                     padding: 5,
                     maxRotation: 0,
                     autoSkip: true,
@@ -876,7 +876,7 @@ const rsiChart = new Chart(rsiCtx, {
                 grid: { display: false },
                 ticks: {
                     font: { size: 9 * scale, family: 'Calibri' },
-                    color: '#64748B',
+                    color: '#040C38',
                     padding: 5,
                     autoSkip: false,
                     // Show only RSI threshold levels: 30 and 70
