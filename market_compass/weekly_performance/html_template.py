@@ -371,8 +371,8 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
 
         .market-name {
             font-size: {{ 12 * scale }}px;
-            font-weight: 400;
-            color: #1B3A5A;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Value cells */
@@ -806,7 +806,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         .country-header .country-name {
             font-size: {{ 7 * scale }}px;
             font-weight: 700;
-            color: #1B3A5A;
+            color: #040C38;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -828,8 +828,8 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
 
         .tenor-label {
             font-size: {{ 7 * scale }}px;
-            font-weight: 500;
-            color: #64748B;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Value cells */
@@ -1005,8 +1005,8 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
 
         .market-name {
             font-size: {{ 9 * scale }}px;
-            font-weight: 500;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Bar container */
@@ -1236,8 +1236,8 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
 
         .market-name {
             font-size: {{ 8 * scale }}px;
-            font-weight: 500;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
         }
 
         /* Value cells */
@@ -3408,16 +3408,16 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
 
         .index-name {
             font-size: {{ 10 * scale }}px;
-            font-weight: 500;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
             text-transform: none;
         }
 
         .data-row .col-local,
         .data-row .col-eur {
             font-size: {{ 10 * scale }}px;
-            font-weight: 500;
-            color: #64748B;
+            font-weight: 700;
+            color: #040C38;
         }
 
         .data-row .col-fx-effect {
@@ -3773,16 +3773,16 @@ FX_IMPACT_ANALYSIS_CHF_HTML_TEMPLATE = '''
 
         .index-name {
             font-size: {{ 10 * scale }}px;
-            font-weight: 500;
-            color: #334155;
+            font-weight: 700;
+            color: #040C38;
             text-transform: none;
         }
 
         .data-row .col-local,
         .data-row .col-chf {
             font-size: {{ 10 * scale }}px;
-            font-weight: 500;
-            color: #64748B;
+            font-weight: 700;
+            color: #040C38;
         }
 
         .data-row .col-fx-effect {
