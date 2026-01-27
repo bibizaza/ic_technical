@@ -1222,6 +1222,8 @@ def generate_range_gauge_chart_image(
         ncol=4,
         fontsize=8,
         frameon=False,
+        labelcolor='#040C38',
+        prop={'weight': 'bold'},
     )
 
     # ---------------------------------------------------------------------
@@ -1560,6 +1562,8 @@ def generate_range_callout_chart_image(
             ncol=4,
             fontsize=8,
             frameon=False,
+            labelcolor='#040C38',
+            prop={'weight': 'bold'},
         )
 
     # Configure call‑out axis: remove ticks and spines; set background white

@@ -566,7 +566,7 @@ const priceChart = new Chart(priceCtx, {
                 display: true,
                 grid: { display: false },
                 ticks: {
-                    font: { size: 9 * scale, family: 'Calibri' },
+                    font: { size: 9 * scale, family: 'Calibri', weight: '700' },
                     color: '#040C38',
                     padding: 5,
                     maxRotation: 0,
@@ -587,7 +587,7 @@ const priceChart = new Chart(priceCtx, {
                     display: false,
                 },
                 ticks: {
-                    font: { size: 9 * scale, family: 'Calibri' },
+                    font: { size: 9 * scale, family: 'Calibri', weight: '700' },
                     color: '#040C38',
                     padding: 5,
                     callback: function(value) {
@@ -856,7 +856,7 @@ const rsiChart = new Chart(rsiCtx, {
                 display: true,
                 grid: { display: false },
                 ticks: {
-                    font: { size: 9 * scale, family: 'Calibri' },
+                    font: { size: 9 * scale, family: 'Calibri', weight: '700' },
                     color: '#040C38',
                     padding: 5,
                     maxRotation: 0,
@@ -875,7 +875,7 @@ const rsiChart = new Chart(rsiCtx, {
                 max: 100,
                 grid: { display: false },
                 ticks: {
-                    font: { size: 9 * scale, family: 'Calibri' },
+                    font: { size: 9 * scale, family: 'Calibri', weight: '700' },
                     color: '#040C38',
                     padding: 5,
                     autoSkip: false,
