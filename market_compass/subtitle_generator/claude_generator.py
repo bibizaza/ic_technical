@@ -908,7 +908,9 @@ def generate_batch(
         try:
             from .history_tracker import get_tracker
             history_tracker = get_tracker()
-        except ImportError:
+            print(f"[Claude] History tracker loaded: {history_tracker.storage_path}")
+        except ImportError as e:
+            print(f"[Claude] WARNING: Could not load history tracker: {e}")
             pass
 
     results = []
@@ -958,10 +960,13 @@ def generate_batch(
             })
 
     # Save to history after generation (including subtitles for later export)
+    print(f"[Claude] History tracker: {history_tracker}, Results count: {len(results) if results else 0}")
     if history_tracker and results:
         try:
             history_data = []
             for asset, result in zip(assets_data, results):
+                subtitle = result.get("subtitle")
+                print(f"[Claude] Saving {asset['asset_name']}: subtitle='{subtitle[:50] if subtitle else None}...'")
                 history_data.append({
                     "asset_name": asset["asset_name"],
                     "dmas": asset["dmas"],
@@ -972,10 +977,10 @@ def generate_batch(
                     "price_vs_200ma_pct": asset.get("price_vs_200ma_pct", 0),
                     "rating": result.get("rating", "Neutral"),
                     "rsi": asset.get("rsi"),
-                    "subtitle": result.get("subtitle"),  # Store Claude-generated subtitle
+                    "subtitle": subtitle,  # Store Claude-generated subtitle
                 })
             history_tracker.record_batch(history_data, date=data_as_of)
-            print(f"Saved {len(history_data)} assets to history (date={data_as_of})")
+            print(f"[Claude] ✅ Saved {len(history_data)} assets to history (date={data_as_of})")
         except Exception as e:
             print(f"Warning: Could not save to history: {e}")
 
