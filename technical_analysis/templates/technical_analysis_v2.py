@@ -933,3 +933,270 @@ def build_technical_analysis_v2_template() -> str:
 
 # Pre-built template for backward compatibility
 TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = build_technical_analysis_v2_template()
+
+
+# =============================================================================
+# FULL SLIDE WRAPPER (for high-quality PNG export)
+# =============================================================================
+
+FULL_SLIDE_CSS = '''
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap');
+
+.slide-container {
+    width: {{ slide_width }}px;
+    height: {{ slide_height }}px;
+    background: white;
+    position: relative;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+}
+
+/* Navy Banner */
+.banner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: {{ 52 * scale }}px;
+    background: linear-gradient(135deg, #1a365d 0%, #1e3a5f 50%, #1a365d 100%);
+}
+
+.banner-text {
+    position: absolute;
+    left: {{ 15 * scale }}px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: {{ 26 * scale }}px;
+    color: white;
+    letter-spacing: 0.5px;
+}
+
+.logo-text {
+    position: absolute;
+    right: {{ 15 * scale }}px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: {{ 18 * scale }}px;
+    color: #c9a227;
+    letter-spacing: 1px;
+}
+
+/* Gold accent bar */
+.gold-bar {
+    position: absolute;
+    left: {{ 43 * scale }}px;
+    top: {{ 93 * scale }}px;
+    width: {{ 4 * scale }}px;
+    height: {{ 77 * scale }}px;
+    background: #c9a227;
+    border-radius: {{ 2 * scale }}px;
+}
+
+/* Title */
+.slide-title {
+    position: absolute;
+    left: {{ 56 * scale }}px;
+    top: {{ 90 * scale }}px;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: {{ 30 * scale }}px;
+    color: #c9a227;
+}
+
+/* Subtitle */
+.slide-subtitle {
+    position: absolute;
+    left: {{ 56 * scale }}px;
+    top: {{ 136 * scale }}px;
+    font-family: 'Inter', sans-serif;
+    font-size: {{ 13 * scale }}px;
+    font-weight: 400;
+    color: #1a365d;
+    max-width: {{ 850 * scale }}px;
+    line-height: 1.4;
+}
+
+/* Chart container */
+.chart-container {
+    position: absolute;
+    left: {{ 43 * scale }}px;
+    top: {{ 181 * scale }}px;
+    width: {{ chart_width }}px;
+    height: {{ chart_height }}px;
+    overflow: hidden;
+}
+
+/* Source footer */
+.slide-source {
+    position: absolute;
+    left: {{ 43 * scale }}px;
+    top: {{ 575 * scale }}px;
+    font-family: 'Inter', sans-serif;
+    font-size: {{ 9 * scale }}px;
+    color: #94a3b8;
+}
+'''
+
+
+def build_full_slide_template(
+    category: str,
+    instrument: str,
+    view: str,
+    subtitle: str,
+    date_str: str,
+    scale: int = 4,
+) -> str:
+    """
+    Build HTML template for full slide export.
+
+    This wraps the existing chart template with slide elements:
+    - Navy banner with category
+    - Herculis logo (text fallback)
+    - Gold accent bar
+    - Title and subtitle
+    - Chart area (placeholder for existing chart)
+    - Source footer
+
+    Parameters
+    ----------
+    category : str
+        Asset category (Equity, Commodities, Crypto).
+    instrument : str
+        Instrument display name (e.g., "Gold", "S&P 500").
+    view : str
+        Market view (e.g., "Bullish", "Bearish").
+    subtitle : str
+        Subtitle text.
+    date_str : str
+        Date string for source footer (e.g., "27/01/2026").
+    scale : int
+        Scale factor for output (default 4 = 3840x2400px).
+
+    Returns
+    -------
+    str
+        HTML template with Jinja2 placeholders for chart data.
+    """
+    # Slide dimensions at scale
+    slide_width = 960 * scale
+    slide_height = 600 * scale
+    chart_width = 895 * scale
+    chart_height = 394 * scale
+
+    # Build the full slide CSS with scale values
+    full_css = FULL_SLIDE_CSS.replace('{{ slide_width }}', str(slide_width))
+    full_css = full_css.replace('{{ slide_height }}', str(slide_height))
+    full_css = full_css.replace('{{ chart_width }}', str(chart_width))
+    full_css = full_css.replace('{{ chart_height }}', str(chart_height))
+    full_css = full_css.replace('{{ scale }}', str(scale))
+    # Handle multiplication expressions
+    for i in [52, 15, 26, 18, 43, 93, 4, 77, 2, 56, 90, 30, 136, 13, 850, 181, 575, 9]:
+        full_css = full_css.replace(f'{{{{ {i} * scale }}}}', str(i * scale))
+
+    return f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <style>
+{full_css}
+{TECH_V2_CSS}
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <!-- Navy Banner -->
+        <div class="banner">
+            <span class="banner-text">{category}</span>
+            <span class="logo-text">HERCULIS</span>
+        </div>
+
+        <!-- Gold accent bar -->
+        <div class="gold-bar"></div>
+
+        <!-- Title -->
+        <div class="slide-title">{instrument}: {view}</div>
+
+        <!-- Subtitle -->
+        <div class="slide-subtitle">{subtitle}</div>
+
+        <!-- Chart (existing template embedded) -->
+        <div class="chart-container">
+{TECH_V2_HTML_BODY}
+        </div>
+
+        <!-- Source footer -->
+        <div class="slide-source">Source: Bloomberg, Herculis Group. Data as of {date_str}</div>
+    </div>
+
+    <script>
+{TECH_V2_JAVASCRIPT}
+    </script>
+</body>
+</html>
+'''
+
+
+# Category mapping for instruments
+INSTRUMENT_CATEGORIES = {
+    # Equity
+    'spx': 'Equity', 's&p 500': 'Equity', 'spx index': 'Equity',
+    'dax': 'Equity', 'dax index': 'Equity',
+    'smi': 'Equity', 'smi index': 'Equity',
+    'nikkei': 'Equity', 'nky index': 'Equity', 'nikkei 225': 'Equity',
+    'sensex': 'Equity', 'sensex index': 'Equity',
+    'csi': 'Equity', 'shsz300 index': 'Equity', 'csi 300': 'Equity',
+    'ibov': 'Equity', 'ibov index': 'Equity', 'ibovespa': 'Equity',
+    'mexbol': 'Equity', 'mexbol index': 'Equity',
+    'tasi': 'Equity', 'saseidx index': 'Equity',
+    # Commodities
+    'gold': 'Commodities', 'xau curncy': 'Commodities', 'gca': 'Commodities',
+    'silver': 'Commodities', 'xag curncy': 'Commodities', 'sia': 'Commodities',
+    'oil': 'Commodities', 'co1 comdty': 'Commodities', 'coa': 'Commodities',
+    'copper': 'Commodities', 'hg1 comdty': 'Commodities',
+    'platinum': 'Commodities', 'pl1 comdty': 'Commodities',
+    'palladium': 'Commodities', 'pa1 comdty': 'Commodities',
+    # Crypto
+    'bitcoin': 'Crypto', 'xbtusd bgn curncy': 'Crypto', 'btc': 'Crypto',
+    'ethereum': 'Crypto', 'xetusd bgn curncy': 'Crypto', 'eth': 'Crypto',
+    'solana': 'Crypto', 'solusd bgn curncy': 'Crypto', 'sol': 'Crypto',
+    'ripple': 'Crypto', 'xrpusd bgn curncy': 'Crypto', 'xrp': 'Crypto',
+    'binance': 'Crypto', 'bnbusd bgn curncy': 'Crypto', 'bnb': 'Crypto',
+}
+
+
+def get_category_for_ticker(ticker: str) -> str:
+    """Get category for a Bloomberg ticker."""
+    return INSTRUMENT_CATEGORIES.get(ticker.lower(), 'Markets')
+
+
+def get_display_name_for_ticker(ticker: str) -> str:
+    """Get display name for a Bloomberg ticker."""
+    DISPLAY_NAMES = {
+        'spx index': 'S&P 500',
+        'dax index': 'DAX',
+        'smi index': 'SMI',
+        'nky index': 'Nikkei 225',
+        'sensex index': 'Sensex',
+        'shsz300 index': 'CSI 300',
+        'ibov index': 'Ibovespa',
+        'mexbol index': 'MEXBOL',
+        'saseidx index': 'TASI',
+        'xau curncy': 'Gold',
+        'xag curncy': 'Silver',
+        'co1 comdty': 'Brent Oil',
+        'hg1 comdty': 'Copper',
+        'pl1 comdty': 'Platinum',
+        'pa1 comdty': 'Palladium',
+        'xbtusd bgn curncy': 'Bitcoin',
+        'xetusd bgn curncy': 'Ethereum',
+        'solusd bgn curncy': 'Solana',
+        'xrpusd bgn curncy': 'Ripple',
+        'bnbusd bgn curncy': 'Binance Coin',
+    }
+    return DISPLAY_NAMES.get(ticker.lower(), ticker.split()[0].title())

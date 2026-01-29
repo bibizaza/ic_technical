@@ -1368,6 +1368,11 @@ def create_technical_analysis_v2_chart(
     lookback_days: int = TECH_V2_LOOKBACK_DAYS,
     days_gap: int = None,
     previous_date: 'date' = None,
+    # Full slide export options
+    full_slide: bool = False,
+    view: str = None,
+    subtitle: str = None,
+    export_path: str = None,
 ) -> tuple:
     """Generate Technical Analysis v2 chart using Chart.js + Playwright.
 
@@ -1395,6 +1400,14 @@ def create_technical_analysis_v2_chart(
         Previous week's RSI value for trend arrow.
     lookback_days : int
         Number of trading days for price chart.
+    full_slide : bool
+        If True, render complete slide with banner, title, subtitle, footer.
+    view : str, optional
+        Market view for title (e.g., "Bullish"). Required if full_slide=True.
+    subtitle : str, optional
+        Subtitle text. Required if full_slide=True.
+    export_path : str, optional
+        Path to save PNG file (for full_slide export).
 
     Returns
     -------
@@ -1402,6 +1415,11 @@ def create_technical_analysis_v2_chart(
         (PNG bytes, effective date used)
     """
     from technical_analysis.templates import TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE
+    from technical_analysis.templates.technical_analysis_v2 import (
+        build_full_slide_template,
+        get_category_for_ticker,
+        get_display_name_for_ticker,
+    )
 
     # Load price data
     try:
@@ -1635,15 +1653,48 @@ def create_technical_analysis_v2_chart(
     print(f"[Tech V2] Data points: {len(price_data)}, RSI current: {rsi_current}")
     print(f"[Tech V2] Scores - DMAS: {dmas_score}, Technical: {technical_score}, Momentum: {momentum_score}")
 
+    # Choose template based on full_slide option
+    if full_slide:
+        # Full slide mode: wrap chart in slide template
+        category = get_category_for_ticker(ticker)
+        instrument_name = get_display_name_for_ticker(ticker)
+        date_str = used_date.strftime("%d/%m/%Y") if used_date else ""
+        view_text = view or "Neutral"
+        subtitle_text = subtitle or f"Technical analysis for {instrument_name}."
+
+        # Use 4x scale for full slide (3840x2400px)
+        full_slide_scale = 4
+        template_str = build_full_slide_template(
+            category=category,
+            instrument=instrument_name,
+            view=view_text,
+            subtitle=subtitle_text,
+            date_str=date_str,
+            scale=full_slide_scale,
+        )
+        print(f"[Tech V2] Full slide mode: {category} / {instrument_name}: {view_text}")
+    else:
+        template_str = TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE
+
     # Render HTML template
     env = Environment()
     env.filters['tojson'] = json.dumps
-    template = env.from_string(TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE)
+    template = env.from_string(template_str)
+
+    # Template variables - scale depends on mode
+    if full_slide:
+        render_width = 895  # Chart width within slide
+        render_height = 394  # Chart height within slide
+        render_scale = 4    # Full slide uses 4x scale
+    else:
+        render_width = TECH_V2_BASE_WIDTH
+        render_height = TECH_V2_BASE_HEIGHT
+        render_scale = TECH_V2_HTML_SCALE
 
     html_content = template.render(
-        width=TECH_V2_BASE_WIDTH,   # Base dimensions - Playwright scales up
-        height=TECH_V2_BASE_HEIGHT,
-        scale=TECH_V2_HTML_SCALE,   # 1 = no CSS scaling, Playwright does the scaling
+        width=render_width,
+        height=render_height,
+        scale=render_scale,
         # Price chart data
         price_labels=price_labels,
         price_data=price_data,
@@ -1687,8 +1738,21 @@ def create_technical_analysis_v2_chart(
         momentum_trend_color=momentum_trend_color,
     )
 
+    # Determine viewport dimensions based on mode
+    if full_slide:
+        # Full slide: 960x600 at 4x scale = 3840x2400px
+        viewport_width = 960 * 4
+        viewport_height = 600 * 4
+        device_scale = 1  # Already scaled in HTML
+        mode_str = "Full Slide"
+    else:
+        viewport_width = TECH_V2_BASE_WIDTH
+        viewport_height = TECH_V2_BASE_HEIGHT
+        device_scale = TECH_V2_DEVICE_SCALE
+        mode_str = "Chart Only"
+
     # Debug: Save HTML for inspection
-    print(f"[Tech V2] HTML body: {TECH_V2_BASE_WIDTH}×{TECH_V2_BASE_HEIGHT}px, Playwright scale: {TECH_V2_DEVICE_SCALE}x -> {TECH_V2_PNG_WIDTH_PX}×{TECH_V2_PNG_HEIGHT_PX}px output")
+    print(f"[Tech V2] {mode_str}: {viewport_width}×{viewport_height}px")
     try:
         import tempfile
         import os
@@ -1704,13 +1768,12 @@ def create_technical_analysis_v2_chart(
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            # Use base dimensions for viewport, device_scale_factor for high-res output
             page = browser.new_page(
                 viewport={
-                    'width': TECH_V2_BASE_WIDTH,
-                    'height': TECH_V2_BASE_HEIGHT
+                    'width': viewport_width,
+                    'height': viewport_height
                 },
-                device_scale_factor=TECH_V2_DEVICE_SCALE
+                device_scale_factor=device_scale
             )
 
             # Set content and wait for network idle
@@ -1733,6 +1796,14 @@ def create_technical_analysis_v2_chart(
             # Take screenshot
             png_bytes = page.screenshot()
             print(f"[Tech V2] Screenshot taken: {len(png_bytes)} bytes")
+
+            # Save to export_path if provided (for full_slide mode)
+            if export_path and png_bytes:
+                os.makedirs(os.path.dirname(export_path) or '.', exist_ok=True)
+                with open(export_path, 'wb') as f:
+                    f.write(png_bytes)
+                print(f"[Tech V2] Full slide exported to: {export_path}")
+
             browser.close()
     except Exception as e:
         print(f"[Tech V2] Playwright error: {e}")

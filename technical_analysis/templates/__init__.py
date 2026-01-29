@@ -19,6 +19,10 @@ from technical_analysis.templates.technical_analysis_v2 import (
     TECH_V2_HTML_BODY,
     TECH_V2_JAVASCRIPT,
     build_technical_analysis_v2_template,
+    # Full slide wrapper functions
+    build_full_slide_template,
+    get_category_for_ticker,
+    get_display_name_for_ticker,
 )
 
 from technical_analysis.templates.full_slide_template import (
@@ -44,13 +48,17 @@ __all__ = [
     'TECH_V2_HTML_BODY',
     'TECH_V2_JAVASCRIPT',
     'build_technical_analysis_v2_template',
-    # Full slide template
+    # Full slide wrapper (simplified)
+    'build_full_slide_template',
+    'get_category_for_ticker',
+    'get_display_name_for_ticker',
+    # Full slide template (legacy - can be removed)
     'FULL_SLIDE_HTML_TEMPLATE',
     'FULL_SLIDE_CSS',
     'FULL_SLIDE_HTML_BODY',
     'get_category',
     'get_logo_base64',
-    # Full slide renderer
+    # Full slide renderer (legacy - can be removed)
     'render_full_slide',
     'render_test_slide',
     'prepare_chart_data',

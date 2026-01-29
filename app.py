@@ -3543,6 +3543,15 @@ def show_generate_presentation_page():
         ],
     )
 
+    # PNG Export option
+    st.sidebar.write("---")
+    export_png_slides = st.sidebar.checkbox(
+        "Export high-quality PNG slides",
+        value=False,
+        key="export_png_checkbox",
+        help="Save 4x resolution (3840x2400px) PNG files for each technical slide"
+    )
+
     if st.sidebar.button("Generate updated PPTX", key="gen_ppt_button"):
         import time
 
@@ -4523,6 +4532,39 @@ def show_generate_presentation_page():
                 view_text=v2_view_text_gold,
                 subtitle_text=v2_subtitle_gold,
             )
+
+            # Export high-quality PNG if enabled
+            if export_png_slides:
+                try:
+                    from pathlib import Path
+                    export_dir = Path("exports")
+                    export_dir.mkdir(exist_ok=True)
+                    gold_export_path = str(export_dir / f"gold_technical_{stamp_ddmmyyyy}.png")
+                    # Extract just the view part (without instrument prefix)
+                    gold_view_only = v2_view_text_gold.replace("Gold: ", "") if v2_view_text_gold else "Neutral"
+                    # Generate full slide PNG
+                    _, _ = create_technical_analysis_v2_chart(
+                        excel_path_for_ppt,
+                        ticker="GCA Comdty",
+                        price_mode=pmode,
+                        dmas_score=int(gold_dmas),
+                        dmas_prev_week=int(gold_dmas_prev),
+                        technical_score=gold_tech,
+                        technical_prev_week=gold_tech_prev,
+                        momentum_score=gold_momentum,
+                        momentum_prev_week=gold_mom_prev,
+                        rsi_prev_week=gold_rsi_prev,
+                        days_gap=gold_days_gap,
+                        previous_date=gold_prev_date,
+                        full_slide=True,
+                        view=gold_view_only,
+                        subtitle=v2_subtitle_gold,
+                        export_path=gold_export_path,
+                    )
+                    print(f"[PNG Export] Gold slide exported to: {gold_export_path}")
+                except Exception as png_err:
+                    print(f"[PNG Export] Gold export failed: {png_err}")
+
         except Exception as e:
             print(f"[Tech V2] Gold v2 chart error: {e}")
             import traceback
