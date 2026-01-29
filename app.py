@@ -1289,11 +1289,12 @@ def _build_fallback_figure(
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
     "Select page", [
-        "Upload", 
-        "YTD Update", 
-        "Technical Analysis", 
+        "Upload",
+        "YTD Update",
+        "Technical Analysis",
         "Market Breadth",
         "Generate Presentation",
+        "Export PNG",
     ]
 )
 
@@ -5789,6 +5790,319 @@ def show_generate_presentation_page():
     st.write("Click the button in the sidebar to generate your updated presentation.")
 
 
+def show_export_png_page():
+    """Export high-quality PNG slides for Telegram/sharing."""
+    st.sidebar.header("Export High-Quality PNG")
+
+    # Check for required data
+    if "excel_file" not in st.session_state:
+        st.sidebar.error("Please upload an Excel file in the Upload page first.")
+        st.stop()
+
+    st.sidebar.write("### Select Instruments to Export")
+
+    # Available instruments organized by category
+    INSTRUMENTS = {
+        "Equity": [
+            ("spx", "S&P 500"),
+            ("dax", "DAX"),
+            ("smi", "SMI"),
+            ("nikkei", "Nikkei 225"),
+            ("sensex", "Sensex"),
+            ("csi", "CSI 300"),
+            ("ibov", "Ibovespa"),
+            ("mexbol", "MEXBOL"),
+            ("tasi", "TASI"),
+        ],
+        "Commodities": [
+            ("gold", "Gold"),
+            ("silver", "Silver"),
+            ("oil", "Brent Oil"),
+            ("copper", "Copper"),
+            ("platinum", "Platinum"),
+            ("palladium", "Palladium"),
+        ],
+        "Crypto": [
+            ("bitcoin", "Bitcoin"),
+            ("ethereum", "Ethereum"),
+            ("solana", "Solana"),
+            ("ripple", "Ripple"),
+            ("binance", "Binance Coin"),
+        ],
+    }
+
+    # View options
+    VIEW_OPTIONS = ["Bullish", "Neutral", "Bearish", "Strongly Bullish", "Strongly Bearish"]
+
+    # Category selection
+    selected_category = st.sidebar.selectbox(
+        "Category",
+        list(INSTRUMENTS.keys()),
+        key="export_png_category"
+    )
+
+    # Instrument selection based on category
+    instrument_options = INSTRUMENTS[selected_category]
+    selected_instrument = st.sidebar.selectbox(
+        "Instrument",
+        instrument_options,
+        format_func=lambda x: x[1],
+        key="export_png_instrument"
+    )
+
+    # View selection
+    selected_view = st.sidebar.selectbox(
+        "Market View",
+        VIEW_OPTIONS,
+        key="export_png_view"
+    )
+
+    # Subtitle input
+    default_subtitle = f"Technical setup indicates a {selected_view.lower()} outlook for {selected_instrument[1]}."
+    subtitle_text = st.sidebar.text_area(
+        "Subtitle (optional)",
+        value=default_subtitle,
+        height=80,
+        key="export_png_subtitle"
+    )
+
+    # Scale selection
+    scale_options = {
+        "Standard (960x600)": 1,
+        "2x (1920x1200)": 2,
+        "4x High-Quality (3840x2400)": 4,
+    }
+    selected_scale_name = st.sidebar.selectbox(
+        "Output Quality",
+        list(scale_options.keys()),
+        index=2,  # Default to 4x
+        key="export_png_scale"
+    )
+    scale = scale_options[selected_scale_name]
+
+    # Export button
+    if st.sidebar.button("Export High-Quality PNG", key="export_png_button"):
+        import tempfile
+        import time
+        from pathlib import Path
+        import pandas as pd
+
+        instrument_id, instrument_name = selected_instrument
+
+        # Progress display
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        try:
+            status_text.text(f"Loading data for {instrument_name}...")
+            progress_bar.progress(0.1)
+
+            # Write Excel to temp file
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_xls:
+                tmp_xls.write(st.session_state["excel_file"].getbuffer())
+                tmp_xls.flush()
+                excel_path = Path(tmp_xls.name)
+
+            # Get ticker mapping
+            TICKER_MAP = {
+                "spx": "SPX Index",
+                "dax": "DAX Index",
+                "smi": "SMI Index",
+                "nikkei": "NKY Index",
+                "sensex": "SENSEX Index",
+                "csi": "SHSZ300 Index",
+                "ibov": "IBOV Index",
+                "mexbol": "MEXBOL Index",
+                "tasi": "SASEIDX Index",
+                "gold": "XAU Curncy",
+                "silver": "XAG Curncy",
+                "oil": "CO1 Comdty",
+                "copper": "HG1 Comdty",
+                "platinum": "PL1 Comdty",
+                "palladium": "PA1 Comdty",
+                "bitcoin": "XBTUSD BGN Curncy",
+                "ethereum": "XETUSD BGN Curncy",
+                "solana": "SOLUSD BGN Curncy",
+                "ripple": "XRPUSD BGN Curncy",
+                "binance": "BNBUSD BGN Curncy",
+            }
+
+            ticker = TICKER_MAP.get(instrument_id, f"{instrument_id.upper()} Index")
+
+            status_text.text(f"Loading price data for {ticker}...")
+            progress_bar.progress(0.2)
+
+            # Load price data
+            try:
+                df_prices = pd.read_excel(excel_path, sheet_name="data_prices")
+                df_prices.columns = df_prices.columns.str.strip()
+
+                if ticker in df_prices.columns:
+                    # Extract dates and prices
+                    date_col = df_prices.columns[0]  # First column is usually dates
+                    df = pd.DataFrame({
+                        'date': pd.to_datetime(df_prices[date_col]),
+                        'close': pd.to_numeric(df_prices[ticker], errors='coerce')
+                    }).dropna()
+                else:
+                    st.error(f"Ticker '{ticker}' not found in price data. Available columns: {list(df_prices.columns[:20])}")
+                    progress_bar.progress(1.0)
+                    return
+            except Exception as e:
+                st.error(f"Error loading price data: {e}")
+                progress_bar.progress(1.0)
+                return
+
+            status_text.text(f"Loading scores for {instrument_name}...")
+            progress_bar.progress(0.3)
+
+            # Load scores
+            dmas_score = 50
+            technical_score = 50
+            momentum_score = 50
+            rsi_current = 50
+
+            try:
+                # Try to load technical scores
+                df_tech = pd.read_excel(excel_path, sheet_name="data_technical_score")
+                df_tech.columns = df_tech.columns.str.strip()
+                if ticker in df_tech.columns:
+                    tech_values = df_tech[ticker].dropna()
+                    if len(tech_values) > 0:
+                        technical_score = int(tech_values.iloc[-1])
+            except Exception:
+                pass
+
+            try:
+                # Try to load momentum scores
+                df_mom = pd.read_excel(excel_path, sheet_name="mars_score")
+                df_mom.columns = df_mom.columns.str.strip()
+                if ticker in df_mom.columns:
+                    mom_values = df_mom[ticker].dropna()
+                    if len(mom_values) > 0:
+                        momentum_score = int(mom_values.iloc[-1])
+            except Exception:
+                pass
+
+            # Calculate DMAS as average
+            dmas_score = int((technical_score + momentum_score) / 2)
+
+            # Calculate RSI from price data
+            try:
+                delta = df['close'].diff()
+                gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs))
+                rsi_current = int(rsi.iloc[-1]) if not pd.isna(rsi.iloc[-1]) else 50
+            except Exception:
+                pass
+
+            status_text.text(f"Generating high-quality slide...")
+            progress_bar.progress(0.5)
+
+            # Import renderer
+            from technical_analysis.templates.full_slide_renderer import render_full_slide
+
+            # Get date string
+            from datetime import datetime
+            date_str = datetime.now().strftime('%d/%m/%Y')
+
+            # Calculate trading range
+            last_price = df['close'].iloc[-1]
+            std_20 = df['close'].tail(20).std()
+            higher_range = last_price + (std_20 * 2)
+            lower_range = last_price - (std_20 * 2)
+
+            status_text.text(f"Rendering PNG at {scale}x scale...")
+            progress_bar.progress(0.7)
+
+            # Create exports directory
+            export_dir = Path("exports")
+            export_dir.mkdir(exist_ok=True)
+            output_filename = f"{instrument_id}_technical_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            output_path = str(export_dir / output_filename)
+
+            # Render the slide
+            png_bytes = render_full_slide(
+                instrument=instrument_id,
+                view=selected_view,
+                subtitle=subtitle_text,
+                df=df,
+                output_path=output_path,
+                scale=scale,
+                dmas_score=dmas_score,
+                technical_score=technical_score,
+                momentum_score=momentum_score,
+                rsi_current=rsi_current,
+                higher_range=higher_range,
+                lower_range=lower_range,
+                date_str=date_str,
+            )
+
+            progress_bar.progress(0.9)
+
+            if png_bytes:
+                status_text.text(f"Export complete!")
+                progress_bar.progress(1.0)
+
+                # Display success and download button
+                st.success(f"High-quality PNG generated successfully!")
+                st.write(f"**Resolution:** {960 * scale} x {600 * scale} pixels")
+                st.write(f"**Scores:** DMAS={dmas_score}, Technical={technical_score}, Momentum={momentum_score}, RSI={rsi_current}")
+
+                # Download button
+                st.download_button(
+                    label=f"Download {instrument_name} PNG",
+                    data=png_bytes,
+                    file_name=output_filename,
+                    mime="image/png",
+                    key="download_png_button"
+                )
+
+                # Show preview (scaled down)
+                st.image(png_bytes, caption=f"{instrument_name}: {selected_view}", use_container_width=True)
+            else:
+                st.error("Failed to generate PNG. Check the console for error details.")
+                progress_bar.progress(1.0)
+
+        except Exception as e:
+            import traceback
+            st.error(f"Error during export: {e}")
+            st.code(traceback.format_exc())
+            progress_bar.progress(1.0)
+
+    # Main area instructions
+    st.write("## Export High-Quality PNG Slides")
+    st.write("""
+    This tool generates high-quality PNG images of technical analysis slides,
+    bypassing PowerPoint compression for crisp output suitable for Telegram and sharing.
+
+    **How to use:**
+    1. Select a category (Equity, Commodities, or Crypto)
+    2. Choose the instrument to export
+    3. Set the market view (Bullish/Neutral/Bearish)
+    4. Optionally customize the subtitle
+    5. Select output quality (4x recommended for best results)
+    6. Click "Export High-Quality PNG"
+
+    **Output specifications:**
+    - Standard: 960 x 600 pixels
+    - 2x: 1920 x 1200 pixels
+    - 4x High-Quality: 3840 x 2400 pixels (recommended)
+
+    The exported PNG includes:
+    - Navy banner with asset category
+    - Herculis branding
+    - Title with instrument name and market view
+    - Custom subtitle
+    - Full technical chart with price, moving averages, and trading range
+    - DMAS panel with Technical and Momentum scores
+    - RSI indicator panel
+    - Source footer with data date
+    """)
+
+
 # -----------------------------------------------------------------------------
 # Main navigation dispatch
 # -----------------------------------------------------------------------------
@@ -5802,3 +6116,5 @@ elif page == "Market Breadth":
     show_market_breadth_page()
 elif page == "Generate Presentation":
     show_generate_presentation_page()
+elif page == "Export PNG":
+    show_export_png_page()
