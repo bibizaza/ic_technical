@@ -25,6 +25,7 @@ class WeeklySnapshot:
     price_vs_200ma_pct: float
     rating: str
     rsi: int = None  # RSI(14) value for WoW comparison
+    subtitle: str = None  # Claude-generated subtitle for slide export
 
 
 class HistoryTracker:
@@ -131,6 +132,7 @@ class HistoryTracker:
         rating: str,
         date: str = None,
         rsi: int = None,
+        subtitle: str = None,
     ):
         """
         Record snapshot. Same date = overwrite.
@@ -147,7 +149,8 @@ class HistoryTracker:
             "price_vs_100ma_pct": round(price_vs_100ma_pct, 2),
             "price_vs_200ma_pct": round(price_vs_200ma_pct, 2),
             "rsi": rsi,
-            "rating": rating
+            "rating": rating,
+            "subtitle": subtitle,
         }
 
         if asset_name not in self.data:
@@ -191,6 +194,7 @@ class HistoryTracker:
                 rating=asset.get("rating", "Neutral"),
                 date=date,
                 rsi=asset.get("rsi"),
+                subtitle=asset.get("subtitle"),
             )
         print(f"[HistoryTracker] Saved to: {self.storage_path}")
 
@@ -338,6 +342,78 @@ class HistoryTracker:
     def get_all_assets(self) -> List[str]:
         """Get list of all tracked assets."""
         return list(self.data.keys())
+
+    def get_entry_by_date(self, asset_name: str, date: str) -> Optional[dict]:
+        """Get a specific date's entry for an asset.
+
+        Parameters
+        ----------
+        asset_name : str
+            Name of the asset (e.g., "Gold", "S&P 500").
+        date : str
+            Date in YYYY-MM-DD format.
+
+        Returns
+        -------
+        dict or None
+            The entry for that date, or None if not found.
+        """
+        history = self.get_history(asset_name)
+        for entry in history:
+            if entry.get("date") == date:
+                return entry.copy()
+        return None
+
+    def get_available_dates(self, asset_name: str = None) -> List[str]:
+        """Get list of available dates for export.
+
+        Parameters
+        ----------
+        asset_name : str, optional
+            If provided, returns dates for this asset only.
+            If None, returns dates that have at least one asset.
+
+        Returns
+        -------
+        list
+            List of dates in YYYY-MM-DD format, sorted descending.
+        """
+        all_dates = set()
+        if asset_name:
+            for entry in self.get_history(asset_name):
+                all_dates.add(entry.get("date"))
+        else:
+            for asset, history in self.data.items():
+                for entry in history:
+                    all_dates.add(entry.get("date"))
+        return sorted(all_dates, reverse=True)
+
+    def update_subtitle(self, asset_name: str, date: str, subtitle: str) -> bool:
+        """Update just the subtitle for an existing entry.
+
+        Parameters
+        ----------
+        asset_name : str
+            Name of the asset.
+        date : str
+            Date in YYYY-MM-DD format.
+        subtitle : str
+            The subtitle text to store.
+
+        Returns
+        -------
+        bool
+            True if updated successfully, False if entry not found.
+        """
+        if asset_name not in self.data:
+            return False
+
+        for entry in self.data[asset_name]:
+            if entry.get("date") == date:
+                entry["subtitle"] = subtitle
+                self._save()
+                return True
+        return False
 
 
 # Singleton
