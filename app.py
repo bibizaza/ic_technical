@@ -3543,14 +3543,9 @@ def show_generate_presentation_page():
         ],
     )
 
-    # PNG Export option
+    # PNG Export note
     st.sidebar.write("---")
-    export_png_slides = st.sidebar.checkbox(
-        "Export high-quality PNG slides",
-        value=False,
-        key="export_png_checkbox",
-        help="Save 4x resolution (3840x2400px) PNG files for each technical slide"
-    )
+    st.sidebar.info("📸 High-quality PNG exports are available via the **Export PNG** page after generation.")
 
     if st.sidebar.button("Generate updated PPTX", key="gen_ppt_button"):
         import time
@@ -4533,37 +4528,8 @@ def show_generate_presentation_page():
                 subtitle_text=v2_subtitle_gold,
             )
 
-            # Export high-quality PNG if enabled
-            if export_png_slides:
-                try:
-                    from pathlib import Path
-                    export_dir = Path("exports")
-                    export_dir.mkdir(exist_ok=True)
-                    gold_export_path = str(export_dir / f"gold_technical_{stamp_ddmmyyyy}.png")
-                    # Extract just the view part (without instrument prefix)
-                    gold_view_only = v2_view_text_gold.replace("Gold: ", "") if v2_view_text_gold else "Neutral"
-                    # Generate full slide PNG
-                    _, _ = create_technical_analysis_v2_chart(
-                        excel_path_for_ppt,
-                        ticker="GCA Comdty",
-                        price_mode=pmode,
-                        dmas_score=int(gold_dmas),
-                        dmas_prev_week=int(gold_dmas_prev),
-                        technical_score=gold_tech,
-                        technical_prev_week=gold_tech_prev,
-                        momentum_score=gold_momentum,
-                        momentum_prev_week=gold_mom_prev,
-                        rsi_prev_week=gold_rsi_prev,
-                        days_gap=gold_days_gap,
-                        previous_date=gold_prev_date,
-                        full_slide=True,
-                        view=gold_view_only,
-                        subtitle=v2_subtitle_gold,
-                        export_path=gold_export_path,
-                    )
-                    print(f"[PNG Export] Gold slide exported to: {gold_export_path}")
-                except Exception as png_err:
-                    print(f"[PNG Export] Gold export failed: {png_err}")
+            # Note: PNG exports are now available via the "Export PNG" page
+            # which offers browser downloads without saving files to disk
 
         except Exception as e:
             print(f"[Tech V2] Gold v2 chart error: {e}")
@@ -6055,10 +6021,6 @@ def show_export_png_page():
                 "Strongly Bearish": "Strongly Bearish",
             }
 
-            # Create exports directory
-            export_dir = Path("exports")
-            export_dir.mkdir(exist_ok=True)
-
             for idx, asset in enumerate(selected_assets):
                 ticker_key = asset["ticker_key"]
                 display_name = asset["display_name"]
@@ -6118,19 +6080,18 @@ def show_export_png_page():
                 # Format date for slide
                 date_str = datetime.strptime(selected_date, "%Y-%m-%d").strftime('%d/%m/%Y')
 
-                # Generate PNG using renderer
+                # Generate PNG using renderer (browser download only, no file save)
                 try:
                     from technical_analysis.templates.full_slide_renderer import render_full_slide
 
                     output_filename = f"{ticker_key}_technical_{selected_date.replace('-', '')}.png"
-                    output_path = str(export_dir / output_filename)
 
                     png_bytes = render_full_slide(
                         instrument=ticker_key,
                         view=view,
                         subtitle=subtitle,
                         df=df,
-                        output_path=output_path,
+                        output_path=None,  # Don't save to disk, browser download only
                         scale=scale,
                         dmas_score=dmas_score,
                         technical_score=technical_score,
