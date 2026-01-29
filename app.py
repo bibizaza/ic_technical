@@ -6002,10 +6002,13 @@ def show_export_png_page():
                 tmp_xls.flush()
                 excel_path = Path(tmp_xls.name)
 
-            # Load price data
+            # Load price data (same pattern as rest of app)
             df_prices = pd.read_excel(excel_path, sheet_name="data_prices")
+            df_prices = df_prices.drop(index=0)  # Drop first row
+            df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]  # Filter out header
             df_prices.columns = df_prices.columns.str.strip()
             date_col = df_prices.columns[0]
+            df_prices["Date"] = pd.to_datetime(df_prices[date_col], errors="coerce")
 
             # Ticker mapping for price data
             TICKER_MAP = {
@@ -6076,9 +6079,9 @@ def show_export_png_page():
                     st.warning(f"Price data not found for {display_name}, skipping.")
                     continue
 
-                # Extract price series
+                # Extract price series (use pre-processed Date column)
                 df = pd.DataFrame({
-                    'date': pd.to_datetime(df_prices[date_col]),
+                    'date': df_prices["Date"],
                     'close': pd.to_numeric(df_prices[ticker], errors='coerce')
                 }).dropna()
 
