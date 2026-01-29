@@ -60,9 +60,11 @@ SLIDE_BASE_HEIGHT = 600
 # Default scale factor for high-quality output
 DEFAULT_SCALE = 4
 
-# Chart dimensions within the slide (at 1x)
+# Chart dimensions within the slide (at 1x) - exact from PPTX
+# 23.67cm = 3578px at 4x → 894.5 at 1x (rounded to 895)
+# 10.50cm = 1588px at 4x → 397 at 1x
 CHART_WIDTH = 895
-CHART_HEIGHT = 394
+CHART_HEIGHT = 397
 
 
 # =============================================================================
@@ -415,7 +417,7 @@ body {{
     border-radius: {1 * scale}px;
 }}
 
-/* Title - exact from PPTX: 24pt Calibri bold italic, #00B0F0 */
+/* Title - exact from PPTX: 24pt Calibri bold, #00B0F0 (NOT italic) */
 .title {{
     position: absolute;
     left: {56 * scale}px;
@@ -423,7 +425,7 @@ body {{
     font-family: 'Calibri', sans-serif;
     font-size: {24 * scale}px;
     font-weight: bold;
-    font-style: italic;
+    font-style: normal;
     color: #00B0F0;
 }}
 

@@ -1020,7 +1020,7 @@ FULL_SLIDE_CSS = '''
     border-radius: {{ 1 * scale }}px;
 }
 
-/* Title - exact from PPTX: left 1.47cm, top 2.39cm, 24pt Calibri bold italic, #00B0F0 */
+/* Title - exact from PPTX: left 1.47cm, top 2.39cm, 24pt Calibri bold, #00B0F0 (NOT italic) */
 .slide-title {
     position: absolute;
     left: {{ 56 * scale }}px;
@@ -1028,7 +1028,7 @@ FULL_SLIDE_CSS = '''
     font-family: 'Calibri', sans-serif;
     font-size: {{ 24 * scale }}px;
     font-weight: bold;
-    font-style: italic;
+    font-style: normal;
     color: #00B0F0;
 }
 
