@@ -346,106 +346,118 @@ body {{
     height: {SLIDE_BASE_HEIGHT * scale}px;
     background: white;
     position: relative;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Calibri', sans-serif;
     overflow: hidden;
 }}
 
-/* Navy Banner */
+/* Navy Banner - exact from PPTX */
 .banner {{
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: {52 * scale}px;
-    background: linear-gradient(135deg, #1a365d 0%, #1e3a5f 50%, #1a365d 100%);
+    background: linear-gradient(135deg, #1a365d 0%, #1e3a5f 100%);
+}}
+
+/* Gold horizontal line under banner - exact from PPTX */
+.gold-line {{
+    position: absolute;
+    top: {52 * scale}px;
+    left: 0;
+    width: 100%;
+    height: {1 * scale}px;
+    background: #c9a227;
 }}
 
 .banner-text {{
     position: absolute;
     left: {15 * scale}px;
-    top: 50%;
+    top: {26 * scale}px;
     transform: translateY(-50%);
-    font-family: 'Playfair Display', Georgia, serif;
-    font-style: italic;
+    font-family: 'Calibri', sans-serif;
     font-size: {26 * scale}px;
+    font-weight: bold;
+    font-style: italic;
     color: white;
-    letter-spacing: 0.5px;
 }}
 
 /* Text-based logo fallback */
 .logo-text {{
     position: absolute;
     right: {15 * scale}px;
-    top: 50%;
+    top: {26 * scale}px;
     transform: translateY(-50%);
-    font-family: 'Playfair Display', Georgia, serif;
-    font-style: italic;
+    font-family: 'Calibri', sans-serif;
     font-size: {18 * scale}px;
+    font-weight: bold;
+    font-style: italic;
     color: #c9a227;
-    letter-spacing: 1px;
 }}
 
-/* Logo image */
+/* Logo image - exact from PPTX */
 .logo {{
     position: absolute;
-    right: {10 * scale}px;
-    top: {2 * scale}px;
-    width: {120 * scale}px;
-    height: auto;
+    left: {826 * scale}px;
+    top: {1 * scale}px;
+    width: {124 * scale}px;
+    height: {113 * scale}px;
 }}
 
-/* Gold accent bar */
+/* Gold vertical accent bar - exact from PPTX */
 .gold-bar {{
     position: absolute;
     left: {43 * scale}px;
     top: {93 * scale}px;
-    width: {4 * scale}px;
-    height: {77 * scale}px;
+    width: {1 * scale}px;
+    height: {78 * scale}px;
     background: #c9a227;
-    border-radius: {2 * scale}px;
+    border-radius: {1 * scale}px;
 }}
 
-/* Title */
+/* Title - exact from PPTX: 24pt Calibri bold italic, #00B0F0 */
 .title {{
     position: absolute;
     left: {56 * scale}px;
     top: {90 * scale}px;
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'Calibri', sans-serif;
+    font-size: {24 * scale}px;
+    font-weight: bold;
     font-style: italic;
-    font-size: {30 * scale}px;
-    color: #c9a227;
+    color: #00B0F0;
 }}
 
-/* Subtitle */
+/* Subtitle - exact from PPTX: 16pt Calibri bold, #040C38 */
 .subtitle {{
     position: absolute;
     left: {56 * scale}px;
     top: {136 * scale}px;
-    font-family: 'Inter', sans-serif;
-    font-size: {13 * scale}px;
-    font-weight: 400;
-    color: #1a365d;
+    font-family: 'Calibri', sans-serif;
+    font-size: {16 * scale}px;
+    font-weight: bold;
+    color: #040C38;
     max-width: {850 * scale}px;
-    line-height: 1.4;
+    line-height: 1.3;
 }}
 
-/* Chart container */
+/* Chart container - exact from PPTX */
 .chart-container {{
     position: absolute;
     left: {43 * scale}px;
-    top: {181 * scale}px;
+    top: {182 * scale}px;
     width: {CHART_WIDTH * scale}px;
     height: {CHART_HEIGHT * scale}px;
     overflow: hidden;
 }}
 
-/* Source footer */
+/* Source footer - exact from PPTX */
 .source {{
     position: absolute;
     left: {43 * scale}px;
     top: {575 * scale}px;
-    font-family: 'Inter', sans-serif;
-    font-size: {9 * scale}px;
+    font-family: 'Calibri', sans-serif;
+    font-size: {8 * scale}px;
+    font-weight: bold;
     color: #94a3b8;
 }}
 
@@ -705,10 +717,15 @@ body {{
     <!-- Navy Banner -->
     <div class="banner">
         <span class="banner-text">{category}</span>
-        {"<img class='logo' src='data:image/png;base64," + logo_base64 + "' alt='Herculis'>" if logo_base64 else "<span class='logo-text'>HERCULIS</span>"}
     </div>
 
-    <!-- Gold accent bar -->
+    <!-- Gold horizontal line under banner -->
+    <div class="gold-line"></div>
+
+    <!-- Logo (image or text fallback) -->
+    {"<img class='logo' src='data:image/png;base64," + logo_base64 + "' alt='Herculis'>" if logo_base64 else "<span class='logo-text'>HERCULIS</span>"}
+
+    <!-- Gold vertical accent bar -->
     <div class="gold-bar"></div>
 
     <!-- Title -->
