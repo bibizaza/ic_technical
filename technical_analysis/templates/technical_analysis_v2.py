@@ -940,46 +940,59 @@ TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE = build_technical_analysis_v2_template()
 # =============================================================================
 
 FULL_SLIDE_CSS = '''
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.cdnfonts.com/css/calibri-light');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 .slide-container {
     width: {{ slide_width }}px;
     height: {{ slide_height }}px;
     background: white;
     position: relative;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Calibri', sans-serif;
     overflow: hidden;
 }
 
-/* Navy Banner */
+/* Navy Banner - exact from PPTX: height 1.37cm = 207px at 4x */
 .banner {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: {{ 52 * scale }}px;
-    background: linear-gradient(135deg, #1a365d 0%, #1e3a5f 50%, #1a365d 100%);
+    background: linear-gradient(135deg, #1a365d 0%, #1e3a5f 100%);
 }
 
+/* Gold horizontal line under banner - exact from PPTX */
+.gold-line {
+    position: absolute;
+    top: {{ 52 * scale }}px;
+    left: 0;
+    width: 100%;
+    height: {{ 1 * scale }}px;
+    background: #c9a227;
+}
+
+/* Category text in banner - exact from PPTX: 0.40cm left, 26pt font */
 .banner-text {
     position: absolute;
     left: {{ 15 * scale }}px;
-    top: 50%;
+    top: {{ 26 * scale }}px;
     transform: translateY(-50%);
-    font-family: 'Playfair Display', Georgia, serif;
-    font-style: italic;
+    font-family: 'Calibri', sans-serif;
     font-size: {{ 26 * scale }}px;
+    font-weight: bold;
+    font-style: italic;
     color: white;
-    letter-spacing: 0.5px;
 }
 
-/* Logo image (positioned in top-right, overlapping banner) */
+/* Logo image - exact from PPTX: left 21.87cm, top 0.03cm, 3.29x2.99cm */
 .logo-img {
     position: absolute;
-    right: {{ 10 * scale }}px;
+    left: {{ 826 * scale }}px;
     top: {{ 1 * scale }}px;
-    height: {{ 50 * scale }}px;
-    width: auto;
+    width: {{ 124 * scale }}px;
+    height: {{ 113 * scale }}px;
     z-index: 10;
 }
 
@@ -987,67 +1000,69 @@ FULL_SLIDE_CSS = '''
 .logo-text {
     position: absolute;
     right: {{ 15 * scale }}px;
-    top: 50%;
+    top: {{ 26 * scale }}px;
     transform: translateY(-50%);
-    font-family: 'Playfair Display', Georgia, serif;
-    font-style: italic;
+    font-family: 'Calibri', sans-serif;
     font-size: {{ 18 * scale }}px;
+    font-weight: bold;
+    font-style: italic;
     color: #c9a227;
-    letter-spacing: 1px;
 }
 
-/* Gold accent bar */
+/* Gold vertical accent bar - exact from PPTX: left 1.13cm, top 2.46cm, height 2.05cm */
 .gold-bar {
     position: absolute;
     left: {{ 43 * scale }}px;
-    top: {{ 80 * scale }}px;
-    width: {{ 4 * scale }}px;
-    height: {{ 77 * scale }}px;
+    top: {{ 93 * scale }}px;
+    width: {{ 1 * scale }}px;
+    height: {{ 78 * scale }}px;
     background: #c9a227;
-    border-radius: {{ 2 * scale }}px;
+    border-radius: {{ 1 * scale }}px;
 }
 
-/* Title - LIGHT BLUE (exact from PPTX) */
+/* Title - exact from PPTX: left 1.47cm, top 2.39cm, 24pt Calibri bold italic, #00B0F0 */
 .slide-title {
     position: absolute;
     left: {{ 56 * scale }}px;
-    top: {{ 77 * scale }}px;
-    font-family: 'Playfair Display', Georgia, serif;
+    top: {{ 90 * scale }}px;
+    font-family: 'Calibri', sans-serif;
+    font-size: {{ 24 * scale }}px;
+    font-weight: bold;
     font-style: italic;
-    font-size: {{ 30 * scale }}px;
     color: #00B0F0;
 }
 
-/* Subtitle - DARK NAVY (exact from PPTX) */
+/* Subtitle - exact from PPTX: left 1.47cm, top 3.60cm, 16pt Calibri bold, #040C38 */
 .slide-subtitle {
     position: absolute;
     left: {{ 56 * scale }}px;
-    top: {{ 120 * scale }}px;
-    font-family: 'Inter', sans-serif;
-    font-size: {{ 13 * scale }}px;
-    font-weight: 400;
+    top: {{ 136 * scale }}px;
+    font-family: 'Calibri', sans-serif;
+    font-size: {{ 16 * scale }}px;
+    font-weight: bold;
     color: #040C38;
     max-width: {{ 850 * scale }}px;
-    line-height: 1.4;
+    line-height: 1.3;
 }
 
-/* Chart container - TALLER, moved up */
+/* Chart container - exact from PPTX: left 1.13cm, top 4.80cm, 23.67x10.50cm */
 .chart-container {
     position: absolute;
     left: {{ 43 * scale }}px;
-    top: {{ 160 * scale }}px;
+    top: {{ 182 * scale }}px;
     width: {{ chart_width }}px;
     height: {{ chart_height }}px;
     overflow: hidden;
 }
 
-/* Source footer */
+/* Source footer - exact from PPTX: left 1.13cm, top 15.21cm, 8pt Calibri bold */
 .slide-source {
     position: absolute;
     left: {{ 43 * scale }}px;
-    bottom: {{ 8 * scale }}px;
-    font-family: 'Inter', sans-serif;
-    font-size: {{ 9 * scale }}px;
+    top: {{ 575 * scale }}px;
+    font-family: 'Calibri', sans-serif;
+    font-size: {{ 8 * scale }}px;
+    font-weight: bold;
     color: #94a3b8;
 }
 '''
@@ -1118,11 +1133,11 @@ def build_full_slide_template(
     str
         HTML template with Jinja2 placeholders for chart data.
     """
-    # Slide dimensions at scale
+    # Slide dimensions at scale (exact from PPTX: 25.40 x 15.88 cm)
     slide_width = 960 * scale
     slide_height = 600 * scale
-    chart_width = 895 * scale
-    chart_height = 410 * scale  # Increased from 394 for taller chart
+    chart_width = 895 * scale  # 23.67cm = 895px at 1x
+    chart_height = 397 * scale  # 10.50cm = 397px at 1x (exact from PPTX)
 
     # Build the full slide CSS with scale values
     full_css = FULL_SLIDE_CSS.replace('{{ slide_width }}', str(slide_width))
@@ -1130,8 +1145,8 @@ def build_full_slide_template(
     full_css = full_css.replace('{{ chart_width }}', str(chart_width))
     full_css = full_css.replace('{{ chart_height }}', str(chart_height))
     full_css = full_css.replace('{{ scale }}', str(scale))
-    # Handle multiplication expressions (including new values for repositioned elements)
-    for i in [52, 15, 26, 18, 43, 80, 4, 77, 2, 56, 30, 120, 13, 850, 160, 8, 9, 1, 10, 50]:
+    # Handle multiplication expressions (exact positions from PPTX)
+    for i in [52, 15, 26, 18, 43, 93, 1, 78, 56, 90, 24, 136, 16, 850, 182, 575, 8, 826, 124, 113]:
         full_css = full_css.replace(f'{{{{ {i} * scale }}}}', str(i * scale))
 
     # Load logo if not provided
@@ -1162,16 +1177,19 @@ def build_full_slide_template(
             <span class="banner-text">{category}</span>
         </div>
 
+        <!-- Gold horizontal line under banner (exact from PPTX) -->
+        <div class="gold-line"></div>
+
         <!-- Logo (image or text fallback) -->
         {logo_html}
 
-        <!-- Gold accent bar -->
+        <!-- Gold vertical accent bar -->
         <div class="gold-bar"></div>
 
-        <!-- Title (light blue #00B0F0) -->
+        <!-- Title (Calibri bold italic, #00B0F0 light blue) -->
         <div class="slide-title">{instrument}: {view}</div>
 
-        <!-- Subtitle (dark navy #040C38) -->
+        <!-- Subtitle (Calibri bold, #040C38 dark navy) -->
         <div class="slide-subtitle">{subtitle}</div>
 
         <!-- Chart (existing template embedded) -->
