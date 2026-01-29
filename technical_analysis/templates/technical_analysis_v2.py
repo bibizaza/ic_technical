@@ -973,6 +973,17 @@ FULL_SLIDE_CSS = '''
     letter-spacing: 0.5px;
 }
 
+/* Logo image (positioned in top-right, overlapping banner) */
+.logo-img {
+    position: absolute;
+    right: {{ 10 * scale }}px;
+    top: {{ 1 * scale }}px;
+    height: {{ 50 * scale }}px;
+    width: auto;
+    z-index: 10;
+}
+
+/* Logo text fallback (if no image) */
 .logo-text {
     position: absolute;
     right: {{ 15 * scale }}px;
@@ -989,42 +1000,42 @@ FULL_SLIDE_CSS = '''
 .gold-bar {
     position: absolute;
     left: {{ 43 * scale }}px;
-    top: {{ 93 * scale }}px;
+    top: {{ 80 * scale }}px;
     width: {{ 4 * scale }}px;
     height: {{ 77 * scale }}px;
     background: #c9a227;
     border-radius: {{ 2 * scale }}px;
 }
 
-/* Title */
+/* Title - LIGHT BLUE (exact from PPTX) */
 .slide-title {
     position: absolute;
     left: {{ 56 * scale }}px;
-    top: {{ 90 * scale }}px;
+    top: {{ 77 * scale }}px;
     font-family: 'Playfair Display', Georgia, serif;
     font-style: italic;
     font-size: {{ 30 * scale }}px;
-    color: #c9a227;
+    color: #00B0F0;
 }
 
-/* Subtitle */
+/* Subtitle - DARK NAVY (exact from PPTX) */
 .slide-subtitle {
     position: absolute;
     left: {{ 56 * scale }}px;
-    top: {{ 136 * scale }}px;
+    top: {{ 120 * scale }}px;
     font-family: 'Inter', sans-serif;
     font-size: {{ 13 * scale }}px;
     font-weight: 400;
-    color: #1a365d;
+    color: #040C38;
     max-width: {{ 850 * scale }}px;
     line-height: 1.4;
 }
 
-/* Chart container */
+/* Chart container - TALLER, moved up */
 .chart-container {
     position: absolute;
     left: {{ 43 * scale }}px;
-    top: {{ 181 * scale }}px;
+    top: {{ 160 * scale }}px;
     width: {{ chart_width }}px;
     height: {{ chart_height }}px;
     overflow: hidden;
@@ -1034,12 +1045,35 @@ FULL_SLIDE_CSS = '''
 .slide-source {
     position: absolute;
     left: {{ 43 * scale }}px;
-    top: {{ 575 * scale }}px;
+    bottom: {{ 8 * scale }}px;
     font-family: 'Inter', sans-serif;
     font-size: {{ 9 * scale }}px;
     color: #94a3b8;
 }
 '''
+
+
+def get_logo_base64() -> str:
+    """Load Herculis logo as base64 string, or return empty string if not found."""
+    import base64
+    from pathlib import Path
+
+    # Try multiple possible logo locations
+    logo_paths = [
+        Path(__file__).parent.parent.parent / "assets" / "herculis_logo.png",
+        Path(__file__).parent.parent.parent / "assets" / "logo.png",
+        Path(__file__).parent / "herculis_logo.png",
+    ]
+
+    for logo_path in logo_paths:
+        if logo_path.exists():
+            try:
+                with open(logo_path, 'rb') as f:
+                    return base64.b64encode(f.read()).decode('utf-8')
+            except Exception:
+                pass
+
+    return ""
 
 
 def build_full_slide_template(
@@ -1049,13 +1083,14 @@ def build_full_slide_template(
     subtitle: str,
     date_str: str,
     scale: int = 4,
+    logo_base64: str = None,
 ) -> str:
     """
     Build HTML template for full slide export.
 
     This wraps the existing chart template with slide elements:
     - Navy banner with category
-    - Herculis logo (text fallback)
+    - Herculis logo (image or text fallback)
     - Gold accent bar
     - Title and subtitle
     - Chart area (placeholder for existing chart)
@@ -1075,6 +1110,8 @@ def build_full_slide_template(
         Date string for source footer (e.g., "27/01/2026").
     scale : int
         Scale factor for output (default 4 = 3840x2400px).
+    logo_base64 : str, optional
+        Base64-encoded logo image. If None, will try to load from assets.
 
     Returns
     -------
@@ -1085,7 +1122,7 @@ def build_full_slide_template(
     slide_width = 960 * scale
     slide_height = 600 * scale
     chart_width = 895 * scale
-    chart_height = 394 * scale
+    chart_height = 410 * scale  # Increased from 394 for taller chart
 
     # Build the full slide CSS with scale values
     full_css = FULL_SLIDE_CSS.replace('{{ slide_width }}', str(slide_width))
@@ -1093,9 +1130,19 @@ def build_full_slide_template(
     full_css = full_css.replace('{{ chart_width }}', str(chart_width))
     full_css = full_css.replace('{{ chart_height }}', str(chart_height))
     full_css = full_css.replace('{{ scale }}', str(scale))
-    # Handle multiplication expressions
-    for i in [52, 15, 26, 18, 43, 93, 4, 77, 2, 56, 90, 30, 136, 13, 850, 181, 575, 9]:
+    # Handle multiplication expressions (including new values for repositioned elements)
+    for i in [52, 15, 26, 18, 43, 80, 4, 77, 2, 56, 30, 120, 13, 850, 160, 8, 9, 1, 10, 50]:
         full_css = full_css.replace(f'{{{{ {i} * scale }}}}', str(i * scale))
+
+    # Load logo if not provided
+    if logo_base64 is None:
+        logo_base64 = get_logo_base64()
+
+    # Build logo HTML - use image if available, otherwise text fallback
+    if logo_base64:
+        logo_html = f'<img class="logo-img" src="data:image/png;base64,{logo_base64}" alt="Herculis">'
+    else:
+        logo_html = '<span class="logo-text">HERCULIS</span>'
 
     return f'''<!DOCTYPE html>
 <html lang="en">
@@ -1113,16 +1160,18 @@ def build_full_slide_template(
         <!-- Navy Banner -->
         <div class="banner">
             <span class="banner-text">{category}</span>
-            <span class="logo-text">HERCULIS</span>
         </div>
+
+        <!-- Logo (image or text fallback) -->
+        {logo_html}
 
         <!-- Gold accent bar -->
         <div class="gold-bar"></div>
 
-        <!-- Title -->
+        <!-- Title (light blue #00B0F0) -->
         <div class="slide-title">{instrument}: {view}</div>
 
-        <!-- Subtitle -->
+        <!-- Subtitle (dark navy #040C38) -->
         <div class="slide-subtitle">{subtitle}</div>
 
         <!-- Chart (existing template embedded) -->
