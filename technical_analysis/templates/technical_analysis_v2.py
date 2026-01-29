@@ -1142,9 +1142,9 @@ def build_full_slide_template(
 '''
 
 
-# Category mapping for instruments
+# Category mapping for instruments (supports multiple ticker formats)
 INSTRUMENT_CATEGORIES = {
-    # Equity
+    # Equity - Index tickers
     'spx': 'Equity', 's&p 500': 'Equity', 'spx index': 'Equity',
     'dax': 'Equity', 'dax index': 'Equity',
     'smi': 'Equity', 'smi index': 'Equity',
@@ -1154,19 +1154,19 @@ INSTRUMENT_CATEGORIES = {
     'ibov': 'Equity', 'ibov index': 'Equity', 'ibovespa': 'Equity',
     'mexbol': 'Equity', 'mexbol index': 'Equity',
     'tasi': 'Equity', 'saseidx index': 'Equity',
-    # Commodities
-    'gold': 'Commodities', 'xau curncy': 'Commodities', 'gca': 'Commodities',
-    'silver': 'Commodities', 'xag curncy': 'Commodities', 'sia': 'Commodities',
-    'oil': 'Commodities', 'co1 comdty': 'Commodities', 'coa': 'Commodities',
-    'copper': 'Commodities', 'hg1 comdty': 'Commodities',
-    'platinum': 'Commodities', 'pl1 comdty': 'Commodities',
-    'palladium': 'Commodities', 'pa1 comdty': 'Commodities',
-    # Crypto
-    'bitcoin': 'Crypto', 'xbtusd bgn curncy': 'Crypto', 'btc': 'Crypto',
-    'ethereum': 'Crypto', 'xetusd bgn curncy': 'Crypto', 'eth': 'Crypto',
-    'solana': 'Crypto', 'solusd bgn curncy': 'Crypto', 'sol': 'Crypto',
-    'ripple': 'Crypto', 'xrpusd bgn curncy': 'Crypto', 'xrp': 'Crypto',
-    'binance': 'Crypto', 'bnbusd bgn curncy': 'Crypto', 'bnb': 'Crypto',
+    # Commodities - Bloomberg tickers (gca, sia, xpt, xpd, cl1, lp1)
+    'gold': 'Commodities', 'gca': 'Commodities', 'gca comdty': 'Commodities',
+    'silver': 'Commodities', 'sia': 'Commodities', 'sia comdty': 'Commodities',
+    'oil': 'Commodities', 'cl1': 'Commodities', 'cl1 comdty': 'Commodities',
+    'copper': 'Commodities', 'lp1': 'Commodities', 'lp1 comdty': 'Commodities',
+    'platinum': 'Commodities', 'xpt': 'Commodities', 'xpt comdty': 'Commodities',
+    'palladium': 'Commodities', 'xpd': 'Commodities', 'xpd curncy': 'Commodities',
+    # Crypto - Bloomberg tickers
+    'bitcoin': 'Crypto', 'btc': 'Crypto', 'xbtusd curncy': 'Crypto',
+    'ethereum': 'Crypto', 'eth': 'Crypto', 'xetusd curncy': 'Crypto',
+    'solana': 'Crypto', 'sol': 'Crypto', 'xsousd curncy': 'Crypto',
+    'ripple': 'Crypto', 'xrp': 'Crypto', 'xrpusd curncy': 'Crypto',
+    'binance': 'Crypto', 'bnb': 'Crypto', 'xbiusd curncy': 'Crypto',
 }
 
 
@@ -1178,6 +1178,7 @@ def get_category_for_ticker(ticker: str) -> str:
 def get_display_name_for_ticker(ticker: str) -> str:
     """Get display name for a Bloomberg ticker."""
     DISPLAY_NAMES = {
+        # Equity
         'spx index': 'S&P 500',
         'dax index': 'DAX',
         'smi index': 'SMI',
@@ -1187,16 +1188,18 @@ def get_display_name_for_ticker(ticker: str) -> str:
         'ibov index': 'Ibovespa',
         'mexbol index': 'MEXBOL',
         'saseidx index': 'TASI',
-        'xau curncy': 'Gold',
-        'xag curncy': 'Silver',
-        'co1 comdty': 'Brent Oil',
-        'hg1 comdty': 'Copper',
-        'pl1 comdty': 'Platinum',
-        'pa1 comdty': 'Palladium',
-        'xbtusd bgn curncy': 'Bitcoin',
-        'xetusd bgn curncy': 'Ethereum',
-        'solusd bgn curncy': 'Solana',
-        'xrpusd bgn curncy': 'Ripple',
-        'bnbusd bgn curncy': 'Binance Coin',
+        # Commodities (Bloomberg ticker formats)
+        'gca comdty': 'Gold',
+        'sia comdty': 'Silver',
+        'cl1 comdty': 'Brent Oil',
+        'lp1 comdty': 'Copper',
+        'xpt comdty': 'Platinum',
+        'xpd curncy': 'Palladium',
+        # Crypto (Bloomberg ticker formats)
+        'xbtusd curncy': 'Bitcoin',
+        'xetusd curncy': 'Ethereum',
+        'xsousd curncy': 'Solana',
+        'xrpusd curncy': 'Ripple',
+        'xbiusd curncy': 'Binance Coin',
     }
     return DISPLAY_NAMES.get(ticker.lower(), ticker.split()[0].title())
