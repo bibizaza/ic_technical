@@ -30,14 +30,13 @@ except ImportError:
 ANTHROPIC_API_KEY = None  # Or set via environment variable
 
 # =============================================================================
-# MODEL CONFIGURATION (A/B Testing)
+# MODEL CONFIGURATION
 # =============================================================================
 MODELS = {
-    "haiku_35": "claude-3-5-haiku-20241022",
     "haiku_45": "claude-haiku-4-5-20251001",
 }
 
-DEFAULT_MODEL_KEY = "haiku_35"  # Current default for production
+DEFAULT_MODEL_KEY = "haiku_45"
 
 # =============================================================================
 # VOCABULARY ROTATION (v5.6)
@@ -891,7 +890,7 @@ def generate_batch(
     Parameters
     ----------
     model_key : str, optional
-        Model key from MODELS dict ('haiku_35' or 'haiku_45'). Default: haiku_35.
+        Model key from MODELS dict. Default: haiku_45.
     data_as_of : str, optional
         Date string (YYYY-MM-DD) for history storage. If None, uses today's date.
     """
@@ -985,7 +984,7 @@ def generate_batch(
             print(f"Warning: Could not save to history: {e}")
 
     # Cost calculation with caching
-    # Haiku 3.5: Input $0.80/1M, Output $4.00/1M
+    # Haiku 4.5: Input $0.80/1M, Output $4.00/1M
     # Cache read: 90% discount = $0.08/1M
     # Cache write: 25% premium = $1.00/1M
     # Note: API may report cache tokens separately, so ensure non-negative

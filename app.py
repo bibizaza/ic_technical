@@ -1422,19 +1422,8 @@ def show_upload_page():
                 except Exception as e:
                     st.sidebar.error(f"❌ Error: {str(e)[:100]}")
 
-        # Model selection for subtitle generation
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("🤖 Model Selection")
-        model_choice = st.sidebar.radio(
-            "Claude Model:",
-            options=["Haiku 3.5 (Current)", "Haiku 4.5 (New)"],
-            index=0,
-            help="Haiku 4.5 has better reasoning but costs ~25% more",
-            key="model_choice"
-        )
-        # Map selection to model_key
-        model_key = "haiku_35" if "3.5" in model_choice else "haiku_45"
-        st.session_state["claude_model_key"] = model_key
+        # Model configuration (Haiku 4.5)
+        st.session_state["claude_model_key"] = "haiku_45"
 
         if st.sidebar.button("🚀 Run Full Analysis", type="primary", help="Compute technical scores, assessments, and subtitles for all assets"):
             with st.spinner("Running analysis for all assets..."):
@@ -1591,7 +1580,7 @@ def show_upload_page():
                         if "data_as_of" in st.session_state:
                             data_as_of_str = st.session_state["data_as_of"].strftime("%Y-%m-%d")
                         # Get selected model from session state
-                        selected_model_key = st.session_state.get("claude_model_key", "haiku_35")
+                        selected_model_key = st.session_state.get("claude_model_key", "haiku_45")
                         subtitle_results = generate_claude_subtitles_batch(
                             assets_for_claude, prices_dict,
                             data_as_of=data_as_of_str,
@@ -1671,15 +1660,23 @@ def show_upload_page():
 
                         # Only generate if we have data
                         if any(perf_data.values()):
+                            print(f"[YTD] Generating recaps for: {[k for k,v in perf_data.items() if v]}")
                             recaps = generate_all_recaps(perf_data)
                             if 'equity' in recaps:
                                 st.session_state['eq_subtitle'] = recaps['equity']
+                                print(f"[YTD] Equity: {recaps['equity'][:60]}...")
                             if 'commodities' in recaps:
                                 st.session_state['co_subtitle'] = recaps['commodities']
+                                print(f"[YTD] Commodities: {recaps['commodities'][:60]}...")
                             if 'crypto' in recaps:
                                 st.session_state['cr_subtitle'] = recaps['crypto']
+                                print(f"[YTD] Crypto: {recaps['crypto'][:60]}...")
+                        else:
+                            print("[YTD] No performance data available for recap generation")
                     except Exception as e:
-                        print(f"YTD recap generation failed: {e}")
+                        import traceback
+                        print(f"[YTD] ❌ Recap generation failed: {e}")
+                        traceback.print_exc()
                         # Non-fatal - continue with analysis
 
                     progress_bar.progress(0.75)
@@ -1714,9 +1711,8 @@ def show_upload_page():
                     # Show results
                     if results:
                         # Show which model was used
-                        model_display = "Haiku 3.5" if selected_model_key == "haiku_35" else "Haiku 4.5"
                         st.sidebar.success(f"✅ Analysis complete! Processed {len(results)} assets")
-                        st.sidebar.info(f"🤖 Model used: {model_display}")
+                        st.sidebar.info(f"🤖 Model used: Haiku 4.5")
 
                         # Show summary in main area
                         st.subheader("Analysis Results")

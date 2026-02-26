@@ -589,7 +589,7 @@ def generate_claude_subtitles_batch(
     prices_dict : dict, optional
         Dict mapping ticker_key to price Series for MA calculations
     model_key : str, optional
-        Model key ('haiku_35' or 'haiku_45'). Default: haiku_35.
+        Model key from MODELS dict. Default: haiku_45.
 
     Returns
     -------
