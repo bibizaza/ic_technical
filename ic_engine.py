@@ -398,7 +398,8 @@ def _disable_image_compression(prs):
 def _load_prices_dataframe(excel_path: Path, data_as_of: Optional[pd.Timestamp] = None) -> pd.DataFrame:
     """Load and prepare prices dataframe from Excel."""
     df_prices = pd.read_excel(excel_path, sheet_name="data_prices")
-    df_prices = df_prices.drop(index=0)
+    # Use iloc[1:] instead of drop(index=0) for robustness with varying index types
+    df_prices = df_prices.iloc[1:].reset_index(drop=True)
     df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
     df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
 

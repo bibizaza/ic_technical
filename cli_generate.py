@@ -88,7 +88,9 @@ TICKER_TO_KEY = {
 def get_max_date_from_excel(excel_path: Path) -> date:
     """Get the maximum date available in the Excel data."""
     df = pd.read_excel(excel_path, sheet_name="data_prices")
-    df = df.drop(index=0)
+    # Use iloc[1:] instead of drop(index=0) for robustness
+    # The first row after header is a sub-header row that should be skipped
+    df = df.iloc[1:].reset_index(drop=True)
     df = df[df[df.columns[0]] != "DATES"]
     df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
     df = df.dropna(subset=["Date"])
@@ -224,7 +226,7 @@ def compute_scores(excel_path: Path, state: Dict[str, Any], data_as_of: date) ->
 
     # Read price data
     df_prices = pd.read_excel(excel_path, sheet_name="data_prices")
-    df_prices = df_prices.drop(index=0)
+    df_prices = df_prices.iloc[1:].reset_index(drop=True)
     df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
     df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
     df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(data_as_of)]
@@ -298,7 +300,7 @@ def generate_subtitles(excel_path: Path, state: Dict[str, Any], data_as_of: str)
 
         # Read prices for MA calculations
         df_prices = pd.read_excel(excel_path, sheet_name="data_prices")
-        df_prices = df_prices.drop(index=0)
+        df_prices = df_prices.iloc[1:].reset_index(drop=True)
         df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
         df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
         df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(data_as_of)]
