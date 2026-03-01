@@ -126,7 +126,9 @@ preflight_check() {
 # === CONDA ACTIVATION ===
 activate_conda() {
     # Try common conda locations
-    if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+    if [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+        source "$HOME/miniforge3/etc/profile.d/conda.sh"
+    elif [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
         source "$HOME/miniconda3/etc/profile.d/conda.sh"
     elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
         source "$HOME/anaconda3/etc/profile.d/conda.sh"
