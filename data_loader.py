@@ -133,15 +133,15 @@ def create_temp_excel_from_csv(
     - First column: dates
     - Other columns: ticker prices
 
-    This also copies other sheets (breadth, fundamental, data_perf) from the
-    source Excel file if they exist.
+    This copies ALL sheets from the source IC Excel file, then overwrites
+    data_prices with the CSV-derived data.
 
     Parameters
     ----------
     csv_path : Path
         Path to master_prices.csv
     source_excel_path : Path
-        Path to the source IC Excel file (for breadth/fundamental sheets)
+        Path to the source IC Excel file (contains all other sheets)
     data_as_of : date, optional
         Filter data up to this date. If None, use all data.
 
@@ -178,21 +178,20 @@ def create_temp_excel_from_csv(
 
     # Write to Excel with openpyxl engine
     with pd.ExcelWriter(temp_path, engine='openpyxl') as writer:
-        # Write data_prices sheet
-        df_excel.to_excel(writer, sheet_name='data_prices', index=False)
-
-        # Copy other sheets from source Excel if they exist
+        # First, copy ALL sheets from source Excel
         try:
             xl = pd.ExcelFile(source_excel_path)
-            sheets_to_copy = ['breadth', 'fundamental', 'data_perf', 'mars_score',
-                             'data_technical_score', 'data_momentum_score']
-
-            for sheet in sheets_to_copy:
-                if sheet in xl.sheet_names:
-                    df_sheet = pd.read_excel(xl, sheet_name=sheet)
-                    df_sheet.to_excel(writer, sheet_name=sheet, index=False)
+            for sheet in xl.sheet_names:
+                # Skip data_prices - we'll overwrite it with CSV data
+                if sheet == 'data_prices':
+                    continue
+                df_sheet = pd.read_excel(xl, sheet_name=sheet)
+                df_sheet.to_excel(writer, sheet_name=sheet, index=False)
         except Exception as e:
             print(f"[data_loader] Warning: Could not copy sheets from {source_excel_path}: {e}")
+
+        # Then write data_prices sheet with CSV-derived data (overwrites if exists)
+        df_excel.to_excel(writer, sheet_name='data_prices', index=False)
 
     return Path(temp_path)
 
