@@ -34,7 +34,7 @@ from utils import adjust_prices_for_mode
 from technical_analysis.common_helpers import clear_excel_cache
 
 # Import CSV data loader
-from data_loader import load_prices_from_csv, get_price_series
+from data_loader import load_prices_from_csv, get_price_series, create_temp_excel_from_csv
 
 # Import chart generation functions
 from technical_analysis.equity.spx import (
@@ -495,6 +495,16 @@ def generate_presentation(
     progress("Loading price data from CSV...")
     df_prices = _load_prices_dataframe(prices_path, data_as_of)
 
+    # Create temporary Excel file with data_prices sheet from CSV
+    # This is needed because chart functions in technical_analysis/ expect Excel format
+    progress("Creating temporary Excel file from CSV data...")
+    data_as_of_date = data_as_of.date() if data_as_of is not None else None
+    temp_excel_path = create_temp_excel_from_csv(prices_path, excel_path, data_as_of_date)
+    progress(f"Temporary Excel created at: {temp_excel_path}")
+
+    # Use temp Excel for chart generation (has data_prices from CSV + other sheets from source)
+    chart_excel_path = temp_excel_path
+
     # ==========================================================================
     # TECHNICAL ANALYSIS SLIDES
     # ==========================================================================
@@ -511,9 +521,9 @@ def generate_presentation(
             dmas = state.get(f"{ticker_key}_dmas", 50)
             dmas_prev = state.get(f"{ticker_key}_last_week_avg", dmas)
 
-            # Get computed scores from Excel
-            tech_score = inst["get_tech_score"](excel_path)
-            mom_score = inst["get_mom_score"](excel_path)
+            # Get computed scores from Excel (use temp Excel with data_prices from CSV)
+            tech_score = inst["get_tech_score"](chart_excel_path)
+            mom_score = inst["get_mom_score"](chart_excel_path)
 
             # Get previous week scores
             tech_prev = state.get(f"{ticker_key}_last_week_tech")
@@ -529,9 +539,9 @@ def generate_presentation(
                 df_prices, inst["price_column"], price_mode
             )
 
-            # Generate chart
+            # Generate chart (use temp Excel with data_prices from CSV)
             chart_bytes, _ = create_technical_analysis_v2_chart(
-                excel_path,
+                chart_excel_path,
                 ticker=inst["bloomberg_ticker"],
                 price_mode=price_mode,
                 dmas_score=int(dmas),
@@ -574,55 +584,55 @@ def generate_presentation(
     progress("Generating Equity performance slides...")
     try:
         # Weekly bar chart
-        bar_bytes, perf_used_date = create_weekly_performance_chart(excel_path, price_mode=price_mode)
+        bar_bytes, perf_used_date = create_weekly_performance_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_equity_performance_bar_slide(
             prs, bar_bytes, used_date=perf_used_date, price_mode=price_mode,
             left_cm=3.47, top_cm=5.28, width_cm=17.31, height_cm=10
         )
 
         # Historical heatmap
-        histo_bytes, histo_used_date = create_historical_performance_table(excel_path, price_mode=price_mode)
+        histo_bytes, histo_used_date = create_historical_performance_table(chart_excel_path, price_mode=price_mode)
         prs = insert_equity_performance_histo_slide(
             prs, histo_bytes, used_date=histo_used_date, price_mode=price_mode,
             left_cm=2.16, top_cm=4.70, width_cm=19.43, height_cm=10.61
         )
 
         # YTD evolution
-        ytd_bytes, ytd_date = create_equity_ytd_evolution_chart(excel_path, price_mode=price_mode)
+        ytd_bytes, ytd_date = create_equity_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_equity_ytd_evolution_slide(
             prs, ytd_bytes, used_date=ytd_date, price_mode=price_mode,
             subtitle=state.get("eq_subtitle")
         )
 
         # FX impact EUR
-        fx_eur_bytes, fx_eur_date = create_fx_impact_analysis_chart_eur(excel_path, price_mode=price_mode)
+        fx_eur_bytes, fx_eur_date = create_fx_impact_analysis_chart_eur(chart_excel_path, price_mode=price_mode)
         prs = insert_fx_impact_analysis_slide_eur(prs, fx_eur_bytes, used_date=fx_eur_date, price_mode=price_mode)
 
         # FX impact CHF
-        fx_chf_bytes, fx_chf_date = create_fx_impact_analysis_chart_chf(excel_path, price_mode=price_mode)
+        fx_chf_bytes, fx_chf_date = create_fx_impact_analysis_chart_chf(chart_excel_path, price_mode=price_mode)
         prs = insert_fx_impact_analysis_slide_chf(prs, fx_chf_bytes, used_date=fx_chf_date, price_mode=price_mode)
     except Exception as e:
         print(f"[Engine] Equity performance error: {e}")
 
     progress("Generating FX performance slides...")
     try:
-        fx_bar_bytes, fx_date = create_weekly_fx_html_chart(excel_path, price_mode=price_mode)
+        fx_bar_bytes, fx_date = create_weekly_fx_html_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_fx_weekly_html_slide(prs, fx_bar_bytes, used_date=fx_date, price_mode=price_mode)
 
-        fx_histo_bytes, fx_date2 = create_historical_fx_html_chart(excel_path, price_mode=price_mode)
+        fx_histo_bytes, fx_date2 = create_historical_fx_html_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_fx_historical_html_slide(prs, fx_histo_bytes, used_date=fx_date2, price_mode=price_mode)
     except Exception as e:
         print(f"[Engine] FX performance error: {e}")
 
     progress("Generating Crypto performance slides...")
     try:
-        crypto_bar_bytes, crypto_date = create_weekly_crypto_html_chart(excel_path, price_mode=price_mode)
+        crypto_bar_bytes, crypto_date = create_weekly_crypto_html_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_crypto_weekly_html_slide(prs, crypto_bar_bytes, used_date=crypto_date, price_mode=price_mode)
 
-        crypto_histo_bytes, crypto_date2 = create_historical_crypto_html_chart(excel_path, price_mode=price_mode)
+        crypto_histo_bytes, crypto_date2 = create_historical_crypto_html_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_crypto_historical_html_slide(prs, crypto_histo_bytes, used_date=crypto_date2, price_mode=price_mode)
 
-        crypto_ytd_bytes, crypto_ytd_date = create_crypto_ytd_evolution_chart(excel_path, price_mode=price_mode)
+        crypto_ytd_bytes, crypto_ytd_date = create_crypto_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_crypto_ytd_evolution_slide(
             prs, crypto_ytd_bytes, used_date=crypto_ytd_date, price_mode=price_mode,
             subtitle=state.get("cr_subtitle")
@@ -632,13 +642,13 @@ def generate_presentation(
 
     progress("Generating Rates performance slides...")
     try:
-        rates_bar_bytes, rates_date = create_weekly_rates_performance_chart(excel_path, price_mode=price_mode)
+        rates_bar_bytes, rates_date = create_weekly_rates_performance_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_rates_performance_bar_slide(
             prs, rates_bar_bytes, used_date=rates_date, price_mode=price_mode,
             left_cm=3.35, top_cm=4.6, width_cm=17.02
         )
 
-        rates_histo_bytes, rates_date2 = create_historical_rates_performance_table(excel_path, price_mode=price_mode)
+        rates_histo_bytes, rates_date2 = create_historical_rates_performance_table(chart_excel_path, price_mode=price_mode)
         prs = insert_rates_performance_histo_slide(
             prs, rates_histo_bytes, used_date=rates_date2, price_mode=price_mode,
             left_cm=3.35, top_cm=4.6, width_cm=17.02
@@ -648,13 +658,13 @@ def generate_presentation(
 
     progress("Generating Credit performance slides...")
     try:
-        credit_bar_bytes, credit_date = create_weekly_credit_performance_chart(excel_path, price_mode=price_mode)
+        credit_bar_bytes, credit_date = create_weekly_credit_performance_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_credit_performance_bar_slide(
             prs, credit_bar_bytes, used_date=credit_date, price_mode=price_mode,
             left_cm=1.63, top_cm=4.73, width_cm=22.48, height_cm=10.61
         )
 
-        credit_histo_bytes, credit_date2 = create_historical_credit_performance_chart(excel_path, price_mode=price_mode)
+        credit_histo_bytes, credit_date2 = create_historical_credit_performance_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_credit_performance_histo_slide(
             prs, credit_histo_bytes, used_date=credit_date2, price_mode=price_mode
         )
@@ -663,13 +673,13 @@ def generate_presentation(
 
     progress("Generating Commodity performance slides...")
     try:
-        commo_bar_bytes, commo_date = create_weekly_commodity_html_chart(excel_path, price_mode=price_mode)
+        commo_bar_bytes, commo_date = create_weekly_commodity_html_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_commodity_weekly_html_slide(prs, commo_bar_bytes, used_date=commo_date, price_mode=price_mode)
 
-        commo_histo_bytes, commo_date2 = create_historical_commodity_html_chart(excel_path, price_mode=price_mode)
+        commo_histo_bytes, commo_date2 = create_historical_commodity_html_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_commodity_historical_html_slide(prs, commo_histo_bytes, used_date=commo_date2, price_mode=price_mode)
 
-        commo_ytd_bytes, commo_ytd_date = create_commodity_ytd_evolution_chart(excel_path, price_mode=price_mode)
+        commo_ytd_bytes, commo_ytd_date = create_commodity_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_commodity_ytd_evolution_slide(
             prs, commo_ytd_bytes, used_date=commo_ytd_date, price_mode=price_mode,
             subtitle=state.get("co_subtitle")
@@ -692,7 +702,7 @@ def generate_presentation(
         dmas_scores = {inst["ticker_key"]: state.get(f"{inst['ticker_key']}_dmas", 50) for inst in INSTRUMENTS}
 
         # Prepare and insert slide
-        rows = prepare_slide_data(df_prices_adj, dmas_scores, str(excel_path), price_mode=price_mode)
+        rows = prepare_slide_data(df_prices_adj, dmas_scores, str(chart_excel_path), price_mode=price_mode)
         if rows:
             insert_technical_analysis_slide(
                 prs, rows, placeholder_name="technical_nutshell",
@@ -706,14 +716,14 @@ def generate_presentation(
     progress("Generating Market Breadth slide...")
     try:
         from market_compass.breadth_slide import generate_breadth_slide
-        prs = generate_breadth_slide(prs, excel_path=str(excel_path), slide_name="slide_breadth")
+        prs = generate_breadth_slide(prs, excel_path=str(chart_excel_path), slide_name="slide_breadth")
     except Exception as e:
         print(f"[Engine] Breadth slide error: {e}")
 
     progress("Generating Fundamental Analysis slide...")
     try:
         from market_compass.fundamental_slide import generate_fundamental_slide
-        prs = generate_fundamental_slide(prs, excel_path=str(excel_path), slide_name="slide_fundamentals")
+        prs = generate_fundamental_slide(prs, excel_path=str(chart_excel_path), slide_name="slide_fundamentals")
     except Exception as e:
         print(f"[Engine] Fundamental slide error: {e}")
 
@@ -741,6 +751,15 @@ def generate_presentation(
         time_str = f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
 
     progress(f"Presentation generated in {time_str}")
+
+    # Cleanup temporary Excel file
+    try:
+        import os
+        if temp_excel_path.exists():
+            os.remove(temp_excel_path)
+            progress("Cleaned up temporary Excel file")
+    except Exception as e:
+        print(f"[Engine] Warning: Could not clean up temp file: {e}")
 
     return pptx_bytes, filename
 

@@ -34,7 +34,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import CSV data loader
-from data_loader import load_prices_from_csv, get_max_date_from_csv, get_price_series
+from data_loader import (
+    load_prices_from_csv, get_max_date_from_csv, get_price_series,
+    compute_ytd_performance, create_data_perf_sheet
+)
 
 
 # ==============================================================================
@@ -337,8 +340,8 @@ def generate_subtitles(prices_path: Path, state: Dict[str, Any], data_as_of: str
         traceback.print_exc()
 
 
-def generate_ytd_recaps(excel_path: Path, state: Dict[str, Any]) -> None:
-    """Generate YTD recap subtitles."""
+def generate_ytd_recaps(prices_path: Path, state: Dict[str, Any], data_as_of: Optional[date] = None) -> None:
+    """Generate YTD recap subtitles from CSV price data."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         print("[CLI] No ANTHROPIC_API_KEY, skipping YTD recaps")
@@ -352,8 +355,9 @@ def generate_ytd_recaps(excel_path: Path, state: Dict[str, Any]) -> None:
 
         from market_compass.subtitle_generator.claude_generator import generate_all_recaps
 
-        # Read performance data
-        df_perf = pd.read_excel(excel_path, sheet_name="data_perf")
+        # Load price data and compute YTD performance
+        df_prices = load_prices_from_csv(prices_path, data_as_of)
+        df_perf = create_data_perf_sheet(df_prices)
 
         # Build performance data dict
         perf_data = {
@@ -369,11 +373,11 @@ def generate_ytd_recaps(excel_path: Path, state: Dict[str, Any]) -> None:
 
         for col in df_perf.columns:
             if col in EQUITY_COLS:
-                perf_data["equity"][col] = df_perf[col].iloc[-1] if len(df_perf) > 0 else 0
+                perf_data["equity"][col] = df_perf[col].iloc[0] if len(df_perf) > 0 else 0
             elif col in COMMODITY_COLS:
-                perf_data["commodities"][col] = df_perf[col].iloc[-1] if len(df_perf) > 0 else 0
+                perf_data["commodities"][col] = df_perf[col].iloc[0] if len(df_perf) > 0 else 0
             elif col in CRYPTO_COLS:
-                perf_data["crypto"][col] = df_perf[col].iloc[-1] if len(df_perf) > 0 else 0
+                perf_data["crypto"][col] = df_perf[col].iloc[0] if len(df_perf) > 0 else 0
 
         if any(perf_data.values()):
             recaps = generate_all_recaps(perf_data)
@@ -640,7 +644,7 @@ Environment Variables:
     # Step 4: Generate subtitles
     if not args.skip_subtitles:
         generate_subtitles(prices_path, state, data_as_of_str)
-        generate_ytd_recaps(excel_path, state)
+        generate_ytd_recaps(prices_path, state, data_as_of)
 
     # Step 5: Generate presentation
     print("\n" + "="*60)
