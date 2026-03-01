@@ -3,6 +3,13 @@
 # IC Pipeline - Full automation script
 # Runs: append_ytd_prices -> momentum scoring -> presentation generation
 #
+# Usage:
+#   ./run_ic_pipeline.sh              # Use latest date from price data
+#   ./run_ic_pipeline.sh 2026-03-04   # Use specific date
+#
+# Alias (add to ~/.zshrc or ~/.bashrc):
+#   alias ic="cd /Users/larazanella/Desktop/GitHub/Projects/ic_technical && ./run_ic_pipeline.sh"
+#
 
 set -e  # Exit on any error
 
@@ -17,6 +24,10 @@ MASTER="$IC_DROPBOX/master_prices.csv"
 TEMPLATE="$IC_DROPBOX/template.pptx"
 HISTORY="$IC_DROPBOX/score_history/history.json"
 OUTPUT="$IC_DROPBOX"
+
+# === PARSE ARGUMENTS ===
+# Optional date argument (YYYY-MM-DD), defaults to "latest"
+DATE_ARG="${1:-latest}"
 
 # === SETUP ===
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -57,6 +68,7 @@ notify() {
 print_header() {
     echo "============================================================"
     echo "IC PIPELINE - $DATE_DISPLAY"
+    echo "Data date: $DATE_ARG"
     echo "============================================================"
 }
 
@@ -221,7 +233,7 @@ main() {
         --template "$TEMPLATE" \
         --history "$HISTORY" \
         --output "$OUTPUT" \
-        --date latest > /tmp/ic_step3.log 2>&1 || {
+        --date "$DATE_ARG" > /tmp/ic_step3.log 2>&1 || {
         echo "    ❌ Failed"
         cat /tmp/ic_step3.log
         notify "IC Pipeline" "❌ Failed at step 3: presentation generation"
