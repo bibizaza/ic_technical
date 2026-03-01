@@ -5,6 +5,7 @@ IC Technical Presentation CLI Generator
 Usage:
     python cli_generate.py \
         --excel /path/to/ic_file.xlsx \
+        --prices /path/to/master_prices.csv \
         --template /path/to/template.pptx \
         --output /path/to/output/ \
         --history /path/to/history.json \
@@ -13,6 +14,10 @@ Usage:
 Environment Variables:
     ANTHROPIC_API_KEY - Required for Claude subtitle generation
     CMC_API_KEY - Optional for crypto market caps
+
+Data Sources:
+    - ic_file.xlsx: parameters, mars_score, transition, breadth, fundamental data
+    - master_prices.csv: daily price data (semicolon-separated, European dates)
 """
 
 import argparse
@@ -27,6 +32,9 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Import CSV data loader
+from data_loader import load_prices_from_csv, get_max_date_from_csv, get_price_series
 
 
 # ==============================================================================
@@ -89,16 +97,9 @@ TICKER_TO_KEY = {
 # STATE INITIALIZATION
 # ==============================================================================
 
-def get_max_date_from_excel(excel_path: Path) -> date:
-    """Get the maximum date available in the Excel data."""
-    df = pd.read_excel(excel_path, sheet_name="data_prices")
-    # Use iloc[1:] instead of drop(index=0) for robustness
-    # The first row after header is a sub-header row that should be skipped
-    df = df.iloc[1:].reset_index(drop=True)
-    df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df = df.dropna(subset=["Date"])
-    return df["Date"].max().date()
+def get_max_date(prices_path: Path) -> date:
+    """Get the maximum date available in the price data CSV."""
+    return get_max_date_from_csv(prices_path)
 
 
 def load_transition_sheet(excel_path: Path, state: Dict[str, Any]) -> None:
@@ -222,47 +223,30 @@ def load_history_data(history_path: Path, state: Dict[str, Any], current_date: d
         print(f"[CLI] Warning: Could not load history: {e}")
 
 
-def compute_scores(excel_path: Path, state: Dict[str, Any], data_as_of: date) -> None:
+def compute_scores(prices_path: Path, excel_path: Path, state: Dict[str, Any], data_as_of: date) -> None:
     """Compute DMAS scores for all instruments."""
     print("[CLI] Computing technical scores...")
 
     from technical_score_wrapper import compute_dmas_scores
 
-    # Read price data
-    df_prices = pd.read_excel(excel_path, sheet_name="data_prices")
-    df_prices = df_prices.iloc[1:].reset_index(drop=True)
-    df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
-    df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
-    df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(data_as_of)]
+    # Load price data from CSV
+    df_prices = load_prices_from_csv(prices_path, data_as_of)
 
     computed_count = 0
     for ticker_key, (bbg_ticker, display_name) in ASSET_MAP.items():
         try:
-            # Find matching column
-            bbg_upper = bbg_ticker.upper()
-            matching_col = None
-            for col in df_prices.columns:
-                if isinstance(col, str) and col.upper() == bbg_upper:
-                    matching_col = col
-                    break
+            # Get price series for this ticker
+            prices = get_price_series(df_prices, bbg_ticker)
 
-            if matching_col is None:
+            if prices is None:
                 print(f"[CLI] Warning: No data found for {display_name} ({bbg_ticker})")
                 continue
 
-            # Extract price series
-            prices_df = df_prices[["Date", matching_col]].copy()
-            prices_df.columns = ["Date", "Price"]
-            prices_df["Price"] = pd.to_numeric(prices_df["Price"], errors="coerce")
-            prices_df = prices_df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
-
-            if len(prices_df) < 200:
-                print(f"[CLI] Warning: Insufficient data for {display_name} ({len(prices_df)} days)")
+            if len(prices) < 200:
+                print(f"[CLI] Warning: Insufficient data for {display_name} ({len(prices)} days)")
                 continue
 
-            prices = prices_df["Price"]
-
-            # Compute scores
+            # Compute scores (pass excel_path for momentum scores from mars_score sheet)
             scores = compute_dmas_scores(prices, ticker=bbg_ticker, excel_path=str(excel_path))
 
             state[f"{ticker_key}_tech_score"] = scores["technical_score"]
@@ -278,7 +262,7 @@ def compute_scores(excel_path: Path, state: Dict[str, Any], data_as_of: date) ->
     print(f"[CLI] Computed scores for {computed_count} instruments")
 
 
-def generate_subtitles(excel_path: Path, state: Dict[str, Any], data_as_of: str) -> None:
+def generate_subtitles(prices_path: Path, state: Dict[str, Any], data_as_of: str) -> None:
     """Generate subtitles via Claude API."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -302,12 +286,8 @@ def generate_subtitles(excel_path: Path, state: Dict[str, Any], data_as_of: str)
             print("[CLI] Claude API not available, using pattern-based subtitles")
             return
 
-        # Read prices for MA calculations
-        df_prices = pd.read_excel(excel_path, sheet_name="data_prices")
-        df_prices = df_prices.iloc[1:].reset_index(drop=True)
-        df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
-        df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
-        df_prices = df_prices[df_prices["Date"] <= pd.Timestamp(data_as_of)]
+        # Load prices from CSV for MA calculations
+        df_prices = load_prices_from_csv(prices_path, datetime.strptime(data_as_of, "%Y-%m-%d").date())
 
         # Prepare assets list
         assets_list = []
@@ -318,21 +298,10 @@ def generate_subtitles(excel_path: Path, state: Dict[str, Any], data_as_of: str)
             if dmas is None:
                 continue
 
-            # Find price column
-            bbg_upper = bbg_ticker.upper()
-            matching_col = None
-            for col in df_prices.columns:
-                if isinstance(col, str) and col.upper() == bbg_upper:
-                    matching_col = col
-                    break
-
-            if matching_col:
-                prices_df = df_prices[["Date", matching_col]].copy()
-                prices_df.columns = ["Date", "Price"]
-                prices_df["Price"] = pd.to_numeric(prices_df["Price"], errors="coerce")
-                prices_df = prices_df.dropna().sort_values("Date").reset_index(drop=True)
-                if len(prices_df) >= 200:
-                    prices_dict[ticker_key] = prices_df["Price"]
+            # Get price series for this ticker
+            prices = get_price_series(df_prices, bbg_ticker)
+            if prices is not None and len(prices) >= 200:
+                prices_dict[ticker_key] = prices
 
             assets_list.append({
                 "ticker_key": ticker_key,
@@ -513,12 +482,14 @@ Examples:
     # Basic usage
     python cli_generate.py \\
         --excel /path/to/ic_file.xlsx \\
+        --prices /path/to/master_prices.csv \\
         --template /path/to/template.pptx \\
         --output /path/to/output/
 
     # With specific date and history
     python cli_generate.py \\
         --excel /path/to/ic_file.xlsx \\
+        --prices /path/to/master_prices.csv \\
         --template /path/to/template.pptx \\
         --output /path/to/output/ \\
         --history /path/to/history.json \\
@@ -534,7 +505,14 @@ Environment Variables:
         "--excel", "-e",
         type=str,
         required=True,
-        help="Path to consolidated Excel file (ic_file.xlsx)"
+        help="Path to IC Excel file (ic_file.xlsx) with parameters, mars_score, transition sheets"
+    )
+
+    parser.add_argument(
+        "--prices", "-p",
+        type=str,
+        required=True,
+        help="Path to price data CSV (master_prices.csv)"
     )
 
     parser.add_argument(
@@ -595,11 +573,16 @@ Environment Variables:
 
     # Validate paths
     excel_path = Path(args.excel)
+    prices_path = Path(args.prices)
     template_path = Path(args.template)
     output_dir = Path(args.output)
 
     if not excel_path.exists():
         print(f"Error: Excel file not found: {excel_path}")
+        sys.exit(1)
+
+    if not prices_path.exists():
+        print(f"Error: Prices CSV not found: {prices_path}")
         sys.exit(1)
 
     if not template_path.exists():
@@ -614,8 +597,8 @@ Environment Variables:
 
     # Determine data_as_of date
     if args.date == "latest":
-        data_as_of = get_max_date_from_excel(excel_path)
-        print(f"[CLI] Using latest date from Excel: {data_as_of}")
+        data_as_of = get_max_date(prices_path)
+        print(f"[CLI] Using latest date from prices CSV: {data_as_of}")
     else:
         try:
             data_as_of = datetime.strptime(args.date, "%Y-%m-%d").date()
@@ -631,6 +614,7 @@ Environment Variables:
     print("IC TECHNICAL PRESENTATION GENERATOR (CLI)")
     print("="*60)
     print(f"Excel: {excel_path}")
+    print(f"Prices: {prices_path}")
     print(f"Template: {template_path}")
     print(f"Output: {output_dir}")
     print(f"Date: {data_as_of}")
@@ -640,6 +624,7 @@ Environment Variables:
     state: Dict[str, Any] = {
         "data_as_of": data_as_of,
         "price_mode": args.price_mode,
+        "prices_path": str(prices_path),  # Store for engine to use
     }
 
     # Step 1: Load transition sheet
@@ -650,11 +635,11 @@ Environment Variables:
         load_history_data(history_path, state, data_as_of)
 
     # Step 3: Compute technical scores
-    compute_scores(excel_path, state, data_as_of)
+    compute_scores(prices_path, excel_path, state, data_as_of)
 
     # Step 4: Generate subtitles
     if not args.skip_subtitles:
-        generate_subtitles(excel_path, state, data_as_of_str)
+        generate_subtitles(prices_path, state, data_as_of_str)
         generate_ytd_recaps(excel_path, state)
 
     # Step 5: Generate presentation
@@ -668,6 +653,7 @@ Environment Variables:
         print(f"  {msg}")
 
     pptx_bytes, filename = generate_presentation(
+        prices_path=prices_path,
         excel_path=excel_path,
         template_path=template_path,
         state=state,

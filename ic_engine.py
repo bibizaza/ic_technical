@@ -9,7 +9,8 @@ Usage:
 
     state = {...}  # Populated with scores, subtitles, etc.
     pptx_bytes, filename = generate_presentation(
-        excel_path="/path/to/data.xlsx",
+        prices_path="/path/to/master_prices.csv",
+        excel_path="/path/to/ic_file.xlsx",
         template_path="/path/to/template.pptx",
         state=state,
         progress_callback=print
@@ -31,6 +32,9 @@ from pptx.util import Pt
 # Import helper functions
 from utils import adjust_prices_for_mode
 from technical_analysis.common_helpers import clear_excel_cache
+
+# Import CSV data loader
+from data_loader import load_prices_from_csv, get_price_series
 
 # Import chart generation functions
 from technical_analysis.equity.spx import (
@@ -395,19 +399,11 @@ def _disable_image_compression(prs):
         pass
 
 
-def _load_prices_dataframe(excel_path: Path, data_as_of: Optional[pd.Timestamp] = None) -> pd.DataFrame:
-    """Load and prepare prices dataframe from Excel."""
-    df_prices = pd.read_excel(excel_path, sheet_name="data_prices")
-    # Use iloc[1:] instead of drop(index=0) for robustness with varying index types
-    df_prices = df_prices.iloc[1:].reset_index(drop=True)
-    df_prices = df_prices[df_prices[df_prices.columns[0]] != "DATES"]
-    df_prices["Date"] = pd.to_datetime(df_prices[df_prices.columns[0]], errors="coerce")
-
-    if data_as_of is not None:
-        df_prices = df_prices[df_prices["Date"] <= data_as_of]
-
-    df_prices = df_prices.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
-    return df_prices
+def _load_prices_dataframe(prices_path: Path, data_as_of: Optional[pd.Timestamp] = None) -> pd.DataFrame:
+    """Load and prepare prices dataframe from CSV."""
+    # Convert Timestamp to date for the loader
+    data_as_of_date = data_as_of.date() if data_as_of is not None else None
+    return load_prices_from_csv(prices_path, data_as_of_date)
 
 
 def _get_used_date_for_instrument(
@@ -432,6 +428,7 @@ def _get_used_date_for_instrument(
 # ==============================================================================
 
 def generate_presentation(
+    prices_path: Path,
     excel_path: Path,
     template_path: Path,
     state: Dict[str, Any],
@@ -442,8 +439,10 @@ def generate_presentation(
 
     Parameters
     ----------
+    prices_path : Path
+        Path to master_prices.csv with daily price data.
     excel_path : Path
-        Path to the consolidated Excel file with price data.
+        Path to ic_file.xlsx with parameters, mars_score, transition sheets.
     template_path : Path
         Path to the PowerPoint template.
     state : dict
@@ -492,9 +491,9 @@ def generate_presentation(
     progress("Updating date placeholder...")
     _update_date_placeholder(prs, human_date)
 
-    # Load prices dataframe once
-    progress("Loading price data...")
-    df_prices = _load_prices_dataframe(excel_path, data_as_of)
+    # Load prices dataframe once from CSV
+    progress("Loading price data from CSV...")
+    df_prices = _load_prices_dataframe(prices_path, data_as_of)
 
     # ==========================================================================
     # TECHNICAL ANALYSIS SLIDES
