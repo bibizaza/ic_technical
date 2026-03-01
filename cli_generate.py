@@ -23,6 +23,10 @@ from datetime import date, datetime
 from typing import Dict, Any, Optional
 
 import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 # ==============================================================================
