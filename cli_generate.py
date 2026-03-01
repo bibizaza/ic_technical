@@ -255,9 +255,13 @@ def compute_scores(prices_path: Path, excel_path: Path, state: Dict[str, Any], d
             state[f"{ticker_key}_tech_score"] = scores["technical_score"]
             state[f"{ticker_key}_mom_score"] = scores["momentum_score"]
             state[f"{ticker_key}_dmas"] = scores["dmas"]
+            state[f"{ticker_key}_rsi"] = scores.get("rsi")
+            state[f"{ticker_key}_price_vs_50ma_pct"] = scores.get("price_vs_50ma_pct", 0)
+            state[f"{ticker_key}_price_vs_100ma_pct"] = scores.get("price_vs_100ma_pct", 0)
+            state[f"{ticker_key}_price_vs_200ma_pct"] = scores.get("price_vs_200ma_pct", 0)
 
             computed_count += 1
-            print(f"  {display_name}: DMAS={scores['dmas']:.1f}, Tech={scores['technical_score']:.0f}, Mom={scores['momentum_score']:.0f}")
+            print(f"  {display_name}: DMAS={scores['dmas']:.1f}, Tech={scores['technical_score']:.0f}, Mom={scores['momentum_score']:.0f}, RSI={scores.get('rsi', 'N/A')}")
 
         except Exception as e:
             print(f"[CLI] Error computing scores for {ticker_key}: {e}")
@@ -340,6 +344,27 @@ def generate_subtitles(prices_path: Path, state: Dict[str, Any], data_as_of: str
         traceback.print_exc()
 
 
+def compute_period_return(df_prices: pd.DataFrame, ticker: str, days: int) -> Optional[float]:
+    """Compute return over a period (e.g., 5 days for weekly, 21 days for monthly)."""
+    if 'Date' not in df_prices.columns or ticker not in df_prices.columns:
+        return None
+
+    df = df_prices[['Date', ticker]].copy()
+    df[ticker] = pd.to_numeric(df[ticker], errors='coerce')
+    df = df.dropna().sort_values('Date')
+
+    if len(df) < days + 1:
+        return None
+
+    current_price = df[ticker].iloc[-1]
+    past_price = df[ticker].iloc[-days - 1]
+
+    if past_price == 0 or pd.isna(past_price):
+        return None
+
+    return ((current_price / past_price) - 1) * 100
+
+
 def generate_ytd_recaps(prices_path: Path, state: Dict[str, Any], data_as_of: Optional[date] = None) -> None:
     """Generate YTD recap subtitles from CSV price data."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -355,31 +380,54 @@ def generate_ytd_recaps(prices_path: Path, state: Dict[str, Any], data_as_of: Op
 
         from market_compass.subtitle_generator.claude_generator import generate_all_recaps
 
-        # Load price data and compute YTD performance
+        # Load price data
         df_prices = load_prices_from_csv(prices_path, data_as_of)
-        df_perf = create_data_perf_sheet(df_prices)
 
-        # Build performance data dict
-        perf_data = {
-            "equity": {},
-            "commodities": {},
-            "crypto": {},
+        # Map tickers to asset names and categories
+        ASSET_CONFIG = {
+            # Equity
+            'SPX Index': ('SPX', 'equity'),
+            'DAX Index': ('STOXX', 'equity'),
+            'SASEIDX Index': ('TASI', 'equity'),
+            'NKY Index': ('NKY', 'equity'),
+            'SENSEX Index': ('Sensex', 'equity'),
+            'SHSZ300 Index': ('Hang Seng', 'equity'),
+            'IBOV Index': ('IBOV', 'equity'),
+            # Commodities
+            'GCA Comdty': ('Gold', 'commodities'),
+            'SIA Comdty': ('Silver', 'commodities'),
+            'CL1 Comdty': ('Oil', 'commodities'),
+            'LP1 Comdty': ('Copper', 'commodities'),
+            # Crypto
+            'XBTUSD Curncy': ('Bitcoin', 'crypto'),
+            'XETUSD Curncy': ('Ethereum', 'crypto'),
+            'XSOUSD Curncy': ('Solana', 'crypto'),
         }
 
-        # Map columns to categories
-        EQUITY_COLS = ["SPX", "STOXX", "TASI", "NKY", "Sensex", "Hang Seng", "IBOV"]
-        COMMODITY_COLS = ["Gold", "Silver", "Oil", "Copper"]
-        CRYPTO_COLS = ["Bitcoin", "Ethereum", "Solana"]
+        # Build performance data in expected format: list of dicts per category
+        perf_data = {
+            "equity": [],
+            "commodities": [],
+            "crypto": [],
+        }
 
-        for col in df_perf.columns:
-            if col in EQUITY_COLS:
-                perf_data["equity"][col] = df_perf[col].iloc[0] if len(df_perf) > 0 else 0
-            elif col in COMMODITY_COLS:
-                perf_data["commodities"][col] = df_perf[col].iloc[0] if len(df_perf) > 0 else 0
-            elif col in CRYPTO_COLS:
-                perf_data["crypto"][col] = df_perf[col].iloc[0] if len(df_perf) > 0 else 0
+        for ticker, (asset_name, category) in ASSET_CONFIG.items():
+            ytd_pct = compute_ytd_performance(df_prices, ticker)
+            week_pct = compute_period_return(df_prices, ticker, 5)  # ~1 week
+            month_pct = compute_period_return(df_prices, ticker, 21)  # ~1 month
 
-        if any(perf_data.values()):
+            if ytd_pct is not None:
+                perf_data[category].append({
+                    'asset': asset_name,
+                    'ytd_pct': ytd_pct,
+                    '1w_pct': week_pct if week_pct is not None else 0,
+                    '1m_pct': month_pct if month_pct is not None else 0,
+                })
+
+        # Check if we have any data
+        has_data = any(len(assets) > 0 for assets in perf_data.values())
+
+        if has_data:
             recaps = generate_all_recaps(perf_data)
             state["eq_subtitle"] = recaps.get("equity", "")
             state["co_subtitle"] = recaps.get("commodities", "")
@@ -390,6 +438,8 @@ def generate_ytd_recaps(prices_path: Path, state: Dict[str, Any], data_as_of: Op
 
     except Exception as e:
         print(f"[CLI] Warning: Could not generate YTD recaps: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def update_history(history_path: Path, state: Dict[str, Any], data_as_of: str) -> None:
@@ -418,9 +468,10 @@ def update_history(history_path: Path, state: Dict[str, Any], data_as_of: str) -
                 "dmas": int(dmas),
                 "technical_score": int(state.get(f"{ticker_key}_tech_score", dmas)),
                 "momentum_score": int(state.get(f"{ticker_key}_mom_score", dmas)),
-                "price_vs_50ma_pct": 0,  # Could compute if needed
-                "price_vs_100ma_pct": 0,
-                "price_vs_200ma_pct": 0,
+                "price_vs_50ma_pct": state.get(f"{ticker_key}_price_vs_50ma_pct", 0),
+                "price_vs_100ma_pct": state.get(f"{ticker_key}_price_vs_100ma_pct", 0),
+                "price_vs_200ma_pct": state.get(f"{ticker_key}_price_vs_200ma_pct", 0),
+                "rsi": state.get(f"{ticker_key}_rsi"),
                 "rating": state.get(f"{ticker_key}_selected_view", "Neutral"),
                 "subtitle": state.get(f"{ticker_key}_subtitle", ""),
             })
@@ -439,6 +490,7 @@ def update_history(history_path: Path, state: Dict[str, Any], data_as_of: str) -
                 "price_vs_50ma_pct": asset["price_vs_50ma_pct"],
                 "price_vs_100ma_pct": asset["price_vs_100ma_pct"],
                 "price_vs_200ma_pct": asset["price_vs_200ma_pct"],
+                "rsi": asset.get("rsi"),
                 "rating": asset["rating"],
                 "subtitle": asset["subtitle"],
             }

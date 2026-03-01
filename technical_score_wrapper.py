@@ -129,7 +129,8 @@ def compute_dmas_scores(prices: pd.Series, ticker: str = "Unknown", excel_path: 
     Returns
     -------
     dict
-        Dictionary with keys: technical_score, momentum_score, dmas, rsi
+        Dictionary with keys: technical_score, momentum_score, dmas, rsi,
+        price_vs_50ma_pct, price_vs_100ma_pct, price_vs_200ma_pct
     """
     # Compute technical score
     tech_score = compute_technical_score_only(prices, ticker)
@@ -154,11 +155,32 @@ def compute_dmas_scores(prices: pd.Series, ticker: str = "Unknown", excel_path: 
         if pd.notna(last_rsi):
             rsi = int(round(last_rsi))
 
+    # Compute MA values for history tracking
+    price_vs_50ma_pct = 0.0
+    price_vs_100ma_pct = 0.0
+    price_vs_200ma_pct = 0.0
+
+    if len(prices) >= 200:
+        current_price = prices.iloc[-1]
+        sma_50 = prices.iloc[-50:].mean()
+        sma_100 = prices.iloc[-100:].mean()
+        sma_200 = prices.iloc[-200:].mean()
+
+        if sma_50 > 0:
+            price_vs_50ma_pct = ((current_price - sma_50) / sma_50) * 100
+        if sma_100 > 0:
+            price_vs_100ma_pct = ((current_price - sma_100) / sma_100) * 100
+        if sma_200 > 0:
+            price_vs_200ma_pct = ((current_price - sma_200) / sma_200) * 100
+
     return {
         'technical_score': tech_score,
         'momentum_score': mom_score,
         'dmas': dmas,
-        'rsi': rsi
+        'rsi': rsi,
+        'price_vs_50ma_pct': round(price_vs_50ma_pct, 2),
+        'price_vs_100ma_pct': round(price_vs_100ma_pct, 2),
+        'price_vs_200ma_pct': round(price_vs_200ma_pct, 2),
     }
 
 
