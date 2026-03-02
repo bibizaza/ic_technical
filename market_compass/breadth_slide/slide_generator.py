@@ -1,7 +1,7 @@
 """Breadth Rank slide generator."""
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 import tempfile
 from pathlib import Path
 
@@ -322,7 +322,7 @@ def generate_breadth_slide(
     prs: Presentation,
     excel_path: str,
     slide_name: str = "slide_breadth"
-) -> Presentation:
+) -> Tuple[Presentation, Dict[str, dict]]:
     """
     Generate Breadth Rank slide from Excel data.
 
@@ -337,15 +337,24 @@ def generate_breadth_slide(
 
     Returns
     -------
-    Presentation
-        Modified presentation
+    Tuple[Presentation, Dict[str, dict]]
+        Modified presentation and breadth ranks dict keyed by index display name.
+        Each value is {"rank": int, "pct_both": int}.
     """
     # Prepare data
     rows = prepare_breadth_data(excel_path)
 
     if not rows:
         print("[Breadth Rank] No data found in helper_breadth sheet")
-        return prs
+        return prs, {}
+
+    # Build ranks dict for history tracking
+    breadth_ranks = {}
+    for row in rows:
+        breadth_ranks[row.index_name] = {
+            "rank": row.rank,
+            "pct_both": row.pct_both,
+        }
 
     # Insert into slide
-    return insert_breadth_rank(prs, rows, slide_name)
+    return insert_breadth_rank(prs, rows, slide_name), breadth_ranks

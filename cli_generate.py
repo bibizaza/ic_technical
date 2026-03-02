@@ -442,8 +442,47 @@ def generate_ytd_recaps(prices_path: Path, state: Dict[str, Any], data_as_of: Op
         traceback.print_exc()
 
 
-def update_history(history_path: Path, state: Dict[str, Any], data_as_of: str) -> None:
-    """Update history.json with current scores and subtitles."""
+# Mapping from breadth/fundamental display names to history asset names
+RANK_DISPLAY_TO_ASSET = {
+    "U.S.": "S&P 500",
+    "China": "CSI 300",
+    "Japan": "Nikkei 225",
+    "Saudi Arabia": "TASI",
+    "India": "Sensex",
+    "Germany": "Dax",
+    "Switzerland": "SMI",
+    "Mexico": "MEXBOL",
+    "Brazil": "IBOV",
+}
+
+# Set of equity asset names (for checking if an asset should have rank fields)
+EQUITY_ASSETS = set(RANK_DISPLAY_TO_ASSET.values())
+
+
+def update_history(
+    history_path: Path,
+    state: Dict[str, Any],
+    data_as_of: str,
+    breadth_ranks: Optional[Dict[str, dict]] = None,
+    fundamental_ranks: Optional[Dict[str, int]] = None,
+) -> None:
+    """Update history.json with current scores, subtitles, and ranks.
+
+    Parameters
+    ----------
+    history_path : Path
+        Path to history.json
+    state : dict
+        State dictionary with scores and subtitles
+    data_as_of : str
+        Date string in YYYY-MM-DD format
+    breadth_ranks : dict, optional
+        Breadth ranks from generate_presentation. Keys are display names
+        (e.g., "U.S."), values are {"rank": int, "pct_both": int}.
+    fundamental_ranks : dict, optional
+        Fundamental ranks from generate_presentation. Keys are display names
+        (e.g., "U.S."), values are composite rank (int, 1-9).
+    """
     print(f"[CLI] Updating history at {history_path}...")
 
     try:
@@ -494,6 +533,23 @@ def update_history(history_path: Path, state: Dict[str, Any], data_as_of: str) -
                 "rating": asset["rating"],
                 "subtitle": asset["subtitle"],
             }
+
+            # Add breadth and fundamental ranks for equity indices only
+            if asset_name in EQUITY_ASSETS:
+                # Find the display name that maps to this asset
+                display_name = None
+                for disp, hist_name in RANK_DISPLAY_TO_ASSET.items():
+                    if hist_name == asset_name:
+                        display_name = disp
+                        break
+
+                if display_name and breadth_ranks and display_name in breadth_ranks:
+                    br_data = breadth_ranks[display_name]
+                    snapshot["breadth_rank"] = br_data.get("rank")
+                    snapshot["breadth_pct"] = br_data.get("pct_both")
+
+                if display_name and fundamental_ranks and display_name in fundamental_ranks:
+                    snapshot["fundamental_rank"] = fundamental_ranks[display_name]
 
             # Find and replace if same date exists
             existing_idx = None
@@ -708,7 +764,7 @@ Environment Variables:
     def progress_callback(msg: str):
         print(f"  {msg}")
 
-    pptx_bytes, filename = generate_presentation(
+    pptx_bytes, filename, breadth_ranks, fundamental_ranks = generate_presentation(
         prices_path=prices_path,
         excel_path=excel_path,
         template_path=template_path,
@@ -726,7 +782,13 @@ Environment Variables:
 
     # Step 7: Update history
     if history_path and not args.skip_history_update:
-        update_history(history_path, state, data_as_of_str)
+        update_history(
+            history_path,
+            state,
+            data_as_of_str,
+            breadth_ranks=breadth_ranks,
+            fundamental_ranks=fundamental_ranks,
+        )
 
     # Summary
     print("\n" + "="*60)

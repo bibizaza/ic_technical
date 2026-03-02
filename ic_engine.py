@@ -433,7 +433,7 @@ def generate_presentation(
     template_path: Path,
     state: Dict[str, Any],
     progress_callback: Optional[Callable[[str], None]] = None,
-) -> Tuple[bytes, str]:
+) -> Tuple[bytes, str, Dict[str, dict], Dict[str, int]]:
     """
     Generate the IC Technical presentation headlessly.
 
@@ -460,8 +460,10 @@ def generate_presentation(
 
     Returns
     -------
-    tuple[bytes, str]
-        PowerPoint file bytes and suggested filename.
+    tuple[bytes, str, dict, dict]
+        PowerPoint file bytes, suggested filename, breadth ranks dict, and fundamental ranks dict.
+        Breadth ranks: {"U.S.": {"rank": 1, "pct_both": 82}, ...}
+        Fundamental ranks: {"U.S.": 3, ...}
     """
     start_time = time.time()
 
@@ -714,16 +716,18 @@ def generate_presentation(
         traceback.print_exc()
 
     progress("Generating Market Breadth slide...")
+    breadth_ranks = {}
     try:
         from market_compass.breadth_slide import generate_breadth_slide
-        prs = generate_breadth_slide(prs, excel_path=str(chart_excel_path), slide_name="slide_breadth")
+        prs, breadth_ranks = generate_breadth_slide(prs, excel_path=str(chart_excel_path), slide_name="slide_breadth")
     except Exception as e:
         print(f"[Engine] Breadth slide error: {e}")
 
     progress("Generating Fundamental Analysis slide...")
+    fundamental_ranks = {}
     try:
         from market_compass.fundamental_slide import generate_fundamental_slide
-        prs = generate_fundamental_slide(prs, excel_path=str(chart_excel_path), slide_name="slide_fundamentals")
+        prs, fundamental_ranks = generate_fundamental_slide(prs, excel_path=str(chart_excel_path), slide_name="slide_fundamentals")
     except Exception as e:
         print(f"[Engine] Fundamental slide error: {e}")
 
@@ -761,7 +765,7 @@ def generate_presentation(
     except Exception as e:
         print(f"[Engine] Warning: Could not clean up temp file: {e}")
 
-    return pptx_bytes, filename
+    return pptx_bytes, filename, breadth_ranks, fundamental_ranks
 
 
 # ==============================================================================

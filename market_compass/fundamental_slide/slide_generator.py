@@ -1,7 +1,7 @@
 """Fundamental Rank slide generator."""
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import tempfile
 from pathlib import Path
 
@@ -436,7 +436,7 @@ def generate_fundamental_slide(
     prs: Presentation,
     excel_path: str,
     slide_name: str = "slide_fundamentals"
-) -> Presentation:
+) -> Tuple[Presentation, Dict[str, int]]:
     """
     Generate Fundamental Rank slide from Excel data.
 
@@ -451,15 +451,21 @@ def generate_fundamental_slide(
 
     Returns
     -------
-    Presentation
-        Modified presentation
+    Tuple[Presentation, Dict[str, int]]
+        Modified presentation and fundamental ranks dict keyed by index display name.
+        Each value is the composite rank (1-9, 1=best).
     """
     # Compute ranks
     rows = compute_fundamental_ranks(excel_path)
 
     if not rows:
         print("[Fundamental Rank] No data found in data_fundamental sheet")
-        return prs
+        return prs, {}
+
+    # Build ranks dict for history tracking
+    fundamental_ranks = {}
+    for row in rows:
+        fundamental_ranks[row.index_name] = row.rank
 
     # Insert into slide
-    return insert_fundamental_rank(prs, rows, slide_name)
+    return insert_fundamental_rank(prs, rows, slide_name), fundamental_ranks
