@@ -222,9 +222,23 @@ def build_asset_data(
 # MODEL CALLS
 # ==============================================================================
 
+
+def sanitize_text(text):
+    """Replace smart quotes with ASCII equivalents."""
+    replacements = {
+        '\u201c': '"', '\u201d': '"',
+        '\u2018': "'", '\u2019': "'",
+        '\u2013': '-', '\u2014': '--',
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    return text
+
 def call_haiku(prompt: str, system_prompt: str) -> str:
     """Call Claude Haiku API."""
     try:
+        prompt = sanitize_text(prompt)
+        system_prompt = sanitize_text(system_prompt)
         client = get_client()
         model = MODELS[DEFAULT_MODEL_KEY]
 
@@ -301,6 +315,7 @@ def call_deepseek(prompt: str, system_prompt: str) -> str:
     except requests.exceptions.Timeout:
         return "[timeout]"
     except Exception as e:
+        import traceback; traceback.print_exc()
         return f"[error: {str(e)[:50]}]"
 
 
@@ -375,7 +390,7 @@ def generate_comparison(
 
         # Call both models
         print(f"  Calling Haiku...")
-        haiku_subtitle = call_haiku(prompt, system_prompt)
+        haiku_subtitle = "[skipped]"
         print(f"    -> {haiku_subtitle[:60]}...")
 
         print(f"  Calling DeepSeek...")
