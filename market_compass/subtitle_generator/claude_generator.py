@@ -788,6 +788,10 @@ def generate_subtitle(
         all_previous = previous_subtitles + rejected_subtitles
         prompt = build_prompt(asset_data, all_previous, historical_context)
 
+        # Log prompt for shadow comparison (only on first attempt)
+        if attempt == 0:
+            import json; open("/tmp/prompts_log.json", "a").write(json.dumps({"instrument": asset_data.get("asset_name", "Unknown"), "system": SYSTEM_PROMPT + "\n\n" + EXAMPLES, "user": prompt}) + "\n")
+
         # Call Claude API with prompt caching
         message = client.messages.create(
             model=model,
