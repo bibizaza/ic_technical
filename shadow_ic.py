@@ -55,7 +55,7 @@ OUTPUT_DIR = Path(__file__).parent
 
 # Ollama configuration
 OLLAMA_URL = "http://localhost:11434/api/generate"
-DEEPSEEK_MODEL = "deepseek-r1:latest"
+DEEPSEEK_MODEL = "deepseek-r1:32b"
 
 # Asset configuration (same as cli_generate.py)
 ASSET_MAP = {
