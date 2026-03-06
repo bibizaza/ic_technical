@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+import os; os.environ["PYTHONIOENCODING"] = "utf-8"
 Shadow IC - Side-by-side comparison of Haiku vs DeepSeek subtitles.
 
 Replays the same subtitle prompts used by the production IC pipeline
@@ -270,7 +271,7 @@ def call_deepseek(prompt: str, system_prompt: str) -> str:
                     "temperature": 0.7,
                 }
             },
-            timeout=60
+            timeout=300
         )
 
         if response.status_code != 200:
