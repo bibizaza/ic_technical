@@ -650,7 +650,17 @@ Weekly price change: {price_change_1w:+.1f}%
 {ma_note}
 {correction_note}
 {vocab_note}
+"""
 
+    # Add historical context if available
+    context_section = ""
+    if historical_context:
+        context_section = f"""
+CONTEXT:
+{historical_context}
+"""
+
+    prompt += context_section + f"""
 STYLE RULES:
 - Use "dynamics/trajectory" for overall movement, "momentum" only with qualifier (strong/weak/solid)
 - Use MEASURED verbs: continues, extends, builds, strengthens, accelerates
@@ -881,6 +891,73 @@ def generate_subtitle(
     }
 
 
+def _build_enriched_context(asset_data: dict, history_tracker) -> Optional[str]:
+    """
+    Build enriched historical context combining history tracker data
+    with price trajectory metrics.
+
+    Returns context string or None if insufficient data.
+    """
+    context_parts = []
+
+    # 1. Get base context from history tracker
+    if history_tracker:
+        base_context = history_tracker.get_context_for_subtitle(asset_data["asset_name"])
+        if base_context:
+            context_parts.append(base_context)
+
+    # 2. Add price trajectory info
+    price_change_1m = asset_data.get("price_change_1m_pct", 0)
+    distance_52w_high = asset_data.get("distance_from_52w_high_pct", 0)
+
+    if price_change_1m != 0 or distance_52w_high != 0:
+        trajectory_parts = []
+
+        # Characterize 1-month performance
+        if price_change_1m >= 10:
+            trajectory_parts.append(f"Strong rally: +{price_change_1m:.1f}% in past month")
+        elif price_change_1m >= 5:
+            trajectory_parts.append(f"Solid gains: +{price_change_1m:.1f}% in past month")
+        elif price_change_1m <= -10:
+            trajectory_parts.append(f"Sharp decline: {price_change_1m:.1f}% in past month")
+        elif price_change_1m <= -5:
+            trajectory_parts.append(f"Pullback: {price_change_1m:.1f}% in past month")
+
+        # Distance from 52-week high
+        if distance_52w_high >= -2:
+            trajectory_parts.append("Near 52-week highs")
+        elif distance_52w_high <= -20:
+            trajectory_parts.append(f"Deep correction: {distance_52w_high:.0f}% from 52w high")
+        elif distance_52w_high <= -10:
+            trajectory_parts.append(f"Correction territory: {distance_52w_high:.0f}% from 52w high")
+
+        if trajectory_parts:
+            context_parts.append("; ".join(trajectory_parts))
+
+    # 3. Add breadth/fundamental context for equities
+    breadth_rank = asset_data.get("breadth_rank")
+    fundamental_rank = asset_data.get("fundamental_rank")
+
+    if breadth_rank is not None or fundamental_rank is not None:
+        rank_parts = []
+        if breadth_rank is not None:
+            if breadth_rank <= 3:
+                rank_parts.append(f"Breadth rank {breadth_rank}/9 (strong)")
+            elif breadth_rank >= 7:
+                rank_parts.append(f"Breadth rank {breadth_rank}/9 (weak)")
+        if fundamental_rank is not None:
+            if fundamental_rank <= 3:
+                rank_parts.append(f"Fundamental rank {fundamental_rank}/9 (attractive)")
+            elif fundamental_rank >= 7:
+                rank_parts.append(f"Fundamental rank {fundamental_rank}/9 (expensive)")
+        if rank_parts:
+            context_parts.append("; ".join(rank_parts))
+
+    if context_parts:
+        return " | ".join(context_parts)
+    return None
+
+
 def generate_batch(
     assets_data: List[dict],
     client=None,
@@ -927,12 +1004,8 @@ def generate_batch(
 
     for asset_data in assets_data:
         try:
-            # Get historical context if available
-            historical_context = None
-            if history_tracker:
-                historical_context = history_tracker.get_context_for_subtitle(
-                    asset_data["asset_name"]
-                )
+            # Build enriched historical context
+            historical_context = _build_enriched_context(asset_data, history_tracker)
 
             result = generate_subtitle(
                 asset_data,

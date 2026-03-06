@@ -632,6 +632,10 @@ def generate_claude_subtitles_batch(
         near_52w_low = False
         ma_cross_event = None
 
+        # Price trajectory metrics
+        price_change_1m_pct = 0.0
+        distance_from_52w_high_pct = 0.0
+
         if prices is not None and len(prices) >= 200:
             current_price = prices.iloc[-1]
             ma_50 = _calculate_ma(prices, 50)
@@ -645,6 +649,18 @@ def generate_claude_subtitles_batch(
             at_ath = detect_ath(prices)
             near_52w_low = detect_52w_low(prices)
             ma_cross_event = detect_ma_cross(prices)
+
+            # Calculate 1-month return (21 trading days)
+            if len(prices) >= 22:
+                price_1m_ago = prices.iloc[-22]
+                if price_1m_ago != 0:
+                    price_change_1m_pct = ((current_price / price_1m_ago) - 1) * 100
+
+            # Calculate distance from 52-week high (252 trading days)
+            lookback = min(252, len(prices))
+            high_52w = prices.iloc[-lookback:].max()
+            if high_52w != 0:
+                distance_from_52w_high_pct = ((current_price / high_52w) - 1) * 100
 
         claude_assets.append({
             "asset_name": asset["asset_name"],
@@ -660,6 +676,10 @@ def generate_claude_subtitles_batch(
             "near_52w_low": near_52w_low,
             "ma_cross_event": ma_cross_event,
             "rsi": asset.get("rsi"),
+            "price_change_1m_pct": price_change_1m_pct,
+            "distance_from_52w_high_pct": distance_from_52w_high_pct,
+            "breadth_rank": asset.get("breadth_rank"),
+            "fundamental_rank": asset.get("fundamental_rank"),
         })
 
     # Call Claude API for batch generation
