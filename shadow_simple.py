@@ -164,6 +164,7 @@ def call_deepseek(system_prompt: str, user_prompt: str, instrument: str = "", pr
 CRITICAL RULES:
 - NEVER start with "[Rating] dynamics/setup continue/extend/persist/build" — find a unique angle
 - BANNED WORDS: "dynamics", "setup", "pointing to", "suggesting", "divergence". Use plain English instead
+- BANNED PHRASES: "14-week bullish run", "14-week bullish streak", "recovery hinges on", "recovery depends on", "exceptional technical strength remains", "outlook persists", "bearish outlook persists". These exact phrases and close variants have been overused. Find completely different constructions to express the same idea
 - Line 1 should highlight the MOST RELEVANT FACT: what is the single most important thing about this asset RIGHT NOW? A key level being tested? A streak? A score collapse? A correction depth? A reversal?
 - Line 2 should answer WHAT TO WATCH NEXT: a condition ("recovery depends on reclaiming 50d MA"), a comparison ("weakest among equity indices"), a risk ("further decline if momentum fails to recover"), or a timeline ("third consecutive week of deterioration"). Use specific numbers when available (e.g., "3rd week of decline", "50d MA at risk", "rallied 12% from lows"). Line 2 must NOT just restate Line 1 in different words
 - IGNORE small changes: a DMAS move from 95 to 90 is noise. A move from 65 to 45 is a story. Only mention score changes if they are significant (>15 points)
@@ -228,6 +229,13 @@ BAD (generic — never write these):
 
         # Strip thinking blocks
         subtitle = strip_think_blocks(subtitle)
+
+        # Remove leaked reasoning and quote artifacts
+        subtitle = re.sub(r'This subtitle\b.*', '', subtitle, flags=re.IGNORECASE).strip()
+        subtitle = re.sub(r"Here(?:'s| is)\b.*", '', subtitle, flags=re.IGNORECASE).strip()
+        subtitle = re.sub(r'Note:.*', '', subtitle, flags=re.IGNORECASE).strip()
+        subtitle = subtitle.replace('"', '')
+        subtitle = re.sub(r'\.\s*\n', '\n', subtitle)
 
         # Remove generic endings and labels
         for generic in ["pointing to potential gains", "suggesting further upside", 
