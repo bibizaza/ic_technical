@@ -3618,12 +3618,12 @@ FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE = '''
 
         <div class="legend-row">
             <div class="legend-item">
-                <span class="legend-dot green"></span>
-                <span>FX tailwind (currency strengthened vs EUR)</span>
-            </div>
-            <div class="legend-item">
                 <span class="legend-dot red"></span>
                 <span>FX headwind (currency weakened vs EUR)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot green"></span>
+                <span>FX tailwind (currency strengthened vs EUR)</span>
             </div>
         </div>
     </div>
@@ -3983,12 +3983,12 @@ FX_IMPACT_ANALYSIS_CHF_HTML_TEMPLATE = '''
 
         <div class="legend-row">
             <div class="legend-item">
-                <span class="legend-dot green"></span>
-                <span>FX tailwind (currency strengthened vs CHF)</span>
-            </div>
-            <div class="legend-item">
                 <span class="legend-dot red"></span>
                 <span>FX headwind (currency weakened vs CHF)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot green"></span>
+                <span>FX tailwind (currency strengthened vs CHF)</span>
             </div>
         </div>
     </div>
