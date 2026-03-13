@@ -66,6 +66,42 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
         clean_system = sanitize_unicode(system_prompt)
         clean_user = sanitize_unicode(user_prompt)
         full_prompt = f"{clean_system}\n\n{clean_user}"
+        
+# Override prompt for enhanced two-line subtitles
+        full_prompt = full_prompt.replace(
+            "MAXIMUM 12 WORDS - Must fit one line",
+            "EXACTLY 2 LINES, max 12 words each (24 words total)"
+        ).replace(
+            "Generate subtitle (max 12 words, no period):",
+            """Generate a 2-line subtitle (no period, no "Line 1/Line 2" labels).
+
+CRITICAL RULES FOR QUALITY:
+- NEVER start with "[Rating] dynamics continue/extend/persist/build" — find a unique angle
+- Line 1 should highlight the MOST RELEVANT FACT: what is the single most important thing about this asset RIGHT NOW? A key level being tested? A divergence between technical and momentum? A streak? A reversal?
+- Line 2 should add PREDICTIVE context: what does the data suggest happens next? Use specific numbers when available (e.g., "3rd week of decline", "50d MA at risk", "rallied 12% from lows")
+- IGNORE small changes: a DMAS move from 95 to 90 is noise. A move from 65 to 45 is a story. Only mention score changes if they are significant (>15 points)
+- DIFFERENTIATE: Gold, Silver, Platinum should NOT sound the same. What makes each unique right now? Different momentum levels? Different MA positions? Different correction depths?
+- Use the asset name or a specific reference, not generic "dynamics"
+- NEVER end with generic conclusions like "pointing to potential gains", "suggesting further upside", "points to continued advance". Instead, end with something SPECIFIC: a level being tested, a timeframe, a divergence, a comparison ("strongest momentum among precious metals"), or a conditional ("recovery depends on reclaiming 50d MA")
+- ONLY reference facts from the data provided. NEVER invent macro narratives like "demand strengthens", "supply constraints", "domestic demand drives", "safe-haven appeal", "industrial demand". Stick strictly to: scores, MAs, streaks, corrections, price levels, DMAS changes, and rating duration
+- DO NOT combine unrelated facts into a false narrative. "14-week rally from -23% correction" implies the rally started after the correction — only combine facts if the causal link is clear from the data. If unsure, state facts separately
+
+GOOD examples:
+"Gold tests all-time highs with momentum accelerating above 90
+Safe-haven bid strengthens as breadth rank holds at #1"
+
+"S&P 500 stalls at 50d MA as momentum fades from January peaks  
+Constructive but fragile — third consecutive week of narrowing breadth"
+
+"Solana trapped 25% below 200d MA with no recovery signal
+Weakest crypto setup as technical and momentum both deteriorate"
+
+BAD examples (too generic):
+"Bullish dynamics continue with exceptional setup pointing to gains"
+"Bearish dynamics persist with weak momentum"
+
+Generate subtitle (2 lines, no period, no labels):"""
+        )
 
         response = requests.post(
             OLLAMA_URL,
@@ -74,11 +110,11 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
                 "prompt": full_prompt,
                 "stream": False,
                 "options": {
-                    "num_predict": 100,
+                    "num_predict": 4096,
                     "temperature": 0.7,
                 }
             },
-            timeout=300,
+            timeout=600,
             headers={"Content-Type": "application/json; charset=utf-8"}
         )
 
@@ -91,13 +127,22 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
         # Strip thinking blocks
         subtitle = strip_think_blocks(subtitle)
 
+	# Remove generic endings and labels
+        for generic in ["pointing to potential gains", "suggesting further upside", 
+                        "suggests potential gains", "pointing to further gains",
+                        "suggests likely continued advance", "points to potential further gains",
+                        "suggest potential gains", "pointing to potential further gains",
+                        "suggests continued strength ahead", "supports further gains",
+                        "**Line 1:**", "**Line 2:**", "Line 1:", "Line 2:", "**"]:
+            subtitle = subtitle.replace(generic, "").strip().rstrip(",").rstrip(".")
+
         # Clean up
         subtitle = subtitle.strip('"\'').rstrip('.')
 
         # Truncate to ~12 words
         words = subtitle.split()
-        if len(words) > 15:
-            subtitle = ' '.join(words[:12])
+        if len(words) > 30:
+            subtitle = ' '.join(words[:28])
 
         return subtitle
 
