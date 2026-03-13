@@ -75,30 +75,43 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
             "Generate subtitle (max 12 words, no period):",
             """Generate a 2-line subtitle (no period, no "Line 1/Line 2" labels).
 
-CRITICAL RULES FOR QUALITY:
-- NEVER start with "[Rating] dynamics continue/extend/persist/build" — find a unique angle
-- Line 1 should highlight the MOST RELEVANT FACT: what is the single most important thing about this asset RIGHT NOW? A key level being tested? A divergence between technical and momentum? A streak? A reversal?
-- Line 2 should add PREDICTIVE context: what does the data suggest happens next? Use specific numbers when available (e.g., "3rd week of decline", "50d MA at risk", "rallied 12% from lows")
+CRITICAL RULES:
+- NEVER start with "[Rating] dynamics/setup continue/extend/persist/build" — find a unique angle
+- BANNED WORDS: "dynamics", "setup", "pointing to", "suggesting", "divergence". Use plain English instead
+- Line 1 should highlight the MOST RELEVANT FACT: what is the single most important thing about this asset RIGHT NOW? A key level being tested? A streak? A score collapse? A correction depth? A reversal?
+- Line 2 should answer WHAT TO WATCH NEXT: a condition ("recovery depends on reclaiming 50d MA"), a comparison ("weakest among equity indices"), a risk ("further decline if momentum fails to recover"), or a timeline ("third consecutive week of deterioration"). Use specific numbers when available (e.g., "3rd week of decline", "50d MA at risk", "rallied 12% from lows"). Line 2 must NOT just restate Line 1 in different words
 - IGNORE small changes: a DMAS move from 95 to 90 is noise. A move from 65 to 45 is a story. Only mention score changes if they are significant (>15 points)
-- DIFFERENTIATE: Gold, Silver, Platinum should NOT sound the same. What makes each unique right now? Different momentum levels? Different MA positions? Different correction depths?
-- Use the asset name or a specific reference, not generic "dynamics"
-- NEVER end with generic conclusions like "pointing to potential gains", "suggesting further upside", "points to continued advance". Instead, end with something SPECIFIC: a level being tested, a timeframe, a divergence, a comparison ("strongest momentum among precious metals"), or a conditional ("recovery depends on reclaiming 50d MA")
+- DIFFERENTIATE: instruments in the same asset class must NOT sound alike. What makes THIS one unique right now? Different momentum levels? Different MA positions? Different correction depths? Different streak lengths?
+- Use the asset name at least once, not generic references
+- NEVER end with generic filler like "pointing to potential gains", "suggesting further upside", "points to continued advance", "suggests further strength", "supports further gains". Instead, end with something SPECIFIC: a level being tested, a timeframe, a comparison ("strongest momentum among precious metals"), or a conditional ("recovery depends on reclaiming 50d MA")
 - ONLY reference facts from the data provided. NEVER invent macro narratives like "demand strengthens", "supply constraints", "domestic demand drives", "safe-haven appeal", "industrial demand". Stick strictly to: scores, MAs, streaks, corrections, price levels, DMAS changes, and rating duration
-- DO NOT combine unrelated facts into a false narrative. "14-week rally from -23% correction" implies the rally started after the correction — only combine facts if the causal link is clear from the data. If unsure, state facts separately
+- Write for a sophisticated investor, NOT a quant. Avoid jargon like "divergence", "technical vs momentum". Instead say what it MEANS: "momentum racing ahead of technicals" or "price strength not yet confirmed by structure". If two scores disagree, explain the implication, not the math
+- DO NOT combine unrelated facts into a false causal chain. "14-week rally from -23% correction" implies the rally started after the correction — only combine facts if the causal link is clear from the data. If unsure, state facts separately
 
-GOOD examples:
-"Gold tests all-time highs with momentum accelerating above 90
-Safe-haven bid strengthens as breadth rank holds at #1"
+GOOD (real examples):
+"S&P 500 neutral for sixth straight week with DMAS down -16
+Key test ahead: 50d MA must hold or risk shift to cautious"
 
-"S&P 500 stalls at 50d MA as momentum fades from January peaks  
-Constructive but fragile — third consecutive week of narrowing breadth"
+"Sensex trapped below all MAs as DMAS tumbles 17 points
+Weakest equity index — no recovery signal despite oversold RSI at 23"
 
-"Solana trapped 25% below 200d MA with no recovery signal
-Weakest crypto setup as technical and momentum both deteriorate"
+"Bitcoin languishing below all MAs for 11 consecutive weeks
+Recovery requires reclaiming 50d MA, currently 11% above price"
 
-BAD examples (too generic):
+"Palladium's 14-week bullish run holds despite -15 DMAS drop
+Momentum racing ahead of technicals — watch for confirmation or fade"
+
+"Silver rallies +7.6% this week, strongest among precious metals
+14-week streak intact but -23% from 52w high limits near-term upside"
+
+"CSI 300 testing 50d MA resistance after 14 weeks above
+Fragile neutral — weak momentum (22) risks tipping to cautious"
+
+BAD (generic — never write these):
 "Bullish dynamics continue with exceptional setup pointing to gains"
-"Bearish dynamics persist with weak momentum"
+"Bearish setup persists with weak momentum suggesting decline"
+"Solid technical vs exceptional momentum divergence points to upside"
+"Strong momentum supports further gains ahead"
 
 Generate subtitle (2 lines, no period, no labels):"""
         )
