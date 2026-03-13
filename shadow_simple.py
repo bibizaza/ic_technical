@@ -60,7 +60,93 @@ def strip_think_blocks(text: str) -> str:
     return text.strip()
 
 
-def call_deepseek(system_prompt: str, user_prompt: str, previous_subtitles: list = None) -> str:
+def strip_instrument_name(subtitle: str, instrument: str) -> str:
+    """Remove instrument name if it appears at the start of a subtitle line."""
+    if not subtitle or not instrument:
+        return subtitle
+    
+    # Build variants: "S&P 500", "S&P 500's", "Nikkei 225's", etc.
+    variants = [instrument, instrument.upper(), instrument.lower(), instrument.title()]
+    # Add possessive forms
+    variants += [f"{v}'s" for v in variants]
+    # Add common short forms
+    short_forms = {
+        "Ibovespa": ["IBOV", "Ibov", "IBOV's", "Ibov's"],
+        "IBOV": ["Ibovespa", "Ibovespa's"],
+        "Dax": ["DAX", "DAX's", "Dax's"],
+        "MEXBOL": ["Mexbol", "MEXBOL's", "Mexbol's"],
+    }
+    if instrument in short_forms:
+        variants += short_forms[instrument]
+    
+    lines = subtitle.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        stripped = line.strip()
+        for v in sorted(variants, key=len, reverse=True):  # Longest first
+            if stripped.startswith(v):
+                stripped = stripped[len(v):].lstrip(" ',-:").strip()
+                # Capitalize first letter
+                if stripped:
+                    stripped = stripped[0].upper() + stripped[1:]
+                break
+        cleaned_lines.append(stripped)
+    
+    return '\n'.join(cleaned_lines)
+
+
+def detect_repeated_phrases(results: list, min_words: int = 3) -> list:
+    """Detect repeated multi-word phrases across subtitles.
+    
+    Returns list of warnings: [{phrase, instruments}]
+    """
+    from collections import defaultdict
+    
+    phrase_map = defaultdict(list)  # phrase -> [instrument names]
+    
+    for r in results:
+        subtitle = r.get("deepseek_subtitle", "")
+        if subtitle.startswith('['):
+            continue  # Skip errors
+        
+        # Normalize: lowercase, strip punctuation
+        clean = re.sub(r'[^\w\s]', '', subtitle.lower())
+        words = clean.split()
+        
+        # Extract all N-grams of length min_words to min_words+3
+        seen_in_this = set()  # Avoid counting same phrase twice in one subtitle
+        for n in range(min_words, min(min_words + 4, len(words) + 1)):
+            for i in range(len(words) - n + 1):
+                phrase = ' '.join(words[i:i+n])
+                if phrase not in seen_in_this:
+                    seen_in_this.add(phrase)
+                    phrase_map[phrase].append(r["instrument"])
+    
+    # Filter to phrases appearing in 2+ different instruments
+    warnings = []
+    seen_superstrings = set()
+    for phrase, instruments in sorted(phrase_map.items(), key=lambda x: -len(x[0].split())):
+        if len(instruments) >= 2 and len(set(instruments)) >= 2:
+            # Skip if this is a substring of an already-reported longer phrase
+            is_sub = False
+            for seen in seen_superstrings:
+                if phrase in seen:
+                    is_sub = True
+                    break
+            if not is_sub:
+                seen_superstrings.add(phrase)
+                warnings.append({
+                    "phrase": phrase,
+                    "instruments": list(set(instruments)),
+                    "count": len(set(instruments)),
+                })
+    
+    # Sort by count descending, then phrase length descending
+    warnings.sort(key=lambda x: (-x["count"], -len(x["phrase"].split())))
+    return warnings[:15]  # Top 15 most problematic
+
+
+def call_deepseek(system_prompt: str, user_prompt: str, instrument: str = "", previous_subtitles: list = None) -> str:
     """Call DeepSeek via Ollama."""
     try:
         clean_system = sanitize_unicode(system_prompt)
@@ -143,7 +229,7 @@ BAD (generic — never write these):
         # Strip thinking blocks
         subtitle = strip_think_blocks(subtitle)
 
-	# Remove generic endings and labels
+        # Remove generic endings and labels
         for generic in ["pointing to potential gains", "suggesting further upside", 
                         "suggests potential gains", "pointing to further gains",
                         "suggests likely continued advance", "points to potential further gains",
@@ -154,6 +240,9 @@ BAD (generic — never write these):
 
         # Clean up
         subtitle = subtitle.strip('"\'').rstrip('.')
+
+        # Strip instrument name from start of each line
+        subtitle = strip_instrument_name(subtitle, instrument)
 
         # Truncate to ~12 words
         words = subtitle.split()
@@ -245,7 +334,7 @@ def main():
 
         # Call DeepSeek with previous subtitles for dedup
         print(f"  Calling DeepSeek... ({len(previous_subtitles)} prior subtitles in context)")
-        deepseek_subtitle = call_deepseek(system_prompt, user_prompt, previous_subtitles)
+        deepseek_subtitle = call_deepseek(system_prompt, user_prompt, instrument, previous_subtitles)
         print(f"  -> {deepseek_subtitle[:70]}")
 
         results.append({
@@ -261,19 +350,32 @@ def main():
                 "subtitle": deepseek_subtitle,
             })
 
+    # Detect repeated phrases across subtitles
+    warnings = detect_repeated_phrases(results)
+    if warnings:
+        print("\n" + "=" * 60)
+        print("REPETITION WARNINGS")
+        print("=" * 60)
+        for w in warnings:
+            instruments_str = ", ".join(w["instruments"])
+            print(f'  "{w["phrase"]}" -> {instruments_str}')
+    else:
+        print("\n  No repeated phrases detected.")
+
     # Generate HTML
     html_path = OUTPUT_DIR / "shadow_comparison.html"
-    generate_html(results, html_path)
+    generate_html(results, html_path, warnings)
 
     print("\n" + "=" * 60)
     print("COMPLETE")
     print("=" * 60)
     print(f"  Results: {len(results)} instruments")
+    print(f"  Warnings: {len(warnings)} repeated phrases")
     print(f"  Output: {html_path}")
 
 
-def generate_html(results, output_path):
-    """Generate HTML comparison table."""
+def generate_html(results, output_path, warnings=None):
+    """Generate HTML comparison table with optional repetition warnings."""
     html = """<!DOCTYPE html>
 <html>
 <head>
@@ -305,6 +407,41 @@ def generate_html(results, output_path):
         .rating-bearish { color: #ef4444; font-weight: 600; }
         .subtitle { font-style: italic; color: #333; }
         .error { color: #ef4444; font-style: italic; }
+        .warnings {
+            margin-top: 24px;
+            padding: 16px 20px;
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+            border-radius: 8px;
+        }
+        .warnings h2 {
+            color: #991B1B;
+            font-size: 16px;
+            margin: 0 0 12px 0;
+        }
+        .warning-item {
+            font-size: 13px;
+            color: #7F1D1D;
+            padding: 4px 0;
+            border-bottom: 1px solid #FEE2E2;
+        }
+        .warning-item:last-child { border-bottom: none; }
+        .warning-phrase { 
+            font-weight: 600;
+            background: #FEE2E2;
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .warning-instruments { color: #B91C1C; font-style: italic; }
+        .no-warnings {
+            margin-top: 24px;
+            padding: 12px 20px;
+            background: #F0FDF4;
+            border: 1px solid #BBF7D0;
+            border-radius: 8px;
+            color: #166534;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -334,7 +471,27 @@ def generate_html(results, output_path):
 
     html += """        </tbody>
     </table>
-</body>
+"""
+
+    # Add warnings section
+    if warnings:
+        html += """    <div class="warnings">
+        <h2>Repetition Warnings (shared phrases across instruments)</h2>
+"""
+        for w in warnings:
+            instruments_str = ", ".join(w["instruments"])
+            html += f"""        <div class="warning-item">
+            <span class="warning-phrase">{w["phrase"]}</span>
+            &rarr; <span class="warning-instruments">{instruments_str}</span>
+        </div>
+"""
+        html += """    </div>
+"""
+    else:
+        html += """    <div class="no-warnings">No repeated phrases detected across subtitles.</div>
+"""
+
+    html += """</body>
 </html>
 """
 
