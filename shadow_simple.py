@@ -60,7 +60,7 @@ def strip_think_blocks(text: str) -> str:
     return text.strip()
 
 
-def call_deepseek(system_prompt: str, user_prompt: str) -> str:
+def call_deepseek(system_prompt: str, user_prompt: str, previous_subtitles: list = None) -> str:
     """Call DeepSeek via Ollama."""
     try:
         clean_system = sanitize_unicode(system_prompt)
@@ -82,11 +82,14 @@ CRITICAL RULES:
 - Line 2 should answer WHAT TO WATCH NEXT: a condition ("recovery depends on reclaiming 50d MA"), a comparison ("weakest among equity indices"), a risk ("further decline if momentum fails to recover"), or a timeline ("third consecutive week of deterioration"). Use specific numbers when available (e.g., "3rd week of decline", "50d MA at risk", "rallied 12% from lows"). Line 2 must NOT just restate Line 1 in different words
 - IGNORE small changes: a DMAS move from 95 to 90 is noise. A move from 65 to 45 is a story. Only mention score changes if they are significant (>15 points)
 - DIFFERENTIATE: instruments in the same asset class must NOT sound alike. What makes THIS one unique right now? Different momentum levels? Different MA positions? Different correction depths? Different streak lengths?
-- Use the asset name at least once, not generic references
+- Reference the asset name at least once, but never as the first words of a line
 - NEVER end with generic filler like "pointing to potential gains", "suggesting further upside", "points to continued advance", "suggests further strength", "supports further gains". Instead, end with something SPECIFIC: a level being tested, a timeframe, a comparison ("strongest momentum among precious metals"), or a conditional ("recovery depends on reclaiming 50d MA")
 - ONLY reference facts from the data provided. NEVER invent macro narratives like "demand strengthens", "supply constraints", "domestic demand drives", "safe-haven appeal", "industrial demand". Stick strictly to: scores, MAs, streaks, corrections, price levels, DMAS changes, and rating duration
 - Write for a sophisticated investor, NOT a quant. Avoid jargon like "divergence", "technical vs momentum". Instead say what it MEANS: "momentum racing ahead of technicals" or "price strength not yet confirmed by structure". If two scores disagree, explain the implication, not the math
 - DO NOT combine unrelated facts into a false causal chain. "14-week rally from -23% correction" implies the rally started after the correction — only combine facts if the causal link is clear from the data. If unsure, state facts separately
+- Never begin a subtitle line with the instrument name. The instrument name is already displayed as the slide title — repeating it wastes words and adds no value
+- Before finalizing each subtitle, review the previously generated subtitles listed below. Do not reuse the same sentence structure, opening phrase, or closing phrase. Each instrument must read as a distinct observation. If you find yourself writing a pattern already used (e.g., "Recovery hinges on...", "...despite correction from highs"), rewrite it with a completely different construction
+- Do not state any number (streak duration, correction percentage, DMAS change, MA distance) unless it is explicitly present or directly calculable from the data provided. Do not infer or estimate statistics that are not in the input. Directional claims must align with the scores: if Technical >= 80, do not suggest technical weakness; if Momentum <= 30, do not suggest momentum strength. When in doubt, describe the setup qualitatively rather than fabricating a statistic
 
 GOOD (real examples):
 "S&P 500 neutral for sixth straight week with DMAS down -16
@@ -113,7 +116,7 @@ BAD (generic — never write these):
 "Solid technical vs exceptional momentum divergence points to upside"
 "Strong momentum supports further gains ahead"
 
-Generate subtitle (2 lines, no period, no labels):"""
+""" + (_build_previous_subtitles_block(previous_subtitles) if previous_subtitles else "") + """Generate subtitle (2 lines, no period, no labels):"""
         )
 
         response = requests.post(
@@ -165,6 +168,17 @@ Generate subtitle (2 lines, no period, no labels):"""
         return "[timeout]"
     except Exception as e:
         return f"[error: {str(e)[:80]}]"
+
+
+def _build_previous_subtitles_block(previous_subtitles: list) -> str:
+    """Build context block of previously generated subtitles for dedup."""
+    if not previous_subtitles:
+        return ""
+    lines = ["PREVIOUSLY GENERATED SUBTITLES IN THIS BATCH (DO NOT reuse their phrasing, structure, or closing phrases):\n"]
+    for entry in previous_subtitles:
+        lines.append(f"- {entry['instrument']}: {entry['subtitle']}")
+    lines.append("\n")
+    return "\n".join(lines)
 
 
 def get_rating_from_prompt(user_prompt: str) -> str:
@@ -220,6 +234,7 @@ def main():
     print("-" * 60)
 
     results = []
+    previous_subtitles = []  # Accumulate for dedup context
     for i, entry in enumerate(prompts):
         instrument = entry.get("instrument", "Unknown")
         system_prompt = entry.get("system", "")
@@ -228,9 +243,9 @@ def main():
 
         print(f"\n[{i+1}/{len(prompts)}] {instrument} ({rating})")
 
-        # Call DeepSeek
-        print(f"  Calling DeepSeek...")
-        deepseek_subtitle = call_deepseek(system_prompt, user_prompt)
+        # Call DeepSeek with previous subtitles for dedup
+        print(f"  Calling DeepSeek... ({len(previous_subtitles)} prior subtitles in context)")
+        deepseek_subtitle = call_deepseek(system_prompt, user_prompt, previous_subtitles)
         print(f"  -> {deepseek_subtitle[:70]}")
 
         results.append({
@@ -238,6 +253,13 @@ def main():
             "rating": rating,
             "deepseek_subtitle": deepseek_subtitle,
         })
+
+        # Accumulate for next call's dedup context
+        if not deepseek_subtitle.startswith('['):  # Skip errors
+            previous_subtitles.append({
+                "instrument": instrument,
+                "subtitle": deepseek_subtitle,
+            })
 
     # Generate HTML
     html_path = OUTPUT_DIR / "shadow_comparison.html"
