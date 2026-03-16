@@ -1,0 +1,277 @@
+# IC Pipeline — Single Source of Truth for Tickers
+
+# 20 IC-scored instruments
+ic_instruments:
+  equity:
+    - name: "S&P 500"
+      ticker: "SPX Index"
+      currency: "USD"
+      asset_class: "equity"
+      mars_col: "SPX"
+      mars_hi: "SPX_high"
+      mars_lo: "SPX_low"
+    - name: "CSI 300"
+      ticker: "SHSZ300 Index"
+      currency: "CNY"
+      asset_class: "equity"
+      mars_col: "CSI"
+      mars_hi: "CSI_high"
+      mars_lo: "CSI_low"
+    - name: "Nikkei 225"
+      ticker: "NKY Index"
+      currency: "JPY"
+      asset_class: "equity"
+      mars_col: "NKY"
+      mars_hi: "NKY_high"
+      mars_lo: "NKY_low"
+    - name: "TASI"
+      ticker: "SASEIDX Index"
+      currency: "SAR"
+      asset_class: "equity"
+      mars_col: "TASI"
+      mars_hi: "TASI_high"
+      mars_lo: "TASI_low"
+    - name: "Sensex"
+      ticker: "SENSEX Index"
+      currency: "INR"
+      asset_class: "equity"
+      mars_col: "SENSEX"
+      mars_hi: "SENSEX_high"
+      mars_lo: "SENSEX_low"
+    - name: "DAX"
+      ticker: "DAX Index"
+      currency: "EUR"
+      asset_class: "equity"
+      mars_col: "DAX"
+      mars_hi: "DAX_high"
+      mars_lo: "DAX_low"
+    - name: "SMI"
+      ticker: "SMI Index"
+      currency: "CHF"
+      asset_class: "equity"
+      mars_col: "SMI"
+      mars_hi: "SMI_high"
+      mars_lo: "SMI_low"
+    - name: "IBOV"
+      ticker: "IBOV Index"
+      currency: "BRL"
+      asset_class: "equity"
+      mars_col: "IBOV"
+      mars_hi: "IBOV_high"
+      mars_lo: "IBOV_low"
+    - name: "MEXBOL"
+      ticker: "MEXBOL Index"
+      currency: "MXN"
+      asset_class: "equity"
+      mars_col: "MEXBOL"
+      mars_hi: "MEXBOL_high"
+      mars_lo: "MEXBOL_low"
+  commodity:
+    - name: "Gold"
+      ticker: "GCA Comdty"
+      currency: "USD"
+      asset_class: "commodity"
+      mars_col: "GOLD"
+      mars_hi: "GOLD_high"
+      mars_lo: "GOLD_low"
+    - name: "Silver"
+      ticker: "SI1 Comdty"
+      currency: "USD"
+      asset_class: "commodity"
+      mars_col: "SILVER"
+      mars_hi: "SILVER_high"
+      mars_lo: "SILVER_low"
+    - name: "Platinum"
+      ticker: "PL1 Comdty"
+      currency: "USD"
+      asset_class: "commodity"
+      mars_col: "PLATINUM"
+      mars_hi: "PLATINUM_high"
+      mars_lo: "PLATINUM_low"
+    - name: "Palladium"
+      ticker: "PA1 Comdty"
+      currency: "USD"
+      asset_class: "commodity"
+      mars_col: "PALLADIUM"
+      mars_hi: "PALLADIUM_high"
+      mars_lo: "PALLADIUM_low"
+    - name: "Oil"
+      ticker: "CL1 Comdty"
+      currency: "USD"
+      asset_class: "commodity"
+      mars_col: "OIL"
+      mars_hi: "OIL_high"
+      mars_lo: "OIL_low"
+    - name: "Copper"
+      ticker: "HG1 Comdty"
+      currency: "USD"
+      asset_class: "commodity"
+      mars_col: "COPPER"
+      mars_hi: "COPPER_high"
+      mars_lo: "COPPER_low"
+  crypto:
+    - name: "Bitcoin"
+      ticker: "XBTUSD Curncy"
+      currency: "USD"
+      asset_class: "crypto"
+      mars_col: "BTC"
+      mars_hi: "BTC_high"
+      mars_lo: "BTC_low"
+    - name: "Ethereum"
+      ticker: "XETUSD Curncy"
+      currency: "USD"
+      asset_class: "crypto"
+      mars_col: "ETH"
+      mars_hi: "ETH_high"
+      mars_lo: "ETH_low"
+    - name: "Ripple"
+      ticker: "XRPUSD Curncy"
+      currency: "USD"
+      asset_class: "crypto"
+      mars_col: "XRP"
+      mars_hi: "XRP_high"
+      mars_lo: "XRP_low"
+    - name: "Solana"
+      ticker: "XSOLUSD Curncy"
+      currency: "USD"
+      asset_class: "crypto"
+      mars_col: "SOL"
+      mars_hi: "SOL_high"
+      mars_lo: "SOL_low"
+    - name: "Binance"
+      ticker: "XBNBUSD Curncy"
+      currency: "USD"
+      asset_class: "crypto"
+      mars_col: "BNB"
+      mars_hi: "BNB_high"
+      mars_lo: "BNB_low"
+
+# MARS peer universe (used for relative momentum)
+mars_peers:
+  - "CCMP Index"
+  - "IBOV Index"
+  - "MEXBOL Index"
+  - "SXXP Index"
+  - "UKX Index"
+  - "SMI Index"
+  - "HSI Index"
+  - "SHSZ300 Index"
+  - "NKY Index"
+  - "SENSEX Index"
+  - "DAX Index"
+  - "MXWO Index"
+  - "USGG10YR Index"
+  - "GECU10YR Index"
+  - "CL1 Comdty"
+  - "GCA Comdty"
+  - "DXY Curncy"
+  - "XBTUSD Curncy"
+
+# Additional performance tickers (rates, FX, credit, etc.)
+performance_tickers:
+  equity:
+    - { ticker: "SPX Index",      name: "S&P 500",   region: "US" }
+    - { ticker: "CCMP Index",     name: "Nasdaq 100", region: "US" }
+    - { ticker: "SXXP Index",     name: "Euro Stoxx 600", region: "Europe" }
+    - { ticker: "UKX Index",      name: "FTSE 100",  region: "Europe" }
+    - { ticker: "DAX Index",      name: "DAX",       region: "Europe" }
+    - { ticker: "SMI Index",      name: "SMI",       region: "Europe" }
+    - { ticker: "NKY Index",      name: "Nikkei 225", region: "Asia" }
+    - { ticker: "HSI Index",      name: "Hang Seng", region: "Asia" }
+    - { ticker: "SHSZ300 Index",  name: "CSI 300",   region: "Asia" }
+    - { ticker: "SENSEX Index",   name: "Sensex",    region: "Asia" }
+    - { ticker: "SASEIDX Index",  name: "TASI",      region: "MENA" }
+    - { ticker: "IBOV Index",     name: "IBOV",      region: "LatAm" }
+    - { ticker: "MEXBOL Index",   name: "MEXBOL",    region: "LatAm" }
+    - { ticker: "MXWO Index",     name: "MSCI World", region: "Global" }
+  rates:
+    - { ticker: "USGG2YR Index",  name: "US 2Y",     region: "US" }
+    - { ticker: "USGG10YR Index", name: "US 10Y",    region: "US" }
+    - { ticker: "USGG30YR Index", name: "US 30Y",    region: "US" }
+    - { ticker: "GECU2YR Index",  name: "Germany 2Y", region: "Europe" }
+    - { ticker: "GECU10YR Index", name: "Germany 10Y", region: "Europe" }
+    - { ticker: "GSWISS10 Index", name: "Switzerland 10Y", region: "Europe" }
+    - { ticker: "GJGB10 Index",   name: "Japan 10Y", region: "Asia" }
+  credit:
+    - { ticker: "LF98OAS Index",  name: "US HY OAS", region: "US" }
+    - { ticker: "LUACOAS Index",  name: "US IG OAS", region: "US" }
+    - { ticker: "IBOXHY Index",   name: "EU HY OAS", region: "Europe" }
+    - { ticker: "IBOXXMJA Index", name: "EU IG OAS", region: "Europe" }
+  commodity:
+    - { ticker: "GCA Comdty",    name: "Gold",      group: "Precious" }
+    - { ticker: "SI1 Comdty",    name: "Silver",    group: "Precious" }
+    - { ticker: "PL1 Comdty",    name: "Platinum",  group: "Precious" }
+    - { ticker: "PA1 Comdty",    name: "Palladium", group: "Precious" }
+    - { ticker: "CL1 Comdty",    name: "WTI Oil",   group: "Energy" }
+    - { ticker: "HG1 Comdty",    name: "Copper",    group: "Industrial" }
+    - { ticker: "BCOM Index",    name: "Bloomberg Commodity", group: "Index" }
+  fx:
+    - { ticker: "EURUSD Curncy", name: "EUR/USD",   group: "Major" }
+    - { ticker: "GBPUSD Curncy", name: "GBP/USD",   group: "Major" }
+    - { ticker: "USDJPY Curncy", name: "USD/JPY",   group: "Major" }
+    - { ticker: "USDCHF Curncy", name: "USD/CHF",   group: "Major" }
+    - { ticker: "USDCNH Curncy", name: "USD/CNH",   group: "EM" }
+    - { ticker: "USDBRL Curncy", name: "USD/BRL",   group: "EM" }
+    - { ticker: "DXY Curncy",    name: "DXY",       group: "Index" }
+  crypto:
+    - { ticker: "XBTUSD Curncy", name: "Bitcoin",   rank: 1 }
+    - { ticker: "XETUSD Curncy", name: "Ethereum",  rank: 2 }
+    - { ticker: "XRPUSD Curncy", name: "Ripple",    rank: 3 }
+    - { ticker: "XSOLUSD Curncy", name: "Solana",   rank: 4 }
+    - { ticker: "XBNBUSD Curncy", name: "Binance",  rank: 5 }
+
+# Breadth indices
+breadth_indices:
+  - name: "S&P 500"
+    ticker: "SPX Index"
+    region: "US Equity"
+  - name: "Nasdaq 100"
+    ticker: "NDX Index"
+    region: "US Tech"
+  - name: "Russell 2000"
+    ticker: "RTY Index"
+    region: "US Small Cap"
+  - name: "Euro Stoxx 600"
+    ticker: "SXXP Index"
+    region: "European Equity"
+  - name: "MSCI EM"
+    ticker: "MXEF Index"
+    region: "Emerging Markets"
+  - name: "Nikkei 225"
+    ticker: "NKY Index"
+    region: "Japan"
+  - name: "Hang Seng"
+    ticker: "HSI Index"
+    region: "Hong Kong"
+  - name: "CSI 300"
+    ticker: "SHSZ300 Index"
+    region: "China"
+  - name: "DAX"
+    ticker: "DAX Index"
+    region: "Germany"
+
+# Breadth fields
+breadth_fields:
+  - PCT_MEMB_PX_GT_50D_MOV_AVG
+  - PCT_MEMB_PX_GT_100D_MOV_AVG
+  - PCT_MEMB_PX_BLW_LWR_BOLL_BAND
+  - PCT_MEMB_PX_ABV_UPPER_BOLL_BAND
+  - PCT_MEM_MACD_SL_SIGNAL_LST_10D
+  - PCT_MEMB_MACD_GT_BASE_LINE_0
+  - PCT_MEM_MACD_BUY_SIGNAL_LST_10D
+  - PCT_MEMB_SIGNAL_GT_BASE_LINE_0
+
+# Fundamental fields
+fundamental_fields:
+  - BEST_PE_RATIO
+  - EARN_YLD
+  - EST_LTG_EPS_AGGTE
+  - PROF_MARGIN
+  - RETURN_ON_EQY
+  - TOT_DEBT_TO_TOT_EQY
+  - DVD_YLD
+
+# Bloomberg connection
+bloomberg:
+  host: "10.211.55.3"
+  port: 8194
