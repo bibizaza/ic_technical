@@ -38,15 +38,16 @@ BREADTH_HEIGHT_CM = 11.5
 # =============================================================================
 
 INDEX_NAME_MAP = {
-    "SPX Index":      ("\U0001F1FA\U0001F1F8", "U.S."),
-    "SHSZ300 Index":  ("\U0001F1E8\U0001F1F3", "China"),
-    "NKY Index":      ("\U0001F1EF\U0001F1F5", "Japan"),
-    "SASEIDX Index":  ("\U0001F1F8\U0001F1E6", "Saudi Arabia"),
-    "SENSEX Index":   ("\U0001F1EE\U0001F1F3", "India"),
-    "DAX Index":      ("\U0001F1E9\U0001F1EA", "Germany"),
-    "SMI Index":      ("\U0001F1E8\U0001F1ED", "Switzerland"),
-    "MEXBOL Index":   ("\U0001F1F2\U0001F1FD", "Mexico"),
-    "IBOV Index":     ("\U0001F1E7\U0001F1F7", "Brazil"),
+    # Keyed by display name (from config/tickers.yaml breadth_indices)
+    "S&P 500":        ("\U0001F1FA\U0001F1F8", "S&P 500"),
+    "Nasdaq 100":     ("\U0001F1FA\U0001F1F8", "Nasdaq 100"),
+    "Russell 2000":   ("\U0001F1FA\U0001F1F8", "Russell 2000"),
+    "Euro Stoxx 600": ("\U0001F1EA\U0001F1FA", "Euro Stoxx 600"),
+    "MSCI EM":        ("\U0001F30D", "MSCI EM"),
+    "Nikkei 225":     ("\U0001F1EF\U0001F1F5", "Nikkei 225"),
+    "Hang Seng":      ("\U0001F1ED\U0001F1F0", "Hang Seng"),
+    "CSI 300":        ("\U0001F1E8\U0001F1F3", "CSI 300"),
+    "DAX":            ("\U0001F1E9\U0001F1EA", "DAX"),
 }
 
 

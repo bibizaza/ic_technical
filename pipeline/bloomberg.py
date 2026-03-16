@@ -142,7 +142,8 @@ def bbg_bdh(
                 field_data_arr = sec_data.getElement("fieldData")
                 for i in range(field_data_arr.numValues()):
                     point = field_data_arr.getValueAsElement(i)
-                    row = {"date": point.getElementAsDatetime("date").date(), "ticker": ticker_val}
+                    dt_val = point.getElementAsDatetime("date")
+                    row = {"date": dt_val if isinstance(dt_val, datetime) else datetime(dt_val.year, dt_val.month, dt_val.day), "ticker": ticker_val}
                     for field in fields:
                         try:
                             row[field] = point.getElementAsFloat(field)
@@ -180,8 +181,14 @@ def pull_prices(
     existing: pd.DataFrame
 
     if master_path.exists():
-        existing = pd.read_csv(master_path, parse_dates=["date"])
-        existing["date"] = pd.to_datetime(existing["date"])
+        try:
+            existing = pd.read_csv(master_path, parse_dates=["date"])
+            existing["date"] = pd.to_datetime(existing["date"])
+            if "ticker" not in existing.columns:
+                raise ValueError("Not in tidy format")
+        except (ValueError, KeyError):
+            log.warning("Existing master_prices.csv is not in tidy format — starting fresh")
+            existing = pd.DataFrame(columns=["date", "ticker", "close", "low", "high"])
     else:
         existing = pd.DataFrame(columns=["date", "ticker", "close", "low", "high"])
 

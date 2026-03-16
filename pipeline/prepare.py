@@ -209,15 +209,15 @@ def run_prepare(
     # -----------------------------------------------------------------------
     # Step 1: Bloomberg data pull
     # -----------------------------------------------------------------------
+    # Always read prices from the raw Bloomberg CSV (maintained separately)
+    master_df = _read_master_csv(master_csv)
+
     if not skip_bloomberg:
-        log.info("Pulling Bloomberg data...")
+        log.info("Pulling Bloomberg reference data (breadth, fundamentals, market caps)...")
         try:
-            from pipeline.bloomberg import connect_bloomberg, pull_prices, pull_breadth, pull_fundamentals, pull_market_caps
+            from pipeline.bloomberg import connect_bloomberg, pull_breadth, pull_fundamentals, pull_market_caps
             session = connect_bloomberg()
             try:
-                all_tickers = _collect_all_tickers(cfg)
-                master_df = pull_prices(session, all_tickers, master_csv)
-
                 breadth_indices = cfg["breadth_indices"]
                 raw_breadth = pull_breadth(session, breadth_indices)
 
@@ -231,14 +231,11 @@ def run_prepare(
                 disconnect_bloomberg(session)
         except Exception as e:
             log.error("Bloomberg pull failed: %s", e)
-            log.info("Falling back to existing master_prices.csv (no new data)")
-            master_df = _read_master_csv(master_csv)
             raw_breadth = pd.DataFrame()
             raw_fundamentals = pd.DataFrame()
             market_caps_raw = {}
     else:
         log.info("Skipping Bloomberg (--skip-bloomberg flag set)")
-        master_df = _read_master_csv(master_csv)
         raw_breadth = pd.DataFrame()
         raw_fundamentals = pd.DataFrame()
         market_caps_raw = {}
