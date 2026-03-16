@@ -43,6 +43,27 @@ Write all subtitles back to draft_state.json: set `instruments.[name].subtitle =
 - **Line 1:** most important fact RIGHT NOW
 - **Line 2:** what to watch next / key level or catalyst
 
+### Style Rule: Analyst Voice, Not Data Dump
+Each subtitle should contain **AT MOST 2 numbers**. Pick the ONE or TWO most meaningful data points and weave them into a narrative. The rest should be qualitative interpretation.
+
+The tone should be a **senior portfolio manager briefing a client**, not a quant reading a spreadsheet.
+
+**BAD (data dump):**
+> "Slipped from DMAS 78 to 45 as price sits 1.6% below 50d MA
+> RSI at 42 with momentum at 57 suggests directionless drift ahead"
+
+**GOOD (analyst voice with selective data):**
+> "Sharp DMAS deterioration flags a regime shift from bullish to neutral
+> Sitting just below the 50d MA — next week decides direction"
+
+**BAD (data dump):**
+> "Achieved a flawless DMAS of 100 with price 27.6% above the 200d MA
+> RSI at 61 still has room before overheating — 50d MA gap of 6.7%"
+
+**GOOD (analyst voice):**
+> "Flawless technical score crowns gold as the standout bullish asset
+> Rally has room to run before RSI overheats — no reversal signal yet"
+
 ### Banned phrases (never use, including partial matches)
 - "recovery hinges on" / "hinges on"
 - "recovery depends on"
