@@ -82,6 +82,19 @@ except Exception:
     def insert_commodity_performance_histo_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
         return prs
 
+# Import corporate bonds performance functions
+try:
+    from .corp_bonds_perf import (
+        create_weekly_performance_chart as create_weekly_corp_bonds_performance_chart,
+        insert_corp_bonds_performance_slide,
+    )
+except Exception:
+    # Provide no-op fallbacks if the corp_bonds module cannot be imported
+    def create_weekly_corp_bonds_performance_chart(*args, **kwargs):  # type: ignore
+        return (b"", None)
+    def insert_corp_bonds_performance_slide(prs, image_bytes, *args, **kwargs):  # type: ignore
+        return prs
+
 __all__ = [
     # Equity functions
     "create_weekly_performance_chart",
@@ -113,4 +126,7 @@ __all__ = [
     "create_historical_rates_performance_table",
     "insert_rates_performance_bar_slide",
     "insert_rates_performance_histo_slide",
+    # Corporate bonds performance functions
+    "create_weekly_corp_bonds_performance_chart",
+    "insert_corp_bonds_performance_slide",
 ]

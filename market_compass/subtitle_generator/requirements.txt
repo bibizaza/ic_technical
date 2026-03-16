@@ -1,0 +1,7 @@
+# Market Compass Subtitle Generator Dependencies
+
+# Core dependencies (if using standalone)
+# pandas>=1.5.0  # For DataFrame integration examples
+
+# No external dependencies required for core functionality
+# The module uses only Python standard library
