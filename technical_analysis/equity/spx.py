@@ -47,6 +47,19 @@ lows.
 
 from __future__ import annotations
 
+# === Windows Playwright Fix - MUST BE EARLY ===
+import sys
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+# === End Fix ===
+
 from datetime import timedelta
 import pathlib
 from typing import Optional, Tuple
@@ -54,165 +67,48 @@ from typing import Optional, Tuple
 import pandas as pd
 import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
+import streamlit as st
 
 from pptx import Presentation
 from pptx.util import Cm
 from io import BytesIO
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import matplotlib.patches as patches
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
-# ---------------------------------------------------------------------------
-# MARS momentum engine integration
-#
-# Import the lightweight MARS scoring engine used to compute the S&P 500
-# momentum score.  If the module is unavailable (for example during
-# documentation builds) a stub function is provided to prevent import
-# errors.  The PEER_GROUP defines the benchmark assets against which
-# the S&P 500 is ranked for the relative momentum component.
-try:
-    # Prefer the namespaced import when the mars_engine package is available
-    from mars_engine.mars_lite_scorer import generate_spx_score_history  # type: ignore
-except Exception:
-    try:
-        # Fallback to local module in the same directory
-        from mars_lite_scorer import generate_spx_score_history  # type: ignore
-    except Exception:
-        # Stub implementation used when the scorer cannot be imported
-        def generate_spx_score_history(prices_df: pd.DataFrame) -> pd.Series:  # type: ignore
-            return pd.Series(dtype=float)
+# Import common helpers (eliminates code duplication)
+from technical_analysis.common_helpers import (
+    _get_run_font_attributes,
+    _apply_run_font_attributes,
+    _add_mas,
+    _get_technical_score_generic,
+    _get_momentum_score_generic,
+    _interpolate_color,
+    _load_price_data_from_obj,
+    _load_price_data_generic,
+    _compute_range_bounds,
+    generate_average_gauge_image,
+    generate_range_gauge_only_image,
+    generate_range_gauge_chart_image,
+    generate_range_callout_chart_image,
+)
+from technical_analysis.powerpoint_utils import (
+    find_slide_by_placeholder,
+    insert_score_number,
+    insert_chart_image,
+    insert_subtitle,
+    insert_technical_assessment,
+    insert_source,
+)
 
-# Peer group tickers used for relative momentum ranking.  These match the
-# assets used in the full momentum engine.  Missing tickers are ignored
-# when constructing the input DataFrame.
-PEER_GROUP = [
-    "CCMP Index",
-    "IBOV Index",
-    "MEXBOL Index",
-    "SXXP Index",
-    "UKX Index",
-    "SMI Index",
-    "HSI Index",
-    "SHSZ300 Index",
-    "NKY Index",
-    "SENSEX Index",
-    "DAX Index",
-    "MXWO Index",
-    "USGG10YR Index",
-    "GECU10YR Index",
-    "CL1 Comdty",
-    "GCA Comdty",
-    "DXY Curncy",
-    "XBTUSD Curncy",
-]
-
-# ---------------------------------------------------------------------------
-# Configuration
-#
-# ``PLOT_LOOKBACK_DAYS`` controls the default window of historical data used
-# when drawing charts.  It is expressed in trading days and set by default
-# to 90 (approximately 3 months) to match the desired timeframe.  The
-# Streamlit application may override this value at runtime by assigning
-# a new integer to this module-level constant before invoking any chart
-# functions.  When computing moving averages for the static charts, the
-# rolling windows are always computed on the full price history and then
-# cropped to the lookback window to avoid artificially shortening longer
-# moving averages when displaying a shorter slice of data.
-PLOT_LOOKBACK_DAYS: int = 90
-
-# Import helper for adjusting price data according to price mode.  The utils
-# module must reside at the project root.  It is deliberately not imported
-# from ``technical_analysis.utils`` so that this module can be reused when
-# nested within ``ic`` and ``utils.py`` sits at the project root.
-try:
-    from utils import adjust_prices_for_mode  # type: ignore
-except Exception:
-    # If the utils module is not available, define a no-op fallback.  This
-    # preserves compatibility with environments where price mode is not used.
-    adjust_prices_for_mode = None  # type: ignore
-
-###############################################################################
-# Internal helpers
-###############################################################################
-
-def _get_run_font_attributes(run):
-    """Capture font attributes from a run.
-
-    Returns a tuple ``(size, rgb, theme_color, brightness, bold, italic)``.
-    The colour information includes either the RGB value if explicitly
-    defined, or the theme colour and brightness for a scheme colour.  If
-    colour information is not available, ``rgb`` and ``theme_color`` are
-    ``None``.  Bold and italic attributes are preserved as provided.
-    """
-    if run is None:
-        return None, None, None, None, None, None
-    size = run.font.size
-    colour = run.font.color
-    rgb = None
-    theme_color = None
-    brightness = None
-    # Try to capture an explicit RGB value
-    try:
-        rgb = colour.rgb
-    except Exception:
-        rgb = None
-        # If no RGB value, attempt to capture a theme colour
-        try:
-            theme_color = colour.theme_color
-        except Exception:
-            theme_color = None
-    # Capture brightness adjustment if available
-    try:
-        brightness = colour.brightness
-    except Exception:
-        brightness = None
-    bold = run.font.bold
-    italic = run.font.italic
-    return size, rgb, theme_color, brightness, bold, italic
-
-
-def _apply_run_font_attributes(new_run, size, rgb, theme_color, brightness, bold, italic):
-    """Apply captured font attributes to a new run.
-
-    Parameters
-    ----------
-    new_run : pptx.text.run.Run
-        The run to which attributes should be applied.
-    size : pptx.util.Length or None
-        The font size to apply.
-    rgb : pptx.dml.color.RGBColor or None
-        The explicit RGB colour value to apply.
-    theme_color : MSO_THEME_COLOR or None
-        The theme colour value to apply if no RGB colour is defined.
-    brightness : float or None
-        Brightness adjustment for the colour, if any.
-    bold : bool or None
-        Whether the font should be bold.
-    italic : bool or None
-        Whether the font should be italic.
-    """
-    if size is not None:
-        new_run.font.size = size
-    # Apply colour: prefer explicit RGB, otherwise theme colour
-    if rgb is not None:
-        try:
-            new_run.font.color.rgb = rgb
-        except Exception:
-            pass
-    elif theme_color is not None:
-        try:
-            new_run.font.color.theme_color = theme_color
-            if brightness is not None:
-                new_run.font.color.brightness = brightness
-        except Exception:
-            pass
-    # Apply bold and italic
-    if bold is not None:
-        new_run.font.bold = bold
-    if italic is not None:
-        new_run.font.italic = italic
-
+# Import MARS momentum scoring engine (no longer used for calculation - kept for reference)
+# from mars_engine import (
+#     generate_spx_score_history,
+#     load_prices_for_mars,
+# )
+# MARS scores are now read directly from mars_score sheet in Excel (see _compute_spx_mars_score_cached)
 
 def _load_price_data(
     excel_path: pathlib.Path,
@@ -221,6 +117,9 @@ def _load_price_data(
 ) -> pd.DataFrame:
     """
     Read the raw price sheet and return a tidy Date‑Price DataFrame.
+
+    This is a wrapper around _load_price_data_generic with the instrument-specific
+    default ticker.
 
     Parameters
     ----------
@@ -239,32 +138,78 @@ def _load_price_data(
         DataFrame with columns ``Date`` and ``Price``.  The data are
         sorted by date and any rows with missing values are removed.
     """
-    df = pd.read_excel(excel_path, sheet_name="data_prices")
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    df_clean = (
-        df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-            ["Date", "Price"]
-        ]
-    )
-    # Adjust for price mode if helper is available
-    if adjust_prices_for_mode is not None and price_mode:
-        try:
-            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
-        except Exception:
-            # If adjustment fails, silently fall back to unadjusted data
-            pass
-    return df_clean
+    return _load_price_data_generic(excel_path, ticker, price_mode)
 
+# ---------------------------------------------------------------------------
 
-def _add_mas(df: pd.DataFrame) -> pd.DataFrame:
-    """Add 50/100/200‑day moving‑average columns to a DataFrame."""
-    out = df.copy()
-    for w in (50, 100, 200):
-        out[f"MA_{w}"] = out["Price"].rolling(w, min_periods=1).mean()
-    return out
+# ---------------------------------------------------------------------------
+# Configuration
+#
+# ``PLOT_LOOKBACK_DAYS`` controls the default window of historical data used
+# when drawing charts.  It is expressed in trading days and set by default
+# to 90 (approximately 3 months) to match the desired timeframe.  The
+# Streamlit application may override this value at runtime by assigning
+# a new integer to this module-level constant before invoking any chart
+# functions.  When computing moving averages for the static charts, the
+# rolling windows are always computed on the full price history and then
+# cropped to the lookback window to avoid artificially shortening longer
+# moving averages when displaying a shorter slice of data.
+PLOT_LOOKBACK_DAYS: int = 90
+
+# Technical Analysis V2 lookback days (can be overridden at runtime)
+TECH_V2_LOOKBACK_DAYS: int = 90
+
+# ---------------------------------------------------------------------------
+# Volatility Index Mapping for Trading Range Calculation
+# ---------------------------------------------------------------------------
+# Maps instrument tickers to their corresponding volatility indices.
+# Instruments not in this mapping will use price-based fallback.
+VOLATILITY_INDEX_MAP = {
+    # Equities
+    "SPX Index": "VIX Index",
+    "DAX Index": "V1X Index",
+    "NKY Index": "VNKY Index",
+    "IBOV Index": "VBOV Index",
+    "SENSEX Index": "INVIXN Index",
+    "SMI Index": "VSMI1M Index",
+
+    # Commodities
+    "GCA Comdty": "XAUUSDV1M BGN Curncy",  # Gold
+    "SIA Comdty": "XAGUSDV1M BGN Curncy",  # Silver
+    "XPT Comdty": "XPTUSDV1M BGN Curncy",  # Platinum
+    "CL1 Comdty": "WTI US 1M 50D VOL",     # Oil (WTI)
+    "LP1 Comdty": "LPR1 Index",            # Copper
+
+    # Crypto
+    "XBTUSD Curncy": "BVXS Index",         # Bitcoin
+}
+
+# Instruments without volatility index - will use price-based fallback
+NO_VOL_INDEX_TICKERS = [
+    "SHSZ300 Index",    # CSI 300
+    "SASEIDX Index",    # TASI
+    "MEXBOL Index",     # Mexbol
+    "XPD Curncy",       # Palladium
+    "XETUSD Curncy",    # Ethereum
+    "XRPUSD Curncy",    # Ripple
+    "XSOUSD Curncy",    # Solana
+    "XBIUSD Curncy",    # Binance
+]
+
+# Import helper for adjusting price data according to price mode.  The utils
+# module must reside at the project root.  It is deliberately not imported
+# from ``technical_analysis.utils`` so that this module can be reused when
+# nested within ``ic`` and ``utils.py`` sits at the project root.
+try:
+    from utils import adjust_prices_for_mode  # type: ignore
+except Exception:
+    # If the utils module is not available, define a no-op fallback.  This
+    # preserves compatibility with environments where price mode is not used.
+    adjust_prices_for_mode = None  # type: ignore
+
+###############################################################################
+# Internal helpers
+###############################################################################
 
 def _get_vol_index_value(
     excel_obj_or_path,
@@ -299,157 +244,6 @@ def _get_vol_index_value(
         df = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
     except Exception:
         return None
-
-# ---------------------------------------------------------------------------
-# Momentum score helpers
-#
-def _load_spx_momentum_data(excel_obj_or_path) -> Optional[pd.DataFrame]:
-    """
-    Load price data for the S&P 500 and its peer group for momentum scoring.
-
-    The input Excel workbook may provide price data either in a tidy format
-    with columns ``Date``, ``Name``, ``Price`` (and optionally ``High`` and
-    ``Low``) or in a wide format where the first column contains dates and
-    subsequent columns correspond to tickers.  This helper constructs a
-    DataFrame indexed by date with columns for the S&P 500 closing price
-    (``SPX``), its high and low prices (``SPX_high`` and ``SPX_low``), and
-    the closing prices of each peer in ``PEER_GROUP``.  If high and low
-    prices are not available they are approximated by taking ±1 % around the
-    close.  Missing peer columns are silently ignored.
-
-    Parameters
-    ----------
-    excel_obj_or_path : file-like or path
-        The Excel workbook containing the ``data_prices`` sheet.
-
-    Returns
-    -------
-    pandas.DataFrame or None
-        DataFrame with columns suitable for ``generate_spx_score_history``
-        (``SPX``, ``SPX_high``, ``SPX_low`` and peer columns) or ``None``
-        if the data could not be read.
-    """
-    try:
-        df_prices = pd.read_excel(excel_obj_or_path, sheet_name="data_prices")
-    except Exception:
-        return None
-    # Attempt to drop any metadata row (often row 0) and rows labelled "DATES"
-    df_prices = df_prices.drop(index=0, errors="ignore")
-    if df_prices.empty:
-        return None
-    # Detect tidy format by checking for 'Name' and 'Price' columns (case-insensitive)
-    cols_lower = [str(c).strip().lower() for c in df_prices.columns]
-    if "name" in cols_lower and "price" in cols_lower:
-        # Normalise column names
-        df_prices.columns = [str(c).strip() for c in df_prices.columns]
-        # Ensure Date column exists
-        if "Date" not in df_prices.columns:
-            # Find a column that likely contains dates (first column)
-            df_prices.rename(columns={df_prices.columns[0]: "Date"}, inplace=True)
-        df_prices["Date"] = pd.to_datetime(df_prices["Date"], errors="coerce")
-        # Filter for SPX and peers
-        tickers_needed = ["SPX Index"] + PEER_GROUP
-        df_filtered = df_prices[df_prices["Name"].isin(tickers_needed)].copy()
-        if df_filtered.empty:
-            return None
-        # Pivot to wide format with price, high and low values
-        value_cols = ["Price"]
-        has_high_low = set([c.lower() for c in df_filtered.columns]) >= {"high", "low"}
-        if has_high_low:
-            value_cols += ["High", "Low"]
-        df_wide = df_filtered.pivot_table(index="Date", columns="Name", values=value_cols, aggfunc="first")
-        # Flatten multi-index columns if present
-        if isinstance(df_wide.columns, pd.MultiIndex):
-            df_wide.columns = [f"{ticker}_{val.lower()}" for val, ticker in df_wide.columns]
-        # Extract SPX close, high and low
-        spx_close_col = "SPX Index_price"
-        spx_high_col = "SPX Index_high"
-        spx_low_col = "SPX Index_low"
-        if spx_close_col not in df_wide.columns:
-            return None
-        close = pd.to_numeric(df_wide[spx_close_col], errors="coerce")
-        # Approximate high/low when missing
-        high = pd.to_numeric(df_wide.get(spx_high_col), errors="coerce")
-        low = pd.to_numeric(df_wide.get(spx_low_col), errors="coerce")
-        if high is None or high.isna().all():
-            high = close * 1.01
-        if low is None or low.isna().all():
-            low = close * 0.99
-        out = pd.DataFrame(index=df_wide.index)
-        out["SPX"] = close
-        out["SPX_high"] = high
-        out["SPX_low"] = low
-        # Add peer prices
-        for peer in PEER_GROUP:
-            peer_col = f"{peer}_price"
-            if peer_col in df_wide.columns:
-                out[peer] = pd.to_numeric(df_wide[peer_col], errors="coerce")
-        # Remove rows where the SPX price is missing
-        out = out.dropna(subset=["SPX"])
-        # Forward-fill and back-fill missing values to avoid NaNs during momentum calculations
-        out = out.ffill().bfill()
-        # As a final fallback, fill any remaining NaNs with the SPX closing price
-        for col in out.columns:
-            out[col] = out[col].fillna(out["SPX"])
-        # Duplicate the second row into the first row to avoid an initial NaN when computing returns
-        if len(out) > 1:
-            out.iloc[0] = out.iloc[1]
-        return out
-    else:
-        # Assume wide format: first column is dates, others are tickers
-        df_prices.columns = [str(c).strip() for c in df_prices.columns]
-        date_col = df_prices.columns[0]
-        df_prices["Date"] = pd.to_datetime(df_prices[date_col], errors="coerce")
-        df_prices = df_prices.dropna(subset=["Date"])
-        out = pd.DataFrame(index=df_prices["Date"])
-        # Retrieve SPX close price
-        # Identify the primary close, high and low columns for SPX.  Allow variations
-        # such as 'SPX Index High', 'SPX Index Low' if provided.
-        spx_close_col = None
-        spx_high_col = None
-        spx_low_col = None
-        for col in df_prices.columns:
-            cname = str(col).strip().lower().replace(" ", "")
-            # Use flexible matching: match any column containing "spxindex"; if it also contains
-            # "high" or "low" then treat accordingly; otherwise treat as the close price.
-            if "spxindex" in cname:
-                if "high" in cname:
-                    spx_high_col = col
-                elif "low" in cname:
-                    spx_low_col = col
-                else:
-                    spx_close_col = col
-        if spx_close_col is None:
-            return None
-        close = pd.to_numeric(df_prices[spx_close_col], errors="coerce")
-        # Use actual high/low columns if present, otherwise approximate ±1%
-        if spx_high_col is not None:
-            high = pd.to_numeric(df_prices[spx_high_col], errors="coerce")
-        else:
-            high = close * 1.01
-        if spx_low_col is not None:
-            low = pd.to_numeric(df_prices[spx_low_col], errors="coerce")
-        else:
-            low = close * 0.99
-        # Assign as pandas Series to preserve index and rolling capabilities
-        out["SPX"] = pd.Series(close.values, index=out.index)
-        out["SPX_high"] = pd.Series(high.values, index=out.index)
-        out["SPX_low"] = pd.Series(low.values, index=out.index)
-        # Populate peer columns if available
-        for peer in PEER_GROUP:
-            if peer in df_prices.columns:
-                out[peer] = pd.Series(pd.to_numeric(df_prices[peer], errors="coerce").values, index=out.index)
-        # Remove rows where the SPX price is missing
-        out = out.dropna(subset=["SPX"])
-        # Forward-fill and back-fill missing values
-        out = out.ffill().bfill()
-        # Fill any remaining NaNs with the SPX price
-        for col in out.columns:
-            out[col] = out[col].fillna(out["SPX"])
-        # Duplicate the second row into the first row to avoid initial NaNs when computing returns
-        if len(out) > 1:
-            out.iloc[0] = out.iloc[1]
-        return out
     # Drop first row and metadata rows
     df = df.drop(index=0)
     df = df[df[df.columns[0]] != "DATES"]
@@ -458,28 +252,156 @@ def _load_spx_momentum_data(excel_obj_or_path) -> Optional[pd.DataFrame]:
     # Ensure the volatility index column exists
     if vol_ticker not in df.columns:
         return None
-    df["Price"] = pd.to_numeric(df[vol_ticker], errors="coerce")
-    df_clean = df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-        ["Date", "Price"]
+    df["Vol"] = pd.to_numeric(df[vol_ticker], errors="coerce")
+    df_clean = df.dropna(subset=["Date", "Vol"]).sort_values("Date").reset_index(drop=True)[
+        ["Date", "Vol"]
     ]
     # Apply price mode adjustment if possible
     if adjust_prices_for_mode is not None and price_mode:
         try:
+            # Temporarily rename Vol to Price for adjust_prices_for_mode
+            df_clean = df_clean.rename(columns={"Vol": "Price"})
             df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
+            df_clean = df_clean.rename(columns={"Price": "Vol"})
         except Exception:
             pass
     if df_clean.empty:
         return None
-    try:
-        return float(df_clean["Price"].iloc[-1])
-    except Exception:
-        return None
+    return float(df_clean["Vol"].iloc[-1])
 
 
-###############################################################################
-# Plotly interactive chart for Streamlit
-###############################################################################
+def _calculate_price_based_range(
+    df: pd.DataFrame,
+    lookback: int = 63,
+    pct_low: float = 10,
+    pct_high: float = 90,
+) -> Tuple[float, float]:
+    """
+    Calculate trading range from price percentiles (fallback method).
 
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame with 'Price' column.
+    lookback : int, default 63
+        Number of trading days to look back (approx. 3 months).
+    pct_low : float, default 10
+        Percentile for lower bound.
+    pct_high : float, default 90
+        Percentile for upper bound.
+
+    Returns
+    -------
+    tuple[float, float]
+        (lower_range, higher_range)
+    """
+    recent = df["Price"].tail(lookback)
+    lower = float(np.percentile(recent, pct_low))
+    higher = float(np.percentile(recent, pct_high))
+    return (lower, higher)
+
+
+def _apply_range_guards(
+    lower: float,
+    higher: float,
+    current_price: float,
+    min_pct: float = 0.03,
+    max_pct: float = 0.20,
+) -> Tuple[float, float]:
+    """
+    Ensure range is symmetric around current price and width is sensible (3% to 20%).
+
+    The price-based fallback uses percentiles which can produce asymmetric ranges
+    (e.g., +0.6% / -4.0% for CSI 300). This function always recenters the range
+    symmetrically around the current price.
+
+    Parameters
+    ----------
+    lower : float
+        Lower range bound.
+    higher : float
+        Higher range bound.
+    current_price : float
+        Current price of the instrument.
+    min_pct : float, default 0.03
+        Minimum range as percentage of price (3%).
+    max_pct : float, default 0.20
+        Maximum range as percentage of price (20%).
+
+    Returns
+    -------
+    tuple[float, float]
+        Adjusted (lower, higher) range, always symmetric around current_price.
+    """
+    # CRITICAL: Always center range around current price for symmetry
+    # Use the average of upper and lower distances as the half-range
+    upper_dist = abs(higher - current_price)
+    lower_dist = abs(current_price - lower)
+    half_range = (upper_dist + lower_dist) / 2
+
+    # Recalculate symmetrically around current price
+    lower = current_price - half_range
+    higher = current_price + half_range
+
+    # Now apply min/max percentage constraints
+    range_pct = (higher - lower) / current_price if current_price > 0 else 0
+
+    if range_pct < min_pct:
+        half_range = (min_pct * current_price) / 2
+        lower = current_price - half_range
+        higher = current_price + half_range
+
+    if range_pct > max_pct:
+        half_range = (max_pct * current_price) / 2
+        lower = current_price - half_range
+        higher = current_price + half_range
+
+    return (lower, higher)
+
+
+def get_trading_range(
+    ticker: str,
+    current_price: float,
+    df: pd.DataFrame,
+    excel_path=None,
+    price_mode: str = "Last Price",
+    days_forward: int = 5,
+) -> Tuple[float, float]:
+    """
+    Calculate trading range using rolling 5 trading days high/low.
+
+    Parameters
+    ----------
+    ticker : str
+        Bloomberg ticker of the instrument.
+    current_price : float
+        Current price.
+    df : pandas.DataFrame
+        DataFrame with 'Price' column (price history).
+    excel_path : str or Path, optional
+        Path to Excel file (unused, kept for compatibility).
+    price_mode : str, default "Last Price"
+        Price mode for data adjustment (unused, kept for compatibility).
+    days_forward : int, default 5
+        Number of trading days for rolling window.
+
+    Returns
+    -------
+    tuple[float, float]
+        (lower_range, higher_range)
+    """
+    # Rolling 5 trading days high/low (using close prices)
+    recent = df["Price"].tail(days_forward)
+    higher = recent.max()
+    lower = recent.min()
+
+    print(f"[{ticker}] Using rolling {days_forward}-day range (high={higher:.2f}, low={lower:.2f})")
+    return _apply_range_guards(lower, higher, current_price)
+
+
+# ---------------------------------------------------------------------------
+# Momentum score helpers
+#
 def make_spx_figure(
     excel_path: str | pathlib.Path,
     anchor_date: Optional[pd.Timestamp] = None,
@@ -582,7 +504,10 @@ def make_spx_figure(
         )
 
     if anchor_date is not None:
-        per = df_full[df_full["Date"].between(anchor_date, today)].copy()
+        # Limit regression channel to the same date range as the chart (start to today)
+        # This prevents the X-axis from extending beyond PLOT_LOOKBACK_DAYS
+        channel_start = max(anchor_date, start)  # Don't go before chart start
+        per = df_full[df_full["Date"].between(channel_start, today)].copy()
         if not per.empty:
             X = per["Date"].map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
             y_vals = per["Price"].to_numpy()
@@ -635,7 +560,6 @@ def make_spx_figure(
     )
     return fig
 
-
 ###############################################################################
 # High‑resolution chart export (PNG)
 ###############################################################################
@@ -650,6 +574,10 @@ def _generate_spx_image_from_df(
     Create a high‑resolution (dpi=300) transparent PNG chart from the DataFrame.
     Includes price, moving averages, Fibonacci lines and optional regression channel.
     """
+    # Set font to Calibri for all chart text
+    plt.rcParams['font.family'] = 'Calibri'
+    plt.rcParams['font.sans-serif'] = ['Calibri']
+
     today = df_full["Date"].max().normalize()
     # Compute the lookback start based on the configurable window
     start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
@@ -739,6 +667,10 @@ def _generate_spx_image_from_df(
         spine.set_visible(False)
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
 
+    # Format x-axis dates as "Aug-01" to save space
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b-%d'))
+    fig.autofmt_xdate()  # Rotate date labels for better readability
+
     ax.legend(
         loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=4, fontsize=8, frameon=False
     )
@@ -750,378 +682,29 @@ def _generate_spx_image_from_df(
     buf.seek(0)
     return buf.getvalue()
 
-
 ###############################################################################
 # Score helpers
 ###############################################################################
 
 def _get_spx_technical_score(excel_obj_or_path) -> Optional[float]:
     """
-    Retrieve the technical score for SPX from 'data_technical_score' (col A, B).
-    Returns None if the sheet or score is unavailable.
+    Retrieve the technical score for S&P 500.
+    Uses common helper with SPX-specific ticker.
     """
-    try:
-        df = pd.read_excel(excel_obj_or_path, sheet_name="data_technical_score")
-    except Exception:
-        return None
-    df = df.dropna(subset=[df.columns[0], df.columns[1]])
-    for _, row in df.iterrows():
-        if str(row[df.columns[0]]).strip().upper() == "SPX INDEX":
-            try:
-                return float(row[df.columns[1]])
-            except Exception:
-                return None
-    return None
-
+    return _get_technical_score_generic(excel_obj_or_path, "SPX INDEX")
 
 def _find_spx_slide(prs: Presentation) -> Optional[int]:
-    """Locate the index of the slide that contains the SPX placeholder.
-
-    This helper searches for a slide containing a shape named ``spx`` or
-    whose text is exactly ``[spx]`` (case‑insensitive).  It returns the
-    zero‑based slide index or ``None`` if no such slide exists.
-    """
-    for idx, slide in enumerate(prs.slides):
-        for shape in slide.shapes:
-            name_attr = getattr(shape, "name", "").lower()
-            if name_attr == "spx":
-                return idx
-            if shape.has_text_frame:
-                if (shape.text or "").strip().lower() == "[spx]":
-                    return idx
-    return None
-
+    """Find the S&P 500 slide by placeholder."""
+    return find_slide_by_placeholder(prs, "spx")
 
 def insert_spx_technical_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the SPX technical score (integer) into the SPX slide.
-
-    This function looks for a shape named ``tech_score_spx`` on the slide
-    identified by the ``spx`` placeholder.  If not found, it searches for
-    placeholders ``[XXX]`` or ``XXX`` within that slide.  Formatting from
-    the original placeholder run is preserved.  Other slides are not
-    modified, avoiding accidental replacement of CSI placeholders.
-    """
+    """Insert the S&P 500 technical score into the slide."""
     score = _get_spx_technical_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "tech_score_spx"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    spx_idx = _find_spx_slide(prs)
-    if spx_idx is None:
-        # No SPX slide found; return unmodified
-        return prs
-    slide = prs.slides[spx_idx]
-    # First search for a shape named exactly as the placeholder
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, search for textual placeholders within shapes on the SPX slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
-
+    return insert_score_number(prs, score, "spx", "tech_score")
 
 ###############################################################################
 # Call‑out range helpers and insertion
 ###############################################################################
-
-def generate_range_callout_chart_image(
-    df_full: pd.DataFrame,
-    anchor_date: Optional[pd.Timestamp] = None,
-    lookback_days: int = 90,
-    width_cm: float = 21.41,
-    height_cm: float = 7.53,
-    callout_width_cm: float = 3.5,
-    *,
-    vol_index_value: Optional[float] = None,
-    show_legend: bool = True,
-) -> bytes:
-    """
-    Create a PNG image of the SPX price chart with a textual call‑out on the
-    right summarising the recent trading range.  The call‑out lists the
-    higher and lower range values (with ±% changes relative to the last
-    price) and draws small coloured markers aligned with those levels on
-    the y‑axis.  This design preserves the full chart width and avoids
-    overlapping the price plot with additional graphics.
-
-    Parameters
-    ----------
-    df_full : pandas.DataFrame
-        Full SPX price history with 'Date' and 'Price' columns.
-    anchor_date : pandas.Timestamp or None, optional
-        Optional anchor date for a regression channel; if provided, the
-        channel is drawn on the price chart.
-    lookback_days : int, default 90
-        The lookback window for computing the high and low bounds.
-    width_cm : float, default 21.41
-        Overall width of the output image in centimetres.  This should
-        correspond to the template placeholder width.
-    height_cm : float, default 7.53
-        Height of the output image in centimetres.
-    callout_width_cm : float, default 3.5
-        Width of the call‑out area on the right where the range summary
-        appears.  The remaining width is used for the chart.
-
-    show_legend : bool, default True
-        Whether to draw the legend on the main chart.  When generating
-        images for insertion into a PowerPoint slide the legend should be
-        suppressed (set to ``False``) so that a manually positioned
-        legend on the slide remains visible.
-
-    Returns
-    -------
-    bytes
-        PNG image bytes with transparency.
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
-
-    if df_full.empty:
-        return b""
-
-    # Restrict to the configured lookback window for plotting
-    today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
-    df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-
-    # Compute moving averages on the full history and then slice to the
-    # lookback window.  This ensures that long moving averages (e.g. 200 days)
-    # are not recomputed on the truncated data window.
-    df_ma_full = _add_mas(df_full)
-    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
-
-    # Optional regression channel
-    uptrend = False
-    upper_channel = lower_channel = None
-    if anchor_date is not None:
-        subset_full = df_full[df_full["Date"].between(anchor_date, today)].copy()
-        if not subset_full.empty:
-            X = subset_full["Date"].map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
-            y_vals = subset_full["Price"].to_numpy()
-            model = LinearRegression().fit(X, y_vals)
-            trend = model.predict(X)
-            resid = y_vals - trend
-            uptrend = model.coef_[0] > 0
-            upper_channel = trend + resid.max()
-            lower_channel = trend + resid.min()
-
-    # Compute high/low bounds and current price.  If an implied volatility
-    # value is provided (e.g. the VIX level), use it to estimate the
-    # expected one‑week move.  The expected move is computed as
-    # ``last_price × (vol_index_value/100) / sqrt(52)``.  Otherwise
-    # fall back to the realised‑volatility‑based bounds returned by
-    # ``_compute_range_bounds``.
-    last_price = df["Price"].iloc[-1]
-    if vol_index_value is not None and last_price and not np.isnan(last_price):
-        expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
-        upper_bound = last_price + expected_move
-        lower_bound = last_price - expected_move
-    else:
-        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
-    # Enforce a minimum total range (e.g. ±1 % of the current price) to avoid overlapping text.
-    min_range_pct = 0.02  # 2% total band → ±1% around the current price
-    if last_price and not np.isnan(last_price):
-        range_span_pct = (upper_bound - lower_bound) / last_price if last_price else 0.0
-        if range_span_pct < min_range_pct:
-            half_span = (min_range_pct * last_price) / 2.0
-            upper_bound = last_price + half_span
-            lower_bound = last_price - half_span
-        # Recompute percentage differences after adjusting range
-        up_pct = (upper_bound - last_price) / last_price * 100.0
-        down_pct = (last_price - lower_bound) / last_price * 100.0
-    else:
-        # Handle missing last_price gracefully
-        up_pct = 0.0
-        down_pct = 0.0
-
-    # Determine y‑axis limits: ensure the axis includes the entire trading
-    # range and the observed price range.  We add a small margin so the
-    # labels and markers do not overlap the top or bottom edges.
-    price_hi = df["Price"].max()
-    price_lo = df["Price"].min()
-    ma_hi = df_ma[["MA_50", "MA_100", "MA_200"]].max().max()
-    ma_lo = df_ma[["MA_50", "MA_100", "MA_200"]].min().min()
-    hi = max(price_hi, ma_hi)
-    lo = min(price_lo, ma_lo)
-    y_max = max(hi, upper_bound) * 1.02
-    y_min = min(lo, lower_bound) * 0.98
-
-    # Compute widths for chart and call‑out.  Reserve a small margin on the
-    # left of the chart to ensure that y‑axis tick labels and the legend
-    # remain visible when the image is inserted into a PowerPoint slide.
-    callout_width_cm = min(callout_width_cm, width_cm)
-    chart_width_cm = max(width_cm - callout_width_cm, 0.0)
-    fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
-    fig = plt.figure(figsize=(fig_w_in, fig_h_in))
-
-    # Relative widths as fractions of the full figure width
-    chart_rel_width = chart_width_cm / width_cm if width_cm > 0 else 0.0
-    callout_rel_width = callout_width_cm / width_cm if width_cm > 0 else 0.0
-
-    # Define a margin fraction for the left side of the chart.  Without
-    # this margin, tick labels and the legend can be clipped when the
-    # combined image is saved at high DPI.  Use up to 4% of the figure
-    # width or 10% of the chart portion, whichever is smaller.
-    margin_rel = min(0.04, 0.10 * chart_rel_width)
-
-    # Axes for chart and call‑out; share the y‑axis so that the call‑out
-    # markers align with the same price levels as the chart.  The chart
-    # occupies the left portion of the figure starting at margin_rel; the
-    # call‑out uses the remaining width starting at chart_rel_width.
-    ax_chart = fig.add_axes([margin_rel, 0.0, chart_rel_width - margin_rel, 1.0])
-    # Create a separate y‑axis for the call‑out so that hiding its ticks
-    # does not remove the ticks from the main chart.  We will manually
-    # synchronise the y‑limits below.
-    ax_callout = fig.add_axes([chart_rel_width, 0.0, callout_rel_width, 1.0])
-
-    # Set y‑limits before plotting so that shared axes align properly
-    ax_chart.set_ylim(y_min, y_max)
-    ax_callout.set_ylim(y_min, y_max)
-
-    # Plot price and moving averages on the main chart
-    ax_chart.plot(df["Date"], df["Price"], color="#153D64", linewidth=2.5,
-                  label=f"S&P 500 Price (last: {last_price:,.2f})")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
-    ax_chart.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
-    # Fibonacci levels on the subset
-    sub_hi, sub_lo = df["Price"].max(), df["Price"].min()
-    sub_span = sub_hi - sub_lo
-    for lvl in [sub_hi, sub_hi - 0.236 * sub_span, sub_hi - 0.382 * sub_span,
-                sub_hi - 0.5 * sub_span, sub_hi - 0.618 * sub_span, sub_lo]:
-        ax_chart.axhline(lvl, color="grey", linestyle="--", linewidth=0.8, alpha=0.6)
-
-    # Regression channel shading
-    if anchor_date is not None and upper_channel is not None and lower_channel is not None:
-        subset = df_full[df_full["Date"].between(anchor_date, today)].copy().reset_index(drop=True)
-        fill_color = (0, 0.6, 0, 0.25) if uptrend else (0.78, 0, 0, 0.25)
-        line_color = "#008000" if uptrend else "#C00000"
-        ax_chart.plot(subset["Date"], upper_channel, color=line_color, linestyle="--")
-        ax_chart.plot(subset["Date"], lower_channel, color=line_color, linestyle="--")
-        ax_chart.fill_between(subset["Date"], lower_channel, upper_channel, color=fill_color)
-
-    # Style the main chart: remove spines and configure ticks.  We set the
-    # y‑axis tick length to zero so that the small horizontal tick marks
-    # next to the axis labels are not visible, while keeping the labels
-    # themselves.  The x‑axis ticks retain their default length.
-    for spine in ax_chart.spines.values():
-        spine.set_visible(False)
-    ax_chart.tick_params(axis="y", which="both", length=0)
-    ax_chart.tick_params(axis="x", which="both", length=2)
-    ax_chart.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Legend: when ``show_legend`` is True, place the legend just above
-    # the main chart, aligned to the left so that it does not overlap the
-    # call‑out panel.  Use a multi‑column layout to fit all entries on a
-    # single line.  The bounding box is anchored slightly above the axes
-    # (y=1.05).  When ``show_legend`` is False the legend is omitted so
-    # that a custom legend can be inserted separately on a slide.
-    if show_legend:
-        ax_chart.legend(
-            loc="upper left",
-            bbox_to_anchor=(0.0, 1.05),
-            ncol=4,
-            fontsize=8,
-            frameon=False,
-        )
-
-    # Configure call‑out axis: remove ticks and spines; set background white
-    ax_callout.set_xlim(0, 1)
-    ax_callout.set_xticks([])
-    ax_callout.set_yticks([])
-    for spine in ax_callout.spines.values():
-        spine.set_visible(False)
-    ax_callout.set_facecolor("white")
-
-    # Determine x positions for markers and text in relative coordinates.
-    # Place the markers near the left of the call‑out area and the text
-    # closer to the left so that the numeric portions align on their
-    # left edges.  Using ``ha='left'`` keeps all values aligned to the
-    # same left margin while the middle line still aligns with the price
-    # axis via ``va='center'`` and symmetrical blank lines.
-    marker_start_x = 0.02
-    marker_end_x = 0.08
-    text_x = 0.15
-
-    # Draw small horizontal bars as markers aligned with the high/low bounds
-    ax_callout.hlines(upper_bound, xmin=marker_start_x, xmax=marker_end_x,
-                      colors="#009951", linewidth=2, transform=ax_callout.transData)
-    ax_callout.hlines(lower_bound, xmin=marker_start_x, xmax=marker_end_x,
-                      colors="#C00000", linewidth=2, transform=ax_callout.transData)
-
-    # Helper to format values with apostrophes for thousands separators
-    def _fmt(val: float) -> str:
-        try:
-            return f"{val:,.0f}".replace(",", "'")
-        except Exception:
-            return f"{val:.0f}"
-
-    # Compose label strings with percentage differences.  The index level and
-    # percentage are shown together on one line to minimise overlap.  The
-    # "Higher Range" label appears above its number, while the "Lower Range"
-    # label appears below its number.
-    # Compose label strings with percentage differences.  We construct
-    # multi‑line strings with symmetrical blank lines so that when
-    # ``va='center'`` is used, the index/percentage line (the middle line)
-    # aligns exactly with the price level on the y‑axis.  For the upper
-    # bound, place "Higher Range" above the value and a blank line below.
-    # For the lower bound, place a blank line above the value and
-    # "Lower Range" below.  This results in three lines for each label
-    # block, ensuring the middle line (index and percent) sits on the
-    # specified y‑coordinate.
-    upper_text = (
-        f"Higher Range\n"
-        f"{_fmt(upper_bound)} (+{up_pct:.1f}%)\n"
-        f""
-    )
-    lower_text = (
-        f"\n"
-        f"{_fmt(lower_bound)} (-{down_pct:.1f}%)\n"
-        f"Lower Range"
-    )
-
-    # Add the text labels at the appropriate y positions.  Using
-    # ``va='center'`` ensures that the middle line (index and percent)
-    # aligns with the price level, because there is one line above and
-    # one line below.  We align the text to the right so that the plus
-    # and minus signs line up neatly.
-    ax_callout.text(text_x, upper_bound, upper_text, color="#009951",
-                    ha="left", va="center", fontsize=8, fontweight='bold',
-                    transform=ax_callout.transData)
-    ax_callout.text(text_x, lower_bound, lower_text, color="#C00000",
-                    ha="left", va="center", fontsize=8, fontweight='bold',
-                    transform=ax_callout.transData)
-
-    # Export to transparent PNG.  Use bbox_inches='tight' so that the
-    # entire figure (including legends and tick labels) is saved without
-    # cropping.  A small padding is added to provide breathing room.
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=600, transparent=True,
-                bbox_inches="tight", pad_inches=0.05)
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
-
 
 def insert_spx_technical_chart_with_callout(
     prs: Presentation,
@@ -1183,7 +766,13 @@ def insert_spx_technical_chart_with_callout(
         height_cm=6.52,
         vol_index_value=vol_val,
         show_legend=False,
+        cache_key="spx_main_callout",  # Phase 2: Use cached chart if available
     )
+
+    # Skip chart insertion if no image was generated (empty data)
+    if not img_bytes:
+        print("Warning: SPX chart image could not be generated (empty data)")
+        return prs
 
     # Locate the slide containing the 'spx' placeholder or text
     target_slide = None
@@ -1284,80 +873,40 @@ def insert_spx_technical_chart_with_callout(
             break
     return prs
 
+@st.cache_data(show_spinner=False)
+def _compute_spx_mars_score_cached(excel_path: str) -> Optional[float]:
+    """
+    Read pre-computed MARS momentum score for SPX from the mars_score sheet.
+
+    The mars_score sheet should contain pre-computed scores from the standalone
+    MARS application. This ensures 100% consistency with the MARS app and
+    provides instant performance (no calculation needed).
+
+    Parameters
+    ----------
+    excel_path : str
+        Path to Excel file (must be string for caching)
+
+    Returns
+    -------
+    float or None
+        Latest MARS momentum score (0-100), or None if not found
+    """
+    # Use the generic momentum score function
+    return _get_momentum_score_generic(excel_path, "SPX Index")
 
 def _get_spx_momentum_score(excel_obj_or_path) -> Optional[float]:
     """
-    Compute the S&P 500 momentum score using the lightweight MARS engine.
+    Retrieve the momentum score for S&P 500 from the mars_score Excel sheet.
 
-    This function constructs a price DataFrame for the S&P 500 and a peer
-    group of assets from the ``data_prices`` sheet in the provided Excel
-    workbook.  It then calls ``generate_spx_score_history`` to obtain the
-    hybrid momentum score series and returns the most recent value.  If
-    price data cannot be loaded or the series is empty ``None`` is
-    returned.
+    Uses the generic momentum score function to read pre-computed MARS scores.
     """
-    try:
-        prices_df = _load_spx_momentum_data(excel_obj_or_path)
-    except Exception:
-        return None
-    if prices_df is None or prices_df.empty:
-        return None
-    try:
-        score_series = generate_spx_score_history(prices_df)
-        if score_series.empty:
-            return None
-        return float(score_series.iloc[-1])
-    except Exception:
-        return None
-
+    return _get_momentum_score_generic(excel_obj_or_path, "SPX INDEX")
 
 def insert_spx_momentum_score_number(prs: Presentation, excel_file) -> Presentation:
-    """
-    Insert the SPX momentum score (integer) into the SPX slide.
-
-    The momentum score is inserted into a shape named ``mom_score_spx`` on
-    the SPX slide.  If that shape is not found, any ``XXX`` or ``[XXX]``
-    placeholder within the SPX slide is replaced instead.  This avoids
-    inadvertently replacing placeholders on CSI or other slides.
-    """
+    """Insert the S&P 500 momentum score into the slide."""
     score = _get_spx_momentum_score(excel_file)
-    score_text = "N/A" if score is None else f"{int(round(float(score)))}"
-
-    placeholder_name = "mom_score_spx"
-    placeholder_patterns = ["[XXX]", "XXX"]
-
-    spx_idx = _find_spx_slide(prs)
-    if spx_idx is None:
-        return prs
-    slide = prs.slides[spx_idx]
-    # Attempt to replace the named placeholder first
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = score_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, replace placeholder patterns on the SPX slide only
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, score_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
-
+    return insert_score_number(prs, score, "spx", "momentum_score")
 
 ###############################################################################
 # Chart insertion
@@ -1410,267 +959,16 @@ def insert_spx_technical_chart(
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
 
-
 ###############################################################################
 # Subtitle insertion
 ###############################################################################
 
 def insert_spx_subtitle(prs: Presentation, subtitle: str) -> Presentation:
-    """
-    Replace the SPX subtitle placeholder with the provided text.
-
-    Only the slide identified by the ``spx`` placeholder is modified.  A
-    shape named ``spx_text`` takes precedence; if it does not exist
-    within the SPX slide, any occurrences of ``XXX`` or ``[XXX]`` on
-    that slide are replaced instead.  Formatting of the original run is
-    preserved.
-    """
-    placeholder_name = "spx_text"
-    placeholder_patterns = ["[XXX]", "XXX"]
-    subtitle_text = subtitle or ""
-
-    spx_idx = _find_spx_slide(prs)
-    if spx_idx is None:
-        return prs
-    slide = prs.slides[spx_idx]
-    # Try to update the named subtitle shape first
-    for shape in slide.shapes:
-        if getattr(shape, "name", "").lower() == placeholder_name:
-            if shape.has_text_frame:
-                runs = shape.text_frame.paragraphs[0].runs
-                attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                shape.text_frame.clear()
-                p = shape.text_frame.paragraphs[0]
-                new_run = p.add_run()
-                new_run.text = subtitle_text
-                _apply_run_font_attributes(new_run, *attrs)
-            return prs
-    # Otherwise, replace placeholder patterns within the SPX slide
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            for pattern in placeholder_patterns:
-                if pattern in (shape.text or ""):
-                    runs = shape.text_frame.paragraphs[0].runs
-                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
-                    new_text = shape.text.replace(pattern, subtitle_text)
-                    shape.text_frame.clear()
-                    p = shape.text_frame.paragraphs[0]
-                    new_run = p.add_run()
-                    new_run.text = new_text
-                    _apply_run_font_attributes(new_run, *attrs)
-                    return prs
-    return prs
-
+    """Insert subtitle into the S&P 500 slide."""
+    return insert_subtitle(prs, subtitle, "spx")
 
 ###############################################################################
 # Colour interpolation for gauge
-###############################################################################
-
-def _interpolate_color(value: float) -> Tuple[float, float, float]:
-    """
-    Interpolate from red→yellow→green for a 0–100 value.  Pure red at 0,
-    bright yellow at 40 and rich green at 70.
-    """
-    red = (1.0, 0.0, 0.0)
-    yellow = (1.0, 204 / 255, 0.0)
-    green = (0.0, 153 / 255, 81 / 255)
-    if value <= 40:
-        t = value / 40.0
-        return tuple(red[i] + t * (yellow[i] - red[i]) for i in range(3))
-    elif value <= 70:
-        t = (value - 40) / 30.0
-        return tuple(yellow[i] + t * (green[i] - yellow[i]) for i in range(3))
-    return green
-
-
-def generate_average_gauge_image(
-    tech_score: float,
-    mom_score: float,
-    last_week_avg: float,
-    date_text: str | None = None,
-    last_label_text: str = "Last Week",
-    width_cm: float = 15.15,
-    height_cm: float = 3.13,
-) -> bytes:
-    """
-    Create a horizontal gauge with a red→yellow→green gradient, marking the
-    average of technical and momentum scores against last week’s average.
-    """
-    def clamp100(x: float) -> float:
-        return max(0.0, min(100.0, float(x)))
-
-    curr = (clamp100(tech_score) + clamp100(mom_score)) / 2.0
-    prev = clamp100(last_week_avg)
-
-    cmap = LinearSegmentedColormap.from_list(
-        "gauge_gradient", ["#FF0000", "#FFCC00", "#009951"], N=256
-    )
-
-    fig_w, fig_h = width_cm / 2.54, height_cm / 2.54
-    plt.style.use("default")
-    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
-
-    gradient = np.linspace(0, 1, 500).reshape(1, -1)
-    bar_thickness = 0.4
-    bar_bottom_y = -bar_thickness / 2.0
-    bar_top_y = bar_thickness / 2.0
-    ax.imshow(
-        gradient,
-        extent=[0, 100, bar_bottom_y, bar_top_y],
-        aspect="auto",
-        cmap=cmap,
-        origin="lower",
-    )
-
-    # Marker dimensions and spacing
-    marker_width = 3.0
-    marker_height = 0.15
-    gap = 0.10
-    number_space = 0.25
-    top_label_offset = 0.40
-    bottom_label_offset = 0.40
-
-    # Y positions for current (top) marker and labels
-    top_apex_y = bar_top_y + gap
-    top_base_y = top_apex_y + marker_height
-    top_number_y = top_base_y + number_space
-    top_label_y = top_number_y + top_label_offset
-
-    # Y positions for previous (bottom) marker and labels
-    bottom_apex_y = bar_bottom_y - gap
-    bottom_base_y = bottom_apex_y - marker_height
-    bottom_number_y = bottom_base_y - number_space
-    bottom_label_y = bottom_number_y - bottom_label_offset
-
-    curr_colour = _interpolate_color(curr)
-    prev_colour = _interpolate_color(prev)
-
-    # Draw triangles and numbers
-    ax.add_patch(
-        patches.Polygon(
-            [
-                (curr - marker_width / 2, top_base_y),
-                (curr + marker_width / 2, top_base_y),
-                (curr, top_apex_y),
-            ],
-            color=curr_colour,
-        )
-    )
-    ax.add_patch(
-        patches.Polygon(
-            [
-                (prev - marker_width / 2, bottom_base_y),
-                (prev + marker_width / 2, bottom_base_y),
-                (prev, bottom_apex_y),
-            ],
-            color=prev_colour,
-        )
-    )
-    ax.text(
-        curr,
-        top_number_y,
-        f"{curr:.0f}",
-        color=curr_colour,
-        ha="center",
-        va="center",
-        fontsize=8,
-        fontweight="bold",
-    )
-    ax.text(
-        prev,
-        bottom_number_y,
-        f"{prev:.0f}",
-        color=prev_colour,
-        ha="center",
-        va="center",
-        fontsize=8,
-        fontweight="bold",
-    )
-
-    if date_text:
-        ax.text(
-            curr,
-            top_label_y,
-            date_text,
-            color="#0063B0",
-            ha="center",
-            va="center",
-            fontsize=7,
-            fontweight="bold",
-        )
-    ax.text(
-        prev,
-        bottom_label_y,
-        last_label_text,
-        color="#133C74",
-        ha="center",
-        va="center",
-        fontsize=7,
-        fontweight="bold",
-    )
-
-    ax.set_xlim(0, 100)
-    ax.set_ylim(bottom_label_y - 0.35, top_label_y + 0.35)
-    ax.axis("off")
-
-    buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=600, transparent=True)
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
-
-
-###############################################################################
-# Helpers for reading Excel from a file-like object
-###############################################################################
-
-def _load_price_data_from_obj(
-    excel_obj,
-    ticker: str = "SPX Index",
-    price_mode: str = "Last Price",
-) -> pd.DataFrame:
-    """
-    Load price data from a file-like object and return a tidy DataFrame.
-
-    Parameters
-    ----------
-    excel_obj : file-like
-        File-like object representing an Excel workbook containing a
-        ``data_prices`` sheet.
-    ticker : str, default "SPX Index"
-        Column name corresponding to the desired ticker in the Excel sheet.
-    price_mode : str, default "Last Price"
-        One of "Last Price" or "Last Close".  If ``adjust_prices_for_mode``
-        is available and the mode is "Last Close", rows corresponding to
-        the most recent date (if equal to today's date) will be dropped.
-
-    Returns
-    -------
-    pandas.DataFrame
-        DataFrame with columns ``Date`` and ``Price``.  The data are
-        sorted by date and any rows with missing values are removed.
-    """
-    df = pd.read_excel(excel_obj, sheet_name="data_prices")
-    df = df.drop(index=0)
-    df = df[df[df.columns[0]] != "DATES"]
-    df["Date"] = pd.to_datetime(df[df.columns[0]], errors="coerce")
-    df["Price"] = pd.to_numeric(df[ticker], errors="coerce")
-    df_clean = (
-        df.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)[
-            ["Date", "Price"]
-        ]
-    )
-    # Adjust for price mode if helper is available
-    if adjust_prices_for_mode is not None and price_mode:
-        try:
-            df_clean, _ = adjust_prices_for_mode(df_clean, price_mode)
-        except Exception:
-            pass
-    return df_clean
-
-
-###############################################################################
-# Gauge insertion
 ###############################################################################
 
 def insert_spx_average_gauge(
@@ -1700,6 +998,7 @@ def insert_spx_average_gauge(
             last_label_text="Previous Week",
             width_cm=15.15,
             height_cm=3.13,
+            cache_key="spx_avg_gauge",  # Phase 2: Use cached gauge if available
         )
     except Exception:
         return prs
@@ -1737,7 +1036,6 @@ def insert_spx_average_gauge(
     stream = BytesIO(gauge_bytes)
     slide.shapes.add_picture(stream, left, top, width=width, height=height)
     return prs
-
 
 ###############################################################################
 # Technical assessment insertion
@@ -1824,7 +1122,6 @@ def insert_spx_technical_assessment(
                     return prs
     return prs
 
-
 ###############################################################################
 # Source footnote insertion
 ###############################################################################
@@ -1864,8 +1161,7 @@ def insert_spx_source(
         date_str = used_date.strftime("%d/%m/%Y")
     except Exception:
         return prs
-    suffix = " Close" if str(price_mode).lower() == "last close" else ""
-    source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+    source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
     placeholder_name = "spx_source"
     placeholder_patterns = ["[spx_source]", "spx_source"]
     # Restrict insertion to the SPX slide only
@@ -1905,445 +1201,9 @@ def insert_spx_source(
                     return prs
     return prs
 
-
 ###############################################################################
 # Range gauge helpers and insertion
 ###############################################################################
-
-def _compute_range_bounds(
-    df_full: pd.DataFrame, lookback_days: int = 90
-) -> Tuple[float, float]:
-    """
-    Compute fallback high and low range bounds for the S&P 500 using
-    realised volatility.
-
-    This helper is used when an implied volatility index (e.g. VIX) is
-    unavailable.  It computes the annualised realised volatility over a
-    30‑session window by taking the standard deviation of daily
-    percentage returns, multiplying by ``sqrt(252)`` and converting to
-    a percentage.  The resulting 1‑week expected move is
-    ``(current_price × (realised_vol / 100)) / sqrt(52)``.  The upper
-    and lower bounds are the current price plus and minus this
-    expected move.  If realised volatility cannot be computed or is
-    zero, the function falls back to a ±2 % band around the current
-    price.
-
-    Parameters
-    ----------
-    df_full : pandas.DataFrame
-        DataFrame containing at least 'Date' and 'Price' columns,
-        sorted by date ascending.
-    lookback_days : int, optional
-        Number of trading days used to compute the approximate true range
-        if realised volatility is unavailable.  Currently unused but
-        retained for API compatibility.
-
-    Returns
-    -------
-    Tuple[float, float]
-        A two‑tuple ``(upper_bound, lower_bound)`` representing the
-        current closing price plus and minus the realised volatility
-        based expected move, or ±2 % of the current price if no
-        volatility can be computed.
-    """
-    if df_full.empty:
-        return (np.nan, np.nan)
-    current_price = df_full["Price"].iloc[-1]
-    # Attempt to compute 30‑day realised volatility (annualised) as a fallback.  Use
-    # the last 30 trading days of closing prices to compute daily returns.
-    # If the realised volatility can be computed, convert it into a 1‑week
-    # expected move.  Otherwise fall back to a ±2 % band.
-    try:
-        # At least 2 data points are needed for pct_change; ensure there are
-        # enough rows (we use min to handle shorter histories gracefully).
-        lookback = 30
-        window_prices = df_full["Price"].tail(lookback)
-        # Compute daily percentage returns
-        rets = window_prices.pct_change().dropna()
-        # Standard deviation of daily returns
-        std_daily = rets.std()
-        if std_daily is not None and not np.isnan(std_daily) and std_daily > 0:
-            # Annualise the standard deviation (multiply by sqrt(252)) and convert to %
-            realised_vol = std_daily * np.sqrt(252.0) * 100.0
-            # Convert to 1‑week expected move by dividing by sqrt(52)
-            expected_move = (current_price * (realised_vol / 100.0)) / np.sqrt(52.0)
-            upper_bound = current_price + expected_move
-            lower_bound = current_price - expected_move
-            return (float(upper_bound), float(lower_bound))
-    except Exception:
-        pass
-    # Fallback: ±2 % of the current price
-    return (float(current_price * 1.02), float(current_price * 0.98))
-
-
-def generate_range_gauge_chart_image(
-    df_full: pd.DataFrame,
-    anchor_date: Optional[pd.Timestamp] = None,
-    lookback_days: int = 90,
-    width_cm: float = 21.41,
-    height_cm: float = 7.53,
-    chart_width_cm: float = None,
-    gauge_width_cm: float = 4.0,
-    *,
-    vol_index_value: Optional[float] = None,
-) -> bytes:
-    """
-    Create a PNG image of the SPX price chart with a vertical range gauge
-    appended on the right.  The gauge shows a green–to–red gradient between
-    recent high and support levels, with labels for the upper and lower
-    bounds.  A horizontal line continues the last price into the gauge so
-    that viewers can assess relative positioning.  This function is used by
-    ``insert_spx_technical_chart_with_range``.
-
-    Parameters
-    ----------
-    df_full : pandas.DataFrame
-        Full SPX price history as returned by ``_load_price_data``.
-    anchor_date : pandas.Timestamp or None, optional
-        Optional anchor date for the regression channel.  If ``None`` no
-        channel will be drawn.
-    lookback_days : int, default 90
-        Number of trading days to look back when computing high/low range.
-    width_cm : float, default 21.41
-        Width of the output image in centimetres.  This should match the
-        template placeholder size in PowerPoint.
-    height_cm : float, default 7.53
-        Height of the output image in centimetres.
-
-    Returns
-    -------
-    bytes
-        A byte array containing the PNG image data with transparency.
-    """
-    if df_full.empty:
-        return b""
-
-    # Compute bounds for the configured lookback window
-    today = df_full["Date"].max().normalize()
-    start = today - timedelta(days=PLOT_LOOKBACK_DAYS)
-    df = df_full[df_full["Date"].between(start, today)].reset_index(drop=True)
-    # Compute moving averages on the full dataset and slice to the lookback window
-    df_ma_full = _add_mas(df_full)
-    df_ma = df_ma_full[df_ma_full["Date"].between(start, today)].reset_index(drop=True)
-
-    # Regression channel (optional)
-    uptrend = False
-    upper_channel = lower_channel = None
-    if anchor_date is not None:
-        subset_full = df_full[df_full["Date"].between(anchor_date, today)].copy()
-        if not subset_full.empty:
-            X = subset_full["Date"].map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
-            y_vals = subset_full["Price"].to_numpy()
-            model = LinearRegression().fit(X, y_vals)
-            trend = model.predict(X)
-            resid = y_vals - trend
-            uptrend = model.coef_[0] > 0
-            upper_channel = trend + resid.max()
-            lower_channel = trend + resid.min()
-
-    # Determine recent high and support levels.  Use the implied volatility
-    # if available to estimate a 1‑week range; otherwise fall back to ATR.
-    last_price = df["Price"].iloc[-1]
-    if vol_index_value is not None and last_price and not np.isnan(last_price):
-        expected_move = (last_price * (vol_index_value / 100.0)) / np.sqrt(52.0)
-        upper_bound = last_price + expected_move
-        lower_bound = last_price - expected_move
-    else:
-        upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
-    last_price_str = f"{last_price:,.2f}"
-
-    # Determine overall width.  If ``chart_width_cm`` is not provided,
-    # derive it by subtracting the gauge width from the total width.  This
-    # ensures that the combined chart and gauge fit within the fixed slide
-    # placeholder width (typically ~21.41 cm).  Callers may supply
-    # ``chart_width_cm`` explicitly to override this behaviour.
-    if chart_width_cm is None:
-        chart_width_cm = max(width_cm - gauge_width_cm, 0.0)
-
-    fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
-    plt.style.use("default")
-    fig = plt.figure(figsize=(fig_w_in, fig_h_in))
-
-    # Determine relative widths for the chart and gauge.  The chart occupies
-    # ``chart_width_cm`` cm of the total width while the gauge occupies
-    # ``gauge_width_cm`` cm.  These ratios control how much of the figure is
-    # devoted to each element.
-    chart_rel_width = chart_width_cm / width_cm
-    gauge_rel_width = gauge_width_cm / width_cm
-
-    # Create main chart axis using add_axes to occupy the left portion of the
-    # figure.  We leave the full height (0→1) for the chart; legend
-    # positioning is handled later.
-    ax = fig.add_axes([0.0, 0.0, chart_rel_width, 1.0])
-    # Placeholder for gauge axis; we will add it after plotting on ax so we can
-    # align it vertically with the plotted area of the chart.
-    ax_gauge = None
-
-    # Plot main price series and MAs
-    ax.plot(
-        df["Date"], df["Price"], color="#153D64", linewidth=2.5, label=f"S&P 500 Price (last: {last_price_str})"
-    )
-    ax.plot(df_ma["Date"], df_ma["MA_50"], color="#008000", linewidth=1.5, label="50‑day MA")
-    ax.plot(df_ma["Date"], df_ma["MA_100"], color="#FFA500", linewidth=1.5, label="100‑day MA")
-    ax.plot(df_ma["Date"], df_ma["MA_200"], color="#FF0000", linewidth=1.5, label="200‑day MA")
-
-    # Fibonacci levels
-    hi, lo = df["Price"].max(), df["Price"].min()
-    span = hi - lo
-    fib_levels = [hi, hi - 0.236 * span, hi - 0.382 * span, hi - 0.5 * span, hi - 0.618 * span, lo]
-    for lvl in fib_levels:
-        ax.axhline(lvl, color="grey", linestyle="--", linewidth=0.8, alpha=0.6)
-
-    # Regression channel shading
-    if anchor_date is not None and upper_channel is not None and lower_channel is not None:
-        subset = df_full[df_full["Date"].between(anchor_date, today)].copy().reset_index(drop=True)
-        fill_color = (0, 0.6, 0, 0.25) if uptrend else (0.78, 0, 0, 0.25)
-        line_color = "#008000" if uptrend else "#C00000"
-        ax.plot(subset["Date"], upper_channel, color=line_color, linestyle="--")
-        ax.plot(subset["Date"], lower_channel, color=line_color, linestyle="--")
-        ax.fill_between(subset["Date"], lower_channel, upper_channel, color=fill_color)
-
-    # Hide spines and style ticks on the main chart axis
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-    # Add legend for main chart
-    ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, 1.1),
-        ncol=4,
-        fontsize=8,
-        frameon=False,
-    )
-
-    # ---------------------------------------------------------------------
-    # Create and draw the range gauge.  We first create the gauge axis so
-    # that it shares the y‑limits of the main chart.  Sharing the y‑axis
-    # ensures that the gradient and markers align with the same numeric
-    # scale as the price chart.  The gauge occupies the remaining
-    # horizontal width on the right of the figure.
-    # ---------------------------------------------------------------------
-    # Determine the left position and width (in figure coordinates) for the
-    # gauge axis.  It begins immediately after the main chart and uses
-    # ``gauge_rel_width`` as its width.
-    gauge_left = chart_rel_width
-    gauge_width = gauge_rel_width
-    # Create the gauge axis, sharing its y‑axis with the main chart.  This
-    # ensures that y‑coordinates on the gauge correspond to price levels on
-    # the chart.  The x‑axis range (0→1) will represent the width of the
-    # gauge; we do not display ticks on this axis.
-    ax_gauge = fig.add_axes([gauge_left, 0.0, gauge_width, 1.0], sharey=ax)
-    # Hide tick marks and labels for the gauge axis
-    ax_gauge.set_xticks([])
-    ax_gauge.set_yticks([])
-
-    # Build a vertical gradient (red → white → green) and draw it only
-    # within the computed trading range.  The gradient is drawn using
-    # ``imshow`` with an extent that maps the gradient onto the segment
-    # between ``lower_bound`` and ``upper_bound`` on the y‑axis.  Areas
-    # outside this extent are left blank by setting the axis facecolour.
-    gradient = np.linspace(0, 1, 256).reshape(-1, 1)
-    cmap = LinearSegmentedColormap.from_list(
-        "range_gauge", ["#FF0000", "#FFFFFF", "#009951"], N=256
-    )
-    ax_gauge.imshow(
-        gradient,
-        extent=[0, 1, lower_bound, upper_bound],
-        aspect="auto",
-        origin="lower",
-        cmap=cmap,
-    )
-    # Fill background outside the gradient with opaque white so that
-    # regions above the upper bound and below the lower bound remain
-    # neutral.
-    ax_gauge.set_facecolor((1, 1, 1, 1))
-
-    # Draw a marker indicating the last price.  The marker is a thin
-    # horizontal rectangle spanning the entire width of the gauge.  Its
-    # height is set to 1 % of the trading range to remain subtle yet
-    # visible.  If the trading range is zero, no marker is drawn.
-    full_range = upper_bound - lower_bound
-    marker_height = full_range * 0.01 if full_range > 0 else 0
-    if marker_height > 0:
-        ax_gauge.add_patch(
-            patches.Rectangle(
-                (0.0, last_price - marker_height / 2.0),
-                1.0,
-                marker_height,
-                color="#153D64",
-            )
-        )
-
-    # Helper to format numeric values with apostrophe separators.
-    def _format_value(val: float) -> str:
-        try:
-            return f"{val:,.0f}".replace(",", "'")
-        except Exception:
-            return f"{val:.0f}"
-    upper_label = _format_value(upper_bound)
-    lower_label = _format_value(lower_bound)
-    # Compute percentage differences relative to the last price
-    up_pct = (upper_bound - last_price) / last_price * 100 if last_price else 0.0
-    down_pct = (last_price - lower_bound) / last_price * 100 if last_price else 0.0
-    # Compose label strings for the upper and lower bounds.  The
-    # percentage differences are shown with a sign and one decimal place.
-    upper_text = f"Higher Range\n{upper_label} $\n(+{up_pct:.1f}%)"
-    lower_text = f"Lower Range\n{lower_label} $\n(-{down_pct:.1f}%)"
-    # Position the labels just outside the gauge to the right.  We use
-    # data coordinates (``transData``) so that the text aligns with the
-    # actual price levels.  The x‑coordinate 1.05 places the text slightly
-    # to the right of the gauge.
-    ax_gauge.text(
-        1.05,
-        upper_bound,
-        upper_text,
-        color="#009951",
-        ha="left",
-        va="top",
-        fontsize=8,
-        fontweight="bold",
-        transform=ax_gauge.transData,
-    )
-    ax_gauge.text(
-        1.05,
-        lower_bound,
-        lower_text,
-        color="#C00000",
-        ha="left",
-        va="bottom",
-        fontsize=8,
-        fontweight="bold",
-        transform=ax_gauge.transData,
-    )
-
-    # Final styling for the gauge axis: hide all spines and fix x‑limits.
-    ax_gauge.set_xlim(0, 1)
-    for side in ["left", "right", "top", "bottom"]:
-        ax_gauge.spines[side].set_visible(False)
-
-    buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=600, transparent=True)
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
-
-
-def generate_range_gauge_only_image(
-    df_full: pd.DataFrame,
-    lookback_days: int = 90,
-    width_cm: float = 2.00,
-    height_cm: float = 7.53,
-) -> bytes:
-    """
-    Create a standalone vertical gauge image without the price chart.
-
-    This function is intended for interactive environments (e.g. Streamlit) where
-    users want to visualise the recent trading range alongside a separate
-    interactive plot.  The gauge shows a green–to–red gradient between the
-    computed upper and lower bounds, with labels at the extremes and a marker
-    indicating the current price’s position within the range.
-
-    Parameters
-    ----------
-    df_full : pandas.DataFrame
-        Full SPX price history as returned by ``_load_price_data``.
-    lookback_days : int, default 90
-        Number of trading days to look back when computing high/low range.
-    width_cm : float, default 2.00
-        Width of the output image in centimetres.  A narrow bar suffices for
-        embedding alongside an interactive chart in Streamlit.
-    height_cm : float, default 7.53
-        Height of the gauge in centimetres.  This should match the height of
-        your interactive chart for consistent alignment.
-
-    Returns
-    -------
-    bytes
-        PNG image data for the standalone range gauge.
-    """
-    if df_full.empty:
-        return b""
-    # Compute bounds and current price
-    upper_bound, lower_bound = _compute_range_bounds(df_full, lookback_days=lookback_days)
-    current_price = df_full["Price"].iloc[-1]
-    # Normalise current position within the range
-    if upper_bound == lower_bound:
-        rel_pos = 0.5
-    else:
-        rel_pos = (current_price - lower_bound) / (upper_bound - lower_bound)
-        rel_pos = max(0.0, min(1.0, rel_pos))
-
-    # Prepare figure
-    fig_w_in, fig_h_in = width_cm / 2.54, height_cm / 2.54
-    plt.style.use("default")
-    fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
-    # Build vertical gradient: red → white → green
-    gradient = np.linspace(0, 1, 256).reshape(-1, 1)
-    cmap = LinearSegmentedColormap.from_list(
-        "range_gauge_only", ["#FF0000", "#FFFFFF", "#009951"], N=256
-    )
-    ax.imshow(
-        gradient,
-        extent=[0, 1, lower_bound, upper_bound],
-        aspect="auto",
-        origin="lower",
-        cmap=cmap,
-    )
-    ax.set_facecolor((1, 1, 1, 0))
-    # Draw marker for current price as a horizontal bar spanning the gauge width
-    marker_y = lower_bound + rel_pos * (upper_bound - lower_bound)
-    marker_height = (upper_bound - lower_bound) * 0.01  # 1% of range height
-    ax.add_patch(
-        patches.Rectangle(
-            (0.0, marker_y - marker_height / 2),
-            1.0,
-            marker_height,
-            color="#153D64",
-        )
-    )
-    # Draw labels for bounds (centre aligned)
-    def _fmt(val):
-        try:
-            return f"{val:,.0f}".replace(",", "'")
-        except Exception:
-            return f"{val:.0f}"
-    upper_label = _fmt(upper_bound)
-    lower_label = _fmt(lower_bound)
-    ax.text(
-        0.5,
-        upper_bound,
-        f"Higher Range\n{upper_label} $",
-        color="#009951",
-        ha="center",
-        va="center",
-        fontsize=7,
-        fontweight="bold",
-        transform=ax.transData,
-    )
-    ax.text(
-        0.5,
-        lower_bound,
-        f"Lower Range\n{lower_label} $",
-        color="#C00000",
-        ha="center",
-        va="center",
-        fontsize=7,
-        fontweight="bold",
-        transform=ax.transData,
-    )
-    # Format axes: hide ticks and spines
-    ax.set_yticks([])
-    ax.set_xticks([])
-    ax.set_xlim(0, 1)
-    for side in ["left", "right", "top", "bottom"]:
-        ax.spines[side].set_visible(False)
-    plt.tight_layout()
-    buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=600, transparent=True)
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
-
 
 def insert_spx_technical_chart_with_range(
     prs: Presentation,
@@ -2424,4 +1284,737 @@ def insert_spx_technical_chart_with_range(
     height = Cm(7.53)
     stream = BytesIO(img_bytes)
     target_slide.shapes.add_picture(stream, left, top, width=width, height=height)
+    return prs
+
+# =============================================================================
+# TECHNICAL ANALYSIS CHART V2 - Chart.js + Playwright
+# =============================================================================
+
+import json
+from jinja2 import Environment
+from playwright.sync_api import sync_playwright
+
+# Chart dimensions for v2 - HTML at base size, Playwright scales up
+# Base dimensions for HTML body (smaller = sharper when scaled)
+TECH_V2_BASE_WIDTH = 950
+TECH_V2_BASE_HEIGHT = 420  # Base height for chart
+TECH_V2_DEVICE_SCALE = 4   # Playwright device scale factor for high-res output
+TECH_V2_HTML_SCALE = 1     # Scale factor for HTML elements (1 = base size)
+TECH_V2_PNG_WIDTH_PX = TECH_V2_BASE_WIDTH * TECH_V2_DEVICE_SCALE   # 3800
+TECH_V2_PNG_HEIGHT_PX = TECH_V2_BASE_HEIGHT * TECH_V2_DEVICE_SCALE  # 1680
+TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
+
+def _compute_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
+    """Compute RSI for a price series."""
+    delta = prices.diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = (-delta).where(delta < 0, 0.0)
+    avg_gain = gain.rolling(window=period, min_periods=period).mean()
+    avg_loss = loss.rolling(window=period, min_periods=period).mean()
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+def _compute_fibonacci_levels(high: float, low: float) -> list:
+    """Compute Fibonacci retracement levels."""
+    diff = high - low
+    levels = [
+        low,                         # 0%
+        low + diff * 0.236,          # 23.6%
+        low + diff * 0.382,          # 38.2%
+        low + diff * 0.5,            # 50%
+        low + diff * 0.618,          # 61.8%
+        low + diff * 0.786,          # 78.6%
+        high,                        # 100%
+    ]
+    return [round(l, 2) for l in levels]
+
+def _get_score_status(score: int) -> tuple:
+    """Get status text and color based on score."""
+    if score >= 81:
+        return "Strong", "#22C55E"
+    elif score >= 61:
+        return "Good", "#84CC16"
+    elif score >= 41:
+        return "Neutral", "#EAB308"
+    elif score >= 21:
+        return "Weak", "#F97316"
+    else:
+        return "Very Weak", "#EF4444"
+
+def _get_rsi_interpretation(rsi: float) -> tuple:
+    """Get RSI interpretation text and color."""
+    if rsi >= 70:
+        return "Overbought", "#F97316", "Caution: Potential pullback"  # Orange
+    elif rsi <= 30:
+        return "Oversold", "#10B981", "Potential bounce opportunity"  # Green
+    elif rsi >= 50:
+        return "Neutral", "#C9A227", "Room to run"  # Gold
+    else:
+        return "Neutral", "#C9A227", "Room to run"  # Gold
+
+def create_technical_analysis_v2_chart(
+    excel_path,
+    ticker: str = "SPX Index",
+    *,
+    price_mode: str = "Last Price",
+    dmas_score: int = None,
+    dmas_prev_week: int = None,
+    technical_score: int = None,
+    technical_prev_week: int = None,
+    momentum_score: int = None,
+    momentum_prev_week: int = None,
+    rsi_prev_week: int = None,
+    lookback_days: int = TECH_V2_LOOKBACK_DAYS,
+    days_gap: int = None,
+    previous_date: 'date' = None,
+    # Full slide export options
+    full_slide: bool = False,
+    view: str = None,
+    subtitle: str = None,
+    export_path: str = None,
+) -> tuple:
+    """Generate Technical Analysis v2 chart using Chart.js + Playwright.
+
+    Parameters
+    ----------
+    excel_path : str or Path
+        Path to Excel file with price data.
+    ticker : str
+        Bloomberg ticker for the instrument.
+    price_mode : str
+        "Last Price" or "Last Close".
+    dmas_score : int, optional
+        Current DMAS score (0-100). If None, calculated from technical + momentum.
+    dmas_prev_week : int, optional
+        Previous week's DMAS score for change calculation.
+    technical_score : int, optional
+        Technical component score. If None, calculated from price data.
+    technical_prev_week : int, optional
+        Previous week's Technical score for trend arrow.
+    momentum_score : int, optional
+        Momentum component score. If None, uses placeholder.
+    momentum_prev_week : int, optional
+        Previous week's Momentum score for trend arrow.
+    rsi_prev_week : int, optional
+        Previous week's RSI value for trend arrow.
+    lookback_days : int
+        Number of trading days for price chart.
+    full_slide : bool
+        If True, render complete slide with banner, title, subtitle, footer.
+    view : str, optional
+        Market view for title (e.g., "Bullish"). Required if full_slide=True.
+    subtitle : str, optional
+        Subtitle text. Required if full_slide=True.
+    export_path : str, optional
+        Path to save PNG file (for full_slide export).
+
+    Returns
+    -------
+    tuple
+        (PNG bytes, effective date used)
+    """
+    from technical_analysis.templates import TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE
+    from technical_analysis.templates.technical_analysis_v2 import (
+        build_full_slide_template,
+        get_category_for_ticker,
+        get_display_name_for_ticker,
+    )
+
+    # Load price data
+    try:
+        df = _load_price_data_from_obj(excel_path, ticker, price_mode=price_mode)
+    except Exception:
+        df = _load_price_data(pathlib.Path(excel_path), ticker, price_mode=price_mode)
+
+    if df.empty:
+        print(f"[Tech V2] No data for {ticker}")
+        return None, None
+
+    # Get the last N days
+    df = df.tail(lookback_days + 200)  # Extra for MA calculation
+
+    # Calculate moving averages on full data
+    df["MA50"] = df["Price"].rolling(window=50, min_periods=1).mean()
+    df["MA100"] = df["Price"].rolling(window=100, min_periods=1).mean()
+    df["MA200"] = df["Price"].rolling(window=200, min_periods=1).mean()
+    df["RSI"] = _compute_rsi(df["Price"], 14)
+
+    # Trim to lookback window
+    df = df.tail(lookback_days)
+
+    used_date = df["Date"].max()
+
+    # Prepare data for chart
+    price_labels = df["Date"].dt.strftime("%b-%d").tolist()
+    price_data = df["Price"].round(2).tolist()
+    ma50_data = df["MA50"].round(2).tolist()
+    ma100_data = df["MA100"].round(2).tolist()
+    ma200_data = df["MA200"].round(2).tolist()
+    rsi_data = df["RSI"].round(1).tolist()
+
+    # Last price - convert to native Python float for JSON serialization
+    last_price = float(df["Price"].iloc[-1])
+    last_price_str = f"{last_price:,.2f}"
+
+    # Fibonacci levels
+    period_high = df["Price"].max()
+    period_low = df["Price"].min()
+    fib_levels = _compute_fibonacci_levels(period_high, period_low)
+
+    # Trading range (use volatility index if available, else price-based fallback)
+    lower_range, higher_range = get_trading_range(
+        ticker=ticker,
+        current_price=last_price,
+        df=df,
+        excel_path=excel_path,
+        price_mode=price_mode,
+        days_forward=21,  # 1-month forward projection
+    )
+
+    # Smart rounding based on price magnitude to preserve meaningful precision
+    # Small prices (crypto, FX) need decimals; large prices (indices) don't
+    def _smart_round_range(value: float, reference_price: float) -> float:
+        """Round range value with appropriate precision based on price magnitude."""
+        if reference_price < 10:
+            # Small prices (Ripple ~$2, etc.) - 2 decimal places
+            return round(value, 2)
+        elif reference_price < 100:
+            # Medium prices (Oil ~$60, etc.) - 1 decimal place
+            return round(value, 1)
+        else:
+            # Large prices (indices, Bitcoin, etc.) - no decimals
+            return round(value, 0)
+
+    higher_range = float(_smart_round_range(higher_range, last_price))
+    lower_range = float(_smart_round_range(lower_range, last_price))
+
+    higher_range_pct = f"+{((higher_range / last_price - 1) * 100):.1f}%"
+    lower_range_pct = f"{((lower_range / last_price - 1) * 100):.1f}%"
+
+    # Y-axis bounds: symmetric padding around trading ranges
+    # This ensures both upper and lower range lines have visual breathing room
+    Y_PADDING_PCT = 0.02  # 2% symmetric padding
+
+    # Y-MAX: Higher Trading Range + 2% padding
+    price_y_max = higher_range * (1 + Y_PADDING_PCT)
+
+    # Y-MIN: Lower Trading Range - 2% padding
+    price_y_min = lower_range * (1 - Y_PADDING_PCT)
+
+    # Safety: extend if actual price data exceeds bounds
+    price_min = float(df["Price"].min())
+    price_max = float(df["Price"].max())
+
+    if price_min < price_y_min:
+        price_y_min = price_min * (1 - Y_PADDING_PCT)
+    if price_max > price_y_max:
+        price_y_max = price_max * (1 + Y_PADDING_PCT)
+
+    # Smart rounding: preserve padding by using floor for min, ceil for max
+    # Determine decimal places based on price magnitude
+    import math
+    def _smart_round_min(value):
+        """Round down to preserve padding below."""
+        if value >= 100:
+            return float(math.floor(value))
+        elif value >= 10:
+            return float(math.floor(value * 10) / 10)
+        else:
+            return float(math.floor(value * 100) / 100)
+
+    def _smart_round_max(value):
+        """Round up to preserve padding above."""
+        if value >= 100:
+            return float(math.ceil(value))
+        elif value >= 10:
+            return float(math.ceil(value * 10) / 10)
+        else:
+            return float(math.ceil(value * 100) / 100)
+
+    price_y_min = _smart_round_min(price_y_min)
+    price_y_max = _smart_round_max(price_y_max)
+
+    # Debug logging
+    print(f"[Tech V2] Trading Ranges: Lower={lower_range:.2f}, Higher={higher_range:.2f}")
+    print(f"[Tech V2] Y-axis bounds: {price_y_min} - {price_y_max} (2% padding, smart rounded)")
+
+    # RSI current
+    rsi_current = int(round(df["RSI"].iloc[-1], 0)) if not pd.isna(df["RSI"].iloc[-1]) else 50
+    rsi_interpretation, rsi_color, rsi_context = _get_rsi_interpretation(rsi_current)
+
+    # DMAS scores - ensure all are integers (no decimals)
+    if technical_score is None:
+        technical_score = _get_technical_score_generic(df, "SPX")
+    technical_score = int(round(technical_score)) if technical_score is not None else 50
+
+    if momentum_score is None:
+        momentum_score = 50  # Default
+    momentum_score = int(round(momentum_score))
+
+    if dmas_score is None:
+        dmas_score = int(round((technical_score + momentum_score) / 2))
+    else:
+        dmas_score = int(round(dmas_score))
+
+    # Track if we have no prior history (for "No prior data" display)
+    no_prior_data = dmas_prev_week is None and days_gap is None
+
+    if dmas_prev_week is None:
+        dmas_prev_week = dmas_score  # No change
+    else:
+        dmas_prev_week = int(round(dmas_prev_week))
+
+    # Format change text based on gap between current and previous data
+    # WoW = 6-8 days (typical week gap), otherwise show actual date and gap
+    def _format_change_suffix(days_gap, previous_date):
+        if days_gap is None:
+            return "WoW"  # Default fallback
+        if 6 <= days_gap <= 8:
+            return "WoW"
+        # Format as "vs DD/MM (Xd)"
+        if previous_date is not None:
+            date_str = previous_date.strftime("%d/%m")
+            return f"vs {date_str} ({days_gap}d)"
+        return f"({days_gap}d)"
+
+    # Handle "No prior data" case when no history exists
+    if no_prior_data:
+        dmas_change_text = "— No prior data"
+        dmas_change_color = "#9CA3AF"
+    else:
+        dmas_change = dmas_score - dmas_prev_week
+        change_suffix = _format_change_suffix(days_gap, previous_date)
+
+        if dmas_change > 0:
+            dmas_change_text = f"▲ +{dmas_change} {change_suffix}"
+            dmas_change_color = "#22C55E"
+        elif dmas_change < 0:
+            dmas_change_text = f"▼ {dmas_change} {change_suffix}"
+            dmas_change_color = "#EF4444"
+        else:
+            dmas_change_text = f"— Unchanged {change_suffix}"
+            dmas_change_color = "#9CA3AF"
+
+    technical_status, technical_color = _get_score_status(technical_score)
+    momentum_status, momentum_color = _get_score_status(momentum_score)
+    dmas_status, dmas_color = _get_score_status(dmas_score)
+
+    # Calculate trend arrows for Technical and Momentum
+    # Technical trend
+    if technical_prev_week is None:
+        technical_prev_week = technical_score
+    else:
+        technical_prev_week = int(round(technical_prev_week))
+
+    if technical_score > technical_prev_week:
+        technical_trend = "▲"
+        technical_trend_color = "#22C55E"  # Green
+    elif technical_score < technical_prev_week:
+        technical_trend = "▼"
+        technical_trend_color = "#EF4444"  # Red
+    else:
+        technical_trend = "—"
+        technical_trend_color = "#9CA3AF"  # Gray
+
+    # Momentum trend
+    if momentum_prev_week is None:
+        momentum_prev_week = momentum_score
+    else:
+        momentum_prev_week = int(round(momentum_prev_week))
+
+    if momentum_score > momentum_prev_week:
+        momentum_trend = "▲"
+        momentum_trend_color = "#22C55E"  # Green
+    elif momentum_score < momentum_prev_week:
+        momentum_trend = "▼"
+        momentum_trend_color = "#EF4444"  # Red
+    else:
+        momentum_trend = "—"
+        momentum_trend_color = "#9CA3AF"  # Gray
+
+    # RSI trend (WoW change)
+    if rsi_prev_week is None:
+        rsi_prev_week = rsi_current
+    else:
+        rsi_prev_week = int(round(rsi_prev_week))
+
+    if rsi_current > rsi_prev_week:
+        rsi_trend = "▲"
+        rsi_trend_color = "#22C55E"  # Green
+    elif rsi_current < rsi_prev_week:
+        rsi_trend = "▼"
+        rsi_trend_color = "#EF4444"  # Red
+    else:
+        rsi_trend = "—"
+        rsi_trend_color = "#9CA3AF"  # Gray
+
+    # Debug logging
+    print(f"[Tech V2] Data points: {len(price_data)}, RSI current: {rsi_current}")
+    print(f"[Tech V2] Scores - DMAS: {dmas_score}, Technical: {technical_score}, Momentum: {momentum_score}")
+
+    # Choose template based on full_slide option
+    if full_slide:
+        # Full slide mode: wrap chart in slide template
+        category = get_category_for_ticker(ticker)
+        instrument_name = get_display_name_for_ticker(ticker)
+        date_str = used_date.strftime("%d/%m/%Y") if used_date else ""
+        view_text = view or "Neutral"
+        subtitle_text = subtitle or f"Technical analysis for {instrument_name}."
+
+        # Use 4x scale for full slide (3840x2400px)
+        full_slide_scale = 4
+        template_str = build_full_slide_template(
+            category=category,
+            instrument=instrument_name,
+            view=view_text,
+            subtitle=subtitle_text,
+            date_str=date_str,
+            scale=full_slide_scale,
+        )
+        print(f"[Tech V2] Full slide mode: {category} / {instrument_name}: {view_text}")
+    else:
+        template_str = TECHNICAL_ANALYSIS_V2_HTML_TEMPLATE
+
+    # Render HTML template
+    env = Environment()
+    env.filters['tojson'] = json.dumps
+    template = env.from_string(template_str)
+
+    # Template variables - scale depends on mode
+    if full_slide:
+        render_width = 895  # Chart width within slide
+        render_height = 394  # Chart height within slide
+        render_scale = 4    # Full slide uses 4x scale
+    else:
+        render_width = TECH_V2_BASE_WIDTH
+        render_height = TECH_V2_BASE_HEIGHT
+        render_scale = TECH_V2_HTML_SCALE
+
+    html_content = template.render(
+        width=render_width,
+        height=render_height,
+        scale=render_scale,
+        # Price chart data
+        price_labels=price_labels,
+        price_data=price_data,
+        ma50_data=ma50_data,
+        ma100_data=ma100_data,
+        ma200_data=ma200_data,
+        show_ma50=True,   # Always show - Y-axis clips distant MAs naturally
+        show_ma100=True,
+        show_ma200=True,
+        fib_levels=fib_levels,
+        price_y_min=price_y_min,
+        price_y_max=price_y_max,
+        last_price=last_price_str,
+        higher_range=higher_range,
+        lower_range=lower_range,
+        higher_range_pct=higher_range_pct,
+        lower_range_pct=lower_range_pct,
+        # RSI chart data
+        rsi_labels=price_labels,
+        rsi_data=rsi_data,
+        rsi_current=int(rsi_current),
+        rsi_color=rsi_color,
+        rsi_interpretation=rsi_interpretation,
+        rsi_context=rsi_context,
+        rsi_trend=rsi_trend,
+        rsi_trend_color=rsi_trend_color,
+        # DMAS panel
+        dmas_score=dmas_score,
+        dmas_color=dmas_color,
+        dmas_change_text=dmas_change_text,
+        dmas_change_color=dmas_change_color,
+        technical_score=technical_score,
+        technical_color=technical_color,
+        technical_status=technical_status,
+        technical_trend=technical_trend,
+        technical_trend_color=technical_trend_color,
+        momentum_score=momentum_score,
+        momentum_color=momentum_color,
+        momentum_status=momentum_status,
+        momentum_trend=momentum_trend,
+        momentum_trend_color=momentum_trend_color,
+    )
+
+    # Determine viewport dimensions based on mode
+    if full_slide:
+        # Full slide: 960x600 at 4x scale = 3840x2400px
+        viewport_width = 960 * 4
+        viewport_height = 600 * 4
+        device_scale = 1  # Already scaled in HTML
+        mode_str = "Full Slide"
+    else:
+        viewport_width = TECH_V2_BASE_WIDTH
+        viewport_height = TECH_V2_BASE_HEIGHT
+        device_scale = TECH_V2_DEVICE_SCALE
+        mode_str = "Chart Only"
+
+    # Debug: Save HTML for inspection
+    print(f"[Tech V2] {mode_str}: {viewport_width}×{viewport_height}px")
+    try:
+        import tempfile
+        import os
+        debug_html_path = os.path.join(tempfile.gettempdir(), "tech_v2_debug.html")
+        with open(debug_html_path, "w") as f:
+            f.write(html_content)
+        print(f"[Tech V2] Debug HTML saved to: {debug_html_path}")
+    except Exception as e:
+        print(f"[Tech V2] Could not save debug HTML: {e}")
+
+    # Render with Playwright
+    png_bytes = None
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(
+                viewport={
+                    'width': viewport_width,
+                    'height': viewport_height
+                },
+                device_scale_factor=device_scale
+            )
+
+            # Set content and wait for network idle
+            page.set_content(html_content, wait_until='networkidle')
+
+            # Wait for Chart.js to load and render
+            try:
+                # First wait for Chart.js to be available
+                page.wait_for_function("typeof Chart !== 'undefined'", timeout=10000)
+                print("[Tech V2] Chart.js library loaded")
+
+                # Then wait for chart ready signal
+                page.wait_for_selector('body[data-chart-ready="true"]', timeout=15000)
+                print("[Tech V2] Chart.js rendering complete")
+            except Exception as wait_err:
+                print(f"[Tech V2] Wait timeout, using fallback: {wait_err}")
+                # Fallback: just wait 5 seconds
+                page.wait_for_timeout(5000)
+
+            # Take screenshot
+            png_bytes = page.screenshot()
+            print(f"[Tech V2] Screenshot taken: {len(png_bytes)} bytes")
+
+            # Save to export_path if provided (for full_slide mode)
+            if export_path and png_bytes:
+                os.makedirs(os.path.dirname(export_path) or '.', exist_ok=True)
+                with open(export_path, 'wb') as f:
+                    f.write(png_bytes)
+                print(f"[Tech V2] Full slide exported to: {export_path}")
+
+            browser.close()
+    except Exception as e:
+        print(f"[Tech V2] Playwright error: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return png_bytes, used_date
+
+def insert_technical_analysis_v2_slide(
+    prs: Presentation,
+    image_bytes: bytes,
+    used_date=None,
+    price_mode: str = "Last Price",
+    *,
+    placeholder_name: str = "spx_v2",
+    left_cm: float = 1.13,
+    top_cm: float = 4.8,      # Slightly lower to avoid subtitle
+    width_cm: float = 23.67,
+    height_cm: float = 10.5,  # Reduced from 11.5 for better fit
+    view_text: Optional[str] = None,
+    subtitle_text: Optional[str] = None,
+) -> Presentation:
+    """Insert Technical Analysis v2 chart into PowerPoint.
+
+    Parameters
+    ----------
+    prs : Presentation
+        PowerPoint presentation to modify.
+    image_bytes : bytes
+        PNG chart image data.
+    used_date : Timestamp, optional
+        Date for source footnote.
+    price_mode : str
+        "Last Price" or "Last Close".
+    placeholder_name : str
+        Name of placeholder shape to find target slide.
+    left_cm, top_cm, width_cm : float
+        Chart position and size.
+    view_text : str, optional
+        Market assessment text (e.g., "S&P 500: Bullish") to replace [spx_view].
+    subtitle_text : str, optional
+        Subtitle text to replace [spx_text].
+
+    Returns
+    -------
+    Presentation
+        Modified presentation.
+    """
+    if not image_bytes:
+        return prs
+
+    # Find target slide
+    target_slide = None
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            name_attr = getattr(shape, "name", "").lower()
+            if name_attr == placeholder_name.lower():
+                target_slide = slide
+                break
+            if shape.has_text_frame:
+                text_lower = (shape.text or "").strip().lower()
+                if text_lower == f"[{placeholder_name.lower()}]":
+                    target_slide = slide
+                    break
+        if target_slide:
+            break
+
+    if target_slide is None:
+        print(f"[Tech V2] Slide with placeholder '{placeholder_name}' not found")
+        return prs
+
+    # Insert chart image
+    stream = BytesIO(image_bytes)
+    picture = target_slide.shapes.add_picture(
+        stream, Cm(left_cm), Cm(top_cm), width=Cm(width_cm), height=Cm(height_cm)
+    )
+
+    # Send to back
+    spTree = target_slide.shapes._spTree
+    pic_element = picture._element
+    spTree.remove(pic_element)
+    spTree.insert(2, pic_element)
+
+    print(f"[DEBUG] Inserting image: {width_cm} × {height_cm} cm at ({left_cm}, {top_cm})")
+
+    # Insert source footnote
+    if used_date is not None:
+        date_str = used_date.strftime("%d/%m/%Y")
+        source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
+
+        # Derive base name from placeholder_name (e.g., "mexbol_v2" -> "mexbol")
+        base_name = placeholder_name.replace("_v2", "").lower()
+
+        # Support both v2_source and base_source patterns
+        source_placeholder = f"{placeholder_name}_source"
+        base_source_placeholder = f"{base_name}_source"
+        source_patterns = [
+            f"[{source_placeholder}]", source_placeholder,  # e.g., [mexbol_v2_source], mexbol_v2_source
+            f"[{base_source_placeholder}]", base_source_placeholder,  # e.g., [mexbol_source], mexbol_source
+        ]
+
+        replaced_source = False
+        for shape in target_slide.shapes:
+            if replaced_source:
+                break
+            name_attr = getattr(shape, "name", "")
+            # Check by shape name
+            if name_attr and name_attr.lower() in [source_placeholder.lower(), base_source_placeholder.lower()]:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = source_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    print(f"[Tech V2] Replaced source via shape name: {name_attr}")
+                    replaced_source = True
+                break
+            # Check by text content
+            if shape.has_text_frame:
+                for pattern in source_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = source_text
+                        _apply_run_font_attributes(new_run, *attrs)
+                        print(f"[Tech V2] Replaced {pattern} with source")
+                        replaced_source = True
+                        break
+                if replaced_source:
+                    break
+
+    # Derive base name from placeholder_name (e.g., "mexbol_v2" -> "mexbol")
+    base_name = placeholder_name.replace("_v2", "").lower()
+
+    # Replace [<base>_view] placeholder with market assessment text
+    if view_text is not None:
+        view_placeholder = f"{base_name}_view"
+        view_patterns = [f"[{view_placeholder}]", view_placeholder]
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == view_placeholder:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = view_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    print(f"[Tech V2] Replaced {view_placeholder} with: {view_text}")
+                break
+            if shape.has_text_frame:
+                for pattern in view_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                        try:
+                            new_text = (shape.text or "").replace(pattern, view_text)
+                        except Exception:
+                            new_text = view_text
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        _apply_run_font_attributes(new_run, *attrs)
+                        print(f"[Tech V2] Replaced {pattern} with: {view_text}")
+                        break
+                else:
+                    continue
+                break
+
+    # Replace [<base>_text] placeholder with subtitle text
+    if subtitle_text is not None:
+        text_placeholder = f"{base_name}_text"
+        text_patterns = [f"[{text_placeholder}]", text_placeholder]
+        for shape in target_slide.shapes:
+            name_attr = getattr(shape, "name", "")
+            if name_attr and name_attr.lower() == text_placeholder:
+                if shape.has_text_frame:
+                    runs = shape.text_frame.paragraphs[0].runs
+                    attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    new_run = p.add_run()
+                    new_run.text = subtitle_text
+                    _apply_run_font_attributes(new_run, *attrs)
+                    print(f"[Tech V2] Replaced {text_placeholder} with subtitle")
+                break
+            if shape.has_text_frame:
+                for pattern in text_patterns:
+                    if pattern.lower() in (shape.text or "").lower():
+                        runs = shape.text_frame.paragraphs[0].runs
+                        attrs = _get_run_font_attributes(runs[0]) if runs else (None, None, None, None, None, None)
+                        try:
+                            new_text = (shape.text or "").replace(pattern, subtitle_text)
+                        except Exception:
+                            new_text = subtitle_text
+                        shape.text_frame.clear()
+                        p = shape.text_frame.paragraphs[0]
+                        new_run = p.add_run()
+                        new_run.text = new_text
+                        _apply_run_font_attributes(new_run, *attrs)
+                        print(f"[Tech V2] Replaced {pattern} with subtitle")
+                        break
+                else:
+                    continue
+                break
+
     return prs

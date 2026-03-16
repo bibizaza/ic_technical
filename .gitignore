@@ -27,6 +27,10 @@ ENV/
 *.ipynb
 # remove the above two lines if you *do* want to track notebooks
 
+# ──────────────  Pipeline runtime artefacts  ──────────────
+draft_state.json
+charts_cache/
+
 # ──────────────  Data artefacts  ──────────────
 *.csv
 *.xls

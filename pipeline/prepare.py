@@ -312,12 +312,13 @@ def run_prepare(
     charts_cache = Path(charts_dir)
     charts_cache.mkdir(exist_ok=True)
 
+    excel_path = str(Path(dropbox_path) / "ic_file.xlsx")
     chart_paths = _render_charts(
-        master_df=master_df,
         scores_dict=scores_dict,
         target_date=target_date,
         charts_dir=charts_cache,
-        cfg=cfg,
+        master_csv=master_csv,
+        excel_path=excel_path,
     )
 
     # -----------------------------------------------------------------------
@@ -415,102 +416,84 @@ def _compute_fundamental_ranks(raw_fundamentals: pd.DataFrame) -> dict:
 
 
 def _render_charts(
-    master_df: pd.DataFrame,
     scores_dict: dict,
     target_date: pd.Timestamp,
     charts_dir: Path,
-    cfg: dict,
+    master_csv: str,
+    excel_path: str,
 ) -> dict:
     """
-    Render technical charts for each instrument using existing technical_analysis modules.
+    Render technical charts using the existing create_technical_analysis_v2_chart.
+
+    Uses create_temp_excel_from_csv to build a temp Excel file that the chart
+    functions expect, then calls create_technical_analysis_v2_chart for each
+    instrument.
+
     Returns {instrument_name: chart_path_str}
     """
     from pipeline.momentum import INSTRUMENT_MAP
+    from data_loader import create_temp_excel_from_csv
+    from technical_analysis.equity.spx import create_technical_analysis_v2_chart
+    from technical_analysis.common_helpers import clear_excel_cache
+
+    clear_excel_cache()
+
+    # Create temp Excel with data_prices sheet from CSV
+    data_as_of = target_date.date()
+    temp_excel = create_temp_excel_from_csv(
+        Path(master_csv), Path(excel_path), data_as_of
+    )
+    log.info("Created temp Excel for chart generation: %s", temp_excel)
 
     chart_paths = {}
 
-    # Module mapping: instrument name → (module_path, function_prefix)
-    chart_module_map = {
-        "S&P 500":    ("technical_analysis.equity.spx",      "spx"),
-        "CSI 300":    ("technical_analysis.equity.csi",      "csi"),
-        "Nikkei 225": ("technical_analysis.equity.nikkei",   "nikkei"),
-        "TASI":       ("technical_analysis.equity.tasi",     "tasi"),
-        "Sensex":     ("technical_analysis.equity.sensex",   "sensex"),
-        "DAX":        ("technical_analysis.equity.dax",      "dax"),
-        "SMI":        ("technical_analysis.equity.smi",      "smi"),
-        "IBOV":       ("technical_analysis.equity.ibov",     "ibov"),
-        "MEXBOL":     ("technical_analysis.equity.mexbol",   "mexbol"),
-        "Gold":       ("technical_analysis.commodity.gold",  "gold"),
-        "Silver":     ("technical_analysis.commodity.silver","silver"),
-        "Platinum":   ("technical_analysis.commodity.platinum","platinum"),
-        "Palladium":  ("technical_analysis.commodity.palladium","palladium"),
-        "Oil":        ("technical_analysis.commodity.oil",   "oil"),
-        "Copper":     ("technical_analysis.commodity.copper","copper"),
-        "Bitcoin":    ("technical_analysis.crypto.bitcoin",  "bitcoin"),
-        "Ethereum":   ("technical_analysis.crypto.ethereum", "ethereum"),
-        "Ripple":     ("technical_analysis.crypto.ripple",   "ripple"),
-        "Solana":     ("technical_analysis.crypto.solana",   "solana"),
-        "Binance":    ("technical_analysis.crypto.binance",  "binance"),
-    }
+    for name, scores in scores_dict.items():
+        if name not in INSTRUMENT_MAP:
+            continue
 
-    for name, (mod_path, prefix) in chart_module_map.items():
+        mars_col, _, _, bbg_ticker = INSTRUMENT_MAP[name]
+        prefix = name.lower().replace(" ", "_").replace("&", "").replace("__", "_")
+        # Use the standard prefix naming
+        prefix_map = {
+            "S&P 500": "spx", "CSI 300": "csi", "Nikkei 225": "nikkei",
+            "TASI": "tasi", "Sensex": "sensex", "DAX": "dax", "SMI": "smi",
+            "IBOV": "ibov", "MEXBOL": "mexbol", "Gold": "gold", "Silver": "silver",
+            "Platinum": "platinum", "Palladium": "palladium", "Oil": "oil",
+            "Copper": "copper", "Bitcoin": "bitcoin", "Ethereum": "ethereum",
+            "Ripple": "ripple", "Solana": "solana", "Binance": "binance",
+        }
+        prefix = prefix_map.get(name, name.lower())
         chart_file = charts_dir / f"{prefix}_chart.png"
 
         try:
-            import importlib
-            mod = importlib.import_module(mod_path)
-            make_fn = getattr(mod, f"make_{prefix}_figure", None)
+            chart_bytes, used_date = create_technical_analysis_v2_chart(
+                str(temp_excel),
+                ticker=bbg_ticker,
+                price_mode="Last Price",
+                dmas_score=scores.get("dmas"),
+                dmas_prev_week=None,
+                technical_score=scores.get("technical"),
+                momentum_score=scores.get("momentum"),
+            )
 
-            if make_fn is None:
-                log.warning("make_%s_figure not found in %s", prefix, mod_path)
+            if chart_bytes:
+                with open(chart_file, "wb") as f:
+                    f.write(chart_bytes)
+                chart_paths[name] = str(chart_file)
+                log.info("Chart saved: %s", chart_file)
+            else:
+                log.warning("No chart bytes returned for %s", name)
                 chart_paths[name] = ""
-                continue
-
-            # Build the DataFrame expected by the chart function
-            mars_col, _, _, bbg_ticker = INSTRUMENT_MAP[name]
-            df_chart = _build_chart_df(master_df, bbg_ticker, mars_col, target_date, master_df)
-
-            fig = make_fn(df_chart)
-
-            # Export to PNG via kaleido
-            img_bytes = fig.to_image(format="png", width=1200, height=700, scale=2)
-            with open(chart_file, "wb") as f:
-                f.write(img_bytes)
-
-            chart_paths[name] = str(chart_file)
-            log.info("Chart saved: %s", chart_file)
 
         except Exception as e:
             log.warning("Chart generation failed for %s: %s", name, e)
             chart_paths[name] = ""
 
+    # Clean up temp Excel
+    try:
+        import os
+        os.remove(temp_excel)
+    except Exception:
+        pass
+
     return chart_paths
-
-
-def _build_chart_df(
-    master_df: pd.DataFrame,
-    bbg_ticker: str,
-    mars_col: str,
-    target_date: pd.Timestamp,
-    full_master: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Build the DataFrame expected by make_*_figure() functions.
-    Returns DataFrame with Date, Price columns (+ peer columns where available).
-    """
-    mask = (master_df["ticker"] == bbg_ticker) & (master_df["date"] <= target_date)
-    sub = master_df[mask].sort_values("date").tail(200)
-
-    if sub.empty:
-        return pd.DataFrame(columns=["Date", "Price"])
-
-    df = sub[["date", "close"]].rename(columns={"date": "Date", "close": "Price"})
-    df = df.set_index("Date")
-
-    # Add high/low if available
-    if "high" in sub.columns:
-        df[f"{mars_col}_high"] = sub["high"].values
-    if "low" in sub.columns:
-        df[f"{mars_col}_low"] = sub["low"].values
-
-    return df.reset_index()

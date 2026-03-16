@@ -2,7 +2,8 @@
 Stage: assemble
 
 Reads complete draft_state.json (with subtitles filled by Claude Code)
-and builds the final PowerPoint presentation.
+and builds the final PowerPoint presentation by calling the same battle-tested
+functions from ic_engine.py / technical_analysis / performance / market_compass.
 """
 from __future__ import annotations
 
@@ -10,55 +11,47 @@ import json
 import logging
 import os
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
+import pandas as pd
 from pptx import Presentation
-from pptx.util import Cm, Inches, Pt
-import copy
+from pptx.util import Pt
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Instrument → placeholder mapping (mirrors ic_engine.INSTRUMENTS)
+# ---------------------------------------------------------------------------
+INSTRUMENT_CONFIG = {
+    "S&P 500":   {"ticker_key": "spx",       "bbg_ticker": "SPX Index",       "placeholder": "spx_v2"},
+    "CSI 300":   {"ticker_key": "csi",       "bbg_ticker": "SHSZ300 Index",   "placeholder": "csi_v2"},
+    "Nikkei 225":{"ticker_key": "nikkei",    "bbg_ticker": "NKY Index",       "placeholder": "nikkei_v2"},
+    "TASI":      {"ticker_key": "tasi",      "bbg_ticker": "SASEIDX Index",   "placeholder": "tasi_v2"},
+    "Sensex":    {"ticker_key": "sensex",    "bbg_ticker": "SENSEX Index",    "placeholder": "sensex_v2"},
+    "DAX":       {"ticker_key": "dax",       "bbg_ticker": "DAX Index",       "placeholder": "dax_v2"},
+    "SMI":       {"ticker_key": "smi",       "bbg_ticker": "SMI Index",       "placeholder": "smi_v2"},
+    "IBOV":      {"ticker_key": "ibov",      "bbg_ticker": "IBOV Index",      "placeholder": "ibov_v2"},
+    "MEXBOL":    {"ticker_key": "mexbol",    "bbg_ticker": "MEXBOL Index",    "placeholder": "mexbol_v2"},
+    "Gold":      {"ticker_key": "gold",      "bbg_ticker": "GCA Comdty",      "placeholder": "gold_v2"},
+    "Silver":    {"ticker_key": "silver",    "bbg_ticker": "SIA Comdty",      "placeholder": "silver_v2"},
+    "Platinum":  {"ticker_key": "platinum",  "bbg_ticker": "XPT Comdty",      "placeholder": "platinum_v2"},
+    "Palladium": {"ticker_key": "palladium", "bbg_ticker": "XPD Curncy",      "placeholder": "palladium_v2"},
+    "Oil":       {"ticker_key": "oil",       "bbg_ticker": "CL1 Comdty",      "placeholder": "oil_v2"},
+    "Copper":    {"ticker_key": "copper",    "bbg_ticker": "LP1 Comdty",      "placeholder": "copper_v2"},
+    "Bitcoin":   {"ticker_key": "bitcoin",   "bbg_ticker": "XBTUSD Curncy",   "placeholder": "bitcoin_v2"},
+    "Ethereum":  {"ticker_key": "ethereum",  "bbg_ticker": "XETUSD Curncy",   "placeholder": "ethereum_v2"},
+    "Ripple":    {"ticker_key": "ripple",    "bbg_ticker": "XRPUSD Curncy",   "placeholder": "ripple_v2"},
+    "Solana":    {"ticker_key": "solana",    "bbg_ticker": "XSOUSD Curncy",   "placeholder": "solana_v2"},
+    "Binance":   {"ticker_key": "binance",   "bbg_ticker": "XBIUSD Curncy",   "placeholder": "binance_v2"},
+}
 
 
 def _load_draft(draft_path: str) -> dict:
     with open(draft_path) as f:
         return json.load(f)
-
-
-def _find_placeholder(slide, ph_name: str):
-    """Find a placeholder by name (case-insensitive partial match)."""
-    for shape in slide.shapes:
-        if ph_name.lower() in shape.name.lower():
-            return shape
-    return None
-
-
-def _set_text(slide, ph_name: str, text: str) -> bool:
-    """Set text in a placeholder. Returns True if found."""
-    shape = _find_placeholder(slide, ph_name)
-    if shape and shape.has_text_frame:
-        shape.text_frame.paragraphs[0].runs[0].text = text if shape.text_frame.paragraphs[0].runs else text
-        try:
-            shape.text_frame.paragraphs[0].runs[0].text = text
-        except IndexError:
-            shape.text_frame.paragraphs[0].text = text
-        return True
-    return False
-
-
-def _insert_image(slide, img_path: str, left_cm: float, top_cm: float, width_cm: float, height_cm: float) -> bool:
-    """Insert an image at specified position. Returns True if successful."""
-    if not img_path or not Path(img_path).exists():
-        return False
-    try:
-        slide.shapes.add_picture(
-            img_path,
-            Cm(left_cm), Cm(top_cm), Cm(width_cm), Cm(height_cm)
-        )
-        return True
-    except Exception as e:
-        log.warning("Failed to insert image %s: %s", img_path, e)
-        return False
 
 
 def run_assemble(
@@ -71,55 +64,146 @@ def run_assemble(
     """
     Build the final PowerPoint from draft_state.json.
 
+    Uses the same functions as ic_engine.py:
+    - insert_technical_analysis_v2_slide for chart + subtitle + view insertion
+    - Performance chart functions for equity, FX, crypto, rates, credit, commodity
+    - Market compass slides (technical summary, breadth, fundamentals)
+
     Returns: path to the output PPTX file.
     """
-    # Load draft
     draft = _load_draft(draft_path)
     ic_date = draft["date"]
     instruments = draft["instruments"]
-    breadth = draft.get("breadth", [])
-    fundamentals = draft.get("fundamentals", {})
 
     log.info("Assembling presentation for date: %s", ic_date)
 
     # Validate subtitles
     missing_subtitles = [nm for nm, d in instruments.items() if not d.get("subtitle")]
     if missing_subtitles:
-        log.warning(
-            "The following instruments have no subtitle: %s",
-            ", ".join(missing_subtitles)
-        )
+        log.warning("Missing subtitles: %s", ", ".join(missing_subtitles))
 
-    # Resolve template
+    # Resolve paths
+    dropbox_path = os.environ.get(
+        "IC_DROPBOX_PATH",
+        "/Users/larazanella/Library/CloudStorage/Dropbox/Tools_In_Construction/ic",
+    )
     if template_path is None:
-        dropbox_path = os.environ.get(
-            "IC_DROPBOX_PATH",
-            "/Users/larazanella/Library/CloudStorage/Dropbox/Tools_In_Construction/ic",
-        )
         template_path = str(Path(dropbox_path) / "template.pptx")
+    if output_path is None:
+        date_str = ic_date.replace("-", "")
+        output_path = str(Path(dropbox_path) / f"Market_Compass_{date_str}.pptx")
+
+    master_csv = str(Path(dropbox_path) / "master_prices.csv")
+    excel_path = str(Path(dropbox_path) / "ic_file.xlsx")
 
     if not Path(template_path).exists():
         raise FileNotFoundError(f"Template not found: {template_path}")
-
-    # Resolve output path
-    if output_path is None:
-        dropbox_path = os.environ.get(
-            "IC_DROPBOX_PATH",
-            "/Users/larazanella/Library/CloudStorage/Dropbox/Tools_In_Construction/ic",
-        )
-        date_str = ic_date.replace("-", "")
-        output_path = str(Path(dropbox_path) / f"Market_Compass_{date_str}.pptx")
 
     # Load template
     prs = Presentation(template_path)
     log.info("Loaded template: %s (%d slides)", template_path, len(prs.slides))
 
-    # Build presentation using existing technical_analysis modules
-    _build_slides(prs, draft, ic_date, instruments, breadth, fundamentals)
+    # Create temp Excel for chart/performance functions
+    from data_loader import create_temp_excel_from_csv, load_prices_from_csv
+    from technical_analysis.common_helpers import clear_excel_cache
 
-    # Save
+    clear_excel_cache()
+
+    data_as_of = pd.Timestamp(ic_date).date()
+    temp_excel = create_temp_excel_from_csv(
+        Path(master_csv), Path(excel_path), data_as_of
+    )
+    chart_excel_path = str(temp_excel)
+    log.info("Created temp Excel: %s", temp_excel)
+
+    # Load prices DataFrame for summary slides
+    df_prices = load_prices_from_csv(Path(master_csv), data_as_of)
+
+    # =====================================================================
+    # 1. Update [DataIC] date placeholder
+    # =====================================================================
+    _update_date_placeholder(prs, ic_date)
+
+    # =====================================================================
+    # 2. Technical analysis slides (20 instruments)
+    # =====================================================================
+    from technical_analysis.equity.spx import (
+        create_technical_analysis_v2_chart,
+        insert_technical_analysis_v2_slide,
+    )
+
+    total = len(instruments)
+    for idx, (name, data) in enumerate(instruments.items()):
+        if name not in INSTRUMENT_CONFIG:
+            log.warning("Unknown instrument %s — skipping", name)
+            continue
+
+        cfg = INSTRUMENT_CONFIG[name]
+        log.info("Processing %s (%d/%d)...", name, idx + 1, total)
+
+        try:
+            # Generate chart via the V2 chart function (reads from temp Excel)
+            chart_bytes, used_date = create_technical_analysis_v2_chart(
+                chart_excel_path,
+                ticker=cfg["bbg_ticker"],
+                price_mode="Last Price",
+                dmas_score=data.get("dmas"),
+                dmas_prev_week=None,
+                technical_score=data.get("technical"),
+                momentum_score=data.get("momentum"),
+            )
+
+            if not chart_bytes:
+                log.warning("No chart generated for %s", name)
+                continue
+
+            # Build view text from rating
+            rating = data.get("rating", "")
+            view_text = f"{name}: {rating}" if rating else ""
+
+            # Subtitle
+            subtitle_text = data.get("subtitle") or ""
+
+            # Insert into slide using the battle-tested V2 function
+            prs = insert_technical_analysis_v2_slide(
+                prs,
+                chart_bytes,
+                used_date=used_date,
+                price_mode="Last Price",
+                placeholder_name=cfg["placeholder"],
+                view_text=view_text,
+                subtitle_text=subtitle_text,
+            )
+
+            log.info("Inserted slide for %s", name)
+
+        except Exception as e:
+            log.warning("Failed to process %s: %s", name, e)
+
+    # =====================================================================
+    # 3. Performance slides
+    # =====================================================================
+    _insert_performance_slides(prs, chart_excel_path)
+
+    # =====================================================================
+    # 4. Summary slides (technical nutshell, breadth, fundamentals)
+    # =====================================================================
+    _insert_summary_slides(prs, df_prices, instruments, chart_excel_path)
+
+    # =====================================================================
+    # 5. Finalize
+    # =====================================================================
+    _force_all_tables_calibri(prs)
+    _disable_image_compression(prs)
+
     prs.save(output_path)
     log.info("Saved presentation: %s", output_path)
+
+    # Clean up temp Excel
+    try:
+        os.remove(temp_excel)
+    except Exception:
+        pass
 
     # Update history.json
     _update_history(history_path, ic_date, instruments)
@@ -130,109 +214,259 @@ def run_assemble(
     return output_path
 
 
-def _build_slides(prs, draft, ic_date, instruments, breadth, fundamentals):
-    """
-    Build all slides using the existing technical_analysis modules.
-    Each instrument has pre-rendered chart_path from the prepare stage.
-    """
-    import importlib
-    from pipeline.momentum import INSTRUMENT_MAP
+# =========================================================================
+# Helper: date placeholder
+# =========================================================================
 
-    # Module mapping
-    chart_module_map = {
-        "S&P 500":    ("technical_analysis.equity.spx",       "spx"),
-        "CSI 300":    ("technical_analysis.equity.csi",       "csi"),
-        "Nikkei 225": ("technical_analysis.equity.nikkei",    "nikkei"),
-        "TASI":       ("technical_analysis.equity.tasi",      "tasi"),
-        "Sensex":     ("technical_analysis.equity.sensex",    "sensex"),
-        "DAX":        ("technical_analysis.equity.dax",       "dax"),
-        "SMI":        ("technical_analysis.equity.smi",       "smi"),
-        "IBOV":       ("technical_analysis.equity.ibov",      "ibov"),
-        "MEXBOL":     ("technical_analysis.equity.mexbol",    "mexbol"),
-        "Gold":       ("technical_analysis.commodity.gold",   "gold"),
-        "Silver":     ("technical_analysis.commodity.silver", "silver"),
-        "Platinum":   ("technical_analysis.commodity.platinum","platinum"),
-        "Palladium":  ("technical_analysis.commodity.palladium","palladium"),
-        "Oil":        ("technical_analysis.commodity.oil",    "oil"),
-        "Copper":     ("technical_analysis.commodity.copper", "copper"),
-        "Bitcoin":    ("technical_analysis.crypto.bitcoin",   "bitcoin"),
-        "Ethereum":   ("technical_analysis.crypto.ethereum",  "ethereum"),
-        "Ripple":     ("technical_analysis.crypto.ripple",    "ripple"),
-        "Solana":     ("technical_analysis.crypto.solana",    "solana"),
-        "Binance":    ("technical_analysis.crypto.binance",   "binance"),
-    }
+def _update_date_placeholder(prs, ic_date: str) -> None:
+    """Replace [DataIC] placeholder with formatted date."""
+    ts = pd.Timestamp(ic_date)
+    human_date = f"{ts.strftime('%B')} {ts.day}, {ts.year}"
 
-    used_date = ic_date
-
-    for name, data in instruments.items():
-        if name not in chart_module_map:
-            continue
-
-        mod_path, prefix = chart_module_map[name]
-
-        try:
-            mod = importlib.import_module(mod_path)
-
-            # Find the slide for this instrument
-            # In production PPTX, slides are pre-created in template
-            # We look for the slide matching this instrument by placeholder content
-            slide = _find_instrument_slide(prs, name, prefix)
-            if slide is None:
-                log.warning("Could not find slide for %s — skipping", name)
-                continue
-
-            # Insert technical score
-            insert_tech_fn = getattr(mod, f"insert_{prefix}_technical_score_number", None)
-            if insert_tech_fn:
-                insert_tech_fn(prs, slide)  # Note: these functions may need the full prs
-
-            # Insert subtitle
-            subtitle = data.get("subtitle") or ""
-            insert_sub_fn = getattr(mod, f"insert_{prefix}_subtitle", None)
-            if insert_sub_fn:
-                insert_sub_fn(prs, subtitle)
-
-            # Insert chart image (from pre-rendered PNG)
-            chart_path = data.get("chart_path", "")
-            if chart_path and Path(chart_path).exists():
-                insert_chart_fn = getattr(mod, f"insert_{prefix}_technical_chart", None)
-                # For pipeline v2: directly place the image into the slide
-                # (bypassing the excel-dependent insert function)
-                _replace_chart_in_slide(slide, chart_path, prefix)
-
-        except Exception as e:
-            log.warning("Failed to build slide for %s: %s", name, e)
-
-
-def _find_instrument_slide(prs, instrument_name: str, prefix: str):
-    """Find the slide corresponding to an instrument by searching slide titles."""
     for slide in prs.slides:
         for shape in slide.shapes:
-            if shape.has_text_frame:
-                text = shape.text_frame.text.lower()
-                if prefix.lower() in text or instrument_name.lower() in text:
-                    return slide
-    return None
+            if not getattr(shape, "has_text_frame", False):
+                continue
+            for para in shape.text_frame.paragraphs:
+                for run in para.runs:
+                    if run.text.strip() == "[DataIC]":
+                        size = run.font.size
+                        bold = run.font.bold
+                        italic = run.font.italic
+                        run.text = human_date
+                        if size:
+                            run.font.size = size
+                        if bold is not None:
+                            run.font.bold = bold
+                        if italic is not None:
+                            run.font.italic = italic
+                        return
 
 
-def _replace_chart_in_slide(slide, chart_path: str, prefix: str):
-    """Replace the chart placeholder in a slide with the pre-rendered PNG."""
-    for shape in slide.shapes:
-        if "chart" in shape.name.lower() or "technical" in shape.name.lower():
-            left = shape.left
-            top = shape.top
-            width = shape.width
-            height = shape.height
-            # Remove old shape (if picture placeholder)
-            sp = shape._element
-            sp.getparent().remove(sp)
-            # Add new picture
-            try:
-                slide.shapes.add_picture(chart_path, left, top, width, height)
-            except Exception as e:
-                log.warning("Could not replace chart in slide for %s: %s", prefix, e)
-            return
+# =========================================================================
+# Helper: performance slides
+# =========================================================================
 
+def _insert_performance_slides(prs, chart_excel_path: str) -> None:
+    """Insert all performance slides (equity, FX, crypto, rates, credit, commodity)."""
+    price_mode = "Last Price"
+
+    # --- Equity ---
+    try:
+        from performance.equity_perf import (
+            create_weekly_performance_chart,
+            create_historical_performance_table,
+            insert_equity_performance_bar_slide,
+            insert_equity_performance_histo_slide,
+            create_equity_ytd_evolution_chart,
+            insert_equity_ytd_evolution_slide,
+            create_fx_impact_analysis_chart_eur,
+            insert_fx_impact_analysis_slide_eur,
+            create_fx_impact_analysis_chart_chf,
+            insert_fx_impact_analysis_slide_chf,
+        )
+        bar_bytes, date1 = create_weekly_performance_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_equity_performance_bar_slide(
+            prs, bar_bytes, used_date=date1, price_mode=price_mode,
+            left_cm=3.47, top_cm=5.28, width_cm=17.31, height_cm=10
+        )
+        histo_bytes, date2 = create_historical_performance_table(chart_excel_path, price_mode=price_mode)
+        prs = insert_equity_performance_histo_slide(
+            prs, histo_bytes, used_date=date2, price_mode=price_mode,
+            left_cm=2.16, top_cm=4.70, width_cm=19.43, height_cm=10.61
+        )
+        ytd_bytes, date3 = create_equity_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_equity_ytd_evolution_slide(prs, ytd_bytes, used_date=date3, price_mode=price_mode)
+
+        fx_eur_bytes, date4 = create_fx_impact_analysis_chart_eur(chart_excel_path, price_mode=price_mode)
+        prs = insert_fx_impact_analysis_slide_eur(prs, fx_eur_bytes, used_date=date4, price_mode=price_mode)
+        fx_chf_bytes, date5 = create_fx_impact_analysis_chart_chf(chart_excel_path, price_mode=price_mode)
+        prs = insert_fx_impact_analysis_slide_chf(prs, fx_chf_bytes, used_date=date5, price_mode=price_mode)
+        log.info("Equity performance slides inserted")
+    except Exception as e:
+        log.warning("Equity performance error: %s", e)
+
+    # --- FX ---
+    try:
+        from performance.fx_perf import (
+            create_weekly_html_performance_chart as create_weekly_fx_html_chart,
+            insert_fx_weekly_html_slide,
+            create_historical_html_performance_chart as create_historical_fx_html_chart,
+            insert_fx_historical_html_slide,
+        )
+        fx_bar, fxd1 = create_weekly_fx_html_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_fx_weekly_html_slide(prs, fx_bar, used_date=fxd1, price_mode=price_mode)
+        fx_histo, fxd2 = create_historical_fx_html_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_fx_historical_html_slide(prs, fx_histo, used_date=fxd2, price_mode=price_mode)
+        log.info("FX performance slides inserted")
+    except Exception as e:
+        log.warning("FX performance error: %s", e)
+
+    # --- Crypto ---
+    try:
+        from performance.crypto_perf import (
+            create_weekly_html_performance_chart as create_weekly_crypto_html_chart,
+            insert_crypto_weekly_html_slide,
+            create_historical_html_performance_chart as create_historical_crypto_html_chart,
+            insert_crypto_historical_html_slide,
+            create_crypto_ytd_evolution_chart,
+            insert_crypto_ytd_evolution_slide,
+        )
+        cr_bar, crd1 = create_weekly_crypto_html_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_crypto_weekly_html_slide(prs, cr_bar, used_date=crd1, price_mode=price_mode)
+        cr_histo, crd2 = create_historical_crypto_html_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_crypto_historical_html_slide(prs, cr_histo, used_date=crd2, price_mode=price_mode)
+        cr_ytd, crd3 = create_crypto_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_crypto_ytd_evolution_slide(prs, cr_ytd, used_date=crd3, price_mode=price_mode)
+        log.info("Crypto performance slides inserted")
+    except Exception as e:
+        log.warning("Crypto performance error: %s", e)
+
+    # --- Rates ---
+    try:
+        from performance.rates_perf import (
+            create_weekly_performance_chart as create_weekly_rates_chart,
+            create_historical_performance_table as create_historical_rates_table,
+            insert_rates_performance_bar_slide,
+            insert_rates_performance_histo_slide,
+        )
+        rt_bar, rtd1 = create_weekly_rates_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_rates_performance_bar_slide(
+            prs, rt_bar, used_date=rtd1, price_mode=price_mode,
+            left_cm=3.35, top_cm=4.6, width_cm=17.02
+        )
+        rt_histo, rtd2 = create_historical_rates_table(chart_excel_path, price_mode=price_mode)
+        prs = insert_rates_performance_histo_slide(
+            prs, rt_histo, used_date=rtd2, price_mode=price_mode,
+            left_cm=3.35, top_cm=4.6, width_cm=17.02
+        )
+        log.info("Rates performance slides inserted")
+    except Exception as e:
+        log.warning("Rates performance error: %s", e)
+
+    # --- Credit ---
+    try:
+        from performance.corp_bonds_perf import (
+            create_weekly_performance_chart as create_weekly_credit_chart,
+            insert_corp_bonds_performance_slide as insert_credit_bar,
+            create_historical_performance_chart as create_historical_credit_chart,
+            insert_corp_bonds_historical_slide as insert_credit_histo,
+        )
+        cd_bar, cdd1 = create_weekly_credit_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_credit_bar(
+            prs, cd_bar, used_date=cdd1, price_mode=price_mode,
+            left_cm=1.63, top_cm=4.73, width_cm=22.48, height_cm=10.61
+        )
+        cd_histo, cdd2 = create_historical_credit_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_credit_histo(prs, cd_histo, used_date=cdd2, price_mode=price_mode)
+        log.info("Credit performance slides inserted")
+    except Exception as e:
+        log.warning("Credit performance error: %s", e)
+
+    # --- Commodity ---
+    try:
+        from performance.commodity_perf import (
+            create_weekly_html_performance_chart as create_weekly_commo_chart,
+            insert_commodity_weekly_html_slide,
+            create_historical_html_performance_chart as create_historical_commo_chart,
+            insert_commodity_historical_html_slide,
+            create_commodity_ytd_evolution_chart,
+            insert_commodity_ytd_evolution_slide,
+        )
+        co_bar, cod1 = create_weekly_commo_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_commodity_weekly_html_slide(prs, co_bar, used_date=cod1, price_mode=price_mode)
+        co_histo, cod2 = create_historical_commo_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_commodity_historical_html_slide(prs, co_histo, used_date=cod2, price_mode=price_mode)
+        co_ytd, cod3 = create_commodity_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
+        prs = insert_commodity_ytd_evolution_slide(prs, co_ytd, used_date=cod3, price_mode=price_mode)
+        log.info("Commodity performance slides inserted")
+    except Exception as e:
+        log.warning("Commodity performance error: %s", e)
+
+
+# =========================================================================
+# Helper: summary slides
+# =========================================================================
+
+def _insert_summary_slides(prs, df_prices, instruments, chart_excel_path) -> None:
+    """Insert technical summary, breadth, and fundamental slides."""
+    from utils import adjust_prices_for_mode
+
+    # Technical Analysis summary
+    try:
+        from market_compass.technical_slide import prepare_slide_data, insert_technical_analysis_slide
+
+        df_prices_adj, tech_used_date = adjust_prices_for_mode(df_prices, "Last Price")
+        dmas_scores = {}
+        for name, data in instruments.items():
+            cfg = INSTRUMENT_CONFIG.get(name)
+            if cfg:
+                dmas_scores[cfg["ticker_key"]] = data.get("dmas", 50)
+
+        rows = prepare_slide_data(df_prices_adj, dmas_scores, chart_excel_path, price_mode="Last Price")
+        if rows:
+            insert_technical_analysis_slide(
+                prs, rows, placeholder_name="technical_nutshell",
+                used_date=tech_used_date, price_mode="Last Price"
+            )
+        log.info("Technical summary slide inserted")
+    except Exception as e:
+        log.warning("Technical summary error: %s", e)
+
+    # Breadth slide
+    try:
+        from market_compass.breadth_slide import generate_breadth_slide
+        prs, _ = generate_breadth_slide(prs, excel_path=chart_excel_path, slide_name="slide_breadth")
+        log.info("Breadth slide inserted")
+    except Exception as e:
+        log.warning("Breadth slide error: %s", e)
+
+    # Fundamental slide
+    try:
+        from market_compass.fundamental_slide import generate_fundamental_slide
+        prs, _ = generate_fundamental_slide(prs, excel_path=chart_excel_path, slide_name="slide_fundamentals")
+        log.info("Fundamental slide inserted")
+    except Exception as e:
+        log.warning("Fundamental slide error: %s", e)
+
+
+# =========================================================================
+# Helpers: finalization (from ic_engine.py)
+# =========================================================================
+
+def _force_all_tables_calibri(prs, size_pt: int = 11):
+    """Enforce Calibri font on all tables."""
+    try:
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if shape.shape_type == MSO_SHAPE_TYPE.TABLE:
+                    for row in shape.table.rows:
+                        for cell in row.cells:
+                            if hasattr(cell, "text_frame") and cell.text_frame:
+                                for p in cell.text_frame.paragraphs:
+                                    for r in p.runs:
+                                        r.font.name = "Calibri"
+                                        r.font.size = Pt(size_pt)
+    except Exception:
+        pass
+
+
+def _disable_image_compression(prs):
+    """Disable image compression to preserve chart quality."""
+    DRAWING_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    try:
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, '_element'):
+                    for blip in shape._element.iter(f'{DRAWING_NS}blip'):
+                        blip.set(f'{DRAWING_NS}cstate', 'none')
+    except Exception:
+        pass
+
+
+# =========================================================================
+# Helper: history.json
+# =========================================================================
 
 def _update_history(history_path: str, ic_date: str, instruments: dict) -> None:
     """Update history.json with current week's scores."""
