@@ -53,6 +53,17 @@ When describing price position relative to a moving average, use the exact vs_50
 - A stock at +0.1% is "right on" or "at" the 50d MA
 - Values beyond ±0.5% require directional language: "below", "above", "X% below", "X% above"
 
+### MA Context Rule: Read All Three MAs Together
+Always read vs_50d, vs_100d, and vs_200d together to determine the full picture. The subtitle should reflect the COMBINED MA position, not just vs_50d.
+
+- **Below all three MAs** = strongly bearish positioning (trapped under all resistance)
+- **Below 50d and 100d, above 200d** = deteriorating but not broken — say "slipping below both short and medium-term support"
+- **Below 50d only, above 100d and 200d** = short-term weakness in a longer-term uptrend — say "short-term pullback within an intact uptrend"
+- **Above all three MAs** = strong technical positioning
+- **Above 50d and 100d, below 200d** = recovering but still in a longer-term downtrend
+
+Example: S&P 500 at vs_50d=-1.3%, vs_100d=-0.4%, vs_200d=+3.3% means price is below BOTH the 50d and 100d — "slipping below short and medium-term support" is more accurate than just "1.3% below the 50d".
+
 ### Style Rule: Analyst Voice, Not Data Dump
 Each subtitle should contain **AT MOST 2 numbers**. Pick the ONE or TWO most meaningful data points and weave them into a narrative. The rest should be qualitative interpretation.
 

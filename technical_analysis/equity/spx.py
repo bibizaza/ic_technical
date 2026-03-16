@@ -1820,7 +1820,7 @@ def insert_technical_analysis_v2_slide(
     *,
     placeholder_name: str = "spx_v2",
     left_cm: float = 1.13,
-    top_cm: float = 4.8,      # Slightly lower to avoid subtitle
+    top_cm: float = 5.14,     # Chart top position
     width_cm: float = 23.67,
     height_cm: float = 10.12,  # Reduced by 0.38cm (0.15in) to avoid overlap
     view_text: Optional[str] = None,
