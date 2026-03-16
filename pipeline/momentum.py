@@ -171,14 +171,12 @@ def _ma_distance_pct(close: pd.Series, target_date: pd.Timestamp, window: int) -
 
 
 def _default_rating(dmas: int) -> str:
-    """Convert DMAS score to rating label."""
-    if dmas >= 80:   return "Strongly Bullish"
+    """Convert DMAS score to rating label (5-tier scale)."""
     if dmas >= 70:   return "Bullish"
     if dmas >= 60:   return "Constructive"
     if dmas >= 40:   return "Neutral"
     if dmas >= 30:   return "Cautious"
-    if dmas >= 20:   return "Bearish"
-    return "Strongly Bearish"
+    return "Bearish"
 
 
 def compute_scores(

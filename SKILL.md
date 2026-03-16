@@ -43,6 +43,9 @@ Write all subtitles back to draft_state.json: set `instruments.[name].subtitle =
 - Directional claims must match scores (bullish language only when DMAS >= 60)
 - **Line 1:** most important fact RIGHT NOW
 - **Line 2:** what to watch next / key level or catalyst
+- **Never mention the DMAS score number in the subtitle.** It is already displayed on the slide's DMAS panel. Use the subtitle to add context the panel cannot show: cross-asset comparisons, MA context, breadth rank, what is changing.
+- **Ratings are 5-tier only:** Bullish, Constructive, Neutral, Cautious, Bearish. Never use "Strongly Bullish" or "Strongly Bearish".
+- **Flag what is CHANGING, not just the rating.** A bullish market pulling back is more interesting than a bullish market holding steady. A bearish market showing green shoots deserves mention. Even in bullish contexts, flag emerging risks. Even in bearish contexts, flag any improving signals.
 
 ### MA Position Rule: Use Exact Data, Never Approximate
 When describing price position relative to a moving average, use the exact vs_50d, vs_100d, vs_200d percentages from draft_state.json. Negative = below, positive = above.
