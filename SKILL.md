@@ -44,6 +44,15 @@ Write all subtitles back to draft_state.json: set `instruments.[name].subtitle =
 - **Line 1:** most important fact RIGHT NOW
 - **Line 2:** what to watch next / key level or catalyst
 
+### MA Position Rule: Use Exact Data, Never Approximate
+When describing price position relative to a moving average, use the exact vs_50d, vs_100d, vs_200d percentages from draft_state.json. Negative = below, positive = above.
+
+- **Never** say "hugging", "near", or "testing" unless the value is between -0.5% and +0.5%
+- A stock at -1.3% below the 50d MA is **clearly below it**, not near it — say "X% below the 50d MA"
+- A stock at -0.3% is legitimately "right at" or "testing" the 50d MA
+- A stock at +0.1% is "right on" or "at" the 50d MA
+- Values beyond ±0.5% require directional language: "below", "above", "X% below", "X% above"
+
 ### Style Rule: Analyst Voice, Not Data Dump
 Each subtitle should contain **AT MOST 2 numbers**. Pick the ONE or TWO most meaningful data points and weave them into a narrative. The rest should be qualitative interpretation.
 
