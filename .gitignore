@@ -94,4 +94,7 @@ node_modules/
 *.lock
 
 # Custom: ignore any secret notebooks
-secret_*.ipynb.streamlit/secrets.toml
+secret_*.ipynb
+
+# Streamlit secrets
+.streamlit/secrets.toml
