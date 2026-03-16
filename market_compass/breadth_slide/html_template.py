@@ -21,26 +21,6 @@ BREADTH_HTML_TEMPLATE = '''
             margin: 0;
         }
 
-        /* ========== TITLE ========== */
-        .title {
-            color: #00B0F0;
-            font-size: {{ 20 * scale }}px;
-            font-weight: 700;
-            margin-bottom: {{ 6 * scale }}px;
-        }
-
-        /* ========== SUBTITLE PARAGRAPH ========== */
-        .subtitle {
-            color: #555555;
-            font-size: {{ 8 * scale }}px;
-            line-height: 1.5;
-            margin-bottom: {{ 12 * scale }}px;
-        }
-
-        .subtitle strong {
-            color: #040C38;
-        }
-
         /* ========== TABLE ========== */
         table {
             width: 100%;
@@ -173,16 +153,6 @@ BREADTH_HTML_TEMPLATE = '''
     </style>
 </head>
 <body>
-    <div class="title">Composite Breadth Score</div>
-    <p class="subtitle">
-        Breadth measures how broad-based a market move really is. We score each index across three dimensions:
-        <strong>Trend</strong> &mdash; the percentage of members trading above their 50-day and 100-day moving averages.
-        <strong>Momentum</strong> &mdash; MACD-based participation, including the balance of fresh buy vs sell signals.
-        <strong>Balance</strong> &mdash; the inverse of Bollinger Band extremes: a healthy market has few members at either
-        overbought or oversold levels. Higher balance = more sustainable trend.
-        Rank 1 = strongest breadth.
-    </p>
-
     <table>
         <thead>
             <tr>

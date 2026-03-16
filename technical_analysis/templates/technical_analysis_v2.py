@@ -53,7 +53,7 @@ body {
 
 .price-row {
     display: flex;
-    height: 300px;  /* Reduced to accommodate taller RSI row */
+    height: 270px;  /* Reduced to avoid subtitle overlap */
 }
 
 .price-chart-area {

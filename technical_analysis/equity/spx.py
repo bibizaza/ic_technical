@@ -1297,7 +1297,7 @@ from playwright.sync_api import sync_playwright
 # Chart dimensions for v2 - HTML at base size, Playwright scales up
 # Base dimensions for HTML body (smaller = sharper when scaled)
 TECH_V2_BASE_WIDTH = 950
-TECH_V2_BASE_HEIGHT = 420  # Base height for chart
+TECH_V2_BASE_HEIGHT = 390  # Base height for chart (reduced to avoid subtitle overlap)
 TECH_V2_DEVICE_SCALE = 4   # Playwright device scale factor for high-res output
 TECH_V2_HTML_SCALE = 1     # Scale factor for HTML elements (1 = base size)
 TECH_V2_PNG_WIDTH_PX = TECH_V2_BASE_WIDTH * TECH_V2_DEVICE_SCALE   # 3800
