@@ -35,7 +35,8 @@ Read draft_state.json. For each of the 20 instruments:
 Write all subtitles back to draft_state.json: set `instruments.[name].subtitle = "Line 1\nLine 2"`.
 
 ### Subtitle Rules
-- **2 lines**, max 12 words each, no period at end
+- **2 lines**, max 12 words each
+- **Line 1 ends with a period.** Line 2 has no period at end
 - **Never** start with the instrument name
 - Each subtitle must be **uniquely different** across the full 20-instrument batch
 - All numbers from the data only — no invented numbers

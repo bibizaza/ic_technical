@@ -1822,7 +1822,7 @@ def insert_technical_analysis_v2_slide(
     left_cm: float = 1.13,
     top_cm: float = 4.8,      # Slightly lower to avoid subtitle
     width_cm: float = 23.67,
-    height_cm: float = 10.5,  # Reduced from 11.5 for better fit
+    height_cm: float = 10.12,  # Reduced by 0.38cm (0.15in) to avoid overlap
     view_text: Optional[str] = None,
     subtitle_text: Optional[str] = None,
 ) -> Presentation:
