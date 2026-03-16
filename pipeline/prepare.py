@@ -20,6 +20,96 @@ import yaml
 log = logging.getLogger(__name__)
 
 
+def _parse_bloomberg_raw_csv(csv_path: str) -> pd.DataFrame:
+    """
+    Parse raw Bloomberg Excel-export CSV (semicolon-separated, multi-row header)
+    into long format: date, ticker, close, low, high.
+
+    Row 0: empty ; ticker ; ticker ; ticker ; ticker ; ticker ; ticker ; ...
+            (each ticker repeated 3 times for price/low/high)
+    Row 1: DATES ; #price ; #low ; #high ; #price ; #low ; #high ; ...
+    Row 2+: DD/MM/YYYY ; val ; val ; val ; ...
+    """
+    with open(csv_path, encoding="utf-8-sig") as f:
+        lines = f.readlines()
+
+    # Parse header rows
+    ticker_row = lines[0].strip().split(";")
+    field_row = lines[1].strip().split(";")
+
+    # Build (ticker, field) pairs — skip first column (DATES)
+    columns = []
+    for i in range(1, len(ticker_row)):
+        ticker = ticker_row[i].strip()
+        field = field_row[i].strip().lstrip("#") if i < len(field_row) else ""
+        columns.append((ticker, field))
+
+    # Parse data rows
+    records = []
+    for line in lines[2:]:
+        parts = line.strip().split(";")
+        if not parts or not parts[0]:
+            continue
+        date_str = parts[0].strip()
+        try:
+            date = pd.to_datetime(date_str, dayfirst=True)
+        except Exception:
+            continue
+
+        # Group values by ticker
+        ticker_data: dict = {}
+        for i, (ticker, field) in enumerate(columns):
+            if not ticker or not field:
+                continue
+            val_str = parts[i + 1].strip() if i + 1 < len(parts) else ""
+            if val_str in ("", "#N/A", "N/A"):
+                val = float("nan")
+            else:
+                try:
+                    val = float(val_str)
+                except ValueError:
+                    val = float("nan")
+
+            if ticker not in ticker_data:
+                ticker_data[ticker] = {}
+            ticker_data[ticker][field] = val
+
+        for ticker, fields in ticker_data.items():
+            close = fields.get("price", float("nan"))
+            low = fields.get("low", float("nan"))
+            high = fields.get("high", float("nan"))
+            if pd.notna(close):
+                records.append({
+                    "date": date,
+                    "ticker": ticker,
+                    "close": close,
+                    "low": low,
+                    "high": high,
+                })
+
+    df = pd.DataFrame(records)
+    df = df.sort_values(["ticker", "date"]).reset_index(drop=True)
+    log.info("Parsed Bloomberg raw CSV: %d rows, %d tickers", len(df), df["ticker"].nunique())
+    return df
+
+
+def _read_master_csv(csv_path: str) -> pd.DataFrame:
+    """
+    Read master_prices.csv, auto-detecting whether it's in tidy long format
+    (date,ticker,close,low,high) or raw Bloomberg export format (semicolons).
+    """
+    with open(csv_path, encoding="utf-8-sig") as f:
+        first_line = f.readline()
+
+    if ";" in first_line:
+        # Raw Bloomberg format
+        log.info("Detected raw Bloomberg CSV format — parsing...")
+        return _parse_bloomberg_raw_csv(csv_path)
+    else:
+        # Already in tidy long format
+        return pd.read_csv(csv_path, parse_dates=["date"])
+
+
 def _load_config(config_path: str = "config/tickers.yaml") -> dict:
     with open(config_path) as f:
         return yaml.safe_load(f)
@@ -142,13 +232,13 @@ def run_prepare(
         except Exception as e:
             log.error("Bloomberg pull failed: %s", e)
             log.info("Falling back to existing master_prices.csv (no new data)")
-            master_df = pd.read_csv(master_csv, parse_dates=["date"])
+            master_df = _read_master_csv(master_csv)
             raw_breadth = pd.DataFrame()
             raw_fundamentals = pd.DataFrame()
             market_caps_raw = {}
     else:
         log.info("Skipping Bloomberg (--skip-bloomberg flag set)")
-        master_df = pd.read_csv(master_csv, parse_dates=["date"])
+        master_df = _read_master_csv(master_csv)
         raw_breadth = pd.DataFrame()
         raw_fundamentals = pd.DataFrame()
         market_caps_raw = {}
