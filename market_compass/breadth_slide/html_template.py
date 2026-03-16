@@ -1,4 +1,4 @@
-"""HTML template for Breadth Rank table."""
+"""HTML template for Composite Breadth Score table."""
 
 BREADTH_HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -14,45 +14,59 @@ BREADTH_HTML_TEMPLATE = '''
 
         body {
             font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
-            background: transparent;
+            background: #FFFFFF;
             width: {{ width }}px;
             min-height: {{ height }}px;
-            padding: 0;
+            padding: {{ 14 * scale }}px {{ 16 * scale }}px;
             margin: 0;
         }
 
-        /* Table styling */
+        /* ========== TITLE ========== */
+        .title {
+            color: #00B0F0;
+            font-size: {{ 20 * scale }}px;
+            font-weight: 700;
+            margin-bottom: {{ 6 * scale }}px;
+        }
+
+        /* ========== SUBTITLE PARAGRAPH ========== */
+        .subtitle {
+            color: #555555;
+            font-size: {{ 8 * scale }}px;
+            line-height: 1.5;
+            margin-bottom: {{ 12 * scale }}px;
+        }
+
+        .subtitle strong {
+            color: #040C38;
+        }
+
+        /* ========== TABLE ========== */
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: {{ 13 * scale }}px;
+            font-size: {{ 12 * scale }}px;
         }
 
+        /* ========== HEADER ========== */
         th {
-            background: #1B3A5A;
+            background: #040C38;
             color: #FFFFFF;
-            font-weight: 600;
-            padding: {{ 10 * scale }}px {{ 8 * scale }}px;
+            font-weight: 700;
+            font-size: {{ 10 * scale }}px;
+            letter-spacing: {{ 0.5 * scale }}px;
+            text-transform: uppercase;
+            padding: {{ 9 * scale }}px {{ 8 * scale }}px;
             text-align: center;
             border: none;
-            height: {{ 18 * scale }}px;
         }
 
-        th:first-child {
+        th:nth-child(2) {
             text-align: left;
             padding-left: {{ 12 * scale }}px;
-            width: {{ 100 * scale }}px;
         }
 
-        /* Rank column header - GOLD */
-        th.rank-col {
-            background: #C9A227;
-            color: #1B3A5A;
-            width: {{ 54 * scale }}px;
-            font-weight: 700;
-        }
-
-        /* Remove padding from td - let inner divs handle it */
+        /* ========== DATA ROWS ========== */
         td {
             padding: 0;
             border-bottom: {{ 1 * scale }}px solid #E8E8E8;
@@ -64,51 +78,63 @@ BREADTH_HTML_TEMPLATE = '''
         }
 
         /* ========== CELL CONTENT WRAPPER ========== */
-        .cell-content {
+        .cell {
             display: flex;
             align-items: center;
             justify-content: center;
-            height: {{ 23 * scale }}px;
-            padding: 0 {{ 10 * scale }}px;
+            height: {{ 28 * scale }}px;
+            padding: 0 {{ 8 * scale }}px;
         }
 
-        /* Market/Index column - left align */
-        .cell-content.market {
+        /* ========== RANK COLUMN ========== */
+        .cell.rank {
+            font-weight: 700;
+            font-size: {{ 15 * scale }}px;
+            color: #C5A044;
+        }
+
+        /* ========== INDEX COLUMN ========== */
+        .cell.index-name {
             justify-content: flex-start;
-            gap: {{ 10 * scale }}px;
+            gap: {{ 8 * scale }}px;
             padding-left: {{ 12 * scale }}px;
             white-space: nowrap;
         }
 
-        .cell-content.market span {
+        .cell.index-name .flag {
+            font-size: {{ 18 * scale }}px;
+            line-height: 1;
+        }
+
+        .cell.index-name .name {
             font-weight: 700;
             color: #040C38;
+            font-size: {{ 12 * scale }}px;
         }
 
-        .cell-content.market img,
-        .cell-content.market .flag {
-            flex-shrink: 0;
-        }
-
-        /* Rank column - centered, gold background */
-        .cell-content.rank {
-            justify-content: center;
+        /* ========== COMPOSITE PILL ========== */
+        .pill {
+            display: inline-block;
+            padding: {{ 3 * scale }}px {{ 14 * scale }}px;
+            border-radius: {{ 12 * scale }}px;
             font-weight: 700;
-            color: #92710C;
-            background: #FEF9E7;
+            font-size: {{ 12 * scale }}px;
+            color: #FFFFFF;
+            min-width: {{ 44 * scale }}px;
+            text-align: center;
         }
 
-        tr:nth-child(even) .cell-content.rank {
-            background: #FCF3CD;
-        }
+        .pill.green { background: #22C55E; }
+        .pill.amber { background: #F59E0B; }
+        .pill.red   { background: #EF4444; }
 
-        /* ========== PROGRESS BAR STYLING ========== */
-        .cell-content.pct {
+        /* ========== BAR + VALUE CELLS ========== */
+        .cell.bar-val {
             gap: {{ 6 * scale }}px;
         }
 
-        .pct-gauge {
-            width: {{ 58 * scale }}px;
+        .mini-bar {
+            width: {{ 55 * scale }}px;
             height: {{ 7 * scale }}px;
             background: #E5E7EB;
             border-radius: {{ 4 * scale }}px;
@@ -116,80 +142,98 @@ BREADTH_HTML_TEMPLATE = '''
             flex-shrink: 0;
         }
 
-        .pct-fill {
+        .mini-fill {
             height: 100%;
             border-radius: {{ 4 * scale }}px;
         }
 
-        .pct-value {
+        .mini-fill.green { background: linear-gradient(90deg, #22C55E, #16A34A); }
+        .mini-fill.amber { background: linear-gradient(90deg, #F59E0B, #D97706); }
+        .mini-fill.red   { background: linear-gradient(90deg, #EF4444, #DC2626); }
+
+        .bar-value {
             font-weight: 600;
-            font-size: {{ 13 * scale }}px;
-            min-width: {{ 41 * scale }}px;
+            font-size: {{ 12 * scale }}px;
+            min-width: {{ 28 * scale }}px;
             text-align: right;
         }
 
-        /* Progress bar colors */
-        .pct-fill.high { background: linear-gradient(90deg, #22C55E, #16A34A); }
-        .pct-fill.med-high { background: linear-gradient(90deg, #84CC16, #65A30D); }
-        .pct-fill.med { background: linear-gradient(90deg, #EAB308, #CA8A04); }
-        .pct-fill.med-low { background: linear-gradient(90deg, #F97316, #EA580C); }
-        .pct-fill.low { background: linear-gradient(90deg, #EF4444, #DC2626); }
+        .bar-value.green { color: #16A34A; }
+        .bar-value.amber { color: #D97706; }
+        .bar-value.red   { color: #DC2626; }
 
-        /* Text color to match bar */
-        .pct-value.high { color: #16A34A; }
-        .pct-value.med-high { color: #65A30D; }
-        .pct-value.med { color: #CA8A04; }
-        .pct-value.med-low { color: #EA580C; }
-        .pct-value.low { color: #DC2626; }
+        /* ========== FOOTER ========== */
+        .footer {
+            margin-top: {{ 8 * scale }}px;
+            font-size: {{ 7 * scale }}px;
+            color: #999999;
+            font-style: italic;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
+    <div class="title">Composite Breadth Score</div>
+    <p class="subtitle">
+        Breadth measures how broad-based a market move really is. We score each index across three dimensions:
+        <strong>Trend</strong> &mdash; the percentage of members trading above their 50-day and 100-day moving averages.
+        <strong>Momentum</strong> &mdash; MACD-based participation, including the balance of fresh buy vs sell signals.
+        <strong>Balance</strong> &mdash; the inverse of Bollinger Band extremes: a healthy market has few members at either
+        overbought or oversold levels. Higher balance = more sustainable trend.
+        Rank 1 = strongest breadth.
+    </p>
+
     <table>
         <thead>
             <tr>
-                <th>Index</th>
-                <th class="rank-col">Rank</th>
-                <th>Above Both MAs</th>
-                <th>Above 20D MA</th>
-                <th>Above 50D MA</th>
+                <th style="width: {{ 42 * scale }}px;">Rank</th>
+                <th style="width: {{ 120 * scale }}px;">Index</th>
+                <th style="width: {{ 80 * scale }}px;">Composite</th>
+                <th>Trend</th>
+                <th>Momentum</th>
+                <th>Balance</th>
             </tr>
         </thead>
         <tbody>
             {% for row in rows %}
             <tr>
                 <td>
-                    <div class="cell-content market">
-                        {{ row.flag_html | safe }}
-                        <span>{{ row.index_name }}</span>
+                    <div class="cell rank">{{ row.rank }}</div>
+                </td>
+                <td>
+                    <div class="cell index-name">
+                        <span class="flag">{{ row.flag }}</span>
+                        <span class="name">{{ row.name }}</span>
                     </div>
                 </td>
                 <td>
-                    <div class="cell-content rank">
-                        {{ row.rank }}
+                    <div class="cell">
+                        <span class="pill {{ row.composite_class }}">{{ row.composite }}</span>
                     </div>
                 </td>
                 <td>
-                    <div class="cell-content pct">
-                        <div class="pct-gauge"><div class="pct-fill {{ row.pct_both_class }}" style="width: {{ row.pct_both }}%;"></div></div>
-                        <span class="pct-value {{ row.pct_both_class }}">{{ row.pct_both }}%</span>
+                    <div class="cell bar-val">
+                        <div class="mini-bar"><div class="mini-fill {{ row.trend_class }}" style="width: {{ row.trend }}%;"></div></div>
+                        <span class="bar-value {{ row.trend_class }}">{{ row.trend_int }}</span>
                     </div>
                 </td>
                 <td>
-                    <div class="cell-content pct">
-                        <div class="pct-gauge"><div class="pct-fill {{ row.pct_20d_class }}" style="width: {{ row.pct_20d }}%;"></div></div>
-                        <span class="pct-value {{ row.pct_20d_class }}">{{ row.pct_20d }}%</span>
+                    <div class="cell bar-val">
+                        <div class="mini-bar"><div class="mini-fill {{ row.momentum_class }}" style="width: {{ row.momentum }}%;"></div></div>
+                        <span class="bar-value {{ row.momentum_class }}">{{ row.momentum_int }}</span>
                     </div>
                 </td>
                 <td>
-                    <div class="cell-content pct">
-                        <div class="pct-gauge"><div class="pct-fill {{ row.pct_50d_class }}" style="width: {{ row.pct_50d }}%;"></div></div>
-                        <span class="pct-value {{ row.pct_50d_class }}">{{ row.pct_50d }}%</span>
+                    <div class="cell bar-val">
+                        <div class="mini-bar"><div class="mini-fill {{ row.balance_class }}" style="width: {{ row.balance }}%;"></div></div>
+                        <span class="bar-value {{ row.balance_class }}">{{ row.balance_int }}</span>
                     </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    <p class="footer">Source: Bloomberg, Herculis Group</p>
 </body>
 </html>
 '''

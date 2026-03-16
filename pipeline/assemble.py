@@ -188,7 +188,8 @@ def run_assemble(
     # =====================================================================
     # 4. Summary slides (technical nutshell, breadth, fundamentals)
     # =====================================================================
-    _insert_summary_slides(prs, df_prices, instruments, chart_excel_path)
+    breadth_records = draft.get("breadth", [])
+    _insert_summary_slides(prs, df_prices, instruments, chart_excel_path, breadth_records)
 
     # =====================================================================
     # 5. Finalize
@@ -388,7 +389,7 @@ def _insert_performance_slides(prs, chart_excel_path: str) -> None:
 # Helper: summary slides
 # =========================================================================
 
-def _insert_summary_slides(prs, df_prices, instruments, chart_excel_path) -> None:
+def _insert_summary_slides(prs, df_prices, instruments, chart_excel_path, breadth_records=None) -> None:
     """Insert technical summary, breadth, and fundamental slides."""
     from utils import adjust_prices_for_mode
 
@@ -413,10 +414,12 @@ def _insert_summary_slides(prs, df_prices, instruments, chart_excel_path) -> Non
     except Exception as e:
         log.warning("Technical summary error: %s", e)
 
-    # Breadth slide
+    # Breadth slide (new composite breadth table)
     try:
-        from market_compass.breadth_slide import generate_breadth_slide
-        prs, _ = generate_breadth_slide(prs, excel_path=chart_excel_path, slide_name="slide_breadth")
+        from market_compass.breadth_slide import generate_composite_breadth_slide
+        prs = generate_composite_breadth_slide(
+            prs, breadth_records=breadth_records or [], slide_name="slide_breadth"
+        )
         log.info("Breadth slide inserted")
     except Exception as e:
         log.warning("Breadth slide error: %s", e)
