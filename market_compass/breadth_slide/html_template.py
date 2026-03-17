@@ -125,9 +125,9 @@ BREADTH_HTML_TEMPLATE = '''
             font-size: {{ 13 * scale }}px;
         }
 
-        .pill.green { background: #DCFCE7; color: #16A34A; }
+        .pill.green { background: #DCFCE7; color: #15803D; }
         .pill.amber { background: #FEF9C3; color: #A16207; }
-        .pill.red   { background: #FEE2E2; color: #DC2626; }
+        .pill.red   { background: #FEE2E2; color: #B91C1C; }
 
         /* ========== BAR + VALUE CELLS ========== */
         .cell-content.bar-val {
@@ -165,7 +165,7 @@ BREADTH_HTML_TEMPLATE = '''
     </style>
 </head>
 <body>
-    <table>
+    <table style="margin-top: {{ 20 * scale }}px;">
         <thead>
             <tr>
                 <th>Index</th>
