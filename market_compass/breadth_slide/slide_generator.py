@@ -1,6 +1,6 @@
 """Composite Breadth Score slide generator.
 
-Renders a 6-column table (Rank, Index, Composite, Trend, Momentum, Balance)
+Renders a 5-column table (Index, Composite, Trend, Momentum, Skew)
 from breadth records computed by pipeline/breadth.py, then inserts into PPTX.
 """
 
@@ -21,7 +21,7 @@ from helpers.html_to_image import render_html_to_image
 # =============================================================================
 
 SCALE_FACTOR = 4
-BREADTH_BASE_WIDTH = 750
+BREADTH_BASE_WIDTH = 630
 BREADTH_BASE_HEIGHT = 330
 BREADTH_WIDTH_PX = BREADTH_BASE_WIDTH * SCALE_FACTOR   # 3000
 BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 1760
@@ -74,7 +74,7 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
     Convert breadth records (from pipeline/breadth.py via draft_state.json)
     into template-ready row dicts.
 
-    Each record has: name, composite, trend, momentum, extension, rank
+    Each record has: name, composite, trend, momentum, skew, rank
     """
     rows = []
     for rec in breadth_records:
@@ -87,7 +87,7 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
         composite = float(rec["composite"])
         trend = float(rec["trend"])
         momentum = float(rec["momentum"])
-        balance = float(rec["extension"])  # "extension" in breadth.py = "Balance"
+        skew = float(rec.get("skew", rec.get("extension", 50)))  # fallback for old records
 
         rows.append({
             "rank": int(rec["rank"]),
@@ -101,9 +101,9 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
             "momentum": min(100, max(0, momentum)),
             "momentum_int": int(round(momentum)),
             "momentum_class": _color_class(momentum),
-            "balance": min(100, max(0, balance)),
-            "balance_int": int(round(balance)),
-            "balance_class": _color_class(balance),
+            "skew": min(100, max(0, skew)),
+            "skew_int": int(round(skew)),
+            "skew_class": _color_class(skew),
         })
 
     rows.sort(key=lambda r: r["rank"])
@@ -236,7 +236,7 @@ def generate_composite_breadth_slide(
 
     for row in rows:
         print(f"  {row['rank']}. {row['name']}: Composite={row['composite']}, "
-              f"Trend={row['trend_int']}, Mom={row['momentum_int']}, Bal={row['balance_int']}")
+              f"Trend={row['trend_int']}, Mom={row['momentum_int']}, Skew={row['skew_int']}")
 
     return insert_composite_breadth(prs, rows, slide_name)
 

@@ -88,7 +88,7 @@ def run_assemble(
         "/Users/larazanella/Library/CloudStorage/Dropbox/Tools_In_Construction/ic",
     )
     if template_path is None:
-        template_path = str(Path(dropbox_path) / "template.pptx")
+        template_path = str(Path(dropbox_path) / "shadow_template.pptx")
     if output_path is None:
         date_str = ic_date.replace("-", "")
         output_path = str(Path(dropbox_path) / f"Market_Compass_{date_str}.pptx")

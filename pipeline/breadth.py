@@ -4,9 +4,9 @@ Composite breadth score computation.
 Three-pillar model:
   TREND (40%)    : average(pct_gt_50d, pct_gt_100d)
   MOMENTUM (35%) : 0.50*macd_gt_0 + 0.25*signal_gt_0 + 0.25*net_signal_rescaled
-  EXTENSION (25%): 100 - (pct_above_upper_boll + pct_below_lower_boll)
+  SKEW (25%)     : 50 - (pct_below_lower_boll - pct_above_upper_boll), clamped 0-100
 
-COMPOSITE = 0.40*TREND + 0.35*MOMENTUM + 0.25*EXTENSION
+COMPOSITE = 0.40*TREND + 0.35*MOMENTUM + 0.25*SKEW
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def compute_composite_breadth(raw_breadth: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Columns: name, composite, trend, momentum, extension, rank
+        Columns: name, composite, trend, momentum, skew, rank
     """
     df = raw_breadth.copy()
 
@@ -49,16 +49,16 @@ def compute_composite_breadth(raw_breadth: pd.DataFrame) -> pd.DataFrame:
         + 0.25 * net_signal_rescaled
     )
 
-    # --- EXTENSION (inverted) ---
+    # --- SKEW ---
     above_upper = df["PCT_MEMB_PX_ABV_UPPER_BOLL_BAND"].fillna(0)
     below_lower = df["PCT_MEMB_PX_BLW_LWR_BOLL_BAND"].fillna(0)
-    extension = (100 - (above_upper + below_lower)).clip(0, 100)
+    skew = (50 - (below_lower - above_upper)).clip(0, 100)
 
     # --- COMPOSITE ---
     composite = (
         0.40 * trend
         + 0.35 * momentum
-        + 0.25 * extension
+        + 0.25 * skew
     ).clip(0, 100)
 
     result = pd.DataFrame(
@@ -67,7 +67,7 @@ def compute_composite_breadth(raw_breadth: pd.DataFrame) -> pd.DataFrame:
             "composite": composite.round(1),
             "trend": trend.round(1),
             "momentum": momentum.round(1),
-            "extension": extension.round(1),
+            "skew": skew.round(1),
         }
     ).reset_index(drop=True)
 

@@ -41,7 +41,7 @@ BREADTH_HTML_TEMPLATE = '''
             border: none;
         }
 
-        th:nth-child(2) {
+        th:nth-child(1) {
             text-align: left;
             padding-left: {{ 12 * scale }}px;
         }
@@ -66,13 +66,6 @@ BREADTH_HTML_TEMPLATE = '''
             padding: 0 {{ 8 * scale }}px;
         }
 
-        /* ========== RANK COLUMN ========== */
-        .cell.rank {
-            font-weight: 700;
-            font-size: {{ 15 * scale }}px;
-            color: #C5A044;
-        }
-
         /* ========== INDEX COLUMN ========== */
         .cell.index-name {
             justify-content: flex-start;
@@ -90,6 +83,19 @@ BREADTH_HTML_TEMPLATE = '''
             font-weight: 700;
             color: #040C38;
             font-size: {{ 12 * scale }}px;
+        }
+
+        /* ========== COMPOSITE CELL (rank + pill) ========== */
+        .cell.composite-cell {
+            gap: {{ 8 * scale }}px;
+        }
+
+        .rank-num {
+            font-weight: 700;
+            font-size: {{ 15 * scale }}px;
+            color: #C5A044;
+            min-width: {{ 18 * scale }}px;
+            text-align: right;
         }
 
         /* ========== COMPOSITE PILL ========== */
@@ -156,20 +162,16 @@ BREADTH_HTML_TEMPLATE = '''
     <table>
         <thead>
             <tr>
-                <th style="width: {{ 42 * scale }}px;">Rank</th>
                 <th style="width: {{ 120 * scale }}px;">Index</th>
-                <th style="width: {{ 80 * scale }}px;">Composite</th>
+                <th style="width: {{ 90 * scale }}px;">Composite</th>
                 <th>Trend</th>
                 <th>Momentum</th>
-                <th>Balance</th>
+                <th>Skew</th>
             </tr>
         </thead>
         <tbody>
             {% for row in rows %}
             <tr>
-                <td>
-                    <div class="cell rank">{{ row.rank }}</div>
-                </td>
                 <td>
                     <div class="cell index-name">
                         <span class="flag">{{ row.flag }}</span>
@@ -177,7 +179,8 @@ BREADTH_HTML_TEMPLATE = '''
                     </div>
                 </td>
                 <td>
-                    <div class="cell">
+                    <div class="cell composite-cell">
+                        <span class="rank-num">{{ row.rank }}</span>
                         <span class="pill {{ row.composite_class }}">{{ row.composite }}</span>
                     </div>
                 </td>
@@ -195,8 +198,8 @@ BREADTH_HTML_TEMPLATE = '''
                 </td>
                 <td>
                     <div class="cell bar-val">
-                        <div class="mini-bar"><div class="mini-fill {{ row.balance_class }}" style="width: {{ row.balance }}%;"></div></div>
-                        <span class="bar-value {{ row.balance_class }}">{{ row.balance_int }}</span>
+                        <div class="mini-bar"><div class="mini-fill {{ row.skew_class }}" style="width: {{ row.skew }}%;"></div></div>
+                        <span class="bar-value {{ row.skew_class }}">{{ row.skew_int }}</span>
                     </div>
                 </td>
             </tr>
