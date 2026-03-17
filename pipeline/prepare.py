@@ -213,21 +213,31 @@ def run_prepare(
     master_df = _read_master_csv(master_csv)
 
     if not skip_bloomberg:
-        log.info("Pulling Bloomberg reference data (breadth, fundamentals, market caps)...")
+        log.info("Pulling Bloomberg prices + reference data (breadth, fundamentals, market caps)...")
         try:
-            from pipeline.bloomberg import connect_bloomberg, pull_breadth, pull_fundamentals, pull_market_caps
+            from pipeline.bloomberg import (
+                connect_bloomberg, disconnect_bloomberg,
+                update_master_prices_wide,
+                pull_breadth, pull_fundamentals, pull_market_caps,
+            )
             session = connect_bloomberg()
             try:
+                # 1. Pull new price rows into master_prices.csv
+                n_new = update_master_prices_wide(session, master_csv)
+                if n_new:
+                    log.info("Appended %d new price rows — reloading master_df", n_new)
+                    master_df = _read_master_csv(master_csv)
+
+                # 2. Pull reference data
                 breadth_indices = cfg["breadth_indices"]
                 raw_breadth = pull_breadth(session, breadth_indices)
 
-                equity_indices = breadth_indices  # same indices for fundamentals
+                equity_indices = breadth_indices
                 raw_fundamentals = pull_fundamentals(session, equity_indices)
 
                 ic_tickers = _get_ic_tickers(cfg)
                 market_caps_raw = pull_market_caps(session, ic_tickers)
             finally:
-                from pipeline.bloomberg import disconnect_bloomberg
                 disconnect_bloomberg(session)
         except Exception as e:
             log.error("Bloomberg pull failed: %s", e)

@@ -312,3 +312,112 @@ def pull_market_caps(
     """
     df = bbg_bdp(session, tickers, ["CUR_MKT_CAP"])
     return df["CUR_MKT_CAP"].to_dict()
+
+
+def update_master_prices_wide(
+    session: blpapi.Session,
+    master_csv_path: str,
+) -> int:
+    """
+    Incrementally append missing price rows to master_prices.csv (wide format).
+
+    master_prices.csv format:
+      - Semicolon-separated, European dates (DD/MM/YYYY) in column 0
+      - Row 0: ticker names (repeats 3x per ticker: close, low, high)
+      - Row 1: field labels (#price, #low, #high)
+      - Data rows: date ; close ; low ; high ; close ; low ; high ; ...
+
+    Reads the last date, pulls PX_LAST / PX_LOW / PX_HIGH for all tickers
+    from last_date+1 through today, then appends the new rows.
+
+    Returns the number of new rows appended.
+    """
+    master_path = Path(master_csv_path)
+    if not master_path.exists():
+        log.warning("master_prices.csv not found at %s — skipping price update", master_path)
+        return 0
+
+    # ── Read header to extract ticker list and column order ──────────────────
+    with open(master_path, encoding="utf-8-sig") as f:
+        header_line = f.readline().rstrip("\n")
+        _subheader = f.readline().rstrip("\n")  # skip #price/#low/#high row
+
+    header_cols = header_line.split(";")
+    # Column 0 is the date column; every 3 columns after is one ticker (close/low/high)
+    # Ticker names appear in columns 1, 4, 7, ... (the #price column for each ticker)
+    tickers_ordered = []
+    for i in range(1, len(header_cols), 3):
+        t = header_cols[i].strip()
+        if t:
+            tickers_ordered.append(t)
+
+    if not tickers_ordered:
+        log.error("Could not extract tickers from master_prices.csv header")
+        return 0
+
+    # ── Find last date in CSV ─────────────────────────────────────────────────
+    df_dates = pd.read_csv(master_path, sep=";", header=0, skiprows=[1], usecols=[0])
+    date_col = df_dates.columns[0]
+    df_dates["_d"] = pd.to_datetime(df_dates[date_col], format="%d/%m/%Y", errors="coerce")
+    last_date = df_dates["_d"].dropna().max()
+
+    today = datetime.today()
+    if last_date.date() >= today.date():
+        log.info("master_prices.csv is already up to date (%s)", last_date.date())
+        return 0
+
+    start_str = (last_date + timedelta(days=1)).strftime("%Y%m%d")
+    end_str = today.strftime("%Y%m%d")
+    log.info(
+        "Pulling Bloomberg prices for %d tickers from %s to %s",
+        len(tickers_ordered), start_str, end_str,
+    )
+
+    # ── Pull from Bloomberg (batch of 50 tickers at a time to avoid limits) ──
+    BATCH = 50
+    all_long: list[pd.DataFrame] = []
+    for i in range(0, len(tickers_ordered), BATCH):
+        batch = tickers_ordered[i : i + BATCH]
+        try:
+            raw = bbg_bdh(session, batch, ["PX_LAST", "PX_LOW", "PX_HIGH"], start_str, end_str)
+            all_long.append(raw)
+        except Exception as e:
+            log.warning("Bloomberg BDH failed for batch %d-%d: %s", i, i + BATCH, e)
+
+    if not all_long:
+        log.warning("No Bloomberg price data returned")
+        return 0
+
+    long_df = pd.concat(all_long, ignore_index=True)
+    long_df["date"] = pd.to_datetime(long_df["date"])
+
+    # ── Pivot to wide format matching CSV column order ────────────────────────
+    new_dates = sorted(long_df["date"].unique())
+    lines = []
+    for dt in new_dates:
+        day_data = long_df[long_df["date"] == dt].set_index("ticker")
+        date_str = pd.Timestamp(dt).strftime("%d/%m/%Y")
+        vals = []
+        for ticker in tickers_ordered:
+            if ticker in day_data.index:
+                row = day_data.loc[ticker]
+                close = row.get("PX_LAST", np.nan)
+                low   = row.get("PX_LOW",  np.nan)
+                high  = row.get("PX_HIGH", np.nan)
+            else:
+                close = low = high = np.nan
+
+            def fmt(v):
+                return f"{v:.2f}" if not (isinstance(v, float) and np.isnan(v)) else ""
+
+            vals.extend([fmt(close), fmt(low), fmt(high)])
+
+        lines.append(date_str + ";" + ";".join(vals))
+
+    # ── Append to CSV ─────────────────────────────────────────────────────────
+    with open(master_path, "a") as f:
+        for line in lines:
+            f.write("\n" + line)
+
+    log.info("Appended %d new price rows to %s", len(lines), master_path)
+    return len(lines)
