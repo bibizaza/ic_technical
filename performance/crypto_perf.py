@@ -1317,7 +1317,7 @@ def create_crypto_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
                     'width': CRYPTO_YTD_PNG_WIDTH_PX,
                     'height': CRYPTO_YTD_PNG_HEIGHT_PX
                 })
-                page.set_content(html_content, wait_until='networkidle')
+                page.set_content(html_content, wait_until='commit')
                 page.wait_for_timeout(500)
                 png_bytes = page.screenshot()
                 browser.close()
@@ -1363,7 +1363,7 @@ def create_crypto_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
                 'width': CRYPTO_YTD_PNG_WIDTH_PX,
                 'height': CRYPTO_YTD_PNG_HEIGHT_PX
             })
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(html_content, wait_until='commit')
             try:
                 page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
             except Exception:

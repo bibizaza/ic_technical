@@ -1777,7 +1777,7 @@ def create_technical_analysis_v2_chart(
             )
 
             # Set content and wait for network idle
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(html_content, wait_until='commit')
 
             # Wait for Chart.js to load and render
             try:

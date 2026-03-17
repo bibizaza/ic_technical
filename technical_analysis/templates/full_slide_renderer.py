@@ -1198,7 +1198,7 @@ def render_full_slide(
                 device_scale_factor=1  # Already scaled in HTML
             )
 
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(html_content, wait_until='commit')
 
             # Wait for Chart.js to render
             try:

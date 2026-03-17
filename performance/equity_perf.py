@@ -1042,7 +1042,7 @@ def create_equity_ytd_evolution_chart(
                     'width': EQUITY_YTD_PNG_WIDTH_PX,
                     'height': EQUITY_YTD_PNG_HEIGHT_PX
                 })
-                page.set_content(html_content, wait_until='networkidle')
+                page.set_content(html_content, wait_until='commit')
                 page.wait_for_timeout(500)
                 png_bytes = page.screenshot()
                 browser.close()
@@ -1098,7 +1098,7 @@ def create_equity_ytd_evolution_chart(
             })
 
             # Load HTML content - use data URL to ensure proper loading
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(html_content, wait_until='commit')
 
             # Wait for Chart.js to signal rendering complete
             try:
@@ -1652,7 +1652,7 @@ def create_fx_impact_analysis_chart_eur(
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
             print(f"[FX Impact EUR DEBUG] Setting page content...")
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(html_content, wait_until='commit')
             page.wait_for_timeout(500)
             print(f"[FX Impact EUR DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()
@@ -2008,7 +2008,7 @@ def create_fx_impact_analysis_chart_chf(
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
             print(f"[FX Impact CHF DEBUG] Setting page content...")
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(html_content, wait_until='commit')
             page.wait_for_timeout(500)
             print(f"[FX Impact CHF DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()

@@ -68,7 +68,7 @@ def render_html_to_image(
 
             # Load HTML content
             print(f"[Playwright] Loading HTML ({len(html_content)} chars)...")
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(html_content, wait_until='commit')
 
             # Brief wait for any final rendering
             page.wait_for_timeout(100)
