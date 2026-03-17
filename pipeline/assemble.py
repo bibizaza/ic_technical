@@ -184,7 +184,7 @@ def run_assemble(
     # =====================================================================
     # 3. Performance slides
     # =====================================================================
-    _insert_performance_slides(prs, chart_excel_path)
+    _insert_performance_slides(prs, chart_excel_path, ytd_subtitles)
 
     # =====================================================================
     # 4. Summary slides (technical nutshell, breadth, fundamentals)
@@ -249,8 +249,10 @@ def _update_date_placeholder(prs, ic_date: str) -> None:
 # Helper: performance slides
 # =========================================================================
 
-def _insert_performance_slides(prs, chart_excel_path: str) -> None:
+def _insert_performance_slides(prs, chart_excel_path: str, ytd_subtitles: dict = None) -> None:
     """Insert all performance slides (equity, FX, crypto, rates, credit, commodity)."""
+    if ytd_subtitles is None:
+        ytd_subtitles = {}
     price_mode = "Last Price"
 
     # --- Equity ---

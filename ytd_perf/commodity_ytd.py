@@ -120,11 +120,14 @@ def get_commodity_ytd_series(
     prices_df, params_df = load_data(file_path)
     # Apply price mode adjustment
     prices_df, _ = adjust_prices_for_mode(prices_df, price_mode)
-    now = datetime.now()
-    year_start = datetime(now.year, 1, 1)
+    # Use the year from the data, not from the current system date
+    # This handles cases where data ends in a previous year (e.g., Dec 31, 2025)
+    max_date = prices_df["Date"].max()
+    data_year = max_date.year if pd.notna(max_date) else datetime.now().year
+    year_start = datetime(data_year, 1, 1)
     current_year_df = prices_df[prices_df["Date"] >= year_start].reset_index(drop=True)
     commo_params = params_df[params_df["Asset Class"] == "Commodity"].copy()
-    if tickers is not None:
+    if tickers:  # Only filter if tickers list is non-empty
         commo_params = commo_params[commo_params["Tickers"].isin(tickers)]
     result = pd.DataFrame()
     result["Date"] = current_year_df["Date"]
@@ -163,7 +166,7 @@ def create_commodity_chart(df: pd.DataFrame) -> plt.Figure:
         if col == "Date":
             continue
         colour = COMMO_COLOURS.get(col, None)
-        ax.plot(df["Date"], df[col], color=colour, linewidth=2)
+        ax.plot(df["Date"], df[col], color=colour, linewidth=2.5)
     # Determine y-range and sort by final values
     y_min = df[[c for c in df.columns if c != "Date"]].min().min()
     y_max = df[[c for c in df.columns if c != "Date"]].max().max()
@@ -316,8 +319,7 @@ def insert_commodity_chart(
         prices_df, used_date = adjust_prices_for_mode(prices_df, price_mode)
         if used_date is not None:
             date_str = used_date.strftime("%d/%m/%Y")
-            suffix = " Close" if price_mode.lower() == "last close" else ""
-            source_text = f"Source: Bloomberg, Herculis Group, Data as of {date_str}{suffix}"
+            source_text = f"Source: Bloomberg, Herculis Group. Data as of {date_str}"
             placeholder_name = "ytd_commo_source"
             placeholder_patterns = ["[ytd_commo_source]", "ytd_commo_source"]
             inserted = False
