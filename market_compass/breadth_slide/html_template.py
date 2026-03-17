@@ -1,4 +1,13 @@
-"""HTML template for Composite Breadth Score table."""
+"""HTML template for Composite Breadth Score table.
+
+Dimensions and styling match fundamental_slide exactly:
+  - SCALE_FACTOR = 4, base 750×360px
+  - Cell height: 23*scale px, font: 13*scale px
+  - Header background: #1B3A5A
+  - Rank column: gold (#C9A227 header, #FEF9E7 cell)
+  - Composite column: mini ring gauge (SVG, viewBox 0 0 32 32, r=12)
+  - Trend / Conviction / Sentiment: mini-bar + numeric value
+"""
 
 BREADTH_HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -14,10 +23,10 @@ BREADTH_HTML_TEMPLATE = '''
 
         body {
             font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
-            background: #FFFFFF;
+            background: transparent;
             width: {{ width }}px;
             min-height: {{ height }}px;
-            padding: {{ 14 * scale }}px {{ 16 * scale }}px;
+            padding: 0;
             margin: 0;
         }
 
@@ -25,25 +34,35 @@ BREADTH_HTML_TEMPLATE = '''
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: {{ 12 * scale }}px;
+            font-size: {{ 13 * scale }}px;
         }
 
         /* ========== HEADER ========== */
         th {
-            background: #040C38;
+            background: #1B3A5A;
             color: #FFFFFF;
-            font-weight: 700;
-            font-size: {{ 10 * scale }}px;
-            letter-spacing: {{ 0.5 * scale }}px;
-            text-transform: uppercase;
-            padding: {{ 9 * scale }}px {{ 8 * scale }}px;
+            font-weight: 600;
+            padding: {{ 10 * scale }}px {{ 8 * scale }}px;
             text-align: center;
             border: none;
+            height: {{ 18 * scale }}px;
         }
 
-        th:nth-child(1) {
+        th:first-child {
             text-align: left;
             padding-left: {{ 12 * scale }}px;
+            width: {{ 108 * scale }}px;
+        }
+
+        th.rank-col {
+            background: #C9A227;
+            color: #1B3A5A;
+            width: {{ 60 * scale }}px;
+            font-weight: 700;
+        }
+
+        th.composite-col {
+            width: {{ 72 * scale }}px;
         }
 
         /* ========== DATA ROWS ========== */
@@ -58,69 +77,92 @@ BREADTH_HTML_TEMPLATE = '''
         }
 
         /* ========== CELL CONTENT WRAPPER ========== */
-        .cell {
+        .cell-content {
             display: flex;
             align-items: center;
             justify-content: center;
-            height: {{ 28 * scale }}px;
-            padding: 0 {{ 8 * scale }}px;
+            height: {{ 23 * scale }}px;
+            padding: 0 {{ 10 * scale }}px;
         }
 
         /* ========== INDEX COLUMN ========== */
-        .cell.index-name {
+        .cell-content.index-name {
             justify-content: flex-start;
             gap: {{ 8 * scale }}px;
             padding-left: {{ 12 * scale }}px;
             white-space: nowrap;
         }
 
-        .cell.index-name .flag {
+        .cell-content.index-name .flag {
             font-size: {{ 18 * scale }}px;
             line-height: 1;
         }
 
-        .cell.index-name .name {
+        .cell-content.index-name .name {
             font-weight: 700;
             color: #040C38;
-            font-size: {{ 12 * scale }}px;
+            font-size: {{ 13 * scale }}px;
         }
 
-        /* ========== COMPOSITE CELL (rank + pill) ========== */
-        .cell.composite-cell {
-            gap: {{ 8 * scale }}px;
-        }
-
-        .rank-num {
+        /* ========== RANK COLUMN ========== */
+        .cell-content.rank {
+            justify-content: center;
             font-weight: 700;
-            font-size: {{ 15 * scale }}px;
-            color: #C5A044;
-            min-width: {{ 18 * scale }}px;
-            text-align: right;
+            color: #92710C;
+            background: #FEF9E7;
         }
 
-        /* ========== COMPOSITE PILL ========== */
-        .pill {
-            display: inline-block;
-            padding: {{ 3 * scale }}px {{ 14 * scale }}px;
-            border-radius: {{ 12 * scale }}px;
+        tr:nth-child(even) .cell-content.rank {
+            background: #FCF3CD;
+        }
+
+        /* ========== COMPOSITE RING GAUGE ========== */
+        .ring-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mini-ring {
+            position: relative;
+            width: {{ 32 * scale }}px;
+            height: {{ 32 * scale }}px;
+        }
+
+        .mini-ring svg {
+            width: {{ 32 * scale }}px;
+            height: {{ 32 * scale }}px;
+            transform: rotate(-90deg);
+        }
+
+        .mini-ring circle {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+        }
+
+        .mini-ring .bg { stroke: #E8ECF2; }
+        .mini-ring .fg-green { stroke: #16A34A; }
+        .mini-ring .fg-amber { stroke: #D97706; }
+        .mini-ring .fg-red   { stroke: #DC2626; }
+
+        .ring-num {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: {{ 10 * scale }}px;
             font-weight: 700;
-            font-size: {{ 12 * scale }}px;
-            color: #FFFFFF;
-            min-width: {{ 44 * scale }}px;
-            text-align: center;
+            color: #1A1E2E;
         }
-
-        .pill.green { background: #22C55E; }
-        .pill.amber { background: #F59E0B; }
-        .pill.red   { background: #EF4444; }
 
         /* ========== BAR + VALUE CELLS ========== */
-        .cell.bar-val {
+        .cell-content.bar-val {
             gap: {{ 6 * scale }}px;
         }
 
         .mini-bar {
-            width: {{ 55 * scale }}px;
+            width: {{ 50 * scale }}px;
             height: {{ 7 * scale }}px;
             background: #E5E7EB;
             border-radius: {{ 4 * scale }}px;
@@ -139,74 +181,73 @@ BREADTH_HTML_TEMPLATE = '''
 
         .bar-value {
             font-weight: 600;
-            font-size: {{ 12 * scale }}px;
-            min-width: {{ 28 * scale }}px;
+            font-size: {{ 13 * scale }}px;
+            min-width: {{ 26 * scale }}px;
             text-align: right;
         }
 
         .bar-value.green { color: #16A34A; }
         .bar-value.amber { color: #D97706; }
         .bar-value.red   { color: #DC2626; }
-
-        /* ========== FOOTER ========== */
-        .footer {
-            margin-top: {{ 8 * scale }}px;
-            font-size: {{ 7 * scale }}px;
-            color: #999999;
-            font-style: italic;
-            text-align: right;
-        }
     </style>
 </head>
 <body>
     <table>
         <thead>
             <tr>
-                <th style="width: {{ 120 * scale }}px;">Index</th>
-                <th style="width: {{ 90 * scale }}px;">Composite</th>
+                <th>Index</th>
+                <th class="rank-col">Rank</th>
+                <th class="composite-col">Composite</th>
                 <th>Trend</th>
-                <th>Momentum</th>
-                <th>Skew</th>
+                <th>Conviction</th>
+                <th>Sentiment</th>
             </tr>
         </thead>
         <tbody>
             {% for row in rows %}
             <tr>
                 <td>
-                    <div class="cell index-name">
+                    <div class="cell-content index-name">
                         <span class="flag">{{ row.flag }}</span>
                         <span class="name">{{ row.name }}</span>
                     </div>
                 </td>
                 <td>
-                    <div class="cell composite-cell">
-                        <span class="rank-num">{{ row.rank }}</span>
-                        <span class="pill {{ row.composite_class }}">{{ row.composite }}</span>
+                    <div class="cell-content rank">{{ row.rank }}</div>
+                </td>
+                <td>
+                    <div class="cell-content ring-cell">
+                        <div class="mini-ring">
+                            <svg viewBox="0 0 32 32">
+                                <circle class="bg" cx="16" cy="16" r="12" stroke-dasharray="{{ ring_circ }} {{ ring_circ }}"/>
+                                <circle class="fg-{{ row.composite_class }}" cx="16" cy="16" r="12" stroke-dasharray="{{ row.ring_filled }} {{ row.ring_gap }}"/>
+                            </svg>
+                            <span class="ring-num">{{ row.composite }}</span>
+                        </div>
                     </div>
                 </td>
                 <td>
-                    <div class="cell bar-val">
+                    <div class="cell-content bar-val">
                         <div class="mini-bar"><div class="mini-fill {{ row.trend_class }}" style="width: {{ row.trend }}%;"></div></div>
                         <span class="bar-value {{ row.trend_class }}">{{ row.trend_int }}</span>
                     </div>
                 </td>
                 <td>
-                    <div class="cell bar-val">
-                        <div class="mini-bar"><div class="mini-fill {{ row.momentum_class }}" style="width: {{ row.momentum }}%;"></div></div>
-                        <span class="bar-value {{ row.momentum_class }}">{{ row.momentum_int }}</span>
+                    <div class="cell-content bar-val">
+                        <div class="mini-bar"><div class="mini-fill {{ row.conviction_class }}" style="width: {{ row.conviction }}%;"></div></div>
+                        <span class="bar-value {{ row.conviction_class }}">{{ row.conviction_int }}</span>
                     </div>
                 </td>
                 <td>
-                    <div class="cell bar-val">
-                        <div class="mini-bar"><div class="mini-fill {{ row.skew_class }}" style="width: {{ row.skew }}%;"></div></div>
-                        <span class="bar-value {{ row.skew_class }}">{{ row.skew_int }}</span>
+                    <div class="cell-content bar-val">
+                        <div class="mini-bar"><div class="mini-fill {{ row.sentiment_class }}" style="width: {{ row.sentiment }}%;"></div></div>
+                        <span class="bar-value {{ row.sentiment_class }}">{{ row.sentiment_int }}</span>
                     </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    <p class="footer">Source: Bloomberg, Herculis Group</p>
 </body>
 </html>
 '''

@@ -1,9 +1,10 @@
 """Composite Breadth Score slide generator.
 
-Renders a 5-column table (Index, Composite, Trend, Momentum, Skew)
+Renders a 6-column table (Index, Rank, Composite, Trend, Conviction, Sentiment)
 from breadth records computed by pipeline/breadth.py, then inserts into PPTX.
 """
 
+import math
 from typing import List, Dict, Tuple, Optional
 import tempfile
 from pathlib import Path
@@ -17,37 +18,40 @@ from helpers.html_to_image import render_html_to_image
 
 
 # =============================================================================
-# RESOLUTION SETTINGS
+# RESOLUTION SETTINGS (matches fundamental_slide exactly)
 # =============================================================================
 
 SCALE_FACTOR = 4
-BREADTH_BASE_WIDTH = 630
-BREADTH_BASE_HEIGHT = 330
+BREADTH_BASE_WIDTH = 750
+BREADTH_BASE_HEIGHT = 360
 BREADTH_WIDTH_PX = BREADTH_BASE_WIDTH * SCALE_FACTOR   # 3000
-BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 1760
+BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 1440
 
-# PowerPoint placement (cm)
+# PowerPoint placement (cm) — matches fundamental_slide
 BREADTH_LEFT_CM = 2.7
-BREADTH_TOP_CM = 5.5
+BREADTH_TOP_CM = 7.25
 BREADTH_WIDTH_CM = 20.0
-BREADTH_HEIGHT_CM = 11.5
+BREADTH_HEIGHT_CM = 9.5
+
+# Ring gauge geometry (SVG viewBox 0 0 32 32, r=12)
+_RING_CIRC = round(2 * math.pi * 12, 1)  # ≈ 75.4
 
 
 # =============================================================================
-# INDEX NAME + FLAG MAPPING (Bloomberg ticker -> display name, flag emoji)
+# INDEX NAME + FLAG MAPPING — same 9 markets as fundamental/IC universe
 # =============================================================================
 
 INDEX_NAME_MAP = {
     # Keyed by display name (from config/tickers.yaml breadth_indices)
-    "S&P 500":        ("\U0001F1FA\U0001F1F8", "S&P 500"),
-    "Nasdaq 100":     ("\U0001F1FA\U0001F1F8", "Nasdaq 100"),
-    "Russell 2000":   ("\U0001F1FA\U0001F1F8", "Russell 2000"),
-    "Euro Stoxx 600": ("\U0001F1EA\U0001F1FA", "Euro Stoxx 600"),
-    "MSCI EM":        ("\U0001F30D", "MSCI EM"),
-    "Nikkei 225":     ("\U0001F1EF\U0001F1F5", "Nikkei 225"),
-    "Hang Seng":      ("\U0001F1ED\U0001F1F0", "Hang Seng"),
-    "CSI 300":        ("\U0001F1E8\U0001F1F3", "CSI 300"),
-    "DAX":            ("\U0001F1E9\U0001F1EA", "DAX"),
+    "S&P 500":   ("\U0001F1FA\U0001F1F8", "U.S."),
+    "SMI":       ("\U0001F1E8\U0001F1ED", "Switzerland"),
+    "DAX":       ("\U0001F1E9\U0001F1EA", "Germany"),
+    "Nikkei 225":("\U0001F1EF\U0001F1F5", "Japan"),
+    "CSI 300":   ("\U0001F1E8\U0001F1F3", "China"),
+    "TASI":      ("\U0001F1F8\U0001F1E6", "Saudi Arabia"),
+    "Sensex":    ("\U0001F1EE\U0001F1F3", "India"),
+    "MEXBOL":    ("\U0001F1F2\U0001F1FD", "Mexico"),
+    "IBOV":      ("\U0001F1E7\U0001F1F7", "Brazil"),
 }
 
 
@@ -65,6 +69,13 @@ def _color_class(value: float) -> str:
         return "red"
 
 
+def _ring_dasharray(score: float) -> tuple:
+    """Compute SVG stroke-dasharray (filled, gap) for the ring gauge."""
+    filled = round((score / 100) * _RING_CIRC, 1)
+    gap = round(_RING_CIRC - filled, 1)
+    return filled, gap
+
+
 # =============================================================================
 # DATA PREPARATION (from draft_state breadth records)
 # =============================================================================
@@ -74,7 +85,7 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
     Convert breadth records (from pipeline/breadth.py via draft_state.json)
     into template-ready row dicts.
 
-    Each record has: name, composite, trend, momentum, skew, rank
+    Each record has: name, composite, trend, conviction, sentiment, rank
     """
     rows = []
     for rec in breadth_records:
@@ -86,8 +97,12 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
         flag, display_name = mapping
         composite = float(rec["composite"])
         trend = float(rec["trend"])
-        momentum = float(rec["momentum"])
-        skew = float(rec.get("skew", rec.get("extension", 50)))  # fallback for old records
+        # conviction (was "momentum" in old records)
+        conviction = float(rec.get("conviction", rec.get("momentum", 50)))
+        # sentiment (was "skew" / "extension" in old records)
+        sentiment = float(rec.get("sentiment", rec.get("skew", rec.get("extension", 50))))
+
+        ring_filled, ring_gap = _ring_dasharray(composite)
 
         rows.append({
             "rank": int(rec["rank"]),
@@ -95,15 +110,17 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
             "name": display_name,
             "composite": int(round(composite)),
             "composite_class": _color_class(composite),
+            "ring_filled": ring_filled,
+            "ring_gap": ring_gap,
             "trend": min(100, max(0, trend)),
             "trend_int": int(round(trend)),
             "trend_class": _color_class(trend),
-            "momentum": min(100, max(0, momentum)),
-            "momentum_int": int(round(momentum)),
-            "momentum_class": _color_class(momentum),
-            "skew": min(100, max(0, skew)),
-            "skew_int": int(round(skew)),
-            "skew_class": _color_class(skew),
+            "conviction": min(100, max(0, conviction)),
+            "conviction_int": int(round(conviction)),
+            "conviction_class": _color_class(conviction),
+            "sentiment": min(100, max(0, sentiment)),
+            "sentiment_int": int(round(sentiment)),
+            "sentiment_class": _color_class(sentiment),
         })
 
     rows.sort(key=lambda r: r["rank"])
@@ -122,6 +139,7 @@ def _generate_html(rows: list) -> str:
         width=BREADTH_WIDTH_PX,
         height=BREADTH_HEIGHT_PX,
         scale=SCALE_FACTOR,
+        ring_circ=_RING_CIRC,
     )
 
 
@@ -218,7 +236,7 @@ def generate_composite_breadth_slide(
     prs : Presentation
         PowerPoint presentation object
     breadth_records : list
-        List of dicts with keys: name, composite, trend, momentum, extension, rank
+        List of dicts with keys: name, composite, trend, conviction, sentiment, rank
         (output of pipeline/breadth.py compute_composite_breadth)
     slide_name : str
         Shape name to find the target slide
@@ -236,7 +254,7 @@ def generate_composite_breadth_slide(
 
     for row in rows:
         print(f"  {row['rank']}. {row['name']}: Composite={row['composite']}, "
-              f"Trend={row['trend_int']}, Mom={row['momentum_int']}, Skew={row['skew_int']}")
+              f"Trend={row['trend_int']}, Conv={row['conviction_int']}, Sent={row['sentiment_int']}")
 
     return insert_composite_breadth(prs, rows, slide_name)
 

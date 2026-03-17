@@ -2,11 +2,11 @@
 Composite breadth score computation.
 
 Three-pillar model:
-  TREND (40%)    : average(pct_gt_50d, pct_gt_100d)
-  MOMENTUM (35%) : 0.50*macd_gt_0 + 0.25*signal_gt_0 + 0.25*net_signal_rescaled
-  SKEW (25%)     : 50 - (pct_below_lower_boll - pct_above_upper_boll), clamped 0-100
+  TREND (40%)      : average(pct_gt_50d, pct_gt_100d)
+  CONVICTION (35%) : 0.50*macd_gt_0 + 0.25*signal_gt_0 + 0.25*net_signal_rescaled
+  SENTIMENT (25%)  : 50 - (pct_below_lower_boll - pct_above_upper_boll), clamped 0-100
 
-COMPOSITE = 0.40*TREND + 0.35*MOMENTUM + 0.25*SKEW
+COMPOSITE = 0.40*TREND + 0.35*CONVICTION + 0.25*SENTIMENT
 """
 from __future__ import annotations
 
@@ -26,14 +26,14 @@ def compute_composite_breadth(raw_breadth: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Columns: name, composite, trend, momentum, skew, rank
+        Columns: name, composite, trend, conviction, sentiment, rank
     """
     df = raw_breadth.copy()
 
     # --- TREND ---
     trend = df[["PCT_MEMB_PX_GT_50D_MOV_AVG", "PCT_MEMB_PX_GT_100D_MOV_AVG"]].mean(axis=1)
 
-    # --- MOMENTUM ---
+    # --- CONVICTION ---
     macd_gt_0 = df["PCT_MEMB_MACD_GT_BASE_LINE_0"].fillna(50)
     signal_gt_0 = df["PCT_MEMB_SIGNAL_GT_BASE_LINE_0"].fillna(50)
 
@@ -43,22 +43,22 @@ def compute_composite_breadth(raw_breadth: pd.DataFrame) -> pd.DataFrame:
     net_signal_raw = buy_pct - sell_pct           # range roughly -100 to +100
     net_signal_rescaled = (net_signal_raw + 100) / 2  # rescale to 0-100 (50=neutral)
 
-    momentum = (
+    conviction = (
         0.50 * macd_gt_0
         + 0.25 * signal_gt_0
         + 0.25 * net_signal_rescaled
     )
 
-    # --- SKEW ---
+    # --- SENTIMENT ---
     above_upper = df["PCT_MEMB_PX_ABV_UPPER_BOLL_BAND"].fillna(0)
     below_lower = df["PCT_MEMB_PX_BLW_LWR_BOLL_BAND"].fillna(0)
-    skew = (50 - (below_lower - above_upper)).clip(0, 100)
+    sentiment = (50 - (below_lower - above_upper)).clip(0, 100)
 
     # --- COMPOSITE ---
     composite = (
         0.40 * trend
-        + 0.35 * momentum
-        + 0.25 * skew
+        + 0.35 * conviction
+        + 0.25 * sentiment
     ).clip(0, 100)
 
     result = pd.DataFrame(
@@ -66,8 +66,8 @@ def compute_composite_breadth(raw_breadth: pd.DataFrame) -> pd.DataFrame:
             "name": df.index,
             "composite": composite.round(1),
             "trend": trend.round(1),
-            "momentum": momentum.round(1),
-            "skew": skew.round(1),
+            "conviction": conviction.round(1),
+            "sentiment": sentiment.round(1),
         }
     ).reset_index(drop=True)
 
