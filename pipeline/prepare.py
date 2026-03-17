@@ -271,12 +271,30 @@ def run_prepare(
     # -----------------------------------------------------------------------
     # Step 4: Compute breadth
     # -----------------------------------------------------------------------
+    import json as _json
+    _breadth_cache_path = Path(draft_path).parent / "breadth_cache.json"
+
     from pipeline.breadth import compute_composite_breadth
     if not raw_breadth.empty:
         breadth_df = compute_composite_breadth(raw_breadth)
         breadth_records = breadth_df.to_dict(orient="records")
+        # Persist for Bloomberg-unavailable runs
+        try:
+            with open(_breadth_cache_path, "w") as _bf:
+                _json.dump(breadth_records, _bf, indent=2)
+            log.info("Saved breadth_cache.json (%d records)", len(breadth_records))
+        except Exception as _be:
+            log.warning("Could not save breadth_cache.json: %s", _be)
     else:
         breadth_records = []
+        # Fall back to last cached breadth data
+        if _breadth_cache_path.exists():
+            try:
+                with open(_breadth_cache_path) as _bf:
+                    breadth_records = _json.load(_bf)
+                log.info("Loaded breadth from cache (%d records)", len(breadth_records))
+            except Exception as _be:
+                log.warning("Could not load breadth_cache.json: %s", _be)
 
     # -----------------------------------------------------------------------
     # Step 5: Fundamental rankings

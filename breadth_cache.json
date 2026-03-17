@@ -1,0 +1,74 @@
+[
+  {
+    "name": "IBOV",
+    "composite": 47,
+    "trend": 51,
+    "conviction": 42,
+    "sentiment": 48,
+    "rank": 1
+  },
+  {
+    "name": "CSI 300",
+    "composite": 46,
+    "trend": 42,
+    "conviction": 45,
+    "sentiment": 52,
+    "rank": 2
+  },
+  {
+    "name": "Nikkei 225",
+    "composite": 46,
+    "trend": 48,
+    "conviction": 44,
+    "sentiment": 46,
+    "rank": 3
+  },
+  {
+    "name": "S&P 500",
+    "composite": 41,
+    "trend": 39,
+    "conviction": 38,
+    "sentiment": 47,
+    "rank": 4
+  },
+  {
+    "name": "SMI",
+    "composite": 39,
+    "trend": 32,
+    "conviction": 36,
+    "sentiment": 55,
+    "rank": 5
+  },
+  {
+    "name": "MEXBOL",
+    "composite": 38,
+    "trend": 37,
+    "conviction": 36,
+    "sentiment": 41,
+    "rank": 6
+  },
+  {
+    "name": "DAX",
+    "composite": 38,
+    "trend": 32,
+    "conviction": 31,
+    "sentiment": 55,
+    "rank": 7
+  },
+  {
+    "name": "TASI",
+    "composite": 36,
+    "trend": 27,
+    "conviction": 34,
+    "sentiment": 53,
+    "rank": 8
+  },
+  {
+    "name": "Sensex",
+    "composite": 27,
+    "trend": 17,
+    "conviction": 26,
+    "sentiment": 47,
+    "rank": 9
+  }
+]

@@ -133,6 +133,28 @@ def run_assemble(
         insert_technical_analysis_v2_slide,
     )
 
+    # Load previous week's DMAS from history.json for WoW delta display
+    prev_dmas: dict[str, int] = {}
+    try:
+        hist_path = Path(history_path)
+        if hist_path.exists():
+            with open(hist_path) as _hf:
+                _hist = json.load(_hf)
+            _ic_ts = pd.Timestamp(ic_date).date()
+            for _name, _entries in _hist.items():
+                _sorted = sorted(_entries, key=lambda x: x.get("date", ""), reverse=True)
+                for _e in _sorted:
+                    try:
+                        _edate = pd.Timestamp(_e["date"]).date()
+                    except Exception:
+                        continue
+                    if _edate < _ic_ts and _e.get("dmas") is not None:
+                        prev_dmas[_name] = int(_e["dmas"])
+                        break
+            log.info("Loaded WoW DMAS for %d instruments from history.json", len(prev_dmas))
+    except Exception as _e:
+        log.warning("Could not load history.json for WoW deltas: %s", _e)
+
     total = len(instruments)
     for idx, (name, data) in enumerate(instruments.items()):
         if name not in INSTRUMENT_CONFIG:
@@ -149,7 +171,7 @@ def run_assemble(
                 ticker=cfg["bbg_ticker"],
                 price_mode="Last Price",
                 dmas_score=data.get("dmas"),
-                dmas_prev_week=None,
+                dmas_prev_week=prev_dmas.get(name),
                 technical_score=data.get("technical"),
                 momentum_score=data.get("momentum"),
             )
