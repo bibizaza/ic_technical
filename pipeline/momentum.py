@@ -1,36 +1,21 @@
 """
-Momentum scoring wrapper around the MARS engine.
+Momentum scoring — matches production technical_score_wrapper exactly.
 
 Computes DMAS, technical, momentum, RSI, MA distances for all 20 IC instruments.
+- Technical: graduated MA-distance formula (same as compute_technical_score_only)
+- Momentum: reads from mars_score sheet in ic_file.xlsx (same as production)
 """
 from __future__ import annotations
 
 import logging
 from typing import Dict, List, Optional
 
-import numpy as np
 import pandas as pd
-
-from mars_engine.mars_lite_scorer import (
-    generate_spx_score_history,
-    generate_csi_score_history,
-    _generate_score_history,
-)
 
 log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# MARS peer groups (from mars_lite_scorer)
-# ---------------------------------------------------------------------------
-MARS_PEERS = [
-    "CCMP Index", "IBOV Index", "MEXBOL Index", "SXXP Index",
-    "UKX Index", "SMI Index", "HSI Index", "SHSZ300 Index",
-    "NKY Index", "SENSEX Index", "DAX Index", "MXWO Index",
-    "USGG10YR Index", "GECU10YR Index", "CL1 Comdty",
-    "GCA Comdty", "DXY Curncy", "XBTUSD Curncy",
-]
-
 # Map from instrument name → (mars_col, mars_hi, mars_lo, bloomberg_ticker)
 INSTRUMENT_MAP = {
     "S&P 500":    ("SPX",      "SPX_high",       "SPX_low",       "SPX Index"),
@@ -91,7 +76,7 @@ TICKER_TO_MARS_COL = {
 
 def _build_wide_df(master_prices: pd.DataFrame) -> pd.DataFrame:
     """
-    Convert long-format master_prices.csv to wide format for MARS engine.
+    Convert long-format master_prices DataFrame to wide format indexed by date.
 
     Long: date, ticker, close, low, high
     Wide: index=date, columns = [MARS_COL, MARS_COL_high, MARS_COL_low, ...]
@@ -114,13 +99,13 @@ def _build_wide_df(master_prices: pd.DataFrame) -> pd.DataFrame:
 
 def _compute_technical_score(close: pd.Series, target_date: pd.Timestamp) -> int:
     """
-    Simple technical score based on MA positioning (0-100 scale).
+    Technical score based on MA positioning (0-100 scale).
 
-    Components (equal weight):
-    - Price vs 50d MA  : 100 if above, 0 if below
-    - Price vs 100d MA : 100 if above, 0 if below
-    - Price vs 200d MA : 100 if above, 0 if below
-    - RSI (14d) in neutral zone: scaled
+    Graduated scoring (matches production compute_technical_score_only):
+    - Price vs 50d MA  : 0-30 pts (below: 0-15, above: 15-30)
+    - Price vs 100d MA : 0-30 pts (below: 0-15, above: 15-30)
+    - Price vs 200d MA : 0-40 pts (below: 0-20, above: 20-40)
+    Total weight = 100 pts → score is already 0-100.
 
     Returns integer 0-100.
     """
@@ -128,18 +113,29 @@ def _compute_technical_score(close: pd.Series, target_date: pd.Timestamp) -> int
     if len(close_up_to) < 200:
         return 50  # insufficient history
 
-    price = close_up_to.iloc[-1]
-    ma50  = close_up_to.iloc[-50:].mean()
-    ma100 = close_up_to.iloc[-100:].mean()
-    ma200 = close_up_to.iloc[-200:].mean()
+    cp   = close_up_to.iloc[-1]
+    s50  = close_up_to.iloc[-50:].mean()
+    s100 = close_up_to.iloc[-100:].mean()
+    s200 = close_up_to.iloc[-200:].mean()
 
-    score_ma = (
-        (100 if price > ma50 else 0)
-        + (100 if price > ma100 else 0)
-        + (100 if price > ma200 else 0)
-    ) / 3
+    score = 0.0
+    # vs 50-day MA (30% weight)
+    if cp > s50:
+        score += min(30, 15 + ((cp - s50) / s50 * 100) * 3)
+    else:
+        score += max(0, 15 - ((s50 - cp) / s50 * 100) * 3)
+    # vs 100-day MA (30% weight)
+    if cp > s100:
+        score += min(30, 15 + ((cp - s100) / s100 * 100) * 3)
+    else:
+        score += max(0, 15 - ((s100 - cp) / s100 * 100) * 3)
+    # vs 200-day MA (40% weight)
+    if cp > s200:
+        score += min(40, 20 + ((cp - s200) / s200 * 100) * 4)
+    else:
+        score += max(0, 20 - ((s200 - cp) / s200 * 100) * 4)
 
-    return int(round(score_ma))
+    return int(round(max(0.0, min(100.0, score))))
 
 
 def _compute_rsi(close: pd.Series, target_date: pd.Timestamp, period: int = 14) -> int:
@@ -170,6 +166,37 @@ def _ma_distance_pct(close: pd.Series, target_date: pd.Timestamp, window: int) -
     return f"{sign}{pct:.1f}%"
 
 
+def _lookup_mars_score(mars_df: "pd.DataFrame", ticker: str) -> Optional[float]:
+    """
+    Look up momentum score for a ticker in a pre-loaded mars_score DataFrame.
+    Mirrors the matching logic of _get_momentum_score_generic.
+    """
+    if mars_df is None or mars_df.empty:
+        return None
+    try:
+        score_col = None
+        for col in mars_df.columns:
+            if str(col).lower() in ('score', 'mars', 'momentum', 'mars_score', 'momentum_score'):
+                score_col = col
+                break
+        if score_col is None and len(mars_df.columns) >= 2:
+            score_col = mars_df.columns[1]
+        if score_col is None:
+            return None
+        ticker_col = mars_df.columns[0]
+        ticker_upper = ticker.strip().upper()
+        first_part = ticker_upper.split()[0] if ticker_upper.split() else ticker_upper
+        for _, row in mars_df.iterrows():
+            cell = str(row[ticker_col]).strip().upper()
+            if cell == ticker_upper or first_part in cell or cell in ticker_upper:
+                val = row[score_col]
+                if pd.notna(val):
+                    return float(val)
+    except Exception:
+        pass
+    return None
+
+
 def _default_rating(dmas: int) -> str:
     """Convert DMAS score to rating label (5-tier scale)."""
     if dmas >= 70:   return "Bullish"
@@ -183,9 +210,15 @@ def compute_scores(
     master_prices: pd.DataFrame,
     instruments: List[str],
     target_date: Optional[pd.Timestamp] = None,
+    excel_path: Optional[str] = None,
 ) -> Dict[str, Dict]:
     """
     Compute DMAS, technical, momentum, RSI, and MA distances for each instrument.
+
+    Matches production scoring exactly:
+    - Technical: graduated MA-distance formula (same as compute_technical_score_only)
+    - Momentum: reads from mars_score sheet in Excel if excel_path provided;
+                falls back to technical score as proxy (same as production)
 
     Parameters
     ----------
@@ -195,6 +228,8 @@ def compute_scores(
         Instrument names (keys in INSTRUMENT_MAP)
     target_date : pd.Timestamp, optional
         Date to score. Defaults to latest available date.
+    excel_path : str, optional
+        Path to ic_file.xlsx to read pre-computed momentum scores from mars_score sheet.
 
     Returns
     -------
@@ -207,6 +242,14 @@ def compute_scores(
         target_date = wide.index.max()
 
     wide_up_to = wide[wide.index <= target_date]
+
+    # Pre-load mars_score sheet once for all instruments
+    _mars_df = None
+    if excel_path:
+        try:
+            _mars_df = pd.read_excel(excel_path, sheet_name="mars_score")
+        except Exception as _e:
+            log.warning("Could not read mars_score sheet from %s: %s", excel_path, _e)
 
     results = {}
 
@@ -226,29 +269,15 @@ def compute_scores(
             log.warning("No price data for %s", name)
             continue
 
-        # Compute MARS momentum score
-        try:
-            if name == "S&P 500":
-                score_series = generate_spx_score_history(wide_up_to)
-            elif name == "CSI 300":
-                score_series = generate_csi_score_history(wide_up_to)
-            else:
-                score_series = _generate_score_history(
-                    wide_up_to,
-                    target_col=mars_col,
-                    hi_col=mars_hi if mars_hi in wide_up_to.columns else mars_col,
-                    lo_col=mars_lo if mars_lo in wide_up_to.columns else mars_col,
-                    peer_universe=MARS_PEERS,
-                    bench_candidates=["MXWO Index", "SPX"],
-                )
-        except Exception as e:
-            log.warning("MARS scoring failed for %s: %s", name, e)
-            score_series = pd.Series(dtype=float)
-
-        momentum_score = int(round(float(score_series.iloc[-1]))) if not score_series.empty else 50
-
-        # Technical score
+        # Technical score (graduated formula, matches production)
         technical = _compute_technical_score(close_series, target_date)
+
+        # Momentum score: read from mars_score Excel sheet (matches production)
+        momentum_score = technical  # fallback: use technical as proxy (same as production)
+        if _mars_df is not None:
+            mom = _lookup_mars_score(_mars_df, bbg_ticker)
+            if mom is not None:
+                momentum_score = int(round(mom))
 
         # DMAS = average of technical and momentum
         dmas = int(round((technical + momentum_score) / 2))

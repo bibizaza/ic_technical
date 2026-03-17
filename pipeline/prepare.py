@@ -264,9 +264,10 @@ def run_prepare(
     # -----------------------------------------------------------------------
     # Step 3: Compute momentum scores
     # -----------------------------------------------------------------------
+    excel_path = str(Path(dropbox_path) / "ic_file.xlsx")
     from pipeline.momentum import compute_scores, INSTRUMENT_MAP
     instrument_names = list(INSTRUMENT_MAP.keys())
-    scores_dict = compute_scores(master_df, instrument_names, target_date)
+    scores_dict = compute_scores(master_df, instrument_names, target_date, excel_path=excel_path)
 
     # -----------------------------------------------------------------------
     # Step 4: Compute breadth
@@ -337,7 +338,6 @@ def run_prepare(
     charts_cache = Path(charts_dir)
     charts_cache.mkdir(exist_ok=True)
 
-    excel_path = str(Path(dropbox_path) / "ic_file.xlsx")
     chart_paths = _render_charts(
         scores_dict=scores_dict,
         target_date=target_date,
