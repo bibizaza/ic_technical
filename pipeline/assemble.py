@@ -133,8 +133,11 @@ def run_assemble(
         insert_technical_analysis_v2_slide,
     )
 
-    # Load previous week's DMAS from history.json for WoW delta display
-    prev_dmas: dict[str, int] = {}
+    # Load previous week's scores from history.json for WoW delta and arrows
+    prev_dmas:  dict[str, int] = {}
+    prev_tech:  dict[str, int] = {}
+    prev_mom:   dict[str, int] = {}
+    prev_rsi:   dict[str, int] = {}
     try:
         hist_path = Path(history_path)
         if hist_path.exists():
@@ -150,8 +153,14 @@ def run_assemble(
                         continue
                     if _edate < _ic_ts and _e.get("dmas") is not None:
                         prev_dmas[_name] = int(_e["dmas"])
+                        if _e.get("technical_score") is not None:
+                            prev_tech[_name] = int(_e["technical_score"])
+                        if _e.get("momentum_score") is not None:
+                            prev_mom[_name] = int(_e["momentum_score"])
+                        if _e.get("rsi") is not None:
+                            prev_rsi[_name] = int(_e["rsi"])
                         break
-            log.info("Loaded WoW DMAS for %d instruments from history.json", len(prev_dmas))
+            log.info("Loaded WoW scores for %d instruments from history.json", len(prev_dmas))
     except Exception as _e:
         log.warning("Could not load history.json for WoW deltas: %s", _e)
 
@@ -173,7 +182,10 @@ def run_assemble(
                 dmas_score=data.get("dmas"),
                 dmas_prev_week=prev_dmas.get(name),
                 technical_score=data.get("technical"),
+                technical_prev_week=prev_tech.get(name),
                 momentum_score=data.get("momentum"),
+                momentum_prev_week=prev_mom.get(name),
+                rsi_prev_week=prev_rsi.get(name),
             )
 
             if not chart_bytes:

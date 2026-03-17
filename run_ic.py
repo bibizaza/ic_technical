@@ -165,6 +165,11 @@ def _generate_subtitles_api(draft_path: str, config_path: str) -> None:
         subtitles = _parse_subtitle_response(raw, list(missing.keys()))
         for name, subtitle in subtitles.items():
             if name in draft["instruments"]:
+                # Ensure line 1 ends with a period
+                lines = subtitle.split("\n", 1)
+                if lines and lines[0] and not lines[0].rstrip().endswith("."):
+                    lines[0] = lines[0].rstrip() + "."
+                subtitle = "\n".join(lines)
                 draft["instruments"][name]["subtitle"] = subtitle
                 log.info("Subtitle for %s: %s", name, subtitle[:60])
 
@@ -232,20 +237,17 @@ def _generate_ytd_subtitles_api(draft: dict, client, log) -> dict:
         log.warning("Could not compute YTD performance: %s", e)
         return {}
 
-    prompt = f"""Generate a 2-line subtitle for each of three YTD performance slides.
-Each line must be max 12 words. No period at end of lines. Use only data provided.
+    prompt = f"""Generate a SINGLE-LINE subtitle for each of three YTD performance slides.
+Exactly one line per slide. Max 12 words. No period at end. Use only data provided.
 Never start with the asset class name.
 
 FORMAT:
 ### equity
-Line 1
-Line 2
+One line here
 ### commodity
-Line 1
-Line 2
+One line here
 ### crypto
-Line 1
-Line 2
+One line here
 
 === EQUITY YTD PERFORMANCE ===
 {eq_block}
@@ -270,8 +272,8 @@ Line 2
             if marker in raw.lower():
                 start = raw.lower().index(marker) + len(marker)
                 chunk = raw[start:].strip()
-                lines = [ln.strip() for ln in chunk.split("\n") if ln.strip() and not ln.startswith("###")][:2]
-                ytd_subtitles[section] = "\n".join(lines)
+                lines = [ln.strip() for ln in chunk.split("\n") if ln.strip() and not ln.startswith("###")][:1]
+                ytd_subtitles[section] = lines[0] if lines else ""
                 log.info("YTD subtitle [%s]: %s", section, ytd_subtitles[section][:60])
         return ytd_subtitles
     except Exception as e:

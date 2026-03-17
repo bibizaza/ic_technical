@@ -97,7 +97,7 @@ def _build_wide_df(master_prices: pd.DataFrame) -> pd.DataFrame:
     return wide
 
 
-def _compute_technical_score(close: pd.Series, target_date: pd.Timestamp) -> int:
+def _compute_technical_score(close: pd.Series, target_date: pd.Timestamp) -> float:
     """
     Technical score based on MA positioning (0-100 scale).
 
@@ -107,7 +107,8 @@ def _compute_technical_score(close: pd.Series, target_date: pd.Timestamp) -> int
     - Price vs 200d MA : 0-40 pts (below: 0-20, above: 20-40)
     Total weight = 100 pts → score is already 0-100.
 
-    Returns integer 0-100.
+    Returns float so that DMAS averaging uses the untruncated value (matching
+    production compute_technical_score_only which also returns a float).
     """
     close_up_to = close[close.index <= target_date].dropna()
     if len(close_up_to) < 200:
@@ -135,7 +136,7 @@ def _compute_technical_score(close: pd.Series, target_date: pd.Timestamp) -> int
     else:
         score += max(0, 20 - ((s200 - cp) / s200 * 100) * 4)
 
-    return int(round(max(0.0, min(100.0, score))))
+    return max(0.0, min(100.0, score))
 
 
 def _compute_rsi(close: pd.Series, target_date: pd.Timestamp, period: int = 14) -> int:
@@ -198,10 +199,12 @@ def _lookup_mars_score(mars_df: "pd.DataFrame", ticker: str) -> Optional[float]:
 
 
 def _default_rating(dmas: int) -> str:
-    """Convert DMAS score to rating label (5-tier scale)."""
+    """Convert DMAS score to rating label (5-tier scale).
+    Thresholds match production get_outlook() in data_prep.py: 70/55/45/30.
+    """
     if dmas >= 70:   return "Bullish"
-    if dmas >= 60:   return "Constructive"
-    if dmas >= 40:   return "Neutral"
+    if dmas >= 55:   return "Constructive"
+    if dmas >= 45:   return "Neutral"
     if dmas >= 30:   return "Cautious"
     return "Bearish"
 
@@ -269,18 +272,23 @@ def compute_scores(
             log.warning("No price data for %s", name)
             continue
 
-        # Technical score (graduated formula, matches production)
-        technical = _compute_technical_score(close_series, target_date)
+        # Technical score (graduated formula, matches production).
+        # Keep as float for DMAS computation; truncate only for display.
+        technical_float = _compute_technical_score(close_series, target_date)
+        technical = int(technical_float)   # truncate to match production
 
-        # Momentum score: read from mars_score Excel sheet (matches production)
-        momentum_score = technical  # fallback: use technical as proxy (same as production)
+        # Momentum score: read from mars_score Excel sheet (matches production).
+        # Keep as float until DMAS computation; truncate (int()) not round().
+        momentum_float: float = technical_float  # fallback: technical as proxy
         if _mars_df is not None:
             mom = _lookup_mars_score(_mars_df, bbg_ticker)
             if mom is not None:
-                momentum_score = int(round(mom))
+                momentum_float = mom
 
-        # DMAS = average of technical and momentum
-        dmas = int(round((technical + momentum_score) / 2))
+        momentum_score = int(momentum_float)   # truncate to match production
+
+        # DMAS = average of raw floats, then truncate (matches production int(dmas))
+        dmas = int((technical_float + momentum_float) / 2)
 
         # RSI
         rsi = _compute_rsi(close_series, target_date)
