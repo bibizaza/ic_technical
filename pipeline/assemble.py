@@ -74,6 +74,7 @@ def run_assemble(
     draft = _load_draft(draft_path)
     ic_date = draft["date"]
     instruments = draft["instruments"]
+    ytd_subtitles = draft.get("ytd_subtitles", {})
 
     log.info("Assembling presentation for date: %s", ic_date)
 
@@ -277,7 +278,7 @@ def _insert_performance_slides(prs, chart_excel_path: str) -> None:
             left_cm=2.16, top_cm=4.70, width_cm=19.43, height_cm=10.61
         )
         ytd_bytes, date3 = create_equity_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
-        prs = insert_equity_ytd_evolution_slide(prs, ytd_bytes, used_date=date3, price_mode=price_mode)
+        prs = insert_equity_ytd_evolution_slide(prs, ytd_bytes, used_date=date3, price_mode=price_mode, subtitle=ytd_subtitles.get("equity"))
 
         fx_eur_bytes, date4 = create_fx_impact_analysis_chart_eur(chart_excel_path, price_mode=price_mode)
         prs = insert_fx_impact_analysis_slide_eur(prs, fx_eur_bytes, used_date=date4, price_mode=price_mode)
@@ -318,7 +319,7 @@ def _insert_performance_slides(prs, chart_excel_path: str) -> None:
         cr_histo, crd2 = create_historical_crypto_html_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_crypto_historical_html_slide(prs, cr_histo, used_date=crd2, price_mode=price_mode)
         cr_ytd, crd3 = create_crypto_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
-        prs = insert_crypto_ytd_evolution_slide(prs, cr_ytd, used_date=crd3, price_mode=price_mode)
+        prs = insert_crypto_ytd_evolution_slide(prs, cr_ytd, used_date=crd3, price_mode=price_mode, subtitle=ytd_subtitles.get("crypto"))
         log.info("Crypto performance slides inserted")
     except Exception as e:
         log.warning("Crypto performance error: %s", e)
@@ -379,7 +380,7 @@ def _insert_performance_slides(prs, chart_excel_path: str) -> None:
         co_histo, cod2 = create_historical_commo_chart(chart_excel_path, price_mode=price_mode)
         prs = insert_commodity_historical_html_slide(prs, co_histo, used_date=cod2, price_mode=price_mode)
         co_ytd, cod3 = create_commodity_ytd_evolution_chart(chart_excel_path, price_mode=price_mode)
-        prs = insert_commodity_ytd_evolution_slide(prs, co_ytd, used_date=cod3, price_mode=price_mode)
+        prs = insert_commodity_ytd_evolution_slide(prs, co_ytd, used_date=cod3, price_mode=price_mode, subtitle=ytd_subtitles.get("commodity"))
         log.info("Commodity performance slides inserted")
     except Exception as e:
         log.warning("Commodity performance error: %s", e)

@@ -32,7 +32,25 @@ Read draft_state.json. For each of the 20 instruments:
 1. Read the `enriched_context` field
 2. Generate a 2-line subtitle
 
-Write all subtitles back to draft_state.json: set `instruments.[name].subtitle = "Line 1\nLine 2"`.
+Write all subtitles back to draft_state.json:
+- Set `instruments.[name].subtitle = "Line 1\nLine 2"` for each of the 20 instruments
+- Set `ytd_subtitles.equity`, `ytd_subtitles.commodity`, `ytd_subtitles.crypto` with one-sentence YTD overview subtitles
+
+### YTD Overview Subtitle Rules
+These are single-sentence slide titles for the three YTD evolution slides (Equity Update, Commodity Update, Crypto Update).
+
+- **One sentence only**, max 15 words
+- Capture the **big picture narrative**: who leads, who lags, what's the story
+- Use YTD return data from draft_state.json instruments to ground the narrative
+- Macro context welcome if obvious from the data (broad selloff, rotation, commodity rally)
+- These are slide titles, not instrument-level analysis
+
+**Examples of good YTD subtitles:**
+- `"Brazil's bull market leaves US and Europe in the dust"`
+- `"Oil's exceptional rally masks precious metals consolidation gains"`
+- `"Bitcoin holds the line while Ethereum and Solana crater in 2026"`
+
+Read the YTD performance data from the instruments section of draft_state.json (using enriched_context or price data) to write accurate, data-grounded sentences.
 
 ### Subtitle Rules
 - **2 lines**, max 12 words each
