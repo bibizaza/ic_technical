@@ -4,7 +4,6 @@ Renders a 6-column table (Index, Rank, Composite, Trend, Conviction, Sentiment)
 from breadth records computed by pipeline/breadth.py, then inserts into PPTX.
 """
 
-import math
 from typing import List, Dict, Tuple, Optional
 import tempfile
 from pathlib import Path
@@ -32,9 +31,6 @@ BREADTH_LEFT_CM = 2.7
 BREADTH_TOP_CM = 7.25
 BREADTH_WIDTH_CM = 20.0
 BREADTH_HEIGHT_CM = 9.5
-
-# Ring gauge geometry (SVG viewBox 0 0 32 32, r=12)
-_RING_CIRC = round(2 * math.pi * 12, 1)  # ≈ 75.4
 
 
 # =============================================================================
@@ -69,13 +65,6 @@ def _color_class(value: float) -> str:
         return "red"
 
 
-def _ring_dasharray(score: float) -> tuple:
-    """Compute SVG stroke-dasharray (filled, gap) for the ring gauge."""
-    filled = round((score / 100) * _RING_CIRC, 1)
-    gap = round(_RING_CIRC - filled, 1)
-    return filled, gap
-
-
 # =============================================================================
 # DATA PREPARATION (from draft_state breadth records)
 # =============================================================================
@@ -102,16 +91,12 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
         # sentiment (was "skew" / "extension" in old records)
         sentiment = float(rec.get("sentiment", rec.get("skew", rec.get("extension", 50))))
 
-        ring_filled, ring_gap = _ring_dasharray(composite)
-
         rows.append({
             "rank": int(rec["rank"]),
             "flag": flag,
             "name": display_name,
             "composite": int(round(composite)),
             "composite_class": _color_class(composite),
-            "ring_filled": ring_filled,
-            "ring_gap": ring_gap,
             "trend": min(100, max(0, trend)),
             "trend_int": int(round(trend)),
             "trend_class": _color_class(trend),
@@ -139,7 +124,6 @@ def _generate_html(rows: list) -> str:
         width=BREADTH_WIDTH_PX,
         height=BREADTH_HEIGHT_PX,
         scale=SCALE_FACTOR,
-        ring_circ=_RING_CIRC,
     )
 
 

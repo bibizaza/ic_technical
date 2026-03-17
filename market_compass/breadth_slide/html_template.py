@@ -116,45 +116,18 @@ BREADTH_HTML_TEMPLATE = '''
             background: #FCF3CD;
         }
 
-        /* ========== COMPOSITE RING GAUGE ========== */
-        .ring-cell {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .mini-ring {
-            position: relative;
-            width: {{ 32 * scale }}px;
-            height: {{ 32 * scale }}px;
-        }
-
-        .mini-ring svg {
-            width: {{ 32 * scale }}px;
-            height: {{ 32 * scale }}px;
-            transform: rotate(-90deg);
-        }
-
-        .mini-ring circle {
-            fill: none;
-            stroke-width: 4;
-            stroke-linecap: round;
-        }
-
-        .mini-ring .bg { stroke: #E8ECF2; }
-        .mini-ring .fg-green { stroke: #16A34A; }
-        .mini-ring .fg-amber { stroke: #D97706; }
-        .mini-ring .fg-red   { stroke: #DC2626; }
-
-        .ring-num {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: {{ 10 * scale }}px;
+        /* ========== COMPOSITE PILL ========== */
+        .pill {
+            display: inline-block;
+            padding: {{ 2 * scale }}px {{ 10 * scale }}px;
+            border-radius: {{ 4 * scale }}px;
             font-weight: 700;
-            color: #1A1E2E;
+            font-size: {{ 13 * scale }}px;
         }
+
+        .pill.green { background: #DCFCE7; color: #16A34A; }
+        .pill.amber { background: #FEF9C3; color: #A16207; }
+        .pill.red   { background: #FEE2E2; color: #DC2626; }
 
         /* ========== BAR + VALUE CELLS ========== */
         .cell-content.bar-val {
@@ -216,14 +189,8 @@ BREADTH_HTML_TEMPLATE = '''
                     <div class="cell-content rank">{{ row.rank }}</div>
                 </td>
                 <td>
-                    <div class="cell-content ring-cell">
-                        <div class="mini-ring">
-                            <svg viewBox="0 0 32 32">
-                                <circle class="bg" cx="16" cy="16" r="12" stroke-dasharray="{{ ring_circ }} {{ ring_circ }}"/>
-                                <circle class="fg-{{ row.composite_class }}" cx="16" cy="16" r="12" stroke-dasharray="{{ row.ring_filled }} {{ row.ring_gap }}"/>
-                            </svg>
-                            <span class="ring-num">{{ row.composite }}</span>
-                        </div>
+                    <div class="cell-content">
+                        <span class="pill {{ row.composite_class }}">{{ row.composite }}</span>
                     </div>
                 </td>
                 <td>
