@@ -269,7 +269,9 @@
       "price_vs_50ma_pct": -2.3,
       "price_vs_100ma_pct": -1.9,
       "price_vs_200ma_pct": 1.2,
-      "rating": "Neutral"
+      "rating": "Neutral",
+      "breadth_rank": 4,
+      "fundamental_rank": 5
     }
   ],
   "CSI 300": [
@@ -542,7 +544,9 @@
       "price_vs_50ma_pct": -1.3,
       "price_vs_100ma_pct": -0.3,
       "price_vs_200ma_pct": 3.8,
-      "rating": "Cautious"
+      "rating": "Cautious",
+      "breadth_rank": 3,
+      "fundamental_rank": 9
     }
   ],
   "Nikkei 225": [
@@ -815,7 +819,9 @@
       "price_vs_50ma_pct": -2.2,
       "price_vs_100ma_pct": 2.1,
       "price_vs_200ma_pct": 12.4,
-      "rating": "Bullish"
+      "rating": "Bullish",
+      "breadth_rank": 1,
+      "fundamental_rank": 6
     }
   ],
   "TASI": [
@@ -1088,7 +1094,9 @@
       "price_vs_50ma_pct": -0.3,
       "price_vs_100ma_pct": 0.4,
       "price_vs_200ma_pct": -0.2,
-      "rating": "Neutral"
+      "rating": "Neutral",
+      "breadth_rank": 8,
+      "fundamental_rank": 6
     }
   ],
   "Sensex": [
@@ -1361,7 +1369,9 @@
       "price_vs_50ma_pct": -7.0,
       "price_vs_100ma_pct": -8.7,
       "price_vs_200ma_pct": -7.9,
-      "rating": "Bearish"
+      "rating": "Bearish",
+      "breadth_rank": 9,
+      "fundamental_rank": 4
     }
   ],
   "Dax": [
@@ -1912,7 +1922,9 @@
       "price_vs_50ma_pct": -3.3,
       "price_vs_100ma_pct": -1.2,
       "price_vs_200ma_pct": 2.6,
-      "rating": "Constructive"
+      "rating": "Constructive",
+      "breadth_rank": 5,
+      "fundamental_rank": 2
     }
   ],
   "IBOV": [
@@ -2185,7 +2197,9 @@
       "price_vs_50ma_pct": 0.2,
       "price_vs_100ma_pct": 6.9,
       "price_vs_200ma_pct": 17.0,
-      "rating": "Bullish"
+      "rating": "Bullish",
+      "breadth_rank": 2,
+      "fundamental_rank": 2
     }
   ],
   "MEXBOL": [
@@ -2458,7 +2472,9 @@
       "price_vs_50ma_pct": -3.8,
       "price_vs_100ma_pct": 0.0,
       "price_vs_200ma_pct": 5.7,
-      "rating": "Constructive"
+      "rating": "Constructive",
+      "breadth_rank": 6,
+      "fundamental_rank": 1
     }
   ],
   "Gold": [
@@ -5253,7 +5269,9 @@
       "price_vs_50ma_pct": -3.9,
       "price_vs_100ma_pct": -2.5,
       "price_vs_200ma_pct": -1.8,
-      "rating": "Cautious"
+      "rating": "Cautious",
+      "breadth_rank": 7,
+      "fundamental_rank": 8
     }
   ]
 }

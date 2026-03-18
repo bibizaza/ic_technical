@@ -1,74 +1,74 @@
 [
   {
-    "name": "IBOV",
-    "composite": 47,
-    "trend": 51,
-    "conviction": 42,
-    "sentiment": 48,
+    "name": "Nikkei 225",
+    "composite": 47.7,
+    "trend": 50.7,
+    "conviction": 41.4,
+    "sentiment": 51.8,
     "rank": 1
   },
   {
-    "name": "CSI 300",
-    "composite": 46,
-    "trend": 42,
-    "conviction": 45,
-    "sentiment": 52,
+    "name": "IBOV",
+    "composite": 47.3,
+    "trend": 49.9,
+    "conviction": 40.5,
+    "sentiment": 52.4,
     "rank": 2
   },
   {
-    "name": "Nikkei 225",
-    "composite": 46,
-    "trend": 48,
-    "conviction": 44,
-    "sentiment": 46,
+    "name": "CSI 300",
+    "composite": 44.4,
+    "trend": 40.0,
+    "conviction": 44.2,
+    "sentiment": 51.7,
     "rank": 3
   },
   {
     "name": "S&P 500",
-    "composite": 41,
-    "trend": 39,
-    "conviction": 38,
-    "sentiment": 47,
+    "composite": 41.4,
+    "trend": 40.3,
+    "conviction": 36.7,
+    "sentiment": 49.6,
     "rank": 4
   },
   {
     "name": "SMI",
-    "composite": 39,
-    "trend": 32,
-    "conviction": 36,
-    "sentiment": 55,
+    "composite": 40.2,
+    "trend": 34.2,
+    "conviction": 36.2,
+    "sentiment": 55.3,
     "rank": 5
   },
   {
     "name": "MEXBOL",
-    "composite": 38,
-    "trend": 37,
-    "conviction": 36,
-    "sentiment": 41,
+    "composite": 39.5,
+    "trend": 41.4,
+    "conviction": 31.8,
+    "sentiment": 47.1,
     "rank": 6
   },
   {
     "name": "DAX",
-    "composite": 38,
-    "trend": 32,
-    "conviction": 31,
-    "sentiment": 55,
+    "composite": 39.2,
+    "trend": 32.5,
+    "conviction": 31.9,
+    "sentiment": 60.0,
     "rank": 7
   },
   {
     "name": "TASI",
-    "composite": 36,
-    "trend": 27,
-    "conviction": 34,
-    "sentiment": 53,
+    "composite": 36.1,
+    "trend": 27.1,
+    "conviction": 34.5,
+    "sentiment": 52.6,
     "rank": 8
   },
   {
     "name": "Sensex",
-    "composite": 27,
-    "trend": 17,
-    "conviction": 26,
-    "sentiment": 47,
+    "composite": 29.0,
+    "trend": 18.3,
+    "conviction": 26.2,
+    "sentiment": 50.0,
     "rank": 9
   }
 ]

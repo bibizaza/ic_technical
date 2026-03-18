@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 950px; height: 390px;
+    font-family: 'Calibri', 'Segoe UI', sans-serif;
+    background: white; color: #1a1e2e;
+    overflow: hidden; position: relative;
+  }
+  .chart-area { position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; }
+  canvas { width: 100% !important; height: 100% !important; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="chart-area">
+  <canvas id="chart"></canvas>
+</div>
+
+<script>
+// ========== DATA — Claude Code replaces this block ==========
+const indices = [
+  { label: 'IBOV',       flag: '🇧🇷', prev: [2, 2], now: [2, 2], color: '#2EA043' },
+  { label: 'Nikkei 225', flag: '🇯🇵', prev: [1, 6], now: [1, 6], color: '#7B2D8E' },
+  { label: 'SMI',        flag: '🇨🇭', prev: [5, 2], now: [5, 2], color: '#636363' },
+  { label: 'MEXBOL',     flag: '🇲🇽', prev: [6, 1], now: [6, 1], color: '#00ACC1' },
+  { label: 'S&P 500',    flag: '🇺🇸', prev: [4, 5], now: [4, 5], color: '#1A237E' },
+  { label: 'Sensex',     flag: '🇮🇳', prev: [9, 4], now: [9, 4], color: '#FF6F00' },
+  { label: 'DAX',        flag: '🇩🇪', prev: [7, 8], now: [7, 8], color: '#D32F2F' },
+  { label: 'CSI 300',    flag: '🇨🇳', prev: [3, 9], now: [3, 9], color: '#E65100' },
+  { label: 'TASI',       flag: '🇸🇦', prev: [8, 6], now: [8, 6], color: '#2E7D32' },
+];
+// ========== END DATA ==========
+
+// Quadrant background plugin
+const quadrantPlugin = {
+  id: 'quadrants',
+  beforeDraw(chart) {
+    const ctx = chart.ctx;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+    const midX = xScale.getPixelForValue(4.75);
+    const midY = yScale.getPixelForValue(4.75);
+    const left = xScale.left;
+    const right = xScale.right;
+    const top = yScale.top;
+    const bottom = yScale.bottom;
+
+    ctx.save();
+
+    // Top-left: strong breadth + strong fundamentals (green)
+    ctx.fillStyle = 'rgba(46, 160, 67, 0.06)';
+    ctx.fillRect(left, top, midX - left, midY - top);
+
+    // Top-right: weak breadth + strong fundamentals (amber)
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
+    ctx.fillRect(midX, top, right - midX, midY - top);
+
+    // Bottom-left: strong breadth + weak fundamentals (amber)
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
+    ctx.fillRect(left, midY, midX - left, bottom - midY);
+
+    // Bottom-right: weak breadth + weak fundamentals (red)
+    ctx.fillStyle = 'rgba(220, 38, 38, 0.05)';
+    ctx.fillRect(midX, midY, right - midX, bottom - midY);
+
+    // Quadrant labels
+    ctx.font = 'italic 10px Calibri';
+    ctx.globalAlpha = 0.35;
+
+    ctx.fillStyle = '#15803D';
+    ctx.textAlign = 'left';
+    ctx.fillText('Strong Breadth + Fundamentals', left + 8, top + 14);
+
+    ctx.fillStyle = '#B45309';
+    ctx.textAlign = 'right';
+    ctx.fillText('Weak Breadth, Strong Fundamentals', right - 8, top + 14);
+
+    ctx.fillStyle = '#B45309';
+    ctx.textAlign = 'left';
+    ctx.fillText('Strong Breadth, Weak Fundamentals', left + 8, bottom - 6);
+
+    ctx.fillStyle = '#991B1B';
+    ctx.textAlign = 'right';
+    ctx.fillText('Weak Breadth + Fundamentals', right - 8, bottom - 6);
+
+    ctx.globalAlpha = 1;
+
+    // Center cross lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(midX, top);
+    ctx.lineTo(midX, bottom);
+    ctx.moveTo(left, midY);
+    ctx.lineTo(right, midY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+  }
+};
+
+// Arrow + label plugin
+const arrowPlugin = {
+  id: 'arrows',
+  afterDraw(chart) {
+    const ctx = chart.ctx;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+
+    indices.forEach(idx => {
+      const x0 = xScale.getPixelForValue(idx.prev[0]);
+      const y0 = yScale.getPixelForValue(idx.prev[1]);
+      const x1 = xScale.getPixelForValue(idx.now[0]);
+      const y1 = yScale.getPixelForValue(idx.now[1]);
+
+      const hasMoved = idx.prev[0] !== idx.now[0] || idx.prev[1] !== idx.now[1];
+
+      // Draw arrow from prev to current if moved
+      if (hasMoved) {
+        ctx.save();
+        ctx.strokeStyle = idx.color;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+
+        // Arrowhead
+        const angle = Math.atan2(y1 - y0, x1 - x0);
+        const headLen = 6;
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 - headLen * Math.cos(angle - Math.PI / 6), y1 - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(x1 - headLen * Math.cos(angle + Math.PI / 6), y1 - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fillStyle = idx.color;
+        ctx.fill();
+
+        // Ghost dot at prev position
+        ctx.globalAlpha = 0.2;
+        ctx.beginPath();
+        ctx.arc(x0, y0, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // Current position dot
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x1, y1, 5, 0, Math.PI * 2);
+      ctx.fillStyle = idx.color;
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+
+      // Label
+      ctx.save();
+      ctx.font = 'bold 10px Calibri';
+      ctx.fillStyle = idx.color;
+      ctx.globalAlpha = 0.9;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const labelText = `${idx.flag} ${idx.label}`;
+      ctx.fillText(labelText, x1 + 9, y1);
+      ctx.restore();
+    });
+  }
+};
+
+// Build chart
+new Chart(document.getElementById('chart'), {
+  type: 'scatter',
+  data: { datasets: [{ data: [] }] },
+  plugins: [quadrantPlugin, arrowPlugin],
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false },
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        reverse: true,
+        min: 0.3,
+        max: 9.7,
+        ticks: {
+          stepSize: 1,
+          callback: v => Number.isInteger(v) ? '#' + v : '',
+          font: { family: 'Calibri', size: 10 },
+          color: '#8590a5',
+          padding: 4,
+        },
+        grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+        border: { display: false },
+        title: {
+          display: true,
+          text: 'Breadth Rank',
+          font: { family: 'Calibri', size: 11, weight: '700' },
+          color: '#8590a5',
+        }
+      },
+      y: {
+        type: 'linear',
+        reverse: true,
+        min: 0.3,
+        max: 9.7,
+        ticks: {
+          stepSize: 1,
+          callback: v => Number.isInteger(v) ? '#' + v : '',
+          font: { family: 'Calibri', size: 10 },
+          color: '#8590a5',
+          padding: 4,
+        },
+        grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+        border: { display: false },
+        title: {
+          display: true,
+          text: 'Fundamental Rank',
+          font: { family: 'Calibri', size: 11, weight: '700' },
+          color: '#8590a5',
+        }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>

@@ -224,7 +224,10 @@ def run_assemble(
     # 4. Summary slides (technical nutshell, breadth, fundamentals)
     # =====================================================================
     breadth_records = draft.get("breadth", [])
-    _insert_summary_slides(prs, df_prices, instruments, chart_excel_path, breadth_records)
+    breadth_ranks, fundamental_ranks = _insert_summary_slides(
+        prs, df_prices, instruments, chart_excel_path, breadth_records,
+        ic_date=ic_date, history_path=history_path,
+    )
 
     # =====================================================================
     # 5. Finalize
@@ -241,8 +244,8 @@ def run_assemble(
     except Exception:
         pass
 
-    # Update history.json
-    _update_history(history_path, ic_date, instruments)
+    # Update history.json (includes breadth/fundamental ranks for quadrant WoW)
+    _update_history(history_path, ic_date, instruments, breadth_ranks, fundamental_ranks)
 
     print(f"\n✓ Presentation assembled: {output_path}")
     print(f"  Date: {ic_date}")
@@ -426,8 +429,14 @@ def _insert_performance_slides(prs, chart_excel_path: str, ytd_subtitles: dict =
 # Helper: summary slides
 # =========================================================================
 
-def _insert_summary_slides(prs, df_prices, instruments, chart_excel_path, breadth_records=None) -> None:
-    """Insert technical summary, breadth, and fundamental slides."""
+def _insert_summary_slides(
+    prs, df_prices, instruments, chart_excel_path,
+    breadth_records=None, ic_date: str = "", history_path: str = "",
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Insert technical summary, breadth, fundamental, and quadrant slides.
+
+    Returns (breadth_ranks, fundamental_ranks) for history tracking.
+    """
     from utils import adjust_prices_for_mode
 
     # Technical Analysis summary
@@ -452,22 +461,49 @@ def _insert_summary_slides(prs, df_prices, instruments, chart_excel_path, breadt
         log.warning("Technical summary error: %s", e)
 
     # Breadth slide (new composite breadth table)
+    breadth_ranks: dict[str, int] = {}
     try:
         from market_compass.breadth_slide import generate_composite_breadth_slide
         prs = generate_composite_breadth_slide(
             prs, breadth_records=breadth_records or [], slide_name="slide_breadth"
         )
+        # Extract breadth ranks from records (matches the table)
+        for rec in (breadth_records or []):
+            breadth_ranks[rec["name"]] = int(rec["rank"])
         log.info("Breadth slide inserted")
     except Exception as e:
         log.warning("Breadth slide error: %s", e)
 
     # Fundamental slide
+    fundamental_ranks: dict[str, int] = {}
     try:
         from market_compass.fundamental_slide import generate_fundamental_slide
-        prs, _ = generate_fundamental_slide(prs, excel_path=chart_excel_path, slide_name="slide_fundamentals")
+        from market_compass.quadrant_slide import _FUND_DISPLAY_TO_INSTRUMENT
+        prs, fund_display_ranks = generate_fundamental_slide(prs, excel_path=chart_excel_path, slide_name="slide_fundamentals")
+        # Map display names (U.S., Japan, ...) → instrument names (S&P 500, Nikkei 225, ...)
+        for display_name, rank in fund_display_ranks.items():
+            instr_name = _FUND_DISPLAY_TO_INSTRUMENT.get(display_name)
+            if instr_name:
+                fundamental_ranks[instr_name] = int(rank)
         log.info("Fundamental slide inserted")
     except Exception as e:
         log.warning("Fundamental slide error: %s", e)
+
+    # Quadrant slide (breadth rank vs fundamental rank scatter)
+    try:
+        from market_compass.quadrant_slide import generate_quadrant_slide
+        prs = generate_quadrant_slide(
+            prs,
+            breadth_ranks=breadth_ranks,
+            fundamental_ranks=fundamental_ranks,
+            history_path=history_path,
+            ic_date=ic_date,
+        )
+        log.info("Quadrant slide inserted")
+    except Exception as e:
+        log.warning("Quadrant slide error: %s", e)
+
+    return breadth_ranks, fundamental_ranks
 
 
 # =========================================================================
@@ -508,14 +544,22 @@ def _disable_image_compression(prs):
 # Helper: history.json
 # =========================================================================
 
-def _update_history(history_path: str, ic_date: str, instruments: dict) -> None:
-    """Update history.json with current week's scores."""
+def _update_history(
+    history_path: str, ic_date: str, instruments: dict,
+    breadth_ranks: dict | None = None, fundamental_ranks: dict | None = None,
+) -> None:
+    """Update history.json with current week's scores and ranks."""
     path = Path(history_path)
     if path.exists():
         with open(path) as f:
             history = json.load(f)
     else:
         history = {}
+
+    if breadth_ranks is None:
+        breadth_ranks = {}
+    if fundamental_ranks is None:
+        fundamental_ranks = {}
 
     for name, data in instruments.items():
         if name not in history:
@@ -531,6 +575,11 @@ def _update_history(history_path: str, ic_date: str, instruments: dict) -> None:
             "price_vs_200ma_pct": _parse_pct(data.get("vs_200d", "0%")),
             "rating":             data.get("rating"),
         }
+        # Store ranks for quadrant WoW arrows (only for equity indices)
+        if name in breadth_ranks:
+            entry["breadth_rank"] = breadth_ranks[name]
+        if name in fundamental_ranks:
+            entry["fundamental_rank"] = fundamental_ranks[name]
 
         # Remove duplicate entries for the same date
         history[name] = [h for h in history[name] if h.get("date") != ic_date]
