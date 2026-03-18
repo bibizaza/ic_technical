@@ -157,9 +157,15 @@ def _build_enriched_context(
         trend_parts = [f"{h['date'][:10]}: DMAS={h.get('dmas','?')} ({h.get('rating','?')})" for h in recent]
         lines.append("Recent history: " + " | ".join(trend_parts))
 
-        # Rating streak
-        last_rating = recent[-1].get("rating", "")
-        streak = sum(1 for h in reversed(recent) if h.get("rating") == last_rating)
+        # Rating streak — count consecutive weeks from most recent entry (stop at first mismatch)
+        all_sorted = sorted(history, key=lambda x: x["date"])
+        last_rating = all_sorted[-1].get("rating", "")
+        streak = 0
+        for h in reversed(all_sorted):
+            if h.get("rating") == last_rating:
+                streak += 1
+            else:
+                break
         if streak > 1:
             lines.append(f"Rating streak: {last_rating} for {streak} consecutive weeks")
 

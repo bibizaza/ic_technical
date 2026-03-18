@@ -241,6 +241,16 @@ def _generate_ytd_subtitles_api(draft: dict, client, log) -> dict:
 Exactly one line per slide. Max 12 words. No period at end. Use only data provided.
 Never start with the asset class name.
 
+STYLE: Each subtitle must be punchy and narrative — contrast the best vs worst performer
+with a story hook. Do NOT just recite numbers. Name the instruments, describe the divergence.
+BAD: "Brazil leads at +12% while India lags at -10.7% YTD"
+GOOD: "Brazil's IBOV leads the pack while India's Sensex stumbles"
+BAD: "Oil surges +67.6% YTD as gold and silver rally double digits"
+GOOD: "Oil dominates while precious metals post solid but smaller gains"
+
+NUMBERS: You may include at most 1 number per line, and only if it adds real punch.
+NO promotional adjectives: extraordinary, exceptional, remarkable, outstanding.
+
 FORMAT:
 ### equity
 One line here
@@ -294,7 +304,26 @@ def _build_subtitle_prompt(instruments: dict) -> str:
         "- Directional claims must match scores (bullish language ↔ high DMAS)",
         "- Line 1: most important fact RIGHT NOW",
         "- Line 2: what to watch next",
-        "- FORBIDDEN phrases: 'recovery hinges on', 'outlook persists', 'dynamics continue',",
+        "",
+        "RULE 1 — NO DMAS NUMBER: Never mention the DMAS value itself (e.g. 'DMAS at 34',",
+        "  'DMAS slides from 95 to 69', 'DMAS dropped to 48'). You MAY reference the rating",
+        "  change ('downgraded from bullish to constructive') or trajectory ('third consecutive",
+        "  weekly decline') but never the raw DMAS number.",
+        "",
+        "RULE 2 — MAX 2 NUMBERS PER LINE: Each subtitle line may contain at most 2 numerical",
+        "  values. Prioritize MA distance percentages and RSI over Technical/Momentum scores.",
+        "  If a line would have 3+ numbers, drop the least important one.",
+        "",
+        "RULE 3 — NO PROMOTIONAL ADJECTIVES: Never use: extraordinary, exceptional, remarkable,",
+        "  outstanding, perfect, relentless, impressive. Replace with factual phrasing.",
+        "  BAD: 'Perfect technical score of 100' → GOOD: 'Technical score maxed out at 100'",
+        "  BAD: 'Extraordinary 38.2% premium' → GOOD: 'Trading 38.2% above 200d MA'",
+        "",
+        "RULE 4 — STREAK VERIFICATION: The 'Rating streak' field in the data is pre-verified",
+        "  against history. Use that exact count. Do not guess or invent streak lengths.",
+        "  If no streak field is present, do not mention a streak.",
+        "",
+        "FORBIDDEN phrases: 'recovery hinges on', 'outlook persists', 'dynamics continue',",
         "  'exceptional strength remains', 'bullish streak remains unbroken',",
         "  'maintains bullish trend', 'momentum supports further gains'",
         "",
