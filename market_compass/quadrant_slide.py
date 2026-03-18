@@ -14,9 +14,9 @@ from pptx.util import Cm
 
 from helpers.html_to_image import render_html_to_image
 
-# ── Chart dimensions (same as instrument charts: 950×390 at 4x) ──────────
+# ── Chart dimensions (950×460 at 4x) ─────────────────────────────────────
 CHART_WIDTH = 950
-CHART_HEIGHT = 390
+CHART_HEIGHT = 460
 SCALE_FACTOR = 4
 RENDER_WIDTH = CHART_WIDTH * SCALE_FACTOR    # 3800
 RENDER_HEIGHT = CHART_HEIGHT * SCALE_FACTOR  # 1560

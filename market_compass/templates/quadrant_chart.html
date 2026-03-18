@@ -6,19 +6,19 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    width: 950px; height: 390px;
+    width: 950px; height: 460px;
     font-family: 'DM Sans', 'Calibri', sans-serif;
     background: white; color: #1a1e2e;
     overflow: hidden; position: relative;
   }
   .chart-area { position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px; }
-  canvas { width: 100% !important; height: 100% !important; }
+  canvas { display: block; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="chart-area">
-  <canvas id="chart"></canvas>
+  <canvas id="chart" width="942" height="452"></canvas>
 </div>
 
 <script>
@@ -97,9 +97,9 @@ const quadrantPlugin = {
     ctx.fillRect(midX, midY, right - midX, bottom - midY);
 
     // Quadrant corner labels
-    ctx.font = '500 9px "DM Sans"';
+    ctx.font = '600 11px "DM Sans", sans-serif';
 
-    ctx.globalAlpha = 0.28;
+    ctx.globalAlpha = 0.38;
     ctx.fillStyle = '#15803D';
     ctx.textAlign = 'left';
     ctx.fillText('Strong Breadth + Fundamentals', left + 6, top + 13);
@@ -235,8 +235,7 @@ new Chart(document.getElementById('chart'), {
   data: { datasets: [{ data: [] }] },
   plugins: [quadrantPlugin, arrowPlugin],
   options: {
-    responsive: true,
-    maintainAspectRatio: false,
+    responsive: false,
     layout: {
       padding: { top: 6, right: 12, bottom: 2, left: 6 }
     },
