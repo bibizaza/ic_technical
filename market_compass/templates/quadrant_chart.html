@@ -2,66 +2,159 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    width: 950px; height: 460px;
-    font-family: 'DM Sans', 'Calibri', sans-serif;
+    width: 1050px; height: 500px;
+    font-family: 'DM Sans', sans-serif;
     background: white; color: #1a1e2e;
     overflow: hidden; position: relative;
   }
-  .chart-area { position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px; }
+  .chart-area { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
   canvas { display: block; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="chart-area">
-  <canvas id="chart" width="942" height="452"></canvas>
+  <canvas id="chart" width="1050" height="500"></canvas>
 </div>
 
 <script>
 // ========== DATA — Claude Code replaces this block ==========
 const indices = [
-  { label: 'Ibovespa',   flag: '🇧🇷', prev: [2, 2], now: [2, 2], color: '#2EA043' },
-  { label: 'Nikkei 225', flag: '🇯🇵', prev: [1, 6], now: [1, 6], color: '#7B2D8E' },
+  { label: 'Ibovespa',   flag: '🇧🇷', prev: [2, 3], now: [2, 2], color: '#2EA043' },
+  { label: 'Nikkei 225', flag: '🇯🇵', prev: [1, 7], now: [1, 6], color: '#7B2D8E' },
   { label: 'SMI',        flag: '🇨🇭', prev: [5, 2], now: [5, 2], color: '#636363' },
-  { label: 'Mexbol',     flag: '🇲🇽', prev: [6, 1], now: [6, 1], color: '#0288D1' },
-  { label: 'S&P 500',    flag: '🇺🇸', prev: [4, 5], now: [4, 5], color: '#1A237E' },
+  { label: 'Mexbol',     flag: '🇲🇽', prev: [8, 1], now: [6, 1], color: '#0288D1' },
+  { label: 'S&P 500',    flag: '🇺🇸', prev: [3, 5], now: [4, 5], color: '#1A237E' },
   { label: 'Sensex',     flag: '🇮🇳', prev: [9, 4], now: [9, 4], color: '#E65100' },
   { label: 'Dax',        flag: '🇩🇪', prev: [7, 8], now: [7, 8], color: '#D32F2F' },
   { label: 'CSI 300',    flag: '🇨🇳', prev: [3, 9], now: [3, 9], color: '#E64A19' },
-  { label: 'Tasi',       flag: '🇸🇦', prev: [8, 6], now: [8, 6], color: '#2E7D32' },
+  { label: 'Tasi',       flag: '🇸🇦', prev: [6, 6], now: [8, 6], color: '#2E7D32' },
 ];
 // ========== END DATA ==========
 
-// Label offsets to avoid overlap — Claude Code can adjust if needed
-// Format: [dx, dy, textAlign] relative to dot position
-const labelOffsets = {};
-
-// Smart label placement: detect collisions and offset
-function computeLabelPositions(chart) {
+// ---- Collision-aware label placement ----
+function resolveLabels(chart) {
   const xScale = chart.scales.x;
   const yScale = chart.scales.y;
-  const positions = indices.map(idx => ({
+  const ctx = chart.ctx;
+  ctx.font = '600 13px "DM Sans", sans-serif';
+
+  const placements = [];
+
+  // Collect all dot + line geometry for collision testing
+  const dots = indices.map(idx => ({
     x: xScale.getPixelForValue(idx.now[0]),
     y: yScale.getPixelForValue(idx.now[1]),
-    label: idx.label,
   }));
-
-  // Default: label to the right
-  positions.forEach(p => { p.dx = 10; p.dy = 0; p.align = 'left'; });
-
-  // If dot is on the right side of chart, label to the left
-  const chartMidX = (xScale.left + xScale.right) / 2;
-  positions.forEach(p => {
-    if (p.x < chartMidX * 0.4) {
-      p.dx = -10; p.align = 'right';
-    }
+  const lines = indices.map(idx => {
+    const hasMoved = idx.prev[0] !== idx.now[0] || idx.prev[1] !== idx.now[1];
+    if (!hasMoved) return null;
+    return {
+      x0: xScale.getPixelForValue(idx.prev[0]),
+      y0: yScale.getPixelForValue(idx.prev[1]),
+      x1: xScale.getPixelForValue(idx.now[0]),
+      y1: yScale.getPixelForValue(idx.now[1]),
+    };
   });
 
-  return positions;
+  // Check if a rectangle overlaps a line segment
+  function rectIntersectsLine(rx, ry, rw, rh, lx0, ly0, lx1, ly1) {
+    // Simple bounding box overlap + proximity check
+    const lMinX = Math.min(lx0, lx1) - 4;
+    const lMaxX = Math.max(lx0, lx1) + 4;
+    const lMinY = Math.min(ly0, ly1) - 4;
+    const lMaxY = Math.max(ly0, ly1) + 4;
+    return !(rx + rw < lMinX || rx > lMaxX || ry + rh < lMinY || ry > lMaxY);
+  }
+
+  // Check if a rectangle overlaps a dot
+  function rectIntersectsDot(rx, ry, rw, rh, dx, dy, radius) {
+    const closestX = Math.max(rx, Math.min(dx, rx + rw));
+    const closestY = Math.max(ry, Math.min(dy, ry + rh));
+    const dist = Math.hypot(closestX - dx, closestY - dy);
+    return dist < radius + 3;
+  }
+
+  // Check overlap with already-placed labels
+  function rectOverlapsPlaced(rx, ry, rw, rh) {
+    for (const p of placements) {
+      if (!(rx + rw < p.x || rx > p.x + p.w || ry + rh < p.y || ry > p.y + p.h)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  indices.forEach((idx, i) => {
+    const cx = dots[i].x;
+    const cy = dots[i].y;
+    const text = idx.flag + ' ' + idx.label;
+    const tw = ctx.measureText(text).width;
+    const th = 16;
+    const gap = 12;
+    const dotR = 7;
+
+    // Candidate positions: right, left, above, below, above-right, below-right, above-left, below-left
+    const candidates = [
+      { x: cx + gap,      y: cy - th / 2,       align: 'left'  },  // right
+      { x: cx - gap - tw, y: cy - th / 2,       align: 'right' },  // left
+      { x: cx - tw / 2,   y: cy - gap - th,     align: 'center'},  // above
+      { x: cx - tw / 2,   y: cy + gap,          align: 'center'},  // below
+      { x: cx + gap,      y: cy - gap - th,     align: 'left'  },  // above-right
+      { x: cx + gap,      y: cy + gap,          align: 'left'  },  // below-right
+      { x: cx - gap - tw, y: cy - gap - th,     align: 'right' },  // above-left
+      { x: cx - gap - tw, y: cy + gap,          align: 'right' },  // below-left
+    ];
+
+    let bestCandidate = candidates[0]; // default: right
+    let bestScore = -Infinity;
+
+    for (const c of candidates) {
+      let score = 0;
+
+      // Penalize if out of chart bounds
+      if (c.x < xScale.left || c.x + tw > xScale.right) score -= 100;
+      if (c.y < yScale.top || c.y + th > yScale.bottom) score -= 100;
+
+      // Penalize overlap with any dot (including own prev)
+      let dotCollision = false;
+      for (let d = 0; d < dots.length; d++) {
+        if (rectIntersectsDot(c.x, c.y, tw, th, dots[d].x, dots[d].y, dotR)) {
+          dotCollision = true;
+          break;
+        }
+      }
+      if (dotCollision) score -= 50;
+
+      // Penalize overlap with any arrow line
+      for (const line of lines) {
+        if (line && rectIntersectsLine(c.x, c.y, tw, th, line.x0, line.y0, line.x1, line.y1)) {
+          score -= 30;
+        }
+      }
+
+      // Penalize overlap with already placed labels
+      if (rectOverlapsPlaced(c.x, c.y, tw, th)) score -= 80;
+
+      // Slight preference for right placement
+      if (c.align === 'left') score += 2;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidate = c;
+      }
+    }
+
+    placements.push({ x: bestCandidate.x, y: bestCandidate.y, w: tw, h: th });
+
+    idx._labelX = bestCandidate.x;
+    idx._labelY = bestCandidate.y + th / 2; // verticalcenter for textBaseline middle
+    idx._labelAlign = bestCandidate.align;
+  });
 }
 
 // Quadrant background plugin
@@ -80,46 +173,43 @@ const quadrantPlugin = {
 
     ctx.save();
 
-    // Top-left: strong breadth + strong fundamentals
-    ctx.fillStyle = 'rgba(46, 160, 67, 0.05)';
+    // Quadrant fills
+    ctx.fillStyle = 'rgba(46, 160, 67, 0.06)';
     ctx.fillRect(left, top, midX - left, midY - top);
 
-    // Top-right: weak breadth + strong fundamentals
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.04)';
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
     ctx.fillRect(midX, top, right - midX, midY - top);
 
-    // Bottom-left: strong breadth + weak fundamentals
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.04)';
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
     ctx.fillRect(left, midY, midX - left, bottom - midY);
 
-    // Bottom-right: weak breadth + weak fundamentals
-    ctx.fillStyle = 'rgba(220, 38, 38, 0.04)';
+    ctx.fillStyle = 'rgba(220, 38, 38, 0.05)';
     ctx.fillRect(midX, midY, right - midX, bottom - midY);
 
-    // Quadrant corner labels
-    ctx.font = '600 11px "DM Sans", sans-serif';
+    // Quadrant labels
+    ctx.font = '600 11.5px "DM Sans", sans-serif';
+    ctx.globalAlpha = 0.40;
 
-    ctx.globalAlpha = 0.38;
     ctx.fillStyle = '#15803D';
     ctx.textAlign = 'left';
-    ctx.fillText('Strong Breadth + Fundamentals', left + 6, top + 13);
+    ctx.fillText('Strong Breadth + Fundamentals', left + 10, top + 18);
 
     ctx.fillStyle = '#B45309';
     ctx.textAlign = 'right';
-    ctx.fillText('Weak Breadth · Strong Fundamentals', right - 6, top + 13);
+    ctx.fillText('Weak Breadth · Strong Fundamentals', right - 10, top + 18);
 
     ctx.fillStyle = '#B45309';
     ctx.textAlign = 'left';
-    ctx.fillText('Strong Breadth · Weak Fundamentals', left + 6, bottom - 5);
+    ctx.fillText('Strong Breadth · Weak Fundamentals', left + 10, bottom - 8);
 
     ctx.fillStyle = '#991B1B';
     ctx.textAlign = 'right';
-    ctx.fillText('Weak Breadth + Fundamentals', right - 6, bottom - 5);
+    ctx.fillText('Weak Breadth + Fundamentals', right - 10, bottom - 8);
 
     ctx.globalAlpha = 1;
 
-    // Center cross — subtle dashed
-    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+    // Center cross
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
@@ -142,6 +232,10 @@ const arrowPlugin = {
     const xScale = chart.scales.x;
     const yScale = chart.scales.y;
 
+    // First pass: resolve label positions with collision avoidance
+    resolveLabels(chart);
+
+    // Second pass: draw everything
     indices.forEach(idx => {
       const x0 = xScale.getPixelForValue(idx.prev[0]);
       const y0 = yScale.getPixelForValue(idx.prev[1]);
@@ -153,21 +247,21 @@ const arrowPlugin = {
       if (hasMoved) {
         ctx.save();
 
-        // Dashed line from prev to current — low opacity
+        // Dashed trail line
         ctx.strokeStyle = idx.color;
         ctx.lineWidth = 1.5;
-        ctx.globalAlpha = 0.25;
-        ctx.setLineDash([4, 3]);
+        ctx.globalAlpha = 0.22;
+        ctx.setLineDash([5, 4]);
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.lineTo(x1, y1);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Arrowhead — slightly more visible
+        // Arrowhead
         const angle = Math.atan2(y1 - y0, x1 - x0);
-        const headLen = 7;
-        ctx.globalAlpha = 0.4;
+        const headLen = 8;
+        ctx.globalAlpha = 0.38;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x1 - headLen * Math.cos(angle - Math.PI / 6), y1 - headLen * Math.sin(angle - Math.PI / 6));
@@ -176,52 +270,45 @@ const arrowPlugin = {
         ctx.fillStyle = idx.color;
         ctx.fill();
 
-        // Ghost dot at previous position
-        ctx.globalAlpha = 0.15;
+        // Ghost dot at prev position
+        ctx.globalAlpha = 0.14;
         ctx.beginPath();
-        ctx.arc(x0, y0, 4, 0, Math.PI * 2);
+        ctx.arc(x0, y0, 5, 0, Math.PI * 2);
         ctx.fillStyle = idx.color;
         ctx.fill();
 
         ctx.restore();
       }
 
-      // Current position — solid dot with white ring
+      // Current dot — larger
       ctx.save();
       ctx.beginPath();
-      ctx.arc(x1, y1, 5.5, 0, Math.PI * 2);
+      ctx.arc(x1, y1, 6.5, 0, Math.PI * 2);
       ctx.fillStyle = idx.color;
       ctx.globalAlpha = 0.92;
       ctx.fill();
       ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
       ctx.restore();
 
-      // Label — flag + name
+      // Label at resolved position
       ctx.save();
-      ctx.font = '500 10.5px "DM Sans"';
+      ctx.font = '600 13px "DM Sans", sans-serif';
       ctx.fillStyle = idx.color;
-      ctx.globalAlpha = 0.88;
+      ctx.globalAlpha = 0.9;
       ctx.textBaseline = 'middle';
 
-      // Position label: right side by default, left if dot is near right edge
-      const chartRight = xScale.right;
-      const labelText = `${idx.flag} ${idx.label}`;
-      const textWidth = ctx.measureText(labelText).width;
-
-      if (x1 - textWidth - 14 < xScale.left) {
-        // Too close to right edge of chart (remember: axis is reversed)
-        ctx.textAlign = 'left';
-        ctx.fillText(labelText, x1 + 10, y1);
-      } else if (x1 + textWidth + 14 > chartRight) {
-        // Too close to left edge
+      const text = idx.flag + ' ' + idx.label;
+      if (idx._labelAlign === 'right') {
         ctx.textAlign = 'right';
-        ctx.fillText(labelText, x1 - 10, y1);
+        ctx.fillText(text, idx._labelX + ctx.measureText(text).width, idx._labelY);
+      } else if (idx._labelAlign === 'center') {
+        ctx.textAlign = 'center';
+        ctx.fillText(text, idx._labelX + ctx.measureText(text).width / 2, idx._labelY);
       } else {
-        // Default: label to the right of dot
         ctx.textAlign = 'left';
-        ctx.fillText(labelText, x1 + 10, y1);
+        ctx.fillText(text, idx._labelX, idx._labelY);
       }
 
       ctx.restore();
@@ -236,8 +323,9 @@ new Chart(document.getElementById('chart'), {
   plugins: [quadrantPlugin, arrowPlugin],
   options: {
     responsive: false,
+    animation: false,
     layout: {
-      padding: { top: 6, right: 12, bottom: 2, left: 6 }
+      padding: { top: 10, right: 20, bottom: 10, left: 10 }
     },
     plugins: {
       legend: { display: false },
@@ -252,18 +340,18 @@ new Chart(document.getElementById('chart'), {
         ticks: {
           stepSize: 1,
           callback: v => Number.isInteger(v) ? '#' + v : '',
-          font: { family: '"DM Sans"', size: 10, weight: '400' },
+          font: { family: '"DM Sans", sans-serif', size: 11 },
           color: '#a0a8b8',
-          padding: 4,
+          padding: 6,
         },
         grid: { color: 'rgba(0,0,0,0.03)', drawBorder: false },
         border: { display: false },
         title: {
           display: true,
           text: 'Breadth Rank',
-          font: { family: '"DM Sans"', size: 11, weight: '600' },
-          color: '#7a8599',
-          padding: { top: 2 },
+          font: { family: '"DM Sans", sans-serif', size: 12, weight: '600' },
+          color: '#6b7a8d',
+          padding: { top: 4 },
         }
       },
       y: {
@@ -274,17 +362,17 @@ new Chart(document.getElementById('chart'), {
         ticks: {
           stepSize: 1,
           callback: v => Number.isInteger(v) ? '#' + v : '',
-          font: { family: '"DM Sans"', size: 10, weight: '400' },
+          font: { family: '"DM Sans", sans-serif', size: 11 },
           color: '#a0a8b8',
-          padding: 4,
+          padding: 6,
         },
         grid: { color: 'rgba(0,0,0,0.03)', drawBorder: false },
         border: { display: false },
         title: {
           display: true,
           text: 'Fundamental Rank',
-          font: { family: '"DM Sans"', size: 11, weight: '600' },
-          color: '#7a8599',
+          font: { family: '"DM Sans", sans-serif', size: 12, weight: '600' },
+          color: '#6b7a8d',
         }
       }
     }

@@ -14,18 +14,18 @@ from pptx.util import Cm
 
 from helpers.html_to_image import render_html_to_image
 
-# ── Chart dimensions (950×460 at 4x) ─────────────────────────────────────
-CHART_WIDTH = 950
-CHART_HEIGHT = 460
+# ── Chart dimensions (1050×500 at 4x) ────────────────────────────────────
+CHART_WIDTH = 1050
+CHART_HEIGHT = 500
 SCALE_FACTOR = 4
-RENDER_WIDTH = CHART_WIDTH * SCALE_FACTOR    # 3800
-RENDER_HEIGHT = CHART_HEIGHT * SCALE_FACTOR  # 1560
+RENDER_WIDTH = CHART_WIDTH * SCALE_FACTOR    # 4200
+RENDER_HEIGHT = CHART_HEIGHT * SCALE_FACTOR  # 2000
 
 # ── PPTX placement ───────────────────────────────────────────────────────
-LEFT_CM = 2.7
-TOP_CM = 7.25
-WIDTH_CM = 20.0
-HEIGHT_CM = 9.5
+LEFT_CM = 2.20
+TOP_CM = 4.94
+WIDTH_CM = 21.0
+HEIGHT_CM = 10.0
 
 # ── 9 equity indices with chart styling ──────────────────────────────────
 QUADRANT_INDICES = [
