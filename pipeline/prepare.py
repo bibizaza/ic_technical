@@ -126,6 +126,47 @@ def _format_market_cap(value: Optional[float]) -> str:
     return f"{value:.0f}M"
 
 
+def _compute_streak_weeks(history: list, current_rating: str) -> int:
+    """
+    Count consecutive ISO weeks (from most recent, backwards) where the
+    latest entry in each week matches current_rating.
+
+    history.json has multiple entries per week (one per pipeline run).
+    We deduplicate to one entry per ISO week (latest by date) before counting.
+    """
+    from datetime import date as _date
+
+    if not history or not current_rating:
+        return 1
+
+    # Build week → latest-entry map
+    week_latest: dict = {}
+    for entry in history:
+        try:
+            d = _date.fromisoformat(entry["date"][:10])
+        except (KeyError, ValueError):
+            continue
+        yw = d.isocalendar()[:2]  # (year, week)
+        if yw not in week_latest or entry["date"] > week_latest[yw]["date"]:
+            week_latest[yw] = entry
+
+    if not week_latest:
+        return 1
+
+    # Sort weeks descending
+    sorted_weeks = sorted(week_latest.keys(), reverse=True)
+
+    streak = 0
+    for yw in sorted_weeks:
+        rating = week_latest[yw].get("rating", "")
+        if rating == current_rating:
+            streak += 1
+        else:
+            break
+
+    return max(streak, 1)
+
+
 def _build_enriched_context(
     name: str,
     scores: dict,
@@ -133,6 +174,7 @@ def _build_enriched_context(
     breadth_rank: int,
     fundamental_rank: int,
     history: list,
+    streak_weeks: int = 1,
 ) -> str:
     """
     Build the enriched context block for subtitle generation.
@@ -157,17 +199,9 @@ def _build_enriched_context(
         trend_parts = [f"{h['date'][:10]}: DMAS={h.get('dmas','?')} ({h.get('rating','?')})" for h in recent]
         lines.append("Recent history: " + " | ".join(trend_parts))
 
-        # Rating streak — count consecutive weeks from most recent entry (stop at first mismatch)
-        all_sorted = sorted(history, key=lambda x: x["date"])
-        last_rating = all_sorted[-1].get("rating", "")
-        streak = 0
-        for h in reversed(all_sorted):
-            if h.get("rating") == last_rating:
-                streak += 1
-            else:
-                break
-        if streak > 1:
-            lines.append(f"Rating streak: {last_rating} for {streak} consecutive weeks")
+    # Streak (pre-computed, week-deduplicated)
+    if streak_weeks > 1:
+        lines.append(f"Rating streak: {scores['rating']} for {streak_weeks} consecutive weeks (pre-verified)")
 
     # Correction depth (if below 200d MA)
     vs_200d_str = scores.get("vs_200d", "N/A")
@@ -361,14 +395,16 @@ def run_prepare(
         b_rank = breadth_rank_map.get(name, 5)  # default mid-rank
         f_rank = fundamental_rank_map.get(name, 5)
         hist = history_data.get(name, [])
+        streak_weeks = _compute_streak_weeks(hist, scores.get("rating", ""))
 
-        enriched = _build_enriched_context(name, scores, mc, b_rank, f_rank, hist)
+        enriched = _build_enriched_context(name, scores, mc, b_rank, f_rank, hist, streak_weeks)
 
         instruments_out[name] = {
             **scores,
             "market_cap":       mc,
             "breadth_rank":     b_rank,
             "fundamental_rank": f_rank,
+            "streak_weeks":     streak_weeks,
             "enriched_context": enriched,
             "subtitle":         None,
             "chart_path":       chart_paths.get(name, ""),
