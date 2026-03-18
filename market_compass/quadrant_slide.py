@@ -29,15 +29,15 @@ HEIGHT_CM = 9.5
 
 # ── 9 equity indices with chart styling ──────────────────────────────────
 QUADRANT_INDICES = [
-    {"name": "IBOV",       "label": "IBOV",       "flag": "\U0001f1e7\U0001f1f7", "color": "#2EA043"},
+    {"name": "IBOV",       "label": "Ibovespa",   "flag": "\U0001f1e7\U0001f1f7", "color": "#2EA043"},
     {"name": "Nikkei 225", "label": "Nikkei 225", "flag": "\U0001f1ef\U0001f1f5", "color": "#7B2D8E"},
     {"name": "SMI",        "label": "SMI",        "flag": "\U0001f1e8\U0001f1ed", "color": "#636363"},
-    {"name": "MEXBOL",     "label": "MEXBOL",     "flag": "\U0001f1f2\U0001f1fd", "color": "#00ACC1"},
-    {"name": "S&P 500",    "label": "S&P 500",       "flag": "\U0001f1fa\U0001f1f8", "color": "#1A237E"},
-    {"name": "Sensex",     "label": "Sensex",     "flag": "\U0001f1ee\U0001f1f3", "color": "#FF6F00"},
-    {"name": "DAX",        "label": "DAX",        "flag": "\U0001f1e9\U0001f1ea", "color": "#D32F2F"},
-    {"name": "CSI 300",    "label": "CSI 300",    "flag": "\U0001f1e8\U0001f1f3", "color": "#E65100"},
-    {"name": "TASI",       "label": "TASI",       "flag": "\U0001f1f8\U0001f1e6", "color": "#2E7D32"},
+    {"name": "MEXBOL",     "label": "Mexbol",     "flag": "\U0001f1f2\U0001f1fd", "color": "#0288D1"},
+    {"name": "S&P 500",    "label": "S&P 500",    "flag": "\U0001f1fa\U0001f1f8", "color": "#1A237E"},
+    {"name": "Sensex",     "label": "Sensex",     "flag": "\U0001f1ee\U0001f1f3", "color": "#E65100"},
+    {"name": "DAX",        "label": "Dax",        "flag": "\U0001f1e9\U0001f1ea", "color": "#D32F2F"},
+    {"name": "CSI 300",    "label": "CSI 300",    "flag": "\U0001f1e8\U0001f1f3", "color": "#E64A19"},
+    {"name": "TASI",       "label": "Tasi",       "flag": "\U0001f1f8\U0001f1e6", "color": "#2E7D32"},
 ]
 
 # Map from fundamental slide display names → instrument names
