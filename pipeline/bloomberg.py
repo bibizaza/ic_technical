@@ -277,6 +277,19 @@ def pull_breadth(
     return df
 
 
+FUNDAMENTAL_FIELDS = [
+    "BEST_PE_RATIO",          # Forward PE
+    "PX_TO_BOOK_RATIO",       # Price / Book
+    "EV_TO_T12M_EBITDA",      # EV / EBITDA (trailing 12m)
+    "EST_LTG_EPS_AGGTE",      # Long-term EPS growth estimate
+    "OPER_MARGIN",            # Operating margin
+    "PROF_MARGIN",            # Net income margin
+    "BEST_ROE",               # Forward ROE
+    "NET_DEBT_TO_EBITDA",     # Leverage
+    "BEST_DIV_YLD",           # Dividend yield
+]
+
+
 def pull_fundamentals(
     session: blpapi.Session,
     indices: List[Dict],
@@ -284,21 +297,20 @@ def pull_fundamentals(
     """
     Pull fundamental data for equity indices using bbg_bdp().
 
-    Returns DataFrame: index=name, columns=fundamental fields
+    Returns DataFrame: index=name, columns=FUNDAMENTAL_FIELDS.
+    Logs a warning for any NaN values but does not fail.
     """
     tickers = [idx["ticker"] for idx in indices]
-    fields = [
-        "BEST_PE_RATIO",
-        "EARN_YLD",
-        "EST_LTG_EPS_AGGTE",
-        "PROF_MARGIN",
-        "RETURN_ON_EQY",
-        "TOT_DEBT_TO_TOT_EQY",
-        "DVD_YLD",
-    ]
-    df = bbg_bdp(session, tickers, fields)
+    df = bbg_bdp(session, tickers, FUNDAMENTAL_FIELDS)
     ticker_to_name = {idx["ticker"]: idx["name"] for idx in indices}
     df.index = [ticker_to_name.get(t, t) for t in df.index]
+
+    # Log warnings for NaN values
+    for name in df.index:
+        nans = df.loc[name][df.loc[name].isna()]
+        if len(nans):
+            log.warning("Fundamental NaN for %s: %s", name, ", ".join(nans.index))
+
     return df
 
 

@@ -338,10 +338,17 @@ def run_prepare(
                 log.warning("Could not load breadth_cache.json: %s", _be)
 
     # -----------------------------------------------------------------------
-    # Step 5: Fundamental rankings
+    # Step 5: Fundamental rankings (direct Bloomberg → Python ranking)
     # -----------------------------------------------------------------------
+    fundamental_df = pd.DataFrame()
+    fundamental_records = {}
     if not raw_fundamentals.empty:
-        fundamental_records = _compute_fundamental_ranks(raw_fundamentals)
+        from pipeline.fundamentals import compute_fundamental_ranks as _compute_fund_ranks
+        fundamental_df = _compute_fund_ranks(raw_fundamentals)
+        # Build {name: rank} map for backward compat
+        fundamental_records = dict(zip(
+            fundamental_df["index_name"], fundamental_df["fundamental_rank"]
+        ))
     else:
         fundamental_records = {}
 
@@ -410,12 +417,29 @@ def run_prepare(
             "chart_path":       chart_paths.get(name, ""),
         }
 
+    # Build full fundamental data for draft_state
+    fund_full = []
+    if not fundamental_df.empty:
+        for _, row in fundamental_df.iterrows():
+            fund_full.append(row.to_dict())
+
+    # Store raw Bloomberg values per index for history tracking
+    fund_raw_by_name = {}
+    if not raw_fundamentals.empty:
+        for name in raw_fundamentals.index:
+            fund_raw_by_name[name] = {
+                col: (float(v) if pd.notna(v) else None)
+                for col, v in raw_fundamentals.loc[name].items()
+            }
+
     draft_state = {
         "date":           str(target_date.date()),
         "generated_at":   datetime.now().isoformat(),
         "instruments":    instruments_out,
         "breadth":        breadth_records,
         "fundamentals":   fundamental_records,
+        "fundamental_ranks": fund_full,
+        "fundamental_raw": fund_raw_by_name,
         "market_caps":    market_caps,
     }
 

@@ -434,32 +434,31 @@ def insert_fundamental_rank(
 
 def generate_fundamental_slide(
     prs: Presentation,
-    excel_path: str,
-    slide_name: str = "slide_fundamentals"
+    excel_path: str = "",
+    slide_name: str = "slide_fundamentals",
+    ranks_df: Optional["pd.DataFrame"] = None,
 ) -> Tuple[Presentation, Dict[str, int]]:
     """
-    Generate Fundamental Rank slide from Excel data.
+    Generate Fundamental Rank slide.
 
-    Parameters
-    ----------
-    prs : Presentation
-        PowerPoint presentation object
-    excel_path : str
-        Path to Excel file with data_fundamental sheet
-    slide_name : str
-        Exact slide/shape name to search for (from PowerPoint's Selection Pane)
+    If ranks_df is provided (from pipeline.fundamentals.compute_fundamental_ranks),
+    uses that directly. Otherwise falls back to Excel-based computation.
 
     Returns
     -------
     Tuple[Presentation, Dict[str, int]]
         Modified presentation and fundamental ranks dict keyed by index display name.
-        Each value is the composite rank (1-9, 1=best).
     """
-    # Compute ranks
-    rows = compute_fundamental_ranks(excel_path)
+    if ranks_df is not None and not ranks_df.empty:
+        rows = _rows_from_ranks_df(ranks_df)
+    elif excel_path:
+        rows = compute_fundamental_ranks(excel_path)
+    else:
+        print("[Fundamental Rank] No data source provided")
+        return prs, {}
 
     if not rows:
-        print("[Fundamental Rank] No data found in data_fundamental sheet")
+        print("[Fundamental Rank] No data found")
         return prs, {}
 
     # Build ranks dict for history tracking
@@ -469,3 +468,47 @@ def generate_fundamental_slide(
 
     # Insert into slide
     return insert_fundamental_rank(prs, rows, slide_name), fundamental_ranks
+
+
+# Mapping: instrument name → (display_name, flag_code)
+_INSTRUMENT_TO_DISPLAY = {
+    "S&P 500":    ("U.S.", "us"),
+    "CSI 300":    ("China", "cn"),
+    "Nikkei 225": ("Japan", "jp"),
+    "TASI":       ("Saudi Arabia", "sa"),
+    "Sensex":     ("India", "in"),
+    "DAX":        ("Germany", "de"),
+    "SMI":        ("Switzerland", "ch"),
+    "MEXBOL":     ("Mexico", "mx"),
+    "IBOV":       ("Brazil", "br"),
+}
+
+
+def _rows_from_ranks_df(ranks_df: "pd.DataFrame") -> List[FundamentalRow]:
+    """Convert pipeline.fundamentals output DataFrame to FundamentalRow list."""
+    results = []
+    for _, row in ranks_df.iterrows():
+        name = row["index_name"]
+        mapping = _INSTRUMENT_TO_DISPLAY.get(name)
+        if not mapping:
+            continue
+        display_name, flag_code = mapping
+        results.append(FundamentalRow(
+            index_name=display_name,
+            flag_code=flag_code,
+            rank=int(row["fundamental_rank"]),
+            rv=int(row["value_rank"]),
+            growth=int(row["growth_rank"]),
+            profitability=int(row["profitability_rank"]),
+            quality=int(row["quality_rank"]),
+            leverage=int(row["leverage_rank"]),
+            dividend=int(row["dividend_rank"]),
+        ))
+
+    results.sort(key=lambda x: x.rank)
+
+    print(f"[Fundamental Rank] Computed ranks for {len(results)} indices")
+    for r in results:
+        print(f"  {r.rank}. {r.index_name}: RV={r.rv}, Grw={r.growth}, Prof={r.profitability}, Qual={r.quality}, Lev={r.leverage}, Div={r.dividend}")
+
+    return results

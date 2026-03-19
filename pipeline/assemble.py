@@ -224,9 +224,12 @@ def run_assemble(
     # 4. Summary slides (technical nutshell, breadth, fundamentals)
     # =====================================================================
     breadth_records = draft.get("breadth", [])
+    fundamental_ranks_data = draft.get("fundamental_ranks", [])
+    fundamental_raw_data = draft.get("fundamental_raw", {})
     breadth_ranks, fundamental_ranks = _insert_summary_slides(
         prs, df_prices, instruments, chart_excel_path, breadth_records,
         ic_date=ic_date, history_path=history_path,
+        fundamental_ranks_data=fundamental_ranks_data,
     )
 
     # =====================================================================
@@ -245,7 +248,11 @@ def run_assemble(
         pass
 
     # Update history.json (includes breadth/fundamental ranks for quadrant WoW)
-    _update_history(history_path, ic_date, instruments, breadth_ranks, fundamental_ranks)
+    _update_history(
+        history_path, ic_date, instruments, breadth_ranks, fundamental_ranks,
+        fundamental_ranks_data=fundamental_ranks_data or [],
+        fundamental_raw_data=fundamental_raw_data,
+    )
 
     print(f"\n✓ Presentation assembled: {output_path}")
     print(f"  Date: {ic_date}")
@@ -432,6 +439,7 @@ def _insert_performance_slides(prs, chart_excel_path: str, ytd_subtitles: dict =
 def _insert_summary_slides(
     prs, df_prices, instruments, chart_excel_path,
     breadth_records=None, ic_date: str = "", history_path: str = "",
+    fundamental_ranks_data=None,
 ) -> tuple[dict[str, int], dict[str, int]]:
     """Insert technical summary, breadth, fundamental, and quadrant slides.
 
@@ -479,7 +487,16 @@ def _insert_summary_slides(
     try:
         from market_compass.fundamental_slide import generate_fundamental_slide
         from market_compass.quadrant_slide import _FUND_DISPLAY_TO_INSTRUMENT
-        prs, fund_display_ranks = generate_fundamental_slide(prs, excel_path=chart_excel_path, slide_name="slide_fundamentals")
+
+        # Use pre-computed Bloomberg ranks if available, else fall back to Excel
+        ranks_df = None
+        if fundamental_ranks_data:
+            ranks_df = pd.DataFrame(fundamental_ranks_data)
+
+        prs, fund_display_ranks = generate_fundamental_slide(
+            prs, excel_path=chart_excel_path, slide_name="slide_fundamentals",
+            ranks_df=ranks_df,
+        )
         # Map display names (U.S., Japan, ...) → instrument names (S&P 500, Nikkei 225, ...)
         for display_name, rank in fund_display_ranks.items():
             instr_name = _FUND_DISPLAY_TO_INSTRUMENT.get(display_name)
@@ -547,6 +564,8 @@ def _disable_image_compression(prs):
 def _update_history(
     history_path: str, ic_date: str, instruments: dict,
     breadth_ranks: dict | None = None, fundamental_ranks: dict | None = None,
+    fundamental_ranks_data: list | None = None,
+    fundamental_raw_data: dict | None = None,
 ) -> None:
     """Update history.json with current week's scores and ranks."""
     path = Path(history_path)
@@ -560,6 +579,11 @@ def _update_history(
         breadth_ranks = {}
     if fundamental_ranks is None:
         fundamental_ranks = {}
+
+    # Build lookup for pillar ranks by instrument name
+    pillar_lookup: dict[str, dict] = {}
+    for row in (fundamental_ranks_data or []):
+        pillar_lookup[row.get("index_name", "")] = row
 
     for name, data in instruments.items():
         if name not in history:
@@ -580,6 +604,17 @@ def _update_history(
             entry["breadth_rank"] = breadth_ranks[name]
         if name in fundamental_ranks:
             entry["fundamental_rank"] = fundamental_ranks[name]
+        # Store pillar ranks and raw values
+        pillar = pillar_lookup.get(name)
+        if pillar:
+            entry["fund_value_rank"] = pillar.get("value_rank")
+            entry["fund_growth_rank"] = pillar.get("growth_rank")
+            entry["fund_profitability_rank"] = pillar.get("profitability_rank")
+            entry["fund_quality_rank"] = pillar.get("quality_rank")
+            entry["fund_leverage_rank"] = pillar.get("leverage_rank")
+            entry["fund_dividend_rank"] = pillar.get("dividend_rank")
+        if fundamental_raw_data and name in fundamental_raw_data:
+            entry["fund_raw"] = fundamental_raw_data[name]
 
         # Remove duplicate entries for the same date
         history[name] = [h for h in history[name] if h.get("date") != ic_date]
