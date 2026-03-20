@@ -30,6 +30,7 @@ ENV/
 # ──────────────  Pipeline runtime artefacts  ──────────────
 draft_state.json
 charts_cache/
+market_compass/data/history.json
 
 # ──────────────  Data artefacts  ──────────────
 *.csv
