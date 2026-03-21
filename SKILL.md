@@ -1,182 +1,313 @@
-# IC Pipeline — Market Compass Generation
-
-## When user says "run ic [date]"
-
-This skill orchestrates the full IC pipeline for a given date.
-The working directory must be the ic repo root.
-
+---
+name: ic2
+description: "IC2 (Market Compass) — automated weekly technical analysis presentation for Herculis Partners IC committee. Use this skill whenever the user mentions 'ic', 'market compass', 'run the ic', 'ic2', 'tuesday run', 'weekly presentation', 'technical update', or asks to generate/run the Investment Committee presentation. Also trigger for requests about DMAS scores, breadth analysis, or subtitle generation for the Market Compass. Requires Bloomberg running on the Parallels VM."
 ---
 
-## Step 1: Prepare (Bloomberg → Scores → Charts → draft_state.json)
+# IC2 — Market Compass Pipeline
 
-```bash
-cd /Users/larazanella/Desktop/GitHub/Projects/ic_technical
-python run_ic.py --stage prepare --date [DATE]
+## Overview
+
+IC2 is the automated pipeline that generates the weekly Market Compass presentation for the Herculis Partners Investment Committee. It pulls data from Bloomberg, computes technical scores (DMAS, breadth, fundamentals) for 20 instruments across equity, commodity, and crypto, generates AI-powered subtitles, renders charts, and assembles a polished PowerPoint presentation.
+
+**You are the pipeline operator.** You handle Bloomberg connectivity, data validation, subtitle generation, and presentation assembly. You verify every output before delivering.
+
+## Data Locations
+
+- **Repository:** `~/Desktop/GitHub/Projects/ic_technical/` (branch: `feature/pipeline-v2`)
+- **Dropbox IC folder:** `~/Library/CloudStorage/Dropbox/Tools_In_Construction/ic/`
+- **Output PPTX:** `{Dropbox IC folder}/Market_Compass_YYYYMMDD.pptx`
+- **History:** `~/Desktop/GitHub/Projects/ic_technical/market_compass/data/history.json`
+- **Breadth cache:** `~/Desktop/GitHub/Projects/ic_technical/breadth_cache.json`
+- **Draft state:** `~/Desktop/GitHub/Projects/ic_technical/draft_state.json`
+- **Conda env:** `ptf_opt`
+
+## Bloomberg Connection
+
+Bloomberg runs on the Parallels Windows VM. Connection via raw `blpapi` at `10.211.55.3:8194`.
+
+**Pre-flight check — ALWAYS run this before any pipeline step:**
+
+```python
+conda run -n ptf_opt python -c "
+import blpapi
+opts = blpapi.SessionOptions()
+opts.setServerHost('10.211.55.3')
+opts.setServerPort(8194)
+session = blpapi.Session(opts)
+if session.start():
+    print('✓ Bloomberg connected')
+    session.stop()
+else:
+    print('✗ Bloomberg NOT reachable')
+"
 ```
 
-This will:
-- Pull new prices from Bloomberg (10.211.55.3:8194) for all 103 tickers
-- Append new rows to master_prices.csv
-- Compute DMAS, technical, momentum, RSI scores for 20 instruments
-- Compute composite breadth scores for 9 indices
-- Render 20 technical charts to charts_cache/
-- Save draft_state.json with all data (subtitles = null)
+If Bloomberg is not reachable:
+1. Send Telegram notification: "Bloomberg not reachable at 10.211.55.3:8194. Please check: (1) Parallels VM is running, (2) Bloomberg Terminal is logged in, (3) bbcomm.exe is running. Reply 'ready' when fixed."
+2. Wait for user confirmation before proceeding.
+3. Re-run the pre-flight check after confirmation.
 
-**Prerequisites:** Bloomberg Terminal running in Parallels VM.
+## Date Logic — CRITICAL
 
----
+The IC runs Tuesday night for the Wednesday committee. Date handling depends on WHEN the pipeline is triggered.
 
-## Step 2: Generate Subtitles (Claude Code reads draft_state.json)
+### Decision Tree
 
-Read draft_state.json. For each of the 20 instruments:
-1. Read the `enriched_context` field
-2. Generate a 2-line subtitle
-
-Write all subtitles back to draft_state.json:
-- Set `instruments.[name].subtitle = "Line 1\nLine 2"` for each of the 20 instruments
-- Set `ytd_subtitles.equity`, `ytd_subtitles.commodity`, `ytd_subtitles.crypto` with one-sentence YTD overview subtitles
-
-### YTD Overview Subtitle Rules
-These are single-sentence slide titles for the three YTD evolution slides (Equity Update, Commodity Update, Crypto Update).
-
-- **One sentence only**, max 15 words
-- Capture the **big picture narrative**: who leads, who lags, what's the story
-- Use YTD return data from draft_state.json instruments to ground the narrative
-- Macro context welcome if obvious from the data (broad selloff, rotation, commodity rally)
-- These are slide titles, not instrument-level analysis
-
-**Examples of good YTD subtitles:**
-- `"Brazil's bull market leaves US and Europe in the dust"`
-- `"Oil's exceptional rally masks precious metals consolidation gains"`
-- `"Bitcoin holds the line while Ethereum and Solana crater in 2026"`
-
-Read the YTD performance data from the instruments section of draft_state.json (using enriched_context or price data) to write accurate, data-grounded sentences.
-
-### Subtitle Rules
-- **2 lines**, max 12 words each
-- **Line 1 ends with a period.** Line 2 has no period at end
-- **Never** start with the instrument name
-- Each subtitle must be **uniquely different** across the full 20-instrument batch
-- All numbers from the data only — no invented numbers
-- Directional claims must match scores (bullish language only when DMAS >= 60)
-- **Line 1:** most important fact RIGHT NOW
-- **Line 2:** what to watch next / key level or catalyst
-- **Never mention the DMAS score number in the subtitle.** It is already displayed on the slide's DMAS panel. Use the subtitle to add context the panel cannot show: cross-asset comparisons, MA context, breadth rank, what is changing.
-- **Ratings are 5-tier only:** Bullish, Constructive, Neutral, Cautious, Bearish. Never use "Strongly Bullish" or "Strongly Bearish".
-- **Flag what is CHANGING, not just the rating.** A bullish market pulling back is more interesting than a bullish market holding steady. A bearish market showing green shoots deserves mention. Even in bullish contexts, flag emerging risks. Even in bearish contexts, flag any improving signals.
-
-### MA Position Rule: Use Exact Data, Never Approximate
-When describing price position relative to a moving average, use the exact vs_50d, vs_100d, vs_200d percentages from draft_state.json. Negative = below, positive = above.
-
-- **Never** say "hugging", "near", or "testing" unless the value is between -0.5% and +0.5%
-- A stock at -1.3% below the 50d MA is **clearly below it**, not near it — say "X% below the 50d MA"
-- A stock at -0.3% is legitimately "right at" or "testing" the 50d MA
-- A stock at +0.1% is "right on" or "at" the 50d MA
-- Values beyond ±0.5% require directional language: "below", "above", "X% below", "X% above"
-
-### MA Context Rule: Read All Three MAs Together
-Always read vs_50d, vs_100d, and vs_200d together to determine the full picture. The subtitle should reflect the COMBINED MA position, not just vs_50d.
-
-- **Below all three MAs** = strongly bearish positioning (trapped under all resistance)
-- **Below 50d and 100d, above 200d** = deteriorating but not broken — say "slipping below both short and medium-term support"
-- **Below 50d only, above 100d and 200d** = short-term weakness in a longer-term uptrend — say "short-term pullback within an intact uptrend"
-- **Above all three MAs** = strong technical positioning
-- **Above 50d and 100d, below 200d** = recovering but still in a longer-term downtrend
-
-Example: S&P 500 at vs_50d=-1.3%, vs_100d=-0.4%, vs_200d=+3.3% means price is below BOTH the 50d and 100d — "slipping below short and medium-term support" is more accurate than just "1.3% below the 50d".
-
-### Style Rule: Analyst Voice, Not Data Dump
-Each subtitle should contain **AT MOST 2 numbers**. Pick the ONE or TWO most meaningful data points and weave them into a narrative. The rest should be qualitative interpretation.
-
-The tone should be a **senior portfolio manager briefing a client**, not a quant reading a spreadsheet.
-
-**BAD (data dump):**
-> "Slipped from DMAS 78 to 45 as price sits 1.6% below 50d MA
-> RSI at 42 with momentum at 57 suggests directionless drift ahead"
-
-**GOOD (analyst voice with selective data):**
-> "Sharp DMAS deterioration flags a regime shift from bullish to neutral
-> Sitting just below the 50d MA — next week decides direction"
-
-**BAD (data dump):**
-> "Achieved a flawless DMAS of 100 with price 27.6% above the 200d MA
-> RSI at 61 still has room before overheating — 50d MA gap of 6.7%"
-
-**GOOD (analyst voice):**
-> "Flawless technical score crowns gold as the standout bullish asset
-> Rally has room to run before RSI overheats — no reversal signal yet"
-
-### Banned phrases (never use, including partial matches)
-- "recovery hinges on" / "hinges on"
-- "recovery depends on"
-- "outlook persists"
-- "dynamics continue"
-- "exceptional strength remains"
-- "momentum supports further gains"
-- "bullish streak remains unbroken"
-- "maintains bullish trend"
-- "resilience despite DMAS decline"
-- "momentum strength key to"
-- "hinges on reclaiming 50d MA"
-- "momentum yet to confirm technical alignment"
-- "remains trapped below all MAs"
-- "as DMAS drops"
-- "remains constructive" / "remains cautious" / "remains neutral"
-
-### Short-form aliases (also banned)
-- "streak unbroken" → banned
-- "exceptional strength" → banned
-- "further gains" → banned
-
-### Quality check
-After writing all 20 subtitles, scan for:
-1. Any duplicate phrases across instruments (fix if found)
-2. Any banned phrase violations (fix if found)
-3. Any subtitle where tone contradicts the DMAS score (fix if found)
-
----
-
-## Step 3: Assemble (draft_state.json → PowerPoint)
-
-```bash
-python run_ic.py --stage assemble
+```
+Step 1: What day/time is it?
+│
+├── Tuesday after 10 PM?
+│   → NORMAL RUN (no questions needed)
+│   → Prices: latest available (Tuesday close)
+│   → Committee date: tomorrow (Wednesday)
+│   → File: Market_Compass_YYYYMMDD.pptx (Wednesday date)
+│   → Source lines: "Data as of DD/MM/YYYY" (Wednesday date)
+│   → Proceed automatically.
+│
+└── Any other day/time?
+    → EDGE CASE — ask questions before proceeding.
+    │
+    ├── Step 2: Ask price reference
+    │   "It's currently [day, time]. Some markets may be open.
+    │    Which prices should I use?"
+    │
+    │   Option A: Last close as of [previous trading day]
+    │   Option B: Current last price (live snapshot — some markets may still be trading)
+    │   Option C: Close as of a specific date → ask "Which date?"
+    │
+    ├── Step 3: Ask committee date
+    │   "What date should appear on the presentation and filename?"
+    │
+    │   Option A: Today ([current date])
+    │   Option B: Specific date → ask "Which date?"
+    │
+    └── Step 4: Confirm before running
+        "Running IC2 pipeline:
+         • Prices: [selection] ([date])
+         • Committee date: [date]
+         • File: Market_Compass_YYYYMMDD.pptx
+         Proceed?"
 ```
 
-This will:
-- Read complete draft_state.json (with all subtitles filled)
-- Build final PowerPoint from template.pptx
-- Update history.json with current week's scores
-- Save PPTX to Dropbox IC folder
+### Date implementation
 
----
+```python
+from datetime import date, timedelta
 
-## Prerequisites
+def resolve_dates(price_mode, price_date, committee_date):
+    """
+    Returns (price_reference_date, committee_display_date)
 
-- Bloomberg Terminal running in Parallels (IP: 10.211.55.3, Port: 8194)
-- Windows VM netsh portproxy active (see setup notes)
-- conda environment: `ptf_opt`
-- Playwright chromium installed: `playwright install chromium`
-- Python packages: blpapi, pptx, plotly, pandas, numpy, yaml, kaleido
-
-## Environment variables
-
-```bash
-IC_DROPBOX_PATH=/Users/larazanella/Library/CloudStorage/Dropbox/Tools_In_Construction/ic
+    price_mode: 'close' | 'last'
+    price_date: date object (used only if price_mode='close')
+    committee_date: date object for slide title + filename
+    """
+    pass
 ```
 
-## Fallback (Bloomberg unavailable)
+The committee date affects:
+- Slide 1 title: "March 21, 2026"
+- Filename: `Market_Compass_20260321.pptx`
+- All source lines: "Data as of 21/03/2026"
+
+The price date affects:
+- Bloomberg data pull reference date
+- Does NOT appear on the slides (prices are always "latest available")
+
+### Important: committee_date ≠ price_date
+
+Normal Tuesday 11 PM run: prices = Tuesday close, committee_date = Wednesday.
+The slides never say "prices as of Tuesday" — they say the committee date.
+
+## Pipeline Stages
+
+### Stage 1: Prepare (`--stage prepare`)
 
 ```bash
-python run_ic.py --stage prepare --date [DATE] --skip-bloomberg
+conda run -n ptf_opt python run_ic.py --stage prepare --date YYYY-MM-DD
 ```
 
-Uses existing master_prices.csv without pulling new data.
+What it does:
+1. Bloomberg pull: 103 tickers (close, low, high) → appends to `master_prices.csv`
+2. Bloomberg pull: 8 breadth fields × 9 equity indices
+3. Bloomberg pull: 9 fundamental fields × 9 equity indices
+4. Compute DMAS scores (Technical + Momentum) for 20 instruments
+5. Compute breadth composite (Trend 40%, Conviction 35%, Sentiment 25%)
+6. Compute fundamental ranks (cross-sectional, 6 pillars)
+7. Render 20 technical charts (HTML → Playwright → PNG at 4x)
+8. Compute streak counts from history.json (ISO week grouping)
+9. Write `draft_state.json` with all scores, ranks, chart paths, streak counts
 
-## Full API fallback (outside Claude Code)
+The `--date` flag is the price reference date, NOT the committee date.
+
+### Stage 2: Assemble (`--stage assemble`)
 
 ```bash
-python run_ic.py --stage full --date [DATE]
+conda run -n ptf_opt python run_ic.py --stage assemble
 ```
 
-Uses Claude API (claude-opus-4-6) for subtitle generation instead of Claude Code.
-Requires ANTHROPIC_API_KEY environment variable.
+What it does:
+1. Read `draft_state.json`
+2. Load previous week data from `history.json` for WoW deltas
+3. Generate subtitles via Claude API (20 instruments + 3 overviews)
+4. Render performance charts (equity, commodity, crypto, FX, rates, credit)
+5. Render breadth table, fundamental table, quadrant chart
+6. Assemble PPTX from template
+7. Copy to Dropbox IC folder
+8. Update `history.json` with current week data
+9. Send Telegram notification with summary
+
+### Stage 3: Full (`--stage full`)
+
+Runs prepare → assemble in sequence. This is what the scheduled task uses.
+
+## Subtitle Rules
+
+The subtitle prompt has strict rules. If editing the prompt, preserve ALL of these:
+
+1. **No DMAS score in subtitle text** — the number is on the gauge chart already
+2. **Max 2 numbers per subtitle line** — prioritize MA distances and RSI over raw scores
+3. **No promotional adjectives** — no "exceptional", "remarkable", "outstanding", "perfect", "impressive"
+4. **Overview subtitles: punchy, narrative** — contrast best vs worst performer
+5. **Streak counts: use `streak_weeks` from draft_state.json** — NEVER count history.json entries manually
+6. **Line 1 must end with period** — post-processing enforced
+7. **No instrument name as first word**
+8. **Numbers must be verifiable from the data**
+9. **MA position language must match actual vs_50d/vs_100d/vs_200d values**
+10. **No investment recommendations**
+
+## Scheduled Task — Tuesday 11:00 PM
+
+The scheduled task prompt:
+
+```
+Run the IC2 Market Compass pipeline. Today is Tuesday after US close — this is
+the normal weekly run.
+
+1. Run Bloomberg pre-flight check. If it fails, send Telegram notification and
+   wait for my reply.
+2. If Bloomberg OK, run: python run_ic.py --stage full
+3. Use latest prices (Tuesday close).
+4. Committee date = tomorrow (Wednesday). Apply to slide 1 title, filename,
+   and all source lines.
+5. After completion, verify the PPTX:
+   - Confirm 20 instrument slides have subtitles
+   - Confirm nutshell table scores match individual slides
+   - Confirm overview subtitles are single-line
+6. Copy PPTX to Dropbox IC folder.
+7. Send Telegram summary:
+   - "IC2 complete. [N] instruments scored."
+   - List any rating changes vs last week
+   - List any instruments with DMAS > 90 or < 10
+   - Attach PNG of slide 1 and nutshell table
+8. Do not ask questions. This is fully automated.
+```
+
+### Mac sleep prevention
+
+The scheduled task should run this before the pipeline:
+
+```bash
+# Keep Mac awake until midnight
+caffeinate -u -t 7200 &
+CAFFEINATE_PID=$!
+```
+
+And after completion:
+
+```bash
+# Release caffeinate
+kill $CAFFEINATE_PID 2>/dev/null
+```
+
+## Telegram Integration
+
+### Setup (one-time)
+
+1. Create bot via @BotFather → save token
+2. Get chat_id by messaging the bot and checking `https://api.telegram.org/bot<TOKEN>/getUpdates`
+3. Set environment variables:
+   ```bash
+   export TELEGRAM_BOT_TOKEN="your-token"
+   export TELEGRAM_CHAT_ID="your-chat-id"
+   ```
+
+### Send function
+
+```python
+import requests, os
+
+def send_telegram(message: str, image_path: str = None):
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    chat_id = os.environ["TELEGRAM_CHAT_ID"]
+
+    if image_path:
+        url = f"https://api.telegram.org/bot{token}/sendPhoto"
+        with open(image_path, "rb") as f:
+            requests.post(url, data={"chat_id": chat_id, "caption": message},
+                         files={"photo": f})
+    else:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        requests.post(url, json={"chat_id": chat_id, "text": message,
+                                  "parse_mode": "Markdown"})
+```
+
+### Notification triggers
+
+| Event | Message |
+|---|---|
+| Bloomberg check failed | "⚠️ Bloomberg not reachable. Check Parallels + Terminal. Reply 'ready'." |
+| Pipeline started | "🔄 IC2 pipeline started. Pulling Bloomberg data..." |
+| Pipeline complete | "✅ IC2 complete. [summary]. PPTX in Dropbox." |
+| Pipeline error | "❌ IC2 failed at [stage]: [error message]" |
+| Rating changes | "📊 Rating changes: MEXBOL ↓ Bullish→Constructive, TASI ↑ Bearish→Neutral" |
+
+## Verification Checklist
+
+After every run, before sending the "complete" notification:
+
+- [ ] All 20 instrument slides have subtitles (not empty, not placeholder)
+- [ ] Subtitle line 1 ends with period for all instruments
+- [ ] Overview subtitles are exactly 1 line each
+- [ ] DMAS scores on nutshell table match individual slide gauges
+- [ ] Rating on slide title matches nutshell table outlook
+- [ ] WoW deltas on gauges are non-zero where expected
+- [ ] Sub-score arrows show ▲/▼ not dashes (except unchanged)
+- [ ] Breadth table shows 9 indices ranked 1–9
+- [ ] Fundamental table shows 9 indices ranked 1–9
+- [ ] Quadrant chart shows 9 dots with correct positions
+- [ ] Committee date appears correctly on slide 1 and source lines
+- [ ] Filename uses committee date, not run date
+- [ ] PPTX file exists in Dropbox IC folder
+
+## Manual Run Workflow
+
+When the user says "run the ic" or similar outside of the scheduled task:
+
+1. Run Bloomberg pre-flight check
+2. Detect current day/time
+3. Follow the Decision Tree (see Date Logic section above)
+4. Ask necessary questions and confirm
+5. Run the pipeline with resolved parameters
+6. Verify and notify
+
+## History & Streak Computation
+
+`history.json` stores weekly snapshots. Streaks are computed in Python using ISO week grouping:
+
+1. Group entries by ISO week (isocalendar)
+2. Take latest entry per week
+3. Get current rating
+4. Walk backwards counting consecutive weeks with same rating
+5. Store as `streak_weeks` in draft_state.json
+
+NEVER let the LLM count entries in history.json — it will hallucinate.
+
+## Key Principles
+
+- **Score alignment is prerequisite to everything** — if scores don't match production, stop and fix
+- **Verify by opening the actual PPTX** — never self-report success without checking
+- **Fix one issue at a time** — re-run pipeline after each fix
+- **Read actual code before editing** — don't guess what a function does
+- **xbbg has bugs with remote connections** — always use raw `blpapi` via `10.211.55.3:8194`
+- **Context window fills fast** — start new chats for long Claude Code sessions
