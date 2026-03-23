@@ -165,17 +165,24 @@ def _compute_weekly_return(
     if ticker not in df.columns:
         return float("nan")
 
-    today = df["Date"].max()
-    past_date = today - pd.Timedelta(days=7)
-    past_series = df.loc[df["Date"] <= past_date, ticker]
+    # Use last non-NaN price as the current price (some tickers may have
+    # NaN on the most recent date if Bloomberg data was unavailable).
+    valid = df.loc[df[ticker].notna(), ["Date", ticker]]
+    if valid.empty:
+        return float("nan")
 
-    if len(past_series) == 0:
+    current_price = valid[ticker].iloc[-1]
+    current_date = valid["Date"].iloc[-1]
+
+    past_date = current_date - pd.Timedelta(days=7)
+    past_series = valid.loc[valid["Date"] <= past_date, ticker]
+
+    if past_series.empty:
         return float("nan")
 
     past_price = past_series.iloc[-1]
-    current_price = df[ticker].iloc[-1]
 
-    if past_price == 0 or pd.isna(past_price) or pd.isna(current_price):
+    if past_price == 0 or pd.isna(past_price):
         return float("nan")
 
     return (current_price - past_price) / past_price
@@ -378,6 +385,10 @@ def insert_corp_bonds_performance_slide(
         print("[Corp Bonds Weekly] WARNING: Slide not found")
         return prs
 
+    if not image_bytes:
+        print("[Corp Bonds Weekly] WARNING: No image data to insert")
+        return prs
+
     # Insert picture at EXACT hardcoded PowerPoint dimensions
     # Corporate Bonds - adjusted position (fewer rows = lower on slide)
     # DO NOT modify these values
@@ -453,21 +464,23 @@ def _compute_horizon_return(
     if ticker not in df.columns:
         return float("nan")
 
-    past_date = today - pd.Timedelta(days=days)
-    past_series = df.loc[df["Date"] <= past_date, ticker]
+    # Use last non-NaN price as current price
+    valid = df.loc[df[ticker].notna()]
+    if valid.empty:
+        return float("nan")
 
-    if len(past_series) == 0:
+    current_price = valid[ticker].iloc[-1]
+    current_date = valid["Date"].iloc[-1]
+
+    past_date = current_date - pd.Timedelta(days=days)
+    past_series = valid.loc[valid["Date"] <= past_date, ticker]
+
+    if past_series.empty:
         return float("nan")
 
     past_price = past_series.iloc[-1]
-    current_price = df.loc[df["Date"] == today, ticker]
 
-    if len(current_price) == 0:
-        current_price = df[ticker].iloc[-1]
-    else:
-        current_price = current_price.iloc[0]
-
-    if past_price == 0 or pd.isna(past_price) or pd.isna(current_price):
+    if past_price == 0 or pd.isna(past_price):
         return float("nan")
 
     return (current_price - past_price) / past_price
@@ -522,11 +535,12 @@ def create_historical_performance_chart(
         m6 = _compute_horizon_return(df_adj, ticker, today, 180)
         m12 = _compute_horizon_return(df_adj, ticker, today, 365)
 
-        # Compute YTD
-        ytd_series = df_adj.loc[df_adj["Date"] <= ytd_start, ticker]
-        if len(ytd_series) > 0:
+        # Compute YTD — use last non-NaN price as current
+        valid_ticker = df_adj.loc[df_adj[ticker].notna()]
+        ytd_series = valid_ticker.loc[valid_ticker["Date"] <= ytd_start, ticker]
+        if len(ytd_series) > 0 and not valid_ticker.empty:
             ytd_price = ytd_series.iloc[-1]
-            current_price = df_adj[ticker].iloc[-1]
+            current_price = valid_ticker[ticker].iloc[-1]
             if ytd_price and not pd.isna(ytd_price) and not pd.isna(current_price):
                 ytd = (current_price - ytd_price) / ytd_price
             else:

@@ -73,6 +73,7 @@ from playwright.sync_api import sync_playwright
 from utils import adjust_prices_for_mode
 from helpers.flag_utils import get_flag_html
 from helpers.html_to_image import render_html_to_image
+from helpers.chartjs_local import patch_cdn
 from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE, FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE, FX_IMPACT_ANALYSIS_CHF_HTML_TEMPLATE
 
 try:
@@ -1042,7 +1043,7 @@ def create_equity_ytd_evolution_chart(
                     'width': EQUITY_YTD_PNG_WIDTH_PX,
                     'height': EQUITY_YTD_PNG_HEIGHT_PX
                 })
-                page.set_content(html_content, wait_until='commit')
+                page.set_content(patch_cdn(html_content), wait_until='commit')
                 page.wait_for_timeout(500)
                 png_bytes = page.screenshot()
                 browser.close()
@@ -1097,8 +1098,8 @@ def create_equity_ytd_evolution_chart(
                 'height': EQUITY_YTD_PNG_HEIGHT_PX
             })
 
-            # Load HTML content - use data URL to ensure proper loading
-            page.set_content(html_content, wait_until='commit')
+            # Load HTML content with inline Chart.js (no CDN dependency)
+            page.set_content(patch_cdn(html_content), wait_until='commit')
 
             # Wait for Chart.js to signal rendering complete
             try:
@@ -1652,7 +1653,7 @@ def create_fx_impact_analysis_chart_eur(
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
             print(f"[FX Impact EUR DEBUG] Setting page content...")
-            page.set_content(html_content, wait_until='commit')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
             page.wait_for_timeout(500)
             print(f"[FX Impact EUR DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()
@@ -2008,7 +2009,7 @@ def create_fx_impact_analysis_chart_chf(
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
             print(f"[FX Impact CHF DEBUG] Setting page content...")
-            page.set_content(html_content, wait_until='commit')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
             page.wait_for_timeout(500)
             print(f"[FX Impact CHF DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()
