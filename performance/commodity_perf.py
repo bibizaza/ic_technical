@@ -65,6 +65,7 @@ from html2image import Html2Image
 from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
+from helpers.chartjs_local import patch_cdn
 from market_compass.weekly_performance.html_template import (
     COMMODITIES_WEEKLY_HTML_TEMPLATE,
     COMMODITIES_HISTORICAL_HTML_TEMPLATE,
@@ -1158,7 +1159,7 @@ def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price")
                     'width': COMMODITY_YTD_PNG_WIDTH_PX,
                     'height': COMMODITY_YTD_PNG_HEIGHT_PX
                 })
-                page.set_content(html_content, wait_until='commit')
+                page.set_content(patch_cdn(html_content), wait_until='commit')
                 page.wait_for_timeout(500)
                 png_bytes = page.screenshot()
                 browser.close()
@@ -1204,7 +1205,7 @@ def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price")
                 'width': COMMODITY_YTD_PNG_WIDTH_PX,
                 'height': COMMODITY_YTD_PNG_HEIGHT_PX
             })
-            page.set_content(html_content, wait_until='commit')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
             try:
                 page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
             except Exception:

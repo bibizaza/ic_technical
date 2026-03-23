@@ -9,6 +9,8 @@ from typing import Tuple
 
 from playwright.sync_api import sync_playwright
 
+from helpers.chartjs_local import patch_cdn
+
 
 def render_html_to_image(
     html_content: str,
@@ -68,7 +70,7 @@ def render_html_to_image(
 
             # Load HTML content
             print(f"[Playwright] Loading HTML ({len(html_content)} chars)...")
-            page.set_content(html_content, wait_until='commit')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
 
             # Brief wait for any final rendering
             page.wait_for_timeout(100)

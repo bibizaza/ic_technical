@@ -102,6 +102,7 @@ from technical_analysis.powerpoint_utils import (
     insert_technical_assessment,
     insert_source,
 )
+from helpers.chartjs_local import patch_cdn
 
 # Import MARS momentum scoring engine (no longer used for calculation - kept for reference)
 # from mars_engine import (
@@ -1777,7 +1778,7 @@ def create_technical_analysis_v2_chart(
             )
 
             # Set content and wait for network idle
-            page.set_content(html_content, wait_until='commit')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
 
             # Wait for Chart.js to load and render
             try:
