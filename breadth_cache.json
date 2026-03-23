@@ -1,51 +1,19 @@
 [
   {
     "name": "Nikkei 225",
-    "composite": 52.8,
-    "trend": 61.1,
-    "conviction": 41.7,
-    "sentiment": 54.9,
+    "composite": 44.5,
+    "trend": 45.6,
+    "conviction": 40.5,
+    "sentiment": 48.2,
     "rank": 1
   },
   {
-    "name": "IBOV",
-    "composite": 44.7,
-    "trend": 45.0,
-    "conviction": 40.5,
-    "sentiment": 50.0,
-    "rank": 2
-  },
-  {
     "name": "CSI 300",
-    "composite": 43.8,
-    "trend": 40.2,
-    "conviction": 43.6,
-    "sentiment": 50.0,
-    "rank": 3
-  },
-  {
-    "name": "MEXBOL",
-    "composite": 39.6,
-    "trend": 41.4,
-    "conviction": 32.1,
-    "sentiment": 47.1,
-    "rank": 4
-  },
-  {
-    "name": "S&P 500",
-    "composite": 37.7,
-    "trend": 35.2,
-    "conviction": 36.4,
-    "sentiment": 43.6,
-    "rank": 5
-  },
-  {
-    "name": "DAX",
-    "composite": 36.4,
-    "trend": 31.2,
-    "conviction": 34.4,
-    "sentiment": 47.5,
-    "rank": 6
+    "composite": 36.1,
+    "trend": 31.5,
+    "conviction": 41.1,
+    "sentiment": 36.3,
+    "rank": 2
   },
   {
     "name": "TASI",
@@ -53,22 +21,54 @@
     "trend": 27.1,
     "conviction": 34.5,
     "sentiment": 52.6,
+    "rank": 2
+  },
+  {
+    "name": "IBOV",
+    "composite": 34.3,
+    "trend": 32.1,
+    "conviction": 34.9,
+    "sentiment": 36.7,
+    "rank": 4
+  },
+  {
+    "name": "S&P 500",
+    "composite": 31.1,
+    "trend": 27.3,
+    "conviction": 32.7,
+    "sentiment": 34.7,
+    "rank": 5
+  },
+  {
+    "name": "MEXBOL",
+    "composite": 29.6,
+    "trend": 28.6,
+    "conviction": 28.6,
+    "sentiment": 32.9,
+    "rank": 6
+  },
+  {
+    "name": "Sensex",
+    "composite": 27.0,
+    "trend": 18.3,
+    "conviction": 22.9,
+    "sentiment": 46.7,
     "rank": 7
   },
   {
     "name": "SMI",
-    "composite": 33.3,
-    "trend": 23.7,
-    "conviction": 36.2,
-    "sentiment": 44.7,
+    "composite": 24.4,
+    "trend": 13.2,
+    "conviction": 30.3,
+    "sentiment": 34.2,
     "rank": 8
   },
   {
-    "name": "Sensex",
-    "composite": 28.6,
-    "trend": 18.3,
-    "conviction": 25.0,
-    "sentiment": 50.0,
+    "name": "DAX",
+    "composite": 21.7,
+    "trend": 17.5,
+    "conviction": 25.9,
+    "sentiment": 22.5,
     "rank": 9
   }
 ]
