@@ -1,18 +1,18 @@
 [
   {
-    "name": "Nikkei 225",
-    "composite": 44.5,
-    "trend": 45.6,
-    "conviction": 40.5,
-    "sentiment": 48.2,
+    "name": "IBOV",
+    "composite": 45.6,
+    "trend": 51.1,
+    "conviction": 36.1,
+    "sentiment": 50.0,
     "rank": 1
   },
   {
-    "name": "CSI 300",
-    "composite": 36.1,
-    "trend": 31.5,
-    "conviction": 41.1,
-    "sentiment": 36.3,
+    "name": "Nikkei 225",
+    "composite": 39.5,
+    "trend": 38.2,
+    "conviction": 33.2,
+    "sentiment": 50.4,
     "rank": 2
   },
   {
@@ -21,54 +21,54 @@
     "trend": 27.1,
     "conviction": 34.5,
     "sentiment": 52.6,
-    "rank": 2
-  },
-  {
-    "name": "IBOV",
-    "composite": 34.3,
-    "trend": 32.1,
-    "conviction": 34.9,
-    "sentiment": 36.7,
-    "rank": 4
+    "rank": 3
   },
   {
     "name": "S&P 500",
-    "composite": 31.1,
-    "trend": 27.3,
-    "conviction": 32.7,
-    "sentiment": 34.7,
-    "rank": 5
+    "composite": 34.9,
+    "trend": 31.5,
+    "conviction": 32.9,
+    "sentiment": 43.0,
+    "rank": 4
   },
   {
     "name": "MEXBOL",
-    "composite": 29.6,
-    "trend": 28.6,
-    "conviction": 28.6,
-    "sentiment": 32.9,
+    "composite": 32.6,
+    "trend": 30.0,
+    "conviction": 27.1,
+    "sentiment": 44.3,
+    "rank": 5
+  },
+  {
+    "name": "CSI 300",
+    "composite": 32.1,
+    "trend": 27.7,
+    "conviction": 34.8,
+    "sentiment": 35.7,
     "rank": 6
   },
   {
-    "name": "Sensex",
-    "composite": 27.0,
-    "trend": 18.3,
-    "conviction": 22.9,
-    "sentiment": 46.7,
+    "name": "DAX",
+    "composite": 26.2,
+    "trend": 18.8,
+    "conviction": 25.0,
+    "sentiment": 40.0,
     "rank": 7
   },
   {
-    "name": "SMI",
-    "composite": 24.4,
-    "trend": 13.2,
-    "conviction": 30.3,
-    "sentiment": 34.2,
+    "name": "Sensex",
+    "composite": 25.9,
+    "trend": 11.7,
+    "conviction": 22.5,
+    "sentiment": 53.3,
     "rank": 8
   },
   {
-    "name": "DAX",
-    "composite": 21.7,
-    "trend": 17.5,
-    "conviction": 25.9,
-    "sentiment": 22.5,
+    "name": "SMI",
+    "composite": 25.7,
+    "trend": 13.2,
+    "conviction": 30.3,
+    "sentiment": 39.5,
     "rank": 9
   }
 ]
