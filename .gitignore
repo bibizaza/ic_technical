@@ -103,3 +103,4 @@ secret_*.ipynb
 
 # Streamlit secrets
 .streamlit/secrets.toml
+breadth_cache.json
