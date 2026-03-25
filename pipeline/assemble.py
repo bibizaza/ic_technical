@@ -50,6 +50,9 @@ INSTRUMENT_CONFIG = {
 
 
 def _load_draft(draft_path: str) -> dict:
+    if not Path(draft_path).exists():
+        print(f"Error: {draft_path} not found. Run --stage prepare first.")
+        raise SystemExit(1)
     with open(draft_path) as f:
         return json.load(f)
 

@@ -104,6 +104,12 @@ def main() -> int:
             )
 
         if args.stage in ("assemble", "full"):
+            # Guard: draft_state.json must exist before assemble
+            from pathlib import Path as _Path
+            if not _Path(args.draft).exists():
+                print(f"Error: {args.draft} not found. Run --stage prepare first.")
+                return 1
+
             # Generate subtitles via Claude API whenever they're missing
             log.info("=== Stage: subtitle ===")
             _generate_subtitles_api(args.draft, args.config)
