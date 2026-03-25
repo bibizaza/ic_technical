@@ -2695,7 +2695,7 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
                             const label = `${dataset.label}: ${sign}${value.toFixed(1)}%`;
 
                             labelData.push({
-                                x: lastPoint.x,
+                                x: chart.chartArea.right,
                                 y: lastPoint.y,
                                 originalY: lastPoint.y,
                                 label: label,
@@ -2965,7 +2965,7 @@ COMMODITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
                             const label = `${dataset.label}: ${sign}${value.toFixed(1)}%`;
 
                             labelData.push({
-                                x: lastPoint.x,
+                                x: chart.chartArea.right,
                                 y: lastPoint.y,
                                 originalY: lastPoint.y,
                                 label: label,
@@ -3229,7 +3229,7 @@ CRYPTO_YTD_EVOLUTION_HTML_TEMPLATE = '''
                             const label = `${dataset.label}: ${sign}${value.toFixed(1)}%`;
 
                             labelData.push({
-                                x: lastPoint.x,
+                                x: chart.chartArea.right,
                                 y: lastPoint.y,
                                 originalY: lastPoint.y,
                                 label: label,
