@@ -247,15 +247,29 @@ def _generate_ytd_subtitles_api(draft: dict, client, log) -> dict:
 Exactly one line per slide. Max 12 words. No period at end. Use only data provided.
 Never start with the asset class name.
 
-STYLE: Each subtitle must be punchy and narrative — contrast the best vs worst performer
-with a story hook. Do NOT just recite numbers. Name the instruments, describe the divergence.
-BAD: "Brazil leads at +12% while India lags at -10.7% YTD"
-GOOD: "Brazil's IBOV leads the pack while India's Sensex stumbles"
-BAD: "Oil surges +67.6% YTD as gold and silver rally double digits"
-GOOD: "Oil dominates while precious metals post solid but smaller gains"
+These subtitles appear on YTD evolution chart slides. They must tell a REGIONAL
+or THEMATIC story, not just name the best and worst performer.
 
-NUMBERS: You may include at most 1 number per line, and only if it adds real punch.
-NO promotional adjectives: extraordinary, exceptional, remarkable, outstanding.
+RULES:
+1. Frame the narrative around regions, sectors, or themes — not individual names.
+   Think "EM vs DM", "energy vs metals", "Bitcoin dominance vs altcoin weakness".
+2. Highlight what is UNUSUAL or SURPRISING — the story a portfolio manager
+   would tell a client.
+3. Quantify only if the number is striking (e.g. "26-point spread", "+60% YTD").
+   At most 1 number per line.
+4. FORBIDDEN words: divergence, mixed, varied, dynamics, remarkable, exceptional,
+   extraordinary, outstanding.
+5. Must be factually verifiable from the data provided.
+
+GOOD examples:
+- "Emerging markets lead 2026 as Western indices give back last year's gains"
+- "Oil's +60% surge dwarfs everything as precious metals reverse course"
+- "Bitcoin holds relative ground while altcoins sink 20%+ across the board"
+
+BAD examples:
+- "Brazil leads at +12% while India lags at -10.7% YTD" (just naming best/worst)
+- "Wide divergence across global equities" (vague, says nothing)
+- "Developed markets stumble as EM surges" (wrong if India is EM and worst)
 
 FORMAT:
 ### equity
