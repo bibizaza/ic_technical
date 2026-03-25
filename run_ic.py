@@ -260,6 +260,12 @@ RULES:
 4. FORBIDDEN words: divergence, mixed, varied, dynamics, remarkable, exceptional,
    extraordinary, outstanding.
 5. Must be factually verifiable from the data provided.
+6. Do NOT name more than one individual instrument per subtitle. If you name
+   one (e.g. "Oil's +61%"), the rest should be a category ("industrial metals",
+   "altcoins", "Western indices") — not a second name.
+7. Numbers must match actual data to within 1 percentage point. Do not round
+   aggressively or use approximate language ("nearly") — either use the exact
+   number or drop it.
 
 GOOD examples:
 - "Emerging markets lead 2026 as Western indices give back last year's gains"
