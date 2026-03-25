@@ -163,6 +163,17 @@ def run_assemble(
                         if _e.get("rsi") is not None:
                             prev_rsi[_name] = int(_e["rsi"])
                         break
+                # RSI was added later — if the closest entry had rsi=None,
+                # search further back for the most recent entry with RSI.
+                if _name not in prev_rsi:
+                    for _e in _sorted:
+                        try:
+                            _edate = pd.Timestamp(_e["date"]).date()
+                        except Exception:
+                            continue
+                        if _edate < _ic_ts and _e.get("rsi") is not None:
+                            prev_rsi[_name] = int(_e["rsi"])
+                            break
             log.info("Loaded WoW scores for %d instruments from history.json", len(prev_dmas))
     except Exception as _e:
         log.warning("Could not load history.json for WoW deltas: %s", _e)
