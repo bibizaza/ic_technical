@@ -1011,11 +1011,13 @@ def create_equity_ytd_evolution_chart(
                 "backgroundColor": "transparent",
             })
 
-    # Ensure all datasets have the same length (pad with None if needed)
+    # Ensure all datasets have the same length — forward-fill so every
+    # line extends to the right edge (flat line = market closed, price unchanged)
     max_len = len(all_labels)
     for dataset in datasets:
         while len(dataset["data"]) < max_len:
-            dataset["data"].append(None)
+            last_val = dataset["data"][-1] if dataset["data"] else None
+            dataset["data"].append(last_val)
 
     # Debug output
     print(f"[DEBUG] chart_title={chart_title}")

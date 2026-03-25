@@ -1135,10 +1135,12 @@ def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price")
                 "backgroundColor": "transparent",
             })
 
+    # Forward-fill so every line extends to the right edge
     max_len = len(all_labels)
     for dataset in datasets:
         while len(dataset["data"]) < max_len:
-            dataset["data"].append(None)
+            last_val = dataset["data"][-1] if dataset["data"] else None
+            dataset["data"].append(last_val)
 
     # Check for insufficient data (< 3 data points)
     if len(all_labels) < 3:
