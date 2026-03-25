@@ -601,6 +601,7 @@ def _update_history(
             "price_vs_100ma_pct": _parse_pct(data.get("vs_100d", "0%")),
             "price_vs_200ma_pct": _parse_pct(data.get("vs_200d", "0%")),
             "rating":             data.get("rating"),
+            "rsi":                data.get("rsi"),
         }
         # Store ranks for quadrant WoW arrows (only for equity indices)
         if name in breadth_ranks:
