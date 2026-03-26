@@ -191,6 +191,10 @@ Write like a technical analyst briefing a committee, not like a data feed summar
 
 **R8 — Both lines end with period:** Both lines are complete sentences ending with a period.
 
+**R9 — No false regional generalizations:** Never say "EM rallies" if only one EM index is up and another is down. Never say "DM sells off" if one DM market is flat. Any group claim (EM, DM, metals, majors) must be supported by ALL members of that group. When performance diverges within a group, name specific indices instead of using regional labels.
+
+**R10 — MA position verification (CRITICAL):** When `vs_50d`, `vs_100d`, or `vs_200d` is **negative**, price is **BELOW** that MA — the MA is **overhead resistance**, not support. When **positive**, price is **ABOVE** — the MA is **support below**. Before writing any sentence about an MA, verify the sign of the corresponding `vs_Xd` field. A sentence like "the 100d just below current price" when `vs_100d` is negative is a sign inversion error and must be caught.
+
 ### Technical Narrative Framework
 
 **The MA Stack — your primary structural tool.** Every subtitle must be aware of where price sits relative to the 50d, 100d, and 200d MAs:
@@ -293,6 +297,11 @@ Overview slides get exactly 1 line (not 2). Use a regional or thematic narrative
 - ❌ "Neutral for 3 consecutive weeks, hovering just 0.4% below 50d MA. Top fundamental rank at 1/9 but RSI at 65 suggests limited upside"
 - ✅ "Consolidating just below the 50d with the 100d and 200d rising underneath as support. A close above the 50d would confirm the base — RSI at 65 caps near-term upside."
 
+**MA position sign inversion (R10 violation):**
+- Data: vs_50d = -5.0%, vs_100d = -3.2%, vs_200d = +8.7%
+- ❌ "The 100d just below current price is the near-term pivot." (WRONG: vs_100d is negative → 100d is ABOVE price)
+- ✅ "Corrected 5.0% below the 50d with the 100d also overhead — the 200d 8.7% below remains the structural floor."
+
 **Overview (Equity):**
 - ❌ "Brazil leads at +12% while India lags at -10.7% YTD"
 - ✅ "Broad risk-off sweeps most equity markets — only IBOV holds ground as Sensex extends its decline."
@@ -303,13 +312,15 @@ When reading `draft_state.json` to generate subtitles:
 
 1. **Read all 20 instruments first** before writing any subtitle — batch awareness prevents repetition
 2. For each instrument, extract: `rating`, `dmas`, `technical`, `momentum`, `rsi`, `vs_50d`, `vs_100d`, `vs_200d`, `streak_weeks`, `price`
-3. Determine the MA stack position (above/below each MA)
-4. Select tone from DMAS calibration table
-5. Identify the key MA level (the one price is testing or needs to reclaim)
-6. Write Line 1 (current structure) and Line 2 (forward scenario)
-7. Verify: max 2 data values per line, no banned phrases, no scores named, no instrument name first
-8. After all 20 are written, scan for repetitive phrasing across the batch — rephrase any duplicates
-9. Write the 3 overview subtitles last, using the full set of individual results for context
+3. **R10 CHECK:** For each MA field, note the sign: negative = price BELOW that MA (overhead resistance); positive = price ABOVE (support below). Write this down before drafting.
+4. Determine the MA stack position (above/below each MA)
+5. Select tone from DMAS calibration table
+6. Identify the key MA level (the one price is testing or needs to reclaim)
+7. Write Line 1 (current structure) and Line 2 (forward scenario)
+8. **R10 CHECK:** Re-read every sentence that mentions an MA. Verify the direction word ("above"/"below"/"overhead"/"support"/"underpins") matches the sign from step 3. Fix any inversions.
+9. Verify: max 2 data values per line, no banned phrases, no scores named, no instrument name first
+10. After all 20 are written, scan for repetitive phrasing across the batch — rephrase any duplicates
+11. Write the 3 overview subtitles last, using the full set of individual results for context
 
 ## Scheduled Task — Tuesday 11:00 PM
 
