@@ -237,6 +237,14 @@ The DMAS score sets the emotional temperature WITHOUT being named:
 - High Momentum + Low Technical: "The longer trend still favors buyers, but the recent breakdown is severe"
 - Low Momentum + High Technical: "Near-term positioning has improved but the broader trend remains weak"
 
+### MA Slope Awareness
+
+When visible on the chart, mention whether MAs are:
+- **Rising:** supportive, adds conviction to holds
+- **Flattening:** trend losing steam
+- **Curling down/rolling over:** trend reversing
+- **Converging:** squeeze forming, breakout imminent
+
 ### Overview Subtitles (Equity / Commodity / Crypto)
 
 Overview slides get exactly 1 line (not 2). Use a regional or thematic narrative:
@@ -248,7 +256,12 @@ Overview slides get exactly 1 line (not 2). Use a regional or thematic narrative
 5. No score references whatsoever
 6. Frame the group story, not individual instrument stories
 7. Do NOT name more than one individual instrument — rest should be categories
-8. Numbers must match data within 1 percentage point, no approximate language
+8. **Never generalize a region when performance diverges within it.** If Brazil is +13% and India is -13%, "emerging markets" are NOT down — they are split. Name specific indices, not regional labels, when the underlying data shows divergence. Wrong: "India drags emerging markets down." Right: "IBOV's +13% rally leads a fractured market — DM sells off while LatAm defies the trend." Always verify that any group claim (EM, DM, metals, majors) is actually supported by ALL members of that group.
+
+### Validation Clarifications (avoiding false positives)
+
+- **R2 (max 2 numbers per line):** MA identifiers like "50d", "100d", "200d" are technical labels, NOT data values. Do not count them toward the 2-number limit.
+- **R3 (no promotional adjectives):** Match whole words only, not substrings. "unremarkable" does not violate R3 just because it contains "remarkable."
 
 ### Banned Phrases (hard ban, never use)
 
@@ -264,9 +277,39 @@ Overview slides get exactly 1 line (not 2). Use a regional or thematic narrative
 - ❌ "Bullish for 14 consecutive weeks, trading 17.9% above 200d MA. Momentum score at 95 with breadth ranked 1/9"
 - ✅ "All three MAs rising and well-spaced — textbook bullish structure. Pulled back to the 50d after 14 weeks of gains; RSI at 41 resets overbought conditions for the next leg."
 
+**Constructive pullback (DMAS 67, Momentum 82):**
+- ❌ "Downgraded from bullish to constructive despite trading 8.7% above 200d MA. RSI at 37 with price 5.0% under 50d MA—near-term rebound is key"
+- ✅ "Pulled back below both the 50d and 100d, but the 200d remains well below near 48,500 preserving the longer-term uptrend. Needs to reclaim the 100d to restore bullish structure."
+
 **Cautious with oversold bounce potential (DMAS 37):**
 - ❌ "Downgraded to cautious as price slips 4.3% below 50d MA. RSI at 30 signals oversold—watch for a bounce near 200d MA"
 - ✅ "Trading below all short-term MAs as the 50d begins curling lower. Oversold RSI near 30 favors a relief bounce — the 200d at 6,337 is the line in the sand."
+
+**Violent correction from strength (DMAS 42, ↓38 WoW):**
+- ❌ "Plunged 11.0% below 50d MA with RSI at oversold 25. Downgraded sharply from bullish—still 6.2% above 200d MA for now"
+- ✅ "Violent correction through the 50d and 100d after a parabolic run. RSI at 25 is deeply oversold — the rising 200d near 4,200 is the first real support for a bounce attempt."
+
+**Neutral consolidation (DMAS 45):**
+- ❌ "Neutral for 3 consecutive weeks, hovering just 0.4% below 50d MA. Top fundamental rank at 1/9 but RSI at 65 suggests limited upside"
+- ✅ "Consolidating just below the 50d with the 100d and 200d rising underneath as support. A close above the 50d would confirm the base — RSI at 65 caps near-term upside."
+
+**Overview (Equity):**
+- ❌ "Brazil leads at +12% while India lags at -10.7% YTD"
+- ✅ "Broad risk-off sweeps most equity markets — only IBOV holds ground as Sensex extends its decline."
+
+### Generation Workflow
+
+When reading `draft_state.json` to generate subtitles:
+
+1. **Read all 20 instruments first** before writing any subtitle — batch awareness prevents repetition
+2. For each instrument, extract: `rating`, `dmas`, `technical`, `momentum`, `rsi`, `vs_50d`, `vs_100d`, `vs_200d`, `streak_weeks`, `price`
+3. Determine the MA stack position (above/below each MA)
+4. Select tone from DMAS calibration table
+5. Identify the key MA level (the one price is testing or needs to reclaim)
+6. Write Line 1 (current structure) and Line 2 (forward scenario)
+7. Verify: max 2 data values per line, no banned phrases, no scores named, no instrument name first
+8. After all 20 are written, scan for repetitive phrasing across the batch — rephrase any duplicates
+9. Write the 3 overview subtitles last, using the full set of individual results for context
 
 ## Scheduled Task — Tuesday 11:00 PM
 

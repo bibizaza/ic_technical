@@ -266,6 +266,9 @@ RULES:
 7. Numbers must match actual data to within 1 percentage point. Do not round
    aggressively or use approximate language ("nearly") — either use the exact
    number or drop it.
+8. Never generalize a region when performance diverges within it. If Brazil is
+   +13% and India is -13%, "emerging markets" are NOT down — they are split.
+   Name specific indices, not regional labels, when data diverges within a group.
 
 GOOD examples:
 - "Emerging markets lead 2026 as Western indices give back last year's gains"
