@@ -161,20 +161,112 @@ What it does:
 
 Runs prepare → assemble in sequence. This is what the scheduled task uses.
 
-## Subtitle Rules
+## Subtitle Generation Directive
 
-The subtitle prompt has strict rules. If editing the prompt, preserve ALL of these:
+### Context
 
-1. **No DMAS score in subtitle text** — the number is on the gauge chart already
-2. **Max 2 numbers per subtitle line** — prioritize MA distances and RSI over raw scores
-3. **No promotional adjectives** — no "exceptional", "remarkable", "outstanding", "perfect", "impressive"
-4. **Overview subtitles: punchy, narrative** — contrast best vs worst performer
-5. **Streak counts: use `streak_weeks` from draft_state.json** — NEVER count history.json entries manually
-6. **Line 1 must end with period** — post-processing enforced
-7. **No instrument name as first word**
-8. **Numbers must be verifiable from the data**
-9. **MA position language must match actual vs_50d/vs_100d/vs_200d values**
-10. **No investment recommendations**
+You are generating 2-line subtitles for each instrument slide in the Herculis Market Compass weekly IC presentation. Each slide shows a 5-month price chart with 50d/100d/200d moving averages, RSI(14), and a DMAS scorecard (Technical, Momentum, RSI sub-scores). Your subtitle sits directly below the instrument name and rating — it is the analyst's voice.
+
+### Core Philosophy
+
+Write like a technical analyst briefing a committee, not like a data feed summarizing scores. Every subtitle should answer two questions:
+1. **Line 1:** What is the chart structure telling us right now?
+2. **Line 2:** What is the next technical level to watch, and what happens there?
+
+### Hard Rules (violations = automatic reject)
+
+**R1 — No scores in text:** Never mention DMAS, Technical score, Momentum score, RSI score value as a score, breadth rank, or fundamental rank by name. These are already displayed on the scorecard. Exception: RSI level can be referenced as a technical indicator (e.g., "RSI nearing oversold" or "RSI at 30"), but NOT as "RSI score at 30."
+
+**R2 — Max 2 numbers per line:** Each subtitle line may contain at most 2 numerical values. Prioritize MA distance percentages and RSI over raw prices. If a line needs 3+ numbers, rephrase to drop the least important one.
+
+**R3 — No promotional adjectives:** Banned: "extraordinary," "exceptional," "remarkable," "outstanding," "perfect," "relentless," "impressive," "stunning," "incredible," "powerful." Replace with factual technical language.
+
+**R4 — No instrument name as first words:** The instrument name is already in the title. Don't start the subtitle with it.
+
+**R5 — All numbers must be verifiable:** Every number in the subtitle must come from the data in `draft_state.json`. Never invent or approximate. If `vs_50d` is -4.3%, write -4.3%, not "about 4%."
+
+**R6 — Streak counts from Python only:** Use the pre-computed `streak_weeks` field from `draft_state.json`. Never count entries in `history.json` yourself — you will hallucinate.
+
+**R7 — No investment recommendations:** Never write "buy," "sell," "add exposure," "reduce position," "take profits," or similar advisory language.
+
+**R8 — Both lines end with period:** Both lines are complete sentences ending with a period.
+
+### Technical Narrative Framework
+
+**The MA Stack — your primary structural tool.** Every subtitle must be aware of where price sits relative to the 50d, 100d, and 200d MAs:
+
+| Price position | Structure | Language tone |
+|---|---|---|
+| Above all 3 MAs, MAs fanning up | Textbook bullish | "All MAs rising and well-spaced" |
+| Above 200d, below 50d | Pullback within uptrend | "Corrected to the 100d zone but 200d underpins" |
+| Below all 3 MAs, MAs curling down | Bearish breakdown | "Sliced through all MAs with the 50d curling lower" |
+| Testing a specific MA | Inflection point | "Clinging to the 200d as last support" |
+| Between MAs (trapped) | Indecision / range | "Trapped between the 100d and 200d" |
+
+**Forward-looking language (Line 2):** Almost always include a forward scenario:
+- "Needs to reclaim the 50d near X to restore bullish structure."
+- "A break below the 200d would open a new leg lower."
+- "The rising 200d near X is the first real support for a bounce."
+
+**RSI as urgency/patience signal:** RSI contextualizes timing, not structure:
+- RSI < 30: "Deeply oversold — bounce conditions forming"
+- RSI 30-40: "RSI nearing oversold" or "limited downside cushion"
+- RSI 40-60: No need to mention unless it adds context
+- RSI 60-70: "RSI resetting from overbought" or "room to run"
+- RSI > 70: "Overbought conditions building — pullback risk elevated"
+
+### DMAS-Driven Tone Calibration
+
+The DMAS score sets the emotional temperature WITHOUT being named:
+
+| DMAS Range | Tone | Vocabulary palette |
+|---|---|---|
+| 80-100 | Confident, forward-looking | "textbook structure," "next leg," "well-spaced MAs," "resets for continuation" |
+| 60-79 | Balanced, constructive | "broader uptrend intact," "underpins," "needs to reclaim," "would restore" |
+| 40-59 | Cautious, watchful | "approaching support," "limited cushion," "line in the sand," "pivotal zone" |
+| 20-39 | Urgent, defensive | "rapid succession," "losing levels," "no oversold cushion yet," "last support" |
+| 0-19 | Structural damage | "freefall," "no base forming," "all MAs sloping down," "stabilization needed" |
+
+**WoW delta modulates intensity:**
+- Large negative (↓15+): "sharp reversal," "violent correction," "in rapid succession"
+- Small negative (↓1-5): "continues to drift," "edging lower"
+- Positive: "beginning to stabilize," "first uptick in X weeks"
+- Unchanged: "consolidating," "range-bound," "holding its ground"
+
+**Technical vs Momentum divergence (>30 points):**
+- High Momentum + Low Technical: "The longer trend still favors buyers, but the recent breakdown is severe"
+- Low Momentum + High Technical: "Near-term positioning has improved but the broader trend remains weak"
+
+### Overview Subtitles (Equity / Commodity / Crypto)
+
+Overview slides get exactly 1 line (not 2). Use a regional or thematic narrative:
+
+1. Contrast strongest vs weakest with narrative tension, not just numbers
+2. Name actual indices/assets (e.g., "IBOV," "Sensex," not "Brazil," "India")
+3. Use a unifying theme if one exists (e.g., "EM divergence widens" or "Metals correct in unison")
+4. Max 1 number (typically the spread between best and worst YTD)
+5. No score references whatsoever
+6. Frame the group story, not individual instrument stories
+7. Do NOT name more than one individual instrument — rest should be categories
+8. Numbers must match data within 1 percentage point, no approximate language
+
+### Banned Phrases (hard ban, never use)
+
+"recovery hinges on", "recovery depends on", "outlook persists", "dynamics continue", "exceptional strength remains", "momentum supports further gains", "bullish streak remains unbroken", "maintains bullish trend", "resilience despite DMAS decline", "momentum strength key to", "hinges on reclaiming 50d MA", "momentum yet to confirm technical alignment", "remains trapped below all MAs", "as DMAS drops", "downgraded from X to Y", "score floored at zero", "breadth ranking worst at X/Y", "momentum score at X", "technical score at X"
+
+### Before/After Examples
+
+**Bearish with structural damage (DMAS 6):**
+- ❌ "Bearish for 5 consecutive weeks with technical score floored at zero. Down 10.2% below 200d MA and RSI at 34—no reversal signal yet"
+- ✅ "In freefall with all MAs now sloping down and price 10.2% below the 200d. RSI nearing oversold at 34 but no base forming — stabilization needed before any recovery attempt."
+
+**Strong bullish (DMAS 91):**
+- ❌ "Bullish for 14 consecutive weeks, trading 17.9% above 200d MA. Momentum score at 95 with breadth ranked 1/9"
+- ✅ "All three MAs rising and well-spaced — textbook bullish structure. Pulled back to the 50d after 14 weeks of gains; RSI at 41 resets overbought conditions for the next leg."
+
+**Cautious with oversold bounce potential (DMAS 37):**
+- ❌ "Downgraded to cautious as price slips 4.3% below 50d MA. RSI at 30 signals oversold—watch for a bounce near 200d MA"
+- ✅ "Trading below all short-term MAs as the 50d begins curling lower. Oversold RSI near 30 favors a relief bounce — the 200d at 6,337 is the line in the sand."
 
 ## Scheduled Task — Tuesday 11:00 PM
 
