@@ -26,19 +26,23 @@ from __future__ import annotations
 
 import argparse
 import logging
-import subprocess
+import os
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 
 
-def _notify(title: str, message: str) -> None:
-    """Send a macOS notification (best-effort — never raises)."""
+def _telegram(message: str) -> None:
+    """Send a Telegram message via @herculis_ic_bot (best-effort — never raises)."""
     try:
-        script = (
-            f'display notification "{message}" '
-            f'with title "{title}" '
-            f'sound name "Basso"'
-        )
-        subprocess.run(["osascript", "-e", script], timeout=5, check=False)
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID", "979257663")
+        if not token:
+            return
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        data = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode()
+        urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=10)
     except Exception:
         pass
 
@@ -143,10 +147,12 @@ def main() -> int:
         return 1
     except Exception as e:
         log.error("Pipeline failed: %s", e, exc_info=True)
-        _notify("IC Pipeline Failed", str(e)[:200])
+        _telegram(f"IC pipeline failed at {args.stage}: {e}")
         return 1
 
-    _notify("IC Pipeline Complete", f"Market Compass {args.date or 'latest'} ready in Dropbox.")
+    _telegram(
+        f"IC pipeline complete, Market Compass {args.date or 'latest'} saved to Dropbox."
+    )
     return 0
 
 

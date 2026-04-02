@@ -281,6 +281,20 @@ def run_prepare(
                 disconnect_bloomberg(session)
         except Exception as e:
             log.error("Bloomberg pull failed: %s", e)
+            # Notify immediately — before any further processing
+            try:
+                import os as _os, urllib.parse as _up, urllib.request as _ur
+                _token = _os.environ.get("TELEGRAM_BOT_TOKEN", "")
+                _chat = _os.environ.get("TELEGRAM_CHAT_ID", "979257663")
+                if _token:
+                    _url = f"https://api.telegram.org/bot{_token}/sendMessage"
+                    _data = _up.urlencode({
+                        "chat_id": _chat,
+                        "text": "Bloomberg not reachable at 10.211.55.3:8194, IC pipeline aborted",
+                    }).encode()
+                    _ur.urlopen(_ur.Request(_url, data=_data), timeout=10)
+            except Exception:
+                pass
             raise RuntimeError(
                 f"Bloomberg is not available ({e}). "
                 "Ensure Bloomberg Terminal is open and blpapi is running. "
