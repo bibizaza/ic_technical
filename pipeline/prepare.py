@@ -281,9 +281,9 @@ def run_prepare(
                 disconnect_bloomberg(session)
         except Exception as e:
             log.error("Bloomberg pull failed: %s", e)
-            raise SystemExit(
-                f"\nFATAL: Bloomberg is not available ({e}).\n"
-                "Ensure Bloomberg Terminal is open and blpapi is running.\n"
+            raise RuntimeError(
+                f"Bloomberg is not available ({e}). "
+                "Ensure Bloomberg Terminal is open and blpapi is running. "
                 "To run on stale data intentionally, use --skip-bloomberg."
             )
     else:

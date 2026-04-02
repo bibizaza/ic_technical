@@ -26,7 +26,21 @@ from __future__ import annotations
 
 import argparse
 import logging
+import subprocess
 import sys
+
+
+def _notify(title: str, message: str) -> None:
+    """Send a macOS notification (best-effort — never raises)."""
+    try:
+        script = (
+            f'display notification "{message}" '
+            f'with title "{title}" '
+            f'sound name "Basso"'
+        )
+        subprocess.run(["osascript", "-e", script], timeout=5, check=False)
+    except Exception:
+        pass
 
 
 def _setup_logging(level: str) -> None:
@@ -129,8 +143,10 @@ def main() -> int:
         return 1
     except Exception as e:
         log.error("Pipeline failed: %s", e, exc_info=True)
+        _notify("IC Pipeline Failed", str(e)[:200])
         return 1
 
+    _notify("IC Pipeline Complete", f"Market Compass {args.date or 'latest'} ready in Dropbox.")
     return 0
 
 
