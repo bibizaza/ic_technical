@@ -281,9 +281,11 @@ def run_prepare(
                 disconnect_bloomberg(session)
         except Exception as e:
             log.error("Bloomberg pull failed: %s", e)
-            raw_breadth = pd.DataFrame()
-            raw_fundamentals = pd.DataFrame()
-            market_caps_raw = {}
+            raise SystemExit(
+                f"\nFATAL: Bloomberg is not available ({e}).\n"
+                "Ensure Bloomberg Terminal is open and blpapi is running.\n"
+                "To run on stale data intentionally, use --skip-bloomberg."
+            )
     else:
         log.info("Skipping Bloomberg (--skip-bloomberg flag set)")
         raw_breadth = pd.DataFrame()
