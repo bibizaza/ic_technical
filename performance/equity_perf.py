@@ -140,7 +140,12 @@ def _load_price_data(excel_path: Union[str, pathlib.Path], tickers: List[str]) -
     out = df[["Date"] + tickers].copy()
     for t in tickers:
         out[t] = pd.to_numeric(out[t], errors="coerce")
-    return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+    out = out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+    # Forward-fill prices so that weekends / early-close / delayed tickers
+    # inherit the previous session's closing price rather than appearing as NaN.
+    price_cols = [c for c in out.columns if c != "Date"]
+    out[price_cols] = out[price_cols].ffill()
+    return out
 
 def _compute_horizon_returns(
     df: pd.DataFrame,
