@@ -414,7 +414,9 @@ def update_master_prices_wide(
     long_df["date"] = pd.to_datetime(long_df["date"])
 
     def fmt(v):
-        return f"{v:.2f}" if not (isinstance(v, float) and np.isnan(v)) else ""
+        if isinstance(v, float) and np.isnan(v):
+            return ""
+        return f"{v:.4f}" if abs(v) < 100 else f"{v:.2f}"
 
     # ── Pivot to wide format matching CSV column order ────────────────────────
     new_dates = sorted(long_df["date"].unique())
