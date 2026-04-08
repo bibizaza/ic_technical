@@ -85,10 +85,10 @@ body {
     width: 200px;         /* Increased from ~160px for better proportions */
     min-width: 200px;
     background: linear-gradient(180deg, #1B3A5A 0%, #152D45 100%);
-    padding: 12px 15px;   /* More horizontal padding */
+    padding: 8px 15px;    /* Reduced vertical padding to fit all cards */
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     border: 1px solid #1B3A5A;
     border-left: none;
     border-radius: 0 8px 0 0;
@@ -109,7 +109,7 @@ body {
     background: rgba(255,255,255,0.1);
     border-radius: 5px;
     padding: 10px 15px;
-    margin-bottom: 8px;
+    margin-bottom: 2px;
     text-align: center;
 }
 
@@ -165,7 +165,7 @@ body {
     background: rgba(255,255,255,0.08);
     border-radius: 5px;
     padding: 8px 12px;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
 }
 
 .sub-score-header {
