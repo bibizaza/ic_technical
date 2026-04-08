@@ -374,11 +374,21 @@ def update_master_prices_wide(
     last_date = df_dates["_d"].dropna().max()
 
     today = datetime.today()
-    if last_date.date() >= today.date():
+    overwrite_today = last_date.date() == today.date()
+    if last_date.date() > today.date():
         log.info("master_prices.csv is already up to date (%s)", last_date.date())
         return 0
 
-    start_str = (last_date + timedelta(days=1)).strftime("%Y%m%d")
+    if overwrite_today:
+        # Last row is today — re-pull today to pick up markets that closed after
+        # the previous run (e.g. US/LatAm when the pipeline ran in the morning).
+        start_str = last_date.strftime("%Y%m%d")
+        log.info(
+            "Re-pulling today (%s) to fill any markets that were still open on last run",
+            last_date.date(),
+        )
+    else:
+        start_str = (last_date + timedelta(days=1)).strftime("%Y%m%d")
     end_str = today.strftime("%Y%m%d")
     log.info(
         "Pulling Bloomberg prices for %d tickers from %s to %s",
@@ -403,9 +413,14 @@ def update_master_prices_wide(
     long_df = pd.concat(all_long, ignore_index=True)
     long_df["date"] = pd.to_datetime(long_df["date"])
 
+    def fmt(v):
+        return f"{v:.2f}" if not (isinstance(v, float) and np.isnan(v)) else ""
+
     # ── Pivot to wide format matching CSV column order ────────────────────────
     new_dates = sorted(long_df["date"].unique())
-    lines = []
+    append_lines = []
+    overwrite_line: str | None = None
+
     for dt in new_dates:
         day_data = long_df[long_df["date"] == dt].set_index("ticker")
         date_str = pd.Timestamp(dt).strftime("%d/%m/%Y")
@@ -418,18 +433,33 @@ def update_master_prices_wide(
                 high  = row.get("PX_HIGH", np.nan)
             else:
                 close = low = high = np.nan
-
-            def fmt(v):
-                return f"{v:.2f}" if not (isinstance(v, float) and np.isnan(v)) else ""
-
             vals.extend([fmt(close), fmt(low), fmt(high)])
 
-        lines.append(date_str + ";" + ";".join(vals))
+        line = date_str + ";" + ";".join(vals)
+        if overwrite_today and pd.Timestamp(dt).date() == last_date.date():
+            overwrite_line = line
+        else:
+            append_lines.append(line)
 
-    # ── Append to CSV ─────────────────────────────────────────────────────────
-    with open(master_path, "a") as f:
-        for line in lines:
-            f.write("\n" + line)
+    # ── Overwrite today's row if we re-pulled it ──────────────────────────────
+    if overwrite_line is not None:
+        with open(master_path, encoding="utf-8-sig") as f:
+            all_lines = f.readlines()
+        today_str = last_date.strftime("%d/%m/%Y")
+        for idx in range(len(all_lines) - 1, -1, -1):
+            if all_lines[idx].startswith(today_str):
+                all_lines[idx] = overwrite_line + "\n"
+                log.info("Overwrote today's row (%s) with fresh Bloomberg data", today_str)
+                break
+        with open(master_path, "w", encoding="utf-8-sig") as f:
+            f.writelines(all_lines)
 
-    log.info("Appended %d new price rows to %s", len(lines), master_path)
-    return len(lines)
+    # ── Append any genuinely new rows ─────────────────────────────────────────
+    if append_lines:
+        with open(master_path, "a") as f:
+            for line in append_lines:
+                f.write("\n" + line)
+
+    n_written = (1 if overwrite_line else 0) + len(append_lines)
+    log.info("Updated %d price rows in %s", n_written, master_path)
+    return n_written
