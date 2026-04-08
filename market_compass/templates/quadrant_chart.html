@@ -190,21 +190,21 @@ const quadrantPlugin = {
     ctx.font = '600 11.5px "DM Sans", sans-serif';
     ctx.globalAlpha = 0.40;
 
+    ctx.fillStyle = '#B45309';
+    ctx.textAlign = 'left';
+    ctx.fillText('Weak Breadth · Strong Fundamentals', left + 10, top + 18);
+
     ctx.fillStyle = '#15803D';
-    ctx.textAlign = 'left';
-    ctx.fillText('Strong Breadth + Fundamentals', left + 10, top + 18);
-
-    ctx.fillStyle = '#B45309';
     ctx.textAlign = 'right';
-    ctx.fillText('Weak Breadth · Strong Fundamentals', right - 10, top + 18);
-
-    ctx.fillStyle = '#B45309';
-    ctx.textAlign = 'left';
-    ctx.fillText('Strong Breadth · Weak Fundamentals', left + 10, bottom - 8);
+    ctx.fillText('Strong Breadth + Fundamentals', right - 10, top + 18);
 
     ctx.fillStyle = '#991B1B';
+    ctx.textAlign = 'left';
+    ctx.fillText('Weak Breadth + Fundamentals', left + 10, bottom - 8);
+
+    ctx.fillStyle = '#B45309';
     ctx.textAlign = 'right';
-    ctx.fillText('Weak Breadth + Fundamentals', right - 10, bottom - 8);
+    ctx.fillText('Strong Breadth · Weak Fundamentals', right - 10, bottom - 8);
 
     ctx.globalAlpha = 1;
 

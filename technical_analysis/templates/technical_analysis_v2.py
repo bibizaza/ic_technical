@@ -53,7 +53,7 @@ body {
 
 .price-row {
     display: flex;
-    height: 270px;  /* Reduced to avoid subtitle overlap */
+    height: 285px;  /* Reduced to avoid subtitle overlap */
 }
 
 .price-chart-area {
