@@ -73,6 +73,7 @@ from playwright.sync_api import sync_playwright
 from utils import adjust_prices_for_mode
 from helpers.flag_utils import get_flag_html
 from helpers.html_to_image import render_html_to_image
+from helpers.chartjs_local import patch_cdn
 from market_compass.weekly_performance.html_template import EQUITY_YTD_EVOLUTION_HTML_TEMPLATE, YTD_INSUFFICIENT_DATA_HTML_TEMPLATE, FX_IMPACT_ANALYSIS_EUR_HTML_TEMPLATE, FX_IMPACT_ANALYSIS_CHF_HTML_TEMPLATE
 
 try:
@@ -139,7 +140,12 @@ def _load_price_data(excel_path: Union[str, pathlib.Path], tickers: List[str]) -
     out = df[["Date"] + tickers].copy()
     for t in tickers:
         out[t] = pd.to_numeric(out[t], errors="coerce")
-    return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+    out = out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+    # Forward-fill prices so that weekends / early-close / delayed tickers
+    # inherit the previous session's closing price rather than appearing as NaN.
+    price_cols = [c for c in out.columns if c != "Date"]
+    out[price_cols] = out[price_cols].ffill()
+    return out
 
 def _compute_horizon_returns(
     df: pd.DataFrame,
@@ -1010,11 +1016,13 @@ def create_equity_ytd_evolution_chart(
                 "backgroundColor": "transparent",
             })
 
-    # Ensure all datasets have the same length (pad with None if needed)
+    # Ensure all datasets have the same length — forward-fill so every
+    # line extends to the right edge (flat line = market closed, price unchanged)
     max_len = len(all_labels)
     for dataset in datasets:
         while len(dataset["data"]) < max_len:
-            dataset["data"].append(None)
+            last_val = dataset["data"][-1] if dataset["data"] else None
+            dataset["data"].append(last_val)
 
     # Debug output
     print(f"[DEBUG] chart_title={chart_title}")
@@ -1042,7 +1050,7 @@ def create_equity_ytd_evolution_chart(
                     'width': EQUITY_YTD_PNG_WIDTH_PX,
                     'height': EQUITY_YTD_PNG_HEIGHT_PX
                 })
-                page.set_content(html_content, wait_until='networkidle')
+                page.set_content(patch_cdn(html_content), wait_until='commit')
                 page.wait_for_timeout(500)
                 png_bytes = page.screenshot()
                 browser.close()
@@ -1097,8 +1105,8 @@ def create_equity_ytd_evolution_chart(
                 'height': EQUITY_YTD_PNG_HEIGHT_PX
             })
 
-            # Load HTML content - use data URL to ensure proper loading
-            page.set_content(html_content, wait_until='networkidle')
+            # Load HTML content with inline Chart.js (no CDN dependency)
+            page.set_content(patch_cdn(html_content), wait_until='commit')
 
             # Wait for Chart.js to signal rendering complete
             try:
@@ -1652,7 +1660,7 @@ def create_fx_impact_analysis_chart_eur(
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
             print(f"[FX Impact EUR DEBUG] Setting page content...")
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
             page.wait_for_timeout(500)
             print(f"[FX Impact EUR DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()
@@ -2008,7 +2016,7 @@ def create_fx_impact_analysis_chart_chf(
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
             print(f"[FX Impact CHF DEBUG] Setting page content...")
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
             page.wait_for_timeout(500)
             print(f"[FX Impact CHF DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()

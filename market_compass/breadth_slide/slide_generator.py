@@ -1,216 +1,126 @@
-"""Breadth Rank slide generator."""
+"""Composite Breadth Score slide generator.
 
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Tuple
+Renders a 6-column table (Index, Rank, Composite, Trend, Conviction, Sentiment)
+from breadth records computed by pipeline/breadth.py, then inserts into PPTX.
+"""
+
+from typing import List, Dict, Tuple, Optional
 import tempfile
 from pathlib import Path
 
-import pandas as pd
 from jinja2 import Template
 from pptx import Presentation
 from pptx.util import Cm
 
 from .html_template import BREADTH_HTML_TEMPLATE
-from helpers.flag_utils import get_flag_html
 from helpers.html_to_image import render_html_to_image
 
 
 # =============================================================================
-# RESOLUTION SETTINGS (Full-width standalone slide)
+# RESOLUTION SETTINGS (matches fundamental_slide exactly)
 # =============================================================================
 
 SCALE_FACTOR = 4
-BREADTH_BASE_WIDTH = 750  # Wider for full-width display
-BREADTH_BASE_HEIGHT = 360  # Taller to fit all 9 rows
+BREADTH_BASE_WIDTH = 750
+BREADTH_BASE_HEIGHT = 360
 BREADTH_WIDTH_PX = BREADTH_BASE_WIDTH * SCALE_FACTOR   # 3000
 BREADTH_HEIGHT_PX = BREADTH_BASE_HEIGHT * SCALE_FACTOR  # 1440
 
-# PowerPoint placement (cm)
-BREADTH_LEFT_CM = 2.7    # Horizontal position
-BREADTH_TOP_CM = 7.25    # Vertical position
-BREADTH_WIDTH_CM = 20.0  # Full width
-BREADTH_HEIGHT_CM = 9.5  # Taller to fit all 9 rows
+# PowerPoint placement (cm) — matches fundamental_slide
+BREADTH_LEFT_CM = 2.7
+BREADTH_TOP_CM = 7.73
+BREADTH_WIDTH_CM = 20.0
+BREADTH_HEIGHT_CM = 9.5
 
 
 # =============================================================================
-# INDEX NAME MAPPING
+# INDEX NAME + FLAG MAPPING — same 9 markets as fundamental/IC universe
 # =============================================================================
 
-# Map tickers to (display_name, flag_code)
 INDEX_NAME_MAP = {
-    "SPX Index": ("U.S.", "us"),
-    "SHSZ300 Index": ("China", "cn"),
-    "NKY Index": ("Japan", "jp"),
-    "SASEIDX Index": ("Saudi Arabia", "sa"),
-    "SENSEX Index": ("India", "in"),
-    "DAX Index": ("Germany", "de"),
-    "SMI Index": ("Switzerland", "ch"),
-    "MEXBOL Index": ("Mexico", "mx"),
-    "IBOV Index": ("Brazil", "br"),
+    # Keyed by display name (from config/tickers.yaml breadth_indices)
+    "S&P 500":   ("\U0001F1FA\U0001F1F8", "U.S."),
+    "SMI":       ("\U0001F1E8\U0001F1ED", "Switzerland"),
+    "DAX":       ("\U0001F1E9\U0001F1EA", "Germany"),
+    "Nikkei 225":("\U0001F1EF\U0001F1F5", "Japan"),
+    "CSI 300":   ("\U0001F1E8\U0001F1F3", "China"),
+    "TASI":      ("\U0001F1F8\U0001F1E6", "Saudi Arabia"),
+    "Sensex":    ("\U0001F1EE\U0001F1F3", "India"),
+    "MEXBOL":    ("\U0001F1F2\U0001F1FD", "Mexico"),
+    "IBOV":      ("\U0001F1E7\U0001F1F7", "Brazil"),
 }
 
 
 # =============================================================================
-# DATA STRUCTURES
+# COLOR CLASSIFICATION
 # =============================================================================
 
-@dataclass
-class BreadthRow:
-    """Data for a single row in the Breadth Rank table."""
-    index_name: str
-    flag_code: str  # ISO country code for flag
-    rank: int
-    pct_both: int   # % above both MAs
-    pct_20d: int    # % above 20D MA
-    pct_50d: int    # % above 50D MA
-
-
-# =============================================================================
-# DATA PREPARATION
-# =============================================================================
-
-def prepare_breadth_data(excel_path: str) -> List[BreadthRow]:
-    """
-    Prepare Breadth Rank data from Excel sheet.
-
-    Parameters
-    ----------
-    excel_path : str
-        Path to Excel file
-
-    Returns
-    -------
-    List[BreadthRow]
-        List of breadth data rows, sorted by % above both MAs
-    """
-    try:
-        # Read the helper_breadth sheet
-        df = pd.read_excel(excel_path, sheet_name="helper_breadth")
-        print(f"[Breadth Rank] Loaded sheet with {len(df)} rows, columns: {list(df.columns)[:10]}")
-
-        # Get column by position (0-indexed, so C=2, H=7, I=8, J=9)
-        # But let's be flexible and try to find them
-        cols = df.columns.tolist()
-
-        # Column C (index 2) = Ticker
-        # Column H (index 7) = % above both MA
-        # Column I (index 8) = % above 20D MA
-        # Column J (index 9) = % above 50D MA
-
-        if len(cols) < 10:
-            print(f"[Breadth Rank] Warning: Expected at least 10 columns, got {len(cols)}")
-            return []
-
-        ticker_col = cols[2]  # Column C
-        pct_both_col = cols[7]  # Column H
-        pct_20d_col = cols[8]  # Column I
-        pct_50d_col = cols[9]  # Column J
-
-        print(f"[Breadth Rank] Using columns: ticker={ticker_col}, both={pct_both_col}, 20d={pct_20d_col}, 50d={pct_50d_col}")
-
-        # Extract data
-        rows = []
-        for _, row in df.iterrows():
-            ticker = str(row[ticker_col]).strip() if pd.notna(row[ticker_col]) else ""
-
-            # Skip empty or header rows
-            if not ticker or ticker.lower() in ["ticker", "index", ""]:
-                continue
-
-            # Get display name and flag code
-            name_flag = INDEX_NAME_MAP.get(ticker)
-            if name_flag:
-                display_name, flag_code = name_flag
-            else:
-                display_name = ticker.replace(" Index", "")
-                flag_code = ""
-
-            # Get percentages (convert to int, handle NaN)
-            try:
-                pct_both = int(round(float(row[pct_both_col]) * 100)) if pd.notna(row[pct_both_col]) else 0
-                pct_20d = int(round(float(row[pct_20d_col]) * 100)) if pd.notna(row[pct_20d_col]) else 0
-                pct_50d = int(round(float(row[pct_50d_col]) * 100)) if pd.notna(row[pct_50d_col]) else 0
-            except (ValueError, TypeError):
-                # Values might already be percentages (0-100)
-                pct_both = int(row[pct_both_col]) if pd.notna(row[pct_both_col]) else 0
-                pct_20d = int(row[pct_20d_col]) if pd.notna(row[pct_20d_col]) else 0
-                pct_50d = int(row[pct_50d_col]) if pd.notna(row[pct_50d_col]) else 0
-
-            # Clamp to 0-100
-            pct_both = max(0, min(100, pct_both))
-            pct_20d = max(0, min(100, pct_20d))
-            pct_50d = max(0, min(100, pct_50d))
-
-            rows.append(BreadthRow(
-                index_name=display_name,
-                flag_code=flag_code,
-                rank=0,  # Will be set after sorting
-                pct_both=pct_both,
-                pct_20d=pct_20d,
-                pct_50d=pct_50d,
-            ))
-
-        # Sort by % above both MAs (descending)
-        rows.sort(key=lambda r: r.pct_both, reverse=True)
-
-        # Assign ranks
-        for i, row in enumerate(rows):
-            row.rank = i + 1
-
-        print(f"[Breadth Rank] Prepared {len(rows)} rows")
-        for row in rows:
-            print(f"  {row.rank}. {row.index_name}: {row.pct_both}% / {row.pct_20d}% / {row.pct_50d}%")
-
-        return rows
-
-    except Exception as e:
-        print(f"[Breadth Rank] Error reading data: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
-
-
-# =============================================================================
-# HTML GENERATION
-# =============================================================================
-
-def _get_pct_class(value: int) -> str:
-    """Get CSS class for percentage value."""
+def _color_class(value: float) -> str:
+    """Classify value into green/amber/red for CSS styling."""
     if value >= 55:
-        return "high"
-    elif value >= 45:
-        return "med-high"
+        return "green"
     elif value >= 35:
-        return "med"
-    elif value >= 25:
-        return "med-low"
+        return "amber"
     else:
-        return "low"
+        return "red"
 
 
-def _prepare_row_for_template(row: BreadthRow) -> dict:
-    """Prepare row for Jinja template."""
-    # Generate flag HTML (size 34 for larger rows, +20%)
-    flag_html = get_flag_html(row.flag_code, size=34) if row.flag_code else ""
+# =============================================================================
+# DATA PREPARATION (from draft_state breadth records)
+# =============================================================================
 
-    return {
-        "index_name": row.index_name,
-        "flag_html": flag_html,
-        "rank": row.rank,
-        "pct_both": row.pct_both,
-        "pct_both_class": _get_pct_class(row.pct_both),
-        "pct_20d": row.pct_20d,
-        "pct_20d_class": _get_pct_class(row.pct_20d),
-        "pct_50d": row.pct_50d,
-        "pct_50d_class": _get_pct_class(row.pct_50d),
-    }
+def _prepare_rows_from_records(breadth_records: list) -> list:
+    """
+    Convert breadth records (from pipeline/breadth.py via draft_state.json)
+    into template-ready row dicts.
+
+    Each record has: name, composite, trend, conviction, sentiment, rank
+    """
+    rows = []
+    for rec in breadth_records:
+        ticker = rec["name"]
+        mapping = INDEX_NAME_MAP.get(ticker)
+        if not mapping:
+            continue
+
+        flag, display_name = mapping
+        composite = float(rec["composite"])
+        trend = float(rec["trend"])
+        # conviction (was "momentum" in old records)
+        conviction = float(rec.get("conviction", rec.get("momentum", 50)))
+        # sentiment (was "skew" / "extension" in old records)
+        sentiment = float(rec.get("sentiment", rec.get("skew", rec.get("extension", 50))))
+
+        rows.append({
+            "rank": int(rec["rank"]),
+            "flag": flag,
+            "name": display_name,
+            "composite": int(round(composite)),
+            "composite_class": _color_class(composite),
+            "trend": min(100, max(0, trend)),
+            "trend_int": int(round(trend)),
+            "trend_class": _color_class(trend),
+            "conviction": min(100, max(0, conviction)),
+            "conviction_int": int(round(conviction)),
+            "conviction_class": _color_class(conviction),
+            "sentiment": min(100, max(0, sentiment)),
+            "sentiment_int": int(round(sentiment)),
+            "sentiment_class": _color_class(sentiment),
+        })
+
+    rows.sort(key=lambda r: r["rank"])
+    return rows
 
 
-def _generate_html(rows: List[BreadthRow]) -> str:
-    """Generate HTML from data."""
+# =============================================================================
+# HTML GENERATION + RENDERING
+# =============================================================================
+
+def _generate_html(rows: list) -> str:
+    """Generate HTML from prepared row data."""
     template = Template(BREADTH_HTML_TEMPLATE)
     return template.render(
-        rows=[_prepare_row_for_template(r) for r in rows],
+        rows=rows,
         width=BREADTH_WIDTH_PX,
         height=BREADTH_HEIGHT_PX,
         scale=SCALE_FACTOR,
@@ -219,13 +129,13 @@ def _generate_html(rows: List[BreadthRow]) -> str:
 
 def _html_to_png(html: str, output_path: str) -> str:
     """Convert HTML to PNG image using Playwright."""
-    print(f"[Breadth Rank] Rendering image ({BREADTH_WIDTH_PX}x{BREADTH_HEIGHT_PX}px)...")
+    print(f"[Composite Breadth] Rendering image ({BREADTH_WIDTH_PX}x{BREADTH_HEIGHT_PX}px)...")
     return render_html_to_image(
         html_content=html,
         output_path=output_path,
         size=(BREADTH_WIDTH_PX, BREADTH_HEIGHT_PX),
-        filename="breadth.png",
-        device_scale_factor=1  # CSS already scaled by SCALE_FACTOR
+        filename="breadth_composite.png",
+        device_scale_factor=1,
     )
 
 
@@ -233,128 +143,136 @@ def _html_to_png(html: str, output_path: str) -> str:
 # SLIDE INSERTION
 # =============================================================================
 
-def insert_breadth_rank(
+def insert_composite_breadth(
     prs: Presentation,
-    rows: List[BreadthRow],
-    slide_name: str = "slide_breadth"
+    rows: list,
+    slide_name: str = "slide_breadth",
+) -> Presentation:
+    """Insert Composite Breadth Score table into PowerPoint slide."""
+    if not rows:
+        print("[Composite Breadth] No data to display")
+        return prs
+
+    print(f"[Composite Breadth] Generating table with {len(rows)} rows...")
+
+    html = _generate_html(rows)
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        img_path = f.name
+
+    _html_to_png(html, img_path)
+
+    # Find slide by shape name
+    target_slide = None
+    slide_name_lower = slide_name.lower().strip()
+
+    print(f"[Composite Breadth] Searching for slide with shape named '{slide_name}'...")
+    for slide_idx, slide in enumerate(prs.slides):
+        for shape in slide.shapes:
+            if hasattr(shape, "name") and shape.name:
+                if shape.name.lower().strip() == slide_name_lower:
+                    target_slide = slide
+                    print(f"[Composite Breadth] Found slide at index {slide_idx + 1}")
+                    break
+        if target_slide:
+            break
+
+    if not target_slide:
+        print(f"[Composite Breadth] No slide with shape name '{slide_name}' found")
+        Path(img_path).unlink(missing_ok=True)
+        return prs
+
+    # Insert image
+    picture = target_slide.shapes.add_picture(
+        img_path,
+        left=Cm(BREADTH_LEFT_CM),
+        top=Cm(BREADTH_TOP_CM),
+        width=Cm(BREADTH_WIDTH_CM),
+        height=Cm(BREADTH_HEIGHT_CM),
+    )
+
+    # Send to back
+    spTree = target_slide.shapes._spTree
+    sp = picture._element
+    spTree.remove(sp)
+    spTree.insert(2, sp)
+
+    Path(img_path).unlink(missing_ok=True)
+
+    print(f"[Composite Breadth] Table inserted at ({BREADTH_LEFT_CM}, {BREADTH_TOP_CM}) cm")
+    return prs
+
+
+# =============================================================================
+# PUBLIC API: called from assemble.py
+# =============================================================================
+
+def generate_composite_breadth_slide(
+    prs: Presentation,
+    breadth_records: list,
+    slide_name: str = "slide_breadth",
 ) -> Presentation:
     """
-    Insert Breadth Rank table into PowerPoint slide.
-
-    Finds the slide by shape name and inserts the table at a fixed position.
-    Does NOT remove any shapes - just adds the image.
+    Generate Composite Breadth Score slide from breadth records.
 
     Parameters
     ----------
     prs : Presentation
         PowerPoint presentation object
-    rows : List[BreadthRow]
-        List of breadth data rows
+    breadth_records : list
+        List of dicts with keys: name, composite, trend, conviction, sentiment, rank
+        (output of pipeline/breadth.py compute_composite_breadth)
     slide_name : str
-        Exact slide/shape name to search for (from PowerPoint's Selection Pane)
+        Shape name to find the target slide
 
     Returns
     -------
     Presentation
         Modified presentation
     """
+    rows = _prepare_rows_from_records(breadth_records)
+
     if not rows:
-        print("[Breadth Rank] No data to display")
+        print("[Composite Breadth] No breadth data available")
         return prs
 
-    print(f"[Breadth Rank] Generating table with {len(rows)} rows...")
-    print(f"[Breadth Rank] Resolution: {BREADTH_WIDTH_PX}x{BREADTH_HEIGHT_PX}px (4x)")
+    for row in rows:
+        print(f"  {row['rank']}. {row['name']}: Composite={row['composite']}, "
+              f"Trend={row['trend_int']}, Conv={row['conviction_int']}, Sent={row['sentiment_int']}")
 
-    # Generate HTML
-    html = _generate_html(rows)
+    return insert_composite_breadth(prs, rows, slide_name)
 
-    # Convert to PNG
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-        img_path = f.name
 
-    _html_to_png(html, img_path)
+# =============================================================================
+# BACKWARDS COMPAT: keep old API working (used by existing code paths)
+# =============================================================================
 
-    # Find slide by exact shape name (not text content)
-    target_slide = None
-    slide_name_lower = slide_name.lower().strip()
+# Re-export old names for any code that imports them
+from dataclasses import dataclass
 
-    print(f"[Breadth Rank] Searching for slide with shape named '{slide_name}'...")
-    for slide_idx, slide in enumerate(prs.slides):
-        for shape in slide.shapes:
-            # Check shape name (set in PowerPoint's Selection Pane)
-            if hasattr(shape, "name") and shape.name:
-                if shape.name.lower().strip() == slide_name_lower:
-                    target_slide = slide
-                    print(f"[Breadth Rank] Found slide by shape name '{slide_name}' at index {slide_idx + 1}")
-                    break
-        if target_slide:
-            break
+@dataclass
+class BreadthRow:
+    """Legacy data structure (kept for backwards compatibility)."""
+    index_name: str
+    flag_code: str
+    rank: int
+    pct_both: int
+    pct_20d: int
+    pct_50d: int
 
-    if not target_slide:
-        print(f"[Breadth Rank] ❌ No slide with shape name '{slide_name}' found")
-        Path(img_path).unlink(missing_ok=True)
-        return prs
 
-    # Insert image at FIXED position - don't remove any shapes
-    picture = target_slide.shapes.add_picture(
-        img_path,
-        left=Cm(BREADTH_LEFT_CM),
-        top=Cm(BREADTH_TOP_CM),
-        width=Cm(BREADTH_WIDTH_CM),
-        height=Cm(BREADTH_HEIGHT_CM)
-    )
+def prepare_breadth_data(excel_path: str) -> list:
+    """Legacy function — returns empty list, use generate_composite_breadth_slide instead."""
+    print("[Breadth Rank] Warning: prepare_breadth_data is deprecated, use composite breadth")
+    return []
 
-    # Send picture to back so it doesn't cover "Source:" text
-    spTree = target_slide.shapes._spTree
-    sp = picture._element
-    spTree.remove(sp)
-    spTree.insert(2, sp)  # Position 2 = behind other shapes but above background
 
-    # Cleanup
-    Path(img_path).unlink(missing_ok=True)
-
-    print(f"[Breadth Rank] ✅ Table inserted at ({BREADTH_LEFT_CM}, {BREADTH_TOP_CM}) cm (sent to back)")
-
+def insert_breadth_rank(prs, rows, slide_name="slide_breadth"):
+    """Legacy function — no-op."""
     return prs
 
 
-def generate_breadth_slide(
-    prs: Presentation,
-    excel_path: str,
-    slide_name: str = "slide_breadth"
-) -> Tuple[Presentation, Dict[str, dict]]:
-    """
-    Generate Breadth Rank slide from Excel data.
-
-    Parameters
-    ----------
-    prs : Presentation
-        PowerPoint presentation object
-    excel_path : str
-        Path to Excel file with helper_breadth sheet
-    slide_name : str
-        Exact slide/shape name to search for (from PowerPoint's Selection Pane)
-
-    Returns
-    -------
-    Tuple[Presentation, Dict[str, dict]]
-        Modified presentation and breadth ranks dict keyed by index display name.
-        Each value is {"rank": int, "pct_both": int}.
-    """
-    # Prepare data
-    rows = prepare_breadth_data(excel_path)
-
-    if not rows:
-        print("[Breadth Rank] No data found in helper_breadth sheet")
-        return prs, {}
-
-    # Build ranks dict for history tracking
-    breadth_ranks = {}
-    for row in rows:
-        breadth_ranks[row.index_name] = {
-            "rank": row.rank,
-            "pct_both": row.pct_both,
-        }
-
-    # Insert into slide
-    return insert_breadth_rank(prs, rows, slide_name), breadth_ranks
+def generate_breadth_slide(prs, excel_path="", slide_name="slide_breadth"):
+    """Legacy function — returns unchanged prs."""
+    print("[Breadth Rank] Warning: generate_breadth_slide is deprecated")
+    return prs, {}

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1050px; height: 500px;
+    font-family: 'DM Sans', sans-serif;
+    background: white; color: #1a1e2e;
+    overflow: hidden; position: relative;
+  }
+  .chart-area { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+  canvas { display: block; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="chart-area">
+  <canvas id="chart" width="1050" height="500"></canvas>
+</div>
+
+<script>
+// ========== DATA — Claude Code replaces this block ==========
+const indices = [
+  { label: 'Ibovespa',   flag: '🇧🇷', prev: [2, 3], now: [2, 2], color: '#2EA043' },
+  { label: 'Nikkei 225', flag: '🇯🇵', prev: [1, 7], now: [1, 6], color: '#7B2D8E' },
+  { label: 'SMI',        flag: '🇨🇭', prev: [5, 2], now: [5, 2], color: '#636363' },
+  { label: 'Mexbol',     flag: '🇲🇽', prev: [8, 1], now: [6, 1], color: '#0288D1' },
+  { label: 'S&P 500',    flag: '🇺🇸', prev: [3, 5], now: [4, 5], color: '#1A237E' },
+  { label: 'Sensex',     flag: '🇮🇳', prev: [9, 4], now: [9, 4], color: '#E65100' },
+  { label: 'Dax',        flag: '🇩🇪', prev: [7, 8], now: [7, 8], color: '#D32F2F' },
+  { label: 'CSI 300',    flag: '🇨🇳', prev: [3, 9], now: [3, 9], color: '#E64A19' },
+  { label: 'Tasi',       flag: '🇸🇦', prev: [6, 6], now: [8, 6], color: '#2E7D32' },
+];
+// ========== END DATA ==========
+
+// ---- Collision-aware label placement ----
+function resolveLabels(chart) {
+  const xScale = chart.scales.x;
+  const yScale = chart.scales.y;
+  const ctx = chart.ctx;
+  ctx.font = '600 13px "DM Sans", sans-serif';
+
+  const placements = [];
+
+  // Collect all dot + line geometry for collision testing
+  const dots = indices.map(idx => ({
+    x: xScale.getPixelForValue(idx.now[0]),
+    y: yScale.getPixelForValue(idx.now[1]),
+  }));
+  const lines = indices.map(idx => {
+    const hasMoved = idx.prev[0] !== idx.now[0] || idx.prev[1] !== idx.now[1];
+    if (!hasMoved) return null;
+    return {
+      x0: xScale.getPixelForValue(idx.prev[0]),
+      y0: yScale.getPixelForValue(idx.prev[1]),
+      x1: xScale.getPixelForValue(idx.now[0]),
+      y1: yScale.getPixelForValue(idx.now[1]),
+    };
+  });
+
+  // Check if a rectangle overlaps a line segment
+  function rectIntersectsLine(rx, ry, rw, rh, lx0, ly0, lx1, ly1) {
+    // Simple bounding box overlap + proximity check
+    const lMinX = Math.min(lx0, lx1) - 4;
+    const lMaxX = Math.max(lx0, lx1) + 4;
+    const lMinY = Math.min(ly0, ly1) - 4;
+    const lMaxY = Math.max(ly0, ly1) + 4;
+    return !(rx + rw < lMinX || rx > lMaxX || ry + rh < lMinY || ry > lMaxY);
+  }
+
+  // Check if a rectangle overlaps a dot
+  function rectIntersectsDot(rx, ry, rw, rh, dx, dy, radius) {
+    const closestX = Math.max(rx, Math.min(dx, rx + rw));
+    const closestY = Math.max(ry, Math.min(dy, ry + rh));
+    const dist = Math.hypot(closestX - dx, closestY - dy);
+    return dist < radius + 3;
+  }
+
+  // Check overlap with already-placed labels
+  function rectOverlapsPlaced(rx, ry, rw, rh) {
+    for (const p of placements) {
+      if (!(rx + rw < p.x || rx > p.x + p.w || ry + rh < p.y || ry > p.y + p.h)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  indices.forEach((idx, i) => {
+    const cx = dots[i].x;
+    const cy = dots[i].y;
+    const text = idx.flag + ' ' + idx.label;
+    const tw = ctx.measureText(text).width;
+    const th = 16;
+    const gap = 12;
+    const dotR = 7;
+
+    // Candidate positions: right, left, above, below, above-right, below-right, above-left, below-left
+    const candidates = [
+      { x: cx + gap,      y: cy - th / 2,       align: 'left'  },  // right
+      { x: cx - gap - tw, y: cy - th / 2,       align: 'right' },  // left
+      { x: cx - tw / 2,   y: cy - gap - th,     align: 'center'},  // above
+      { x: cx - tw / 2,   y: cy + gap,          align: 'center'},  // below
+      { x: cx + gap,      y: cy - gap - th,     align: 'left'  },  // above-right
+      { x: cx + gap,      y: cy + gap,          align: 'left'  },  // below-right
+      { x: cx - gap - tw, y: cy - gap - th,     align: 'right' },  // above-left
+      { x: cx - gap - tw, y: cy + gap,          align: 'right' },  // below-left
+    ];
+
+    let bestCandidate = candidates[0]; // default: right
+    let bestScore = -Infinity;
+
+    for (const c of candidates) {
+      let score = 0;
+
+      // Penalize if out of chart bounds
+      if (c.x < xScale.left || c.x + tw > xScale.right) score -= 100;
+      if (c.y < yScale.top || c.y + th > yScale.bottom) score -= 100;
+
+      // Penalize overlap with any dot (including own prev)
+      let dotCollision = false;
+      for (let d = 0; d < dots.length; d++) {
+        if (rectIntersectsDot(c.x, c.y, tw, th, dots[d].x, dots[d].y, dotR)) {
+          dotCollision = true;
+          break;
+        }
+      }
+      if (dotCollision) score -= 50;
+
+      // Penalize overlap with any arrow line
+      for (const line of lines) {
+        if (line && rectIntersectsLine(c.x, c.y, tw, th, line.x0, line.y0, line.x1, line.y1)) {
+          score -= 30;
+        }
+      }
+
+      // Penalize overlap with already placed labels
+      if (rectOverlapsPlaced(c.x, c.y, tw, th)) score -= 80;
+
+      // Slight preference for right placement
+      if (c.align === 'left') score += 2;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidate = c;
+      }
+    }
+
+    placements.push({ x: bestCandidate.x, y: bestCandidate.y, w: tw, h: th });
+
+    idx._labelX = bestCandidate.x;
+    idx._labelY = bestCandidate.y + th / 2; // verticalcenter for textBaseline middle
+    idx._labelAlign = bestCandidate.align;
+  });
+}
+
+// Quadrant background plugin
+const quadrantPlugin = {
+  id: 'quadrants',
+  beforeDraw(chart) {
+    const ctx = chart.ctx;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+    const midX = xScale.getPixelForValue(4.75);
+    const midY = yScale.getPixelForValue(4.75);
+    const left = xScale.left;
+    const right = xScale.right;
+    const top = yScale.top;
+    const bottom = yScale.bottom;
+
+    ctx.save();
+
+    // Quadrant fills
+    ctx.fillStyle = 'rgba(46, 160, 67, 0.06)';
+    ctx.fillRect(left, top, midX - left, midY - top);
+
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
+    ctx.fillRect(midX, top, right - midX, midY - top);
+
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
+    ctx.fillRect(left, midY, midX - left, bottom - midY);
+
+    ctx.fillStyle = 'rgba(220, 38, 38, 0.05)';
+    ctx.fillRect(midX, midY, right - midX, bottom - midY);
+
+    // Quadrant labels
+    ctx.font = '600 11.5px "DM Sans", sans-serif';
+    ctx.globalAlpha = 0.40;
+
+    ctx.fillStyle = '#B45309';
+    ctx.textAlign = 'left';
+    ctx.fillText('Weak Breadth · Strong Fundamentals', left + 10, top + 18);
+
+    ctx.fillStyle = '#15803D';
+    ctx.textAlign = 'right';
+    ctx.fillText('Strong Breadth + Fundamentals', right - 10, top + 18);
+
+    ctx.fillStyle = '#991B1B';
+    ctx.textAlign = 'left';
+    ctx.fillText('Weak Breadth + Fundamentals', left + 10, bottom - 8);
+
+    ctx.fillStyle = '#B45309';
+    ctx.textAlign = 'right';
+    ctx.fillText('Strong Breadth · Weak Fundamentals', right - 10, bottom - 8);
+
+    ctx.globalAlpha = 1;
+
+    // Center cross
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(midX, top);
+    ctx.lineTo(midX, bottom);
+    ctx.moveTo(left, midY);
+    ctx.lineTo(right, midY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+  }
+};
+
+// Arrow + dot + label plugin
+const arrowPlugin = {
+  id: 'arrows',
+  afterDraw(chart) {
+    const ctx = chart.ctx;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+
+    // First pass: resolve label positions with collision avoidance
+    resolveLabels(chart);
+
+    // Second pass: draw everything
+    indices.forEach(idx => {
+      const x0 = xScale.getPixelForValue(idx.prev[0]);
+      const y0 = yScale.getPixelForValue(idx.prev[1]);
+      const x1 = xScale.getPixelForValue(idx.now[0]);
+      const y1 = yScale.getPixelForValue(idx.now[1]);
+
+      const hasMoved = idx.prev[0] !== idx.now[0] || idx.prev[1] !== idx.now[1];
+
+      if (hasMoved) {
+        ctx.save();
+
+        // Dashed trail line
+        ctx.strokeStyle = idx.color;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.22;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Arrowhead
+        const angle = Math.atan2(y1 - y0, x1 - x0);
+        const headLen = 8;
+        ctx.globalAlpha = 0.38;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 - headLen * Math.cos(angle - Math.PI / 6), y1 - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(x1 - headLen * Math.cos(angle + Math.PI / 6), y1 - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fillStyle = idx.color;
+        ctx.fill();
+
+        // Ghost dot at prev position
+        ctx.globalAlpha = 0.14;
+        ctx.beginPath();
+        ctx.arc(x0, y0, 5, 0, Math.PI * 2);
+        ctx.fillStyle = idx.color;
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // Current dot — larger
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x1, y1, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = idx.color;
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.restore();
+
+      // Label at resolved position
+      ctx.save();
+      ctx.font = '600 13px "DM Sans", sans-serif';
+      ctx.fillStyle = idx.color;
+      ctx.globalAlpha = 0.9;
+      ctx.textBaseline = 'middle';
+
+      const text = idx.flag + ' ' + idx.label;
+      if (idx._labelAlign === 'right') {
+        ctx.textAlign = 'right';
+        ctx.fillText(text, idx._labelX + ctx.measureText(text).width, idx._labelY);
+      } else if (idx._labelAlign === 'center') {
+        ctx.textAlign = 'center';
+        ctx.fillText(text, idx._labelX + ctx.measureText(text).width / 2, idx._labelY);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillText(text, idx._labelX, idx._labelY);
+      }
+
+      ctx.restore();
+    });
+  }
+};
+
+// Chart
+new Chart(document.getElementById('chart'), {
+  type: 'scatter',
+  data: { datasets: [{ data: [] }] },
+  plugins: [quadrantPlugin, arrowPlugin],
+  options: {
+    responsive: false,
+    animation: false,
+    layout: {
+      padding: { top: 10, right: 20, bottom: 10, left: 10 }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false },
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        reverse: true,
+        min: 0.3,
+        max: 9.7,
+        ticks: {
+          stepSize: 1,
+          callback: v => Number.isInteger(v) ? '#' + v : '',
+          font: { family: '"DM Sans", sans-serif', size: 11 },
+          color: '#a0a8b8',
+          padding: 6,
+        },
+        grid: { color: 'rgba(0,0,0,0.03)', drawBorder: false },
+        border: { display: false },
+        title: {
+          display: true,
+          text: 'Breadth Rank',
+          font: { family: '"DM Sans", sans-serif', size: 12, weight: '600' },
+          color: '#6b7a8d',
+          padding: { top: 4 },
+        }
+      },
+      y: {
+        type: 'linear',
+        reverse: true,
+        min: 0.3,
+        max: 9.7,
+        ticks: {
+          stepSize: 1,
+          callback: v => Number.isInteger(v) ? '#' + v : '',
+          font: { family: '"DM Sans", sans-serif', size: 11 },
+          color: '#a0a8b8',
+          padding: 6,
+        },
+        grid: { color: 'rgba(0,0,0,0.03)', drawBorder: false },
+        border: { display: false },
+        title: {
+          display: true,
+          text: 'Fundamental Rank',
+          font: { family: '"DM Sans", sans-serif', size: 12, weight: '600' },
+          color: '#6b7a8d',
+        }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>

@@ -102,6 +102,7 @@ from technical_analysis.powerpoint_utils import (
     insert_technical_assessment,
     insert_source,
 )
+from helpers.chartjs_local import patch_cdn
 
 # Import MARS momentum scoring engine (no longer used for calculation - kept for reference)
 # from mars_engine import (
@@ -1297,7 +1298,7 @@ from playwright.sync_api import sync_playwright
 # Chart dimensions for v2 - HTML at base size, Playwright scales up
 # Base dimensions for HTML body (smaller = sharper when scaled)
 TECH_V2_BASE_WIDTH = 950
-TECH_V2_BASE_HEIGHT = 420  # Base height for chart
+TECH_V2_BASE_HEIGHT = 390  # Base height for chart (reduced to avoid subtitle overlap)
 TECH_V2_DEVICE_SCALE = 4   # Playwright device scale factor for high-res output
 TECH_V2_HTML_SCALE = 1     # Scale factor for HTML elements (1 = base size)
 TECH_V2_PNG_WIDTH_PX = TECH_V2_BASE_WIDTH * TECH_V2_DEVICE_SCALE   # 3800
@@ -1777,7 +1778,7 @@ def create_technical_analysis_v2_chart(
             )
 
             # Set content and wait for network idle
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
 
             # Wait for Chart.js to load and render
             try:
@@ -1820,9 +1821,9 @@ def insert_technical_analysis_v2_slide(
     *,
     placeholder_name: str = "spx_v2",
     left_cm: float = 1.13,
-    top_cm: float = 4.8,      # Slightly lower to avoid subtitle
+    top_cm: float = 5.14,     # Chart top position
     width_cm: float = 23.67,
-    height_cm: float = 10.5,  # Reduced from 11.5 for better fit
+    height_cm: float = 10.12,  # Reduced by 0.38cm (0.15in) to avoid overlap
     view_text: Optional[str] = None,
     subtitle_text: Optional[str] = None,
 ) -> Presentation:

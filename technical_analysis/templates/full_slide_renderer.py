@@ -47,6 +47,7 @@ from technical_analysis.templates.technical_analysis_v2 import (
     TECH_V2_HTML_BODY,
     TECH_V2_JAVASCRIPT,
 )
+from helpers.chartjs_local import patch_cdn
 
 
 # =============================================================================
@@ -1198,7 +1199,7 @@ def render_full_slide(
                 device_scale_factor=1  # Already scaled in HTML
             )
 
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
 
             # Wait for Chart.js to render
             try:

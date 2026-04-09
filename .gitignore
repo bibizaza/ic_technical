@@ -27,6 +27,11 @@ ENV/
 *.ipynb
 # remove the above two lines if you *do* want to track notebooks
 
+# ──────────────  Pipeline runtime artefacts  ──────────────
+draft_state.json
+charts_cache/
+market_compass/data/history.json
+
 # ──────────────  Data artefacts  ──────────────
 *.csv
 *.xls
@@ -87,7 +92,6 @@ docker-compose.override.yml
 .env
 .env.*
 *.pem
-.streamlit/secrets.toml
 
 # ──────────────  Misc  ──────────────
 # npm / yarn if you add React assets inside Dash
@@ -96,11 +100,7 @@ node_modules/
 
 # Custom: ignore any secret notebooks
 secret_*.ipynb
-# Backup files created during refactoring
-app_backup.py
-app_old_with_repetitive_imports.py
 
-# ──────────────  Exported slides  ──────────────
-exports/
-*.png
-*_technical_*.png
+# Streamlit secrets
+.streamlit/secrets.toml
+breadth_cache.json

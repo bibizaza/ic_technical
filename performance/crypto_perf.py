@@ -74,6 +74,7 @@ from playwright.sync_api import sync_playwright
 
 from utils import adjust_prices_for_mode
 from helpers.flag_utils import get_flag_html
+from helpers.chartjs_local import patch_cdn
 from market_compass.weekly_performance.html_template import (
     CRYPTO_WEEKLY_HTML_TEMPLATE,
     CRYPTO_HISTORICAL_HTML_TEMPLATE,
@@ -150,7 +151,10 @@ def _load_price_data(excel_path: Union[str, pathlib.Path], tickers: List[str]) -
     out = df[["Date"] + available_tickers].copy()
     for t in available_tickers:
         out[t] = pd.to_numeric(out[t], errors="coerce")
-    return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+    out = out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+    price_cols = [c for c in out.columns if c != "Date"]
+    out[price_cols] = out[price_cols].ffill()
+    return out
 
 def _compute_horizon_returns(
     df: pd.DataFrame,
@@ -1293,10 +1297,12 @@ def create_crypto_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
                 "backgroundColor": "transparent",
             })
 
+    # Forward-fill so every line extends to the right edge
     max_len = len(all_labels)
     for dataset in datasets:
         while len(dataset["data"]) < max_len:
-            dataset["data"].append(None)
+            last_val = dataset["data"][-1] if dataset["data"] else None
+            dataset["data"].append(last_val)
 
     # Check for insufficient data (< 3 data points)
     if len(all_labels) < 3:
@@ -1317,7 +1323,7 @@ def create_crypto_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
                     'width': CRYPTO_YTD_PNG_WIDTH_PX,
                     'height': CRYPTO_YTD_PNG_HEIGHT_PX
                 })
-                page.set_content(html_content, wait_until='networkidle')
+                page.set_content(patch_cdn(html_content), wait_until='commit')
                 page.wait_for_timeout(500)
                 png_bytes = page.screenshot()
                 browser.close()
@@ -1363,7 +1369,7 @@ def create_crypto_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
                 'width': CRYPTO_YTD_PNG_WIDTH_PX,
                 'height': CRYPTO_YTD_PNG_HEIGHT_PX
             })
-            page.set_content(html_content, wait_until='networkidle')
+            page.set_content(patch_cdn(html_content), wait_until='commit')
             try:
                 page.wait_for_selector('body[data-chart-ready="true"]', timeout=10000)
             except Exception:

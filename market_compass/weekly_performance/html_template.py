@@ -2679,15 +2679,23 @@ EQUITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
 
                     chart.data.datasets.forEach((dataset, i) => {
                         const meta = chart.getDatasetMeta(i);
-                        const lastPoint = meta.data[meta.data.length - 1];
 
+                        // Find last non-null data point (datasets may be
+                        // padded with null when series have different lengths)
+                        let lastIdx = dataset.data.length - 1;
+                        while (lastIdx >= 0 && dataset.data[lastIdx] == null) {
+                            lastIdx--;
+                        }
+                        if (lastIdx < 0) return;
+
+                        const lastPoint = meta.data[lastIdx];
                         if (lastPoint) {
-                            const value = dataset.data[dataset.data.length - 1];
+                            const value = dataset.data[lastIdx];
                             const sign = value >= 0 ? '+' : '';
                             const label = `${dataset.label}: ${sign}${value.toFixed(1)}%`;
 
                             labelData.push({
-                                x: lastPoint.x,
+                                x: chart.chartArea.right,
                                 y: lastPoint.y,
                                 originalY: lastPoint.y,
                                 label: label,
@@ -2941,15 +2949,23 @@ COMMODITY_YTD_EVOLUTION_HTML_TEMPLATE = '''
 
                     chart.data.datasets.forEach((dataset, i) => {
                         const meta = chart.getDatasetMeta(i);
-                        const lastPoint = meta.data[meta.data.length - 1];
 
+                        // Find last non-null data point (datasets may be
+                        // padded with null when series have different lengths)
+                        let lastIdx = dataset.data.length - 1;
+                        while (lastIdx >= 0 && dataset.data[lastIdx] == null) {
+                            lastIdx--;
+                        }
+                        if (lastIdx < 0) return;
+
+                        const lastPoint = meta.data[lastIdx];
                         if (lastPoint) {
-                            const value = dataset.data[dataset.data.length - 1];
+                            const value = dataset.data[lastIdx];
                             const sign = value >= 0 ? '+' : '';
                             const label = `${dataset.label}: ${sign}${value.toFixed(1)}%`;
 
                             labelData.push({
-                                x: lastPoint.x,
+                                x: chart.chartArea.right,
                                 y: lastPoint.y,
                                 originalY: lastPoint.y,
                                 label: label,
@@ -3197,15 +3213,23 @@ CRYPTO_YTD_EVOLUTION_HTML_TEMPLATE = '''
 
                     chart.data.datasets.forEach((dataset, i) => {
                         const meta = chart.getDatasetMeta(i);
-                        const lastPoint = meta.data[meta.data.length - 1];
 
+                        // Find last non-null data point (datasets may be
+                        // padded with null when series have different lengths)
+                        let lastIdx = dataset.data.length - 1;
+                        while (lastIdx >= 0 && dataset.data[lastIdx] == null) {
+                            lastIdx--;
+                        }
+                        if (lastIdx < 0) return;
+
+                        const lastPoint = meta.data[lastIdx];
                         if (lastPoint) {
-                            const value = dataset.data[dataset.data.length - 1];
+                            const value = dataset.data[lastIdx];
                             const sign = value >= 0 ? '+' : '';
                             const label = `${dataset.label}: ${sign}${value.toFixed(1)}%`;
 
                             labelData.push({
-                                x: lastPoint.x,
+                                x: chart.chartArea.right,
                                 y: lastPoint.y,
                                 originalY: lastPoint.y,
                                 label: label,
