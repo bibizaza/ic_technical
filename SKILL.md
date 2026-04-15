@@ -322,48 +322,53 @@ When reading `draft_state.json` to generate subtitles:
 10. After all 20 are written, scan for repetitive phrasing across the batch — rephrase any duplicates
 11. Write the 3 overview subtitles last, using the full set of individual results for context
 
-## Scheduled Task — Tuesday 11:00 PM
+## Scheduled Task — Intern PC, Wednesday 07:15 Swiss
 
-The scheduled task prompt:
+The IC2 weekly run is a Windows Task Scheduler entry on the intern PC
+(`User3`) that fires every Wednesday 07:15 Swiss time. It invokes
+Claude Code CLI in headless mode, which then executes the prompt below
+using the Max-plan subscription. HTEI's 06:50 task has already opened
+Bloomberg on the same PC, so `localhost:8194` is live.
+
+- **WTS definition:** `tools/ic_wtscheduler_task.xml`
+- **Batch launcher:** `tools/run_ic_cc.cmd` (what WTS actually calls)
+- **Env file:** `C:\Users\User3\github\ic_technical\.env` (SMTP, paths)
+
+### Prompt executed by the scheduler
 
 ```
-Run the IC2 Market Compass pipeline. Today is Tuesday after US close — this is
-the normal weekly run.
+Run the IC2 Market Compass pipeline — this is the fully-automated
+Wednesday 07:15 run on the intern PC. Do not ask questions.
 
-1. Run Bloomberg pre-flight check. If it fails, send Telegram notification and
-   wait for my reply.
-2. If Bloomberg OK, run: python run_ic.py --stage full
-3. Use latest prices (Tuesday close).
-4. Committee date = tomorrow (Wednesday). Apply to slide 1 title, filename,
-   and all source lines.
-5. After completion, verify the PPTX:
-   - Confirm 20 instrument slides have subtitles
-   - Confirm nutshell table scores match individual slides
-   - Confirm overview subtitles are single-line
-6. Copy PPTX to Dropbox IC folder.
-7. Send Telegram summary:
-   - "IC2 complete. [N] instruments scored."
-   - List any rating changes vs last week
-   - List any instruments with DMAS > 90 or < 10
-   - Attach PNG of slide 1 and nutshell table
-8. Do not ask questions. This is fully automated.
-```
+Context:
+- Bloomberg is already logged in locally at localhost:8194 (HTEI 06:50 task).
+- Price date = prior business day (Tuesday by default).
+- Committee date = today (Wednesday) — UNLESS a file
+  $IC_DROPBOX_PATH/.committee_override exists containing a YYYY-MM-DD
+  date, in which case use that instead (typically a Thursday shift).
+- This skill's SKILL.md describes the full pipeline.
 
-### Mac sleep prevention
+Steps:
+1. Resolve dates. Read .committee_override if present.
+2. Run a Bloomberg pre-flight (start a blpapi session at
+   localhost:8194). If it fails, invoke HTEI's login script at
+   $HTEI_BLOOMBERG_LOGIN, wait up to 30 s, retry. If still down,
+   call tools.ic_email.notify_failure("bloomberg", "...") and stop.
+3. Run: python run_ic.py --stage prepare --date <price_date>
+4. Read draft_state.json. Following config/subtitle_directive.md,
+   write the 20 instrument subtitles and 3 overview subtitles back
+   into draft_state.json.
+5. Run: python run_ic.py --stage assemble --date <price_date>
+   --committee-date <committee_date>
+6. Verify the PPTX exists at
+   $IC_DROPBOX_PATH/Market_Compass_YYYYMMDD.pptx (committee date)
+   and the first slide title, filename, and source lines use the
+   correct dates (committee on title/filename, price date on source).
+7. Call tools.ic_email.notify_success(pptx_path, committee_date,
+   price_date). This sends the "IC generated" email to jcourtial.
+8. If .committee_override was used, delete it.
 
-The scheduled task should run this before the pipeline:
-
-```bash
-# Keep Mac awake until midnight
-caffeinate -u -t 7200 &
-CAFFEINATE_PID=$!
-```
-
-And after completion:
-
-```bash
-# Release caffeinate
-kill $CAFFEINATE_PID 2>/dev/null
+Any failure at any step: call tools.ic_email.notify_failure(stage, err).
 ```
 
 ## Telegram Integration

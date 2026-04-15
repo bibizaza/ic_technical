@@ -45,8 +45,7 @@
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>C:\Users\User3\miniconda3\envs\ptf_opt\python.exe</Command>
-      <Arguments>C:\Users\User3\github\ic_technical\tools\run_ic_pc.py</Arguments>
+      <Command>C:\Users\User3\github\ic_technical\tools\run_ic_cc.cmd</Command>
       <WorkingDirectory>C:\Users\User3\github\ic_technical</WorkingDirectory>
     </Exec>
   </Actions>
