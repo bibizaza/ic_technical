@@ -237,7 +237,11 @@ def run_prepare(
     if master_csv is None:
         master_csv = str(Path(dropbox_path) / "master_prices.csv")
 
-    history_path = Path("market_compass/data/history.json")
+    # history.json lives in Dropbox so all runners (Mac, intern PC) share it.
+    # Falls back to the legacy in-repo path if Dropbox is missing.
+    _dropbox_hist = Path(dropbox_path) / "history.json"
+    _legacy_hist = Path("market_compass/data/history.json")
+    history_path = _dropbox_hist if _dropbox_hist.parent.exists() else _legacy_hist
 
     # Load history
     if history_path.exists():

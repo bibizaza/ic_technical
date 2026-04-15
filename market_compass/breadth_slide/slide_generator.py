@@ -38,16 +38,19 @@ BREADTH_HEIGHT_CM = 9.5
 # =============================================================================
 
 INDEX_NAME_MAP = {
-    # Keyed by display name (from config/tickers.yaml breadth_indices)
-    "S&P 500":   ("\U0001F1FA\U0001F1F8", "U.S."),
-    "SMI":       ("\U0001F1E8\U0001F1ED", "Switzerland"),
-    "DAX":       ("\U0001F1E9\U0001F1EA", "Germany"),
-    "Nikkei 225":("\U0001F1EF\U0001F1F5", "Japan"),
-    "CSI 300":   ("\U0001F1E8\U0001F1F3", "China"),
-    "TASI":      ("\U0001F1F8\U0001F1E6", "Saudi Arabia"),
-    "Sensex":    ("\U0001F1EE\U0001F1F3", "India"),
-    "MEXBOL":    ("\U0001F1F2\U0001F1FD", "Mexico"),
-    "IBOV":      ("\U0001F1E7\U0001F1F7", "Brazil"),
+    # Keyed by display name (from config/tickers.yaml breadth_indices).
+    # Tuple: (ISO 3166-1 alpha-2 code, display name). The flag HTML is built
+    # later via helpers.flag_utils.get_flag_html() so it renders correctly on
+    # both Mac (emoji) and Windows (PNG).
+    "S&P 500":   ("us", "U.S."),
+    "SMI":       ("ch", "Switzerland"),
+    "DAX":       ("de", "Germany"),
+    "Nikkei 225":("jp", "Japan"),
+    "CSI 300":   ("cn", "China"),
+    "TASI":      ("sa", "Saudi Arabia"),
+    "Sensex":    ("in", "India"),
+    "MEXBOL":    ("mx", "Mexico"),
+    "IBOV":      ("br", "Brazil"),
 }
 
 
@@ -76,6 +79,8 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
 
     Each record has: name, composite, trend, conviction, sentiment, rank
     """
+    from helpers.flag_utils import get_flag_html
+
     rows = []
     for rec in breadth_records:
         ticker = rec["name"]
@@ -83,7 +88,8 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
         if not mapping:
             continue
 
-        flag, display_name = mapping
+        flag_code, display_name = mapping
+        flag_html = get_flag_html(flag_code, size=18)
         composite = float(rec["composite"])
         trend = float(rec["trend"])
         # conviction (was "momentum" in old records)
@@ -93,7 +99,7 @@ def _prepare_rows_from_records(breadth_records: list) -> list:
 
         rows.append({
             "rank": int(rec["rank"]),
-            "flag": flag,
+            "flag_html": flag_html,
             "name": display_name,
             "composite": int(round(composite)),
             "composite_class": _color_class(composite),

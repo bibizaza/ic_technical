@@ -61,7 +61,7 @@ def run_assemble(
     draft_path: str = "draft_state.json",
     template_path: Optional[str] = None,
     output_path: Optional[str] = None,
-    history_path: str = "market_compass/data/history.json",
+    history_path: Optional[str] = None,
     config_path: str = "config/tickers.yaml",
     committee_date: Optional[str] = None,
 ) -> str:
@@ -110,6 +110,13 @@ def run_assemble(
 
     master_csv = str(Path(dropbox_path) / "master_prices.csv")
     excel_path = str(Path(dropbox_path) / "ic_file.xlsx")
+
+    # history.json shared via Dropbox across all runners (Mac, intern PC).
+    # Fall back to the legacy in-repo path only if Dropbox is missing.
+    if history_path is None:
+        _dropbox_hist = Path(dropbox_path) / "history.json"
+        _legacy_hist = Path("market_compass/data/history.json")
+        history_path = str(_dropbox_hist if _dropbox_hist.parent.exists() else _legacy_hist)
 
     if not Path(template_path).exists():
         raise FileNotFoundError(f"Template not found: {template_path}")
@@ -530,6 +537,17 @@ def _insert_summary_slides(
         log.info("Fundamental slide inserted")
     except Exception as e:
         log.warning("Fundamental slide error: %s", e)
+
+    # Fallback: backfill any missing ranks from per-instrument fields in
+    # draft_state.json. Protects the quadrant from silent partial failures
+    # in the fundamental-slide renderer.
+    for _instr_name, _data in instruments.items():
+        if _instr_name not in fundamental_ranks:
+            _rank = _data.get("fundamental_rank")
+            if _rank is not None:
+                fundamental_ranks[_instr_name] = int(_rank)
+    if fundamental_ranks:
+        log.info("Fundamental ranks for quadrant: %s", fundamental_ranks)
 
     # Quadrant slide (breadth rank vs fundamental rank scatter)
     try:

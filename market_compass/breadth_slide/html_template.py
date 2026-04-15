@@ -181,7 +181,7 @@ BREADTH_HTML_TEMPLATE = '''
             <tr>
                 <td>
                     <div class="cell-content index-name">
-                        <span class="flag">{{ row.flag }}</span>
+                        {{ row.flag_html | safe }}
                         <span class="name">{{ row.name }}</span>
                     </div>
                 </td>
