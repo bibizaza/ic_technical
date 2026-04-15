@@ -63,6 +63,7 @@ def run_assemble(
     output_path: Optional[str] = None,
     history_path: str = "market_compass/data/history.json",
     config_path: str = "config/tickers.yaml",
+    committee_date: Optional[str] = None,
 ) -> str:
     """
     Build the final PowerPoint from draft_state.json.
@@ -79,7 +80,17 @@ def run_assemble(
     instruments = draft["instruments"]
     ytd_subtitles = draft.get("ytd_subtitles", {})
 
-    log.info("Assembling presentation for date: %s", ic_date)
+    # Committee date controls slide 1 title + filename; ic_date (price date)
+    # controls data + "Data as of …" source lines. Default: same as ic_date
+    # (backward compatible). Override via the committee_date param (or
+    # IC_COMMITTEE_DATE env).
+    if committee_date is None:
+        committee_date = os.environ.get("IC_COMMITTEE_DATE") or ic_date
+
+    log.info(
+        "Assembling presentation (price date=%s, committee date=%s)",
+        ic_date, committee_date,
+    )
 
     # Validate subtitles
     missing_subtitles = [nm for nm, d in instruments.items() if not d.get("subtitle")]
@@ -94,7 +105,7 @@ def run_assemble(
     if template_path is None:
         template_path = str(Path(dropbox_path) / "shadow_template.pptx")
     if output_path is None:
-        date_str = ic_date.replace("-", "")
+        date_str = committee_date.replace("-", "")
         output_path = str(Path(dropbox_path) / f"Market_Compass_{date_str}.pptx")
 
     master_csv = str(Path(dropbox_path) / "master_prices.csv")
@@ -124,9 +135,9 @@ def run_assemble(
     df_prices = load_prices_from_csv(Path(master_csv), data_as_of)
 
     # =====================================================================
-    # 1. Update [DataIC] date placeholder
+    # 1. Update [DataIC] date placeholder (uses committee date)
     # =====================================================================
-    _update_date_placeholder(prs, ic_date)
+    _update_date_placeholder(prs, committee_date)
 
     # =====================================================================
     # 2. Technical analysis slides (20 instruments)

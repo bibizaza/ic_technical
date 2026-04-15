@@ -1,12 +1,16 @@
 """
 Bloomberg data pulling via raw blpapi (HERA pattern).
 
-Connection: Parallels Windows VM at 10.211.55.3:8194
+Connection: read BLOOMBERG_HOST / BLOOMBERG_PORT from env.
+Defaults to the Mac's Parallels VM (10.211.55.3:8194). On the intern PC
+where Bloomberg runs locally, set BLOOMBERG_HOST=localhost.
+
 DO NOT use xbbg — it has a bug with remote server parameter.
 """
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -17,8 +21,8 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
-BBG_HOST = "10.211.55.3"
-BBG_PORT = 8194
+BBG_HOST = os.environ.get("BLOOMBERG_HOST", "10.211.55.3")
+BBG_PORT = int(os.environ.get("BLOOMBERG_PORT", "8194"))
 
 
 # ---------------------------------------------------------------------------

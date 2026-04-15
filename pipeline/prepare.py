@@ -288,9 +288,10 @@ def run_prepare(
                 _chat = _os.environ.get("TELEGRAM_CHAT_ID", "979257663")
                 if _token:
                     _url = f"https://api.telegram.org/bot{_token}/sendMessage"
+                    from pipeline.bloomberg import BBG_HOST as _bh, BBG_PORT as _bp
                     _data = _up.urlencode({
                         "chat_id": _chat,
-                        "text": "Bloomberg not reachable at 10.211.55.3:8194, IC pipeline aborted",
+                        "text": f"Bloomberg not reachable at {_bh}:{_bp}, IC pipeline aborted",
                     }).encode()
                     _ur.urlopen(_ur.Request(_url, data=_data), timeout=10)
             except Exception:

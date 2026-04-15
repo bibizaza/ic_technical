@@ -70,7 +70,12 @@ def main() -> int:
     parser.add_argument(
         "--date",
         default=None,
-        help="Target date YYYY-MM-DD (default: latest in master_prices.csv)",
+        help="Price reference date YYYY-MM-DD (default: latest in master_prices.csv)",
+    )
+    parser.add_argument(
+        "--committee-date",
+        default=None,
+        help="Committee date YYYY-MM-DD for slide 1 title + filename (default: same as --date)",
     )
     parser.add_argument(
         "--skip-bloomberg",
@@ -140,6 +145,7 @@ def main() -> int:
                 template_path=args.template,
                 output_path=None,
                 config_path=args.config,
+                committee_date=args.committee_date,
             )
 
     except KeyboardInterrupt:
