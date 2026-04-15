@@ -147,6 +147,8 @@ def run_assemble(
             with open(hist_path) as _hf:
                 _hist = json.load(_hf)
             _ic_ts = pd.Timestamp(ic_date).date()
+            from datetime import timedelta as _td
+            _prior_week_cutoff = _ic_ts - _td(days=5)
             for _name, _entries in _hist.items():
                 _sorted = sorted(_entries, key=lambda x: x.get("date", ""), reverse=True)
                 for _e in _sorted:
@@ -154,7 +156,7 @@ def run_assemble(
                         _edate = pd.Timestamp(_e["date"]).date()
                     except Exception:
                         continue
-                    if _edate < _ic_ts and _e.get("dmas") is not None:
+                    if _edate <= _prior_week_cutoff and _e.get("dmas") is not None:
                         prev_dmas[_name] = int(_e["dmas"])
                         if _e.get("technical_score") is not None:
                             prev_tech[_name] = int(_e["technical_score"])
@@ -163,15 +165,13 @@ def run_assemble(
                         if _e.get("rsi") is not None:
                             prev_rsi[_name] = int(_e["rsi"])
                         break
-                # RSI was added later — if the closest entry had rsi=None,
-                # search further back for the most recent entry with RSI.
                 if _name not in prev_rsi:
                     for _e in _sorted:
                         try:
                             _edate = pd.Timestamp(_e["date"]).date()
                         except Exception:
                             continue
-                        if _edate < _ic_ts and _e.get("rsi") is not None:
+                        if _edate <= _prior_week_cutoff and _e.get("rsi") is not None:
                             prev_rsi[_name] = int(_e["rsi"])
                             break
             log.info("Loaded WoW scores for %d instruments from history.json", len(prev_dmas))
