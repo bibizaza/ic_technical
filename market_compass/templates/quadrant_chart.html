@@ -92,8 +92,12 @@ function resolveLabels(chart) {
   indices.forEach((idx, i) => {
     const cx = dots[i].x;
     const cy = dots[i].y;
-    const text = idx.flag + ' ' + idx.label;
-    const tw = ctx.measureText(text).width;
+    const flagW = 20;
+    const flagH = 14;
+    const flagGap = 4;
+    const hasFlag = flagImages[idx.flag] && flagImages[idx.flag].complete;
+    const text = hasFlag ? idx.label : (idx.flag + ' ' + idx.label);
+    const tw = (hasFlag ? flagW + flagGap : 0) + ctx.measureText(text).width;
     const th = 16;
     const gap = 12;
     const dotR = 7;
@@ -299,24 +303,27 @@ const arrowPlugin = {
       ctx.globalAlpha = 0.9;
       ctx.textBaseline = 'middle';
 
-      const text = idx.flag + ' ' + idx.label;
-      if (idx._labelAlign === 'right') {
-        ctx.textAlign = 'right';
-        ctx.fillText(text, idx._labelX + ctx.measureText(text).width, idx._labelY);
-      } else if (idx._labelAlign === 'center') {
-        ctx.textAlign = 'center';
-        ctx.fillText(text, idx._labelX + ctx.measureText(text).width / 2, idx._labelY);
-      } else {
-        ctx.textAlign = 'left';
-        ctx.fillText(text, idx._labelX, idx._labelY);
+      const _hasFlag = flagImages[idx.flag] && flagImages[idx.flag].complete;
+      const _text = _hasFlag ? idx.label : (idx.flag + ' ' + idx.label);
+      const _flagW = 20, _flagH = 14, _flagGap = 4;
+      let _tx = idx._labelX;
+
+      if (_hasFlag) {
+        // Draw flag image then text
+        const _fy = idx._labelY - _flagH / 2;
+        ctx.drawImage(flagImages[idx.flag], _tx, _fy, _flagW, _flagH);
+        _tx += _flagW + _flagGap;
       }
+      ctx.textAlign = 'left';
+      ctx.fillText(_text, _tx, idx._labelY);
 
       ctx.restore();
     });
   }
 };
 
-// Chart
+// Wait for all flag images to load, then create the chart
+function initChart() {
 new Chart(document.getElementById('chart'), {
   type: 'scatter',
   data: { datasets: [{ data: [] }] },
@@ -378,6 +385,12 @@ new Chart(document.getElementById('chart'), {
     }
   }
 });
+}
+// Start chart after flag images are ready (base64 loads instantly but onload is async)
+const _flagCheck = setInterval(() => {
+  if (flagsLoaded >= indices.length) { clearInterval(_flagCheck); initChart(); }
+}, 10);
+setTimeout(() => { clearInterval(_flagCheck); initChart(); }, 500); // fallback
 </script>
 </body>
 </html>

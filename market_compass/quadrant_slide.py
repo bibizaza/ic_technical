@@ -90,6 +90,16 @@ def _load_prev_ranks(
     return prev
 
 
+def _flag_data_uri(code: str) -> str:
+    """Return a base64 data URI for the flag PNG, or empty string if not found."""
+    import base64
+    flag_path = Path(__file__).resolve().parent.parent / "assets" / "flags" / f"{code.lower()}.png"
+    if not flag_path.exists():
+        return ""
+    b64 = base64.b64encode(flag_path.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
+
+
 def _build_data_block(
     breadth_ranks: Dict[str, int],
     fundamental_ranks: Dict[str, int],
@@ -102,13 +112,33 @@ def _build_data_block(
         br = breadth_ranks.get(name, 5)
         fr = fundamental_ranks.get(name, 5)
         pbr, pfr = prev_ranks.get(name, (br, fr))  # default: no arrow
+        flag_uri = _flag_data_uri(idx["flag"])
 
         lines.append(
             f"  {{ label: '{idx['label']}', flag: '{idx['flag']}', "
+            f"flagImg: '{flag_uri}', "
             f"prev: [{pbr}, {pfr}], now: [{br}, {fr}], color: '{idx['color']}' }}"
         )
 
-    return "const indices = [\n" + ",\n".join(lines) + "\n];"
+    block = "const indices = [\n" + ",\n".join(lines) + "\n];\n"
+    # Pre-load flag images so they're ready for canvas drawImage
+    block += """
+// Pre-load flag images
+const flagImages = {};
+let flagsLoaded = 0;
+indices.forEach(idx => {
+  if (idx.flagImg) {
+    const img = new Image();
+    img.onload = () => { flagsLoaded++; };
+    img.onerror = () => { flagsLoaded++; };
+    img.src = idx.flagImg;
+    flagImages[idx.flag] = img;
+  } else {
+    flagsLoaded++;
+  }
+});
+"""
+    return block
 
 
 def generate_quadrant_slide(
