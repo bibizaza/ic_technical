@@ -469,7 +469,7 @@ def run_prepare(
         json.dump(draft_state, f, indent=2, default=str)
 
     log.info("draft_state.json saved to %s", draft_out)
-    print(f"\n✓ Prepare complete. Draft saved to: {draft_out}")
+    print(f"\nOK Prepare complete. Draft saved to: {draft_out}")
     print(f"  Date: {target_date.date()}")
     print(f"  Instruments: {len(instruments_out)}")
     print(f"  Charts: {len(chart_paths)}")

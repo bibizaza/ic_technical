@@ -189,8 +189,8 @@ if __name__ == "__main__":
             errors.append(f"TABLE_DIMS['{asset_class}']['col_widths'] should have 6 items")
 
     if errors:
-        print("\n❌ CONFIG ERRORS:")
+        print("\nERROR: CONFIG ERRORS:")
         for e in errors:
             print(f"  - {e}")
     else:
-        print("\n✅ Config looks correct!")
+        print("\nOK: Config looks correct!")

@@ -209,7 +209,7 @@ def insert_technical_analysis_slide(
     # Cleanup
     Path(img_path).unlink(missing_ok=True)
 
-    print(f"[Technical Nutshell] ✅ High-res tables inserted at ({PPTX_LEFT}, {PPTX_TOP}) cm")
+    print(f"[Technical Nutshell] OK: High-res tables inserted at ({PPTX_LEFT}, {PPTX_TOP}) cm")
 
     return prs
 

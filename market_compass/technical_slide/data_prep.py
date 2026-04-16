@@ -275,7 +275,7 @@ def prepare_slide_data(
                 print(f"[DMAS] Found '{display_name}' with key '{key}' = {result}")
                 return result
 
-        print(f"[DMAS] ⚠️ No match for '{display_name}', tried keys: {keys_to_try[:5]}...")
+        print(f"[DMAS] WARNING: No match for '{display_name}', tried keys: {keys_to_try[:5]}...")
         return 50  # Default neutral
 
     # EQUITY

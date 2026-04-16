@@ -187,7 +187,7 @@ def generate_quadrant_slide(
             break
 
     if not target_slide:
-        print(f"[Quadrant] ❌ No slide with shape '{slide_name}' found")
+        print(f"[Quadrant] ERROR: No slide with shape '{slide_name}' found")
         Path(img_path).unlink(missing_ok=True)
         return prs
 
@@ -215,5 +215,5 @@ def generate_quadrant_slide(
         fr = fundamental_ranks.get(name, "?")
         print(f"[Quadrant]   {name}: breadth={br}, fundamental={fr}")
 
-    print(f"[Quadrant] ✅ Chart inserted at ({LEFT_CM}, {TOP_CM}) cm")
+    print(f"[Quadrant] OK: Chart inserted at ({LEFT_CM}, {TOP_CM}) cm")
     return prs

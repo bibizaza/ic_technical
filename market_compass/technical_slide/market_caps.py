@@ -88,7 +88,7 @@ def get_equity_market_caps(excel_path: str) -> Dict[str, str]:
                 mkt_cap_col = df.columns[1]
                 print(f"[Market Cap] Using column B as fallback: '{mkt_cap_col}'")
             else:
-                print("[Market Cap] ❌ Could not find market_cap column")
+                print("[Market Cap] ERROR: Could not find market_cap column")
                 return {}
 
         # Find the asset name column (first column or has "name"/"index"/"ticker" in it)
@@ -143,11 +143,11 @@ def get_equity_market_caps(excel_path: str) -> Dict[str, str]:
                 display_name = name_mapping[asset_lower]
                 market_caps[display_name] = formatted_cap
 
-        print(f"[Market Cap] ✅ Loaded {len(market_caps)} market caps: {list(market_caps.keys())[:5]}...")
+        print(f"[Market Cap] OK: Loaded {len(market_caps)} market caps: {list(market_caps.keys())[:5]}...")
         return market_caps
 
     except Exception as e:
-        print(f"[Market Cap] ❌ Error reading market caps: {e}")
+        print(f"[Market Cap] ERROR: Error reading market caps: {e}")
         import traceback
         traceback.print_exc()
         return {}

@@ -290,7 +290,7 @@ def run_assemble(
         fundamental_raw_data=fundamental_raw_data,
     )
 
-    print(f"\n✓ Presentation assembled: {output_path}")
+    print(f"\nOK Presentation assembled: {output_path}")
     print(f"  Date: {ic_date}")
     print(f"  Instruments: {len(instruments)}")
     return output_path

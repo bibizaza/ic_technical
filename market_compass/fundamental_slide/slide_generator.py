@@ -405,7 +405,7 @@ def insert_fundamental_rank(
             break
 
     if not target_slide:
-        print(f"[Fundamental Rank] ❌ No slide with shape name '{slide_name}' found")
+        print(f"[Fundamental Rank] ERROR: No slide with shape name '{slide_name}' found")
         Path(img_path).unlink(missing_ok=True)
         return prs
 
@@ -427,7 +427,7 @@ def insert_fundamental_rank(
     # Cleanup
     Path(img_path).unlink(missing_ok=True)
 
-    print(f"[Fundamental Rank] ✅ Table inserted at ({FUNDAMENTAL_LEFT_CM}, {FUNDAMENTAL_TOP_CM}) cm (sent to back)")
+    print(f"[Fundamental Rank] OK: Table inserted at ({FUNDAMENTAL_LEFT_CM}, {FUNDAMENTAL_TOP_CM}) cm (sent to back)")
 
     return prs
 

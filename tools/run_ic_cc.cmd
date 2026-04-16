@@ -7,6 +7,9 @@ setlocal ENABLEEXTENSIONS
 
 cd /d "%~dp0.."
 
+REM Force UTF-8 for Python stdout so emoji in print() don't crash on CP1252.
+set PYTHONIOENCODING=utf-8
+
 REM Load environment variables from .env (SMTP, Dropbox, Bloomberg).
 REM Expected format: KEY=VALUE per line. No comments, no blank lines.
 if exist ".env" (
