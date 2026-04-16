@@ -54,4 +54,42 @@ try:
 except Exception as e:
     print(f"   Equity caps ERROR: {e}")
 
+print("\n4. Testing prepare_slide_data (full function):")
+try:
+    from utils import adjust_prices_for_mode
+    from market_compass.technical_slide import prepare_slide_data
+    df_adj, used_date = adjust_prices_for_mode(df, "Last Price")
+
+    # Build dmas_scores from a dummy set (same keys the pipeline uses)
+    dmas_scores = {
+        "spx": 65, "csi": 65, "nikkei": 86, "tasi": 66, "sensex": 11,
+        "dax": 47, "smi": 66, "mexbol": 80, "ibov": 96,
+        "gold": 60, "silver": 74, "platinum": 80, "palladium": 66,
+        "oil": 93, "copper": 88,
+        "bitcoin": 24, "ethereum": 22, "ripple": 17, "solana": 9, "binance": 19,
+    }
+    rows = prepare_slide_data(df_adj, dmas_scores, str(tmp), price_mode="Last Price")
+    print(f"   Rows: {len(rows)}")
+    for r in rows[:3]:
+        print(f"   {r.name}: mktcap={r.market_cap}, dmas={r.dmas}")
+except Exception as e:
+    print(f"   ERROR: {e}")
+    import traceback
+    traceback.print_exc()
+
+print("\n5. Testing Playwright rendering:")
+try:
+    from market_compass.technical_slide import insert_technical_analysis_slide
+    from pptx import Presentation as Prs
+    # Create a minimal test: just render the HTML to PNG
+    from market_compass.technical_slide.slide_generator import _generate_tables_html, _render_html_to_png
+    html = _generate_tables_html(rows, used_date, "Last Price")
+    print(f"   HTML length: {len(html)} chars")
+    png_bytes = _render_html_to_png(html)
+    print(f"   PNG rendered: {len(png_bytes)} bytes")
+except Exception as e:
+    print(f"   ERROR: {e}")
+    import traceback
+    traceback.print_exc()
+
 print("\nDone.")
