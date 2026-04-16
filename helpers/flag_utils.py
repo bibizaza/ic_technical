@@ -110,7 +110,18 @@ def get_flag_html(country_code: str, size: int = 22) -> str:
         logo_path = os.path.join(CRYPTO_ASSETS_PATH, logo_file)
         # Double the size to match country flags visually
         img_size = int(size * 2)
-        return f'<img class="flag-img" src="file://{logo_path}" style="width:{img_size}px; height:{img_size}px; border-radius:50%; vertical-align:middle; flex-shrink:0; object-fit:cover;">'
+        # Use base64 data URI so images render when Playwright loads
+        # HTML via set_content() (file:// URIs are blocked by security policy)
+        import base64
+        try:
+            with open(logo_path, "rb") as _f:
+                _b64 = base64.b64encode(_f.read()).decode("ascii")
+            ext = logo_file.rsplit(".", 1)[-1].lower()
+            mime = "image/jpeg" if ext in ("jpg", "jpeg") else "image/png"
+            src = f"data:{mime};base64,{_b64}"
+        except FileNotFoundError:
+            src = f"file://{logo_path}"
+        return f'<img class="flag-img" src="{src}" style="width:{img_size}px; height:{img_size}px; border-radius:50%; vertical-align:middle; flex-shrink:0; object-fit:cover;">'
 
     # Check for commodity icons
     if code in COMMODITY_EMOJI:
