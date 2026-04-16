@@ -53,7 +53,7 @@ body {
 
 .price-row {
     display: flex;
-    height: 355px;
+    height: 370px;
 }
 
 .price-chart-area {
