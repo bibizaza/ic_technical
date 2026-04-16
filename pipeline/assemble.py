@@ -486,6 +486,7 @@ def _insert_summary_slides(
     # Technical Analysis summary
     try:
         from market_compass.technical_slide import prepare_slide_data, insert_technical_analysis_slide
+        from market_compass.technical_slide.data_prep import AssetRow, get_outlook
 
         df_prices_adj, tech_used_date = adjust_prices_for_mode(df_prices, "Last Price")
         dmas_scores = {}
@@ -495,6 +496,36 @@ def _insert_summary_slides(
                 dmas_scores[cfg["ticker_key"]] = data.get("dmas", 50)
 
         rows = prepare_slide_data(df_prices_adj, dmas_scores, chart_excel_path, price_mode="Last Price")
+
+        # Fallback: build rows from draft_state if prepare_slide_data failed
+        if not rows:
+            log.warning("prepare_slide_data returned 0 rows — building from draft_state")
+            _ASSET_CLASS = {
+                "S&P 500": "equity", "CSI 300": "equity", "Nikkei 225": "equity",
+                "TASI": "equity", "Sensex": "equity", "DAX": "equity",
+                "SMI": "equity", "IBOV": "equity", "MEXBOL": "equity",
+                "Gold": "commodities", "Silver": "commodities",
+                "Platinum": "commodities", "Palladium": "commodities",
+                "Oil": "commodities", "Copper": "commodities",
+                "Bitcoin": "crypto", "Ethereum": "crypto",
+                "Ripple": "crypto", "Solana": "crypto", "Binance": "crypto",
+            }
+            for iname, idata in instruments.items():
+                _dmas = int(idata.get("dmas", 50))
+                _vs50 = idata.get("vs_50d", "0")
+                if isinstance(_vs50, str):
+                    _vs50 = float(_vs50.replace("%", "").replace("+", ""))
+                rows.append(AssetRow(
+                    name=iname if iname != "Oil" else "Oil (WTI)",
+                    ticker=INSTRUMENT_CONFIG.get(iname, {}).get("bbg_ticker", ""),
+                    market_cap=str(idata.get("market_cap", "—")),
+                    rsi=int(idata.get("rsi", 50)),
+                    vs_50d_ma=float(_vs50),
+                    dmas=_dmas,
+                    outlook=get_outlook(_dmas),
+                    asset_class=_ASSET_CLASS.get(iname, "equity"),
+                ))
+
         if rows:
             insert_technical_analysis_slide(
                 prs, rows, placeholder_name="technical_nutshell",
@@ -502,7 +533,7 @@ def _insert_summary_slides(
             )
             log.info("Technical summary slide inserted (%d rows)", len(rows))
         else:
-            log.warning("Technical summary: prepare_slide_data returned 0 rows — slide will be empty")
+            log.warning("Technical summary: still 0 rows after fallback")
     except Exception as e:
         log.warning("Technical summary error: %s", e, exc_info=True)
 

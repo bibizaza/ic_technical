@@ -53,7 +53,7 @@ body {
 
 .price-row {
     display: flex;
-    height: 320px;
+    height: 355px;
 }
 
 .price-chart-area {
@@ -127,7 +127,7 @@ body {
 }
 
 .dmas-value {
-    font-size: 36px;      /* Adjusted for wider panel */
+    font-size: 32px;
     font-weight: 700;
     color: #FFFFFF;
     line-height: 1.1;

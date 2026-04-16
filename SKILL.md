@@ -189,7 +189,7 @@ Write like a technical analyst briefing a committee, not like a data feed summar
 
 **R7 — No investment recommendations:** Never write "buy," "sell," "add exposure," "reduce position," "take profits," or similar advisory language.
 
-**R8 — Both lines end with period:** Both lines are complete sentences ending with a period.
+**R8 — Both lines end with period:** Both lines are complete sentences ending with a period. Each line must be under 120 characters so the subtitle fits within 2 visual lines in the PowerPoint text box. If a sentence exceeds 120 characters, shorten it — never let a 2-line subtitle wrap to 3 lines.
 
 **R9 — No false regional generalizations:** Never say "EM rallies" if only one EM index is up and another is down. Never say "DM sells off" if one DM market is flat. Any group claim (EM, DM, metals, majors) must be supported by ALL members of that group. When performance diverges within a group, name specific indices instead of using regional labels.
 
