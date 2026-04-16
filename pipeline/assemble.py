@@ -53,7 +53,7 @@ def _load_draft(draft_path: str) -> dict:
     if not Path(draft_path).exists():
         print(f"Error: {draft_path} not found. Run --stage prepare first.")
         raise SystemExit(1)
-    with open(draft_path) as f:
+    with open(draft_path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -96,6 +96,10 @@ def run_assemble(
     missing_subtitles = [nm for nm, d in instruments.items() if not d.get("subtitle")]
     if missing_subtitles:
         log.warning("Missing subtitles: %s", ", ".join(missing_subtitles))
+
+    missing_ytd = [k for k in ("equity", "commodity", "crypto") if not ytd_subtitles.get(k)]
+    if missing_ytd:
+        log.warning("Missing YTD overview subtitles: %s (placeholders will remain)", ", ".join(missing_ytd))
 
     # Resolve paths
     dropbox_path = os.environ.get(
@@ -496,9 +500,11 @@ def _insert_summary_slides(
                 prs, rows, placeholder_name="technical_nutshell",
                 used_date=tech_used_date, price_mode="Last Price"
             )
-        log.info("Technical summary slide inserted")
+            log.info("Technical summary slide inserted (%d rows)", len(rows))
+        else:
+            log.warning("Technical summary: prepare_slide_data returned 0 rows — slide will be empty")
     except Exception as e:
-        log.warning("Technical summary error: %s", e)
+        log.warning("Technical summary error: %s", e, exc_info=True)
 
     # Breadth slide (new composite breadth table)
     breadth_ranks: dict[str, int] = {}

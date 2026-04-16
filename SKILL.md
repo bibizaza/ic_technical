@@ -355,9 +355,15 @@ Steps:
    $HTEI_BLOOMBERG_LOGIN, wait up to 30 s, retry. If still down,
    call tools.ic_email.notify_failure("bloomberg", "...") and stop.
 3. Run: python run_ic.py --stage prepare --date <price_date>
-4. Read draft_state.json. Following config/subtitle_directive.md,
-   write the 20 instrument subtitles and 3 overview subtitles back
-   into draft_state.json.
+4. Read draft_state.json. Following config/subtitle_directive.md and
+   the "Subtitle Generation Directive" section of this SKILL.md:
+   a. Write 20 instrument subtitles into
+      draft_state.json["instruments"][name]["subtitle"].
+   b. Write 3 overview subtitles into draft_state.json["ytd_subtitles"]
+      as a dict with keys "equity", "commodity", "crypto" — each a
+      single-line string (these appear on the YTD performance slides).
+   c. Save draft_state.json with encoding='utf-8' to avoid mojibake
+      on Windows (em dashes etc.).
 5. Run: python run_ic.py --stage assemble --date <price_date>
    --committee-date <committee_date>
 6. Verify the PPTX exists at
