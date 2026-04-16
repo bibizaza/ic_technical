@@ -92,4 +92,20 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
+print("\n6. Testing Playwright render via _html_to_png (exact pipeline path):")
+try:
+    from market_compass.technical_slide.slide_generator import _html_to_png
+    html = _generate_tables_html(rows)
+    import tempfile as _tf
+    with _tf.NamedTemporaryFile(suffix=".png", delete=False) as _f:
+        _img = _f.name
+    _html_to_png(html, _img)
+    _sz = os.path.getsize(_img)
+    print(f"   PNG rendered: {_sz} bytes")
+    os.unlink(_img)
+except Exception as e:
+    print(f"   ERROR: {e}")
+    import traceback
+    traceback.print_exc()
+
 print("\nDone.")
