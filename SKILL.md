@@ -251,16 +251,21 @@ When visible on the chart, mention whether MAs are:
 
 ### Overview Subtitles (Equity / Commodity / Crypto)
 
-Overview slides get exactly 1 line (not 2). Use a regional or thematic narrative:
+Overview slides get **exactly 1 line, max 100 characters**. Write a broad macro narrative about the market environment — NOT individual instrument analysis.
 
-1. Contrast strongest vs weakest with narrative tension, not just numbers
-2. Name actual indices/assets (e.g., "IBOV," "Sensex," not "Brazil," "India")
-3. Use a unifying theme if one exists (e.g., "EM divergence widens" or "Metals correct in unison")
-4. Max 1 number (typically the spread between best and worst YTD)
-5. No score references whatsoever
-6. Frame the group story, not individual instrument stories
-7. Do NOT name more than one individual instrument — rest should be categories
-8. **Never generalize a region when performance diverges within it.** If Brazil is +13% and India is -13%, "emerging markets" are NOT down — they are split. Name specific indices, not regional labels, when the underlying data shows divergence. Wrong: "India drags emerging markets down." Right: "IBOV's +13% rally leads a fractured market — DM sells off while LatAm defies the trend." Always verify that any group claim (EM, DM, metals, majors) is actually supported by ALL members of that group.
+**What to write:** Describe the regime, the trend, or the divergence:
+- "Markets entered a risk-off environment as the two-week correction deepens across DM."
+- "The April correction continues with most indices still below their 50d."
+- "Broad commodity strength persists — energy and metals aligned for a rare unified rally."
+- "Crypto remains in structural damage territory with no signs of stabilization."
+
+**Hard rules:**
+1. **ONE line only, max 100 characters.** If it wraps in PowerPoint, it's too long.
+2. **Never mention DMAS, ratings (bullish/bearish/constructive), or scores.** These are individual-instrument concepts, not overview language.
+3. **Never name more than one individual instrument.** Use categories instead (DM, EM, LatAm, energy, metals, altcoins).
+4. **Max 1 number** (e.g., the YTD spread between best and worst).
+5. **Frame the environment, not individual stories.** "Risk-off deepens" not "IBOV leads while Sensex lags."
+6. **Never generalize a region when performance diverges within it.** If Brazil is +13% and India is -13%, say "LatAm defies a fractured equity market" not "EM rallies."
 
 ### Validation Clarifications (avoiding false positives)
 
