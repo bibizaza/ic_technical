@@ -7,13 +7,11 @@ Uses 2x scale factor for crisp output when PowerPoint scales down.
 """
 
 import tempfile
-import shutil
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
 
 from jinja2 import Template
-from html2image import Html2Image
 from pptx import Presentation
 from pptx.util import Cm
 
@@ -113,16 +111,14 @@ def _generate_tables_html(rows: List[AssetRow]) -> str:
 
 
 def _html_to_png(html: str, output_path: str) -> str:
-    """Convert HTML to high-resolution PNG."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        hti = Html2Image(
-            output_path=tmpdir,
-            size=(IMAGE_WIDTH_PX, IMAGE_HEIGHT_PX)
-        )
-        hti.screenshot(html_str=html, save_as="tables.png")
-
-        shutil.move(str(Path(tmpdir) / "tables.png"), output_path)
-
+    """Convert HTML to high-resolution PNG using Playwright."""
+    from helpers.html_to_image import render_html_to_image
+    render_html_to_image(
+        html_content=html,
+        output_path=output_path,
+        size=(BASE_WIDTH, BASE_HEIGHT),
+        device_scale_factor=SCALE_FACTOR,
+    )
     return output_path
 
 
