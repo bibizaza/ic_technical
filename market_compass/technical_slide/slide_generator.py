@@ -111,13 +111,19 @@ def _generate_tables_html(rows: List[AssetRow]) -> str:
 
 
 def _html_to_png(html: str, output_path: str) -> str:
-    """Convert HTML to high-resolution PNG using Playwright."""
+    """Convert HTML to high-resolution PNG using Playwright.
+
+    The HTML template already renders at IMAGE_WIDTH_PX × IMAGE_HEIGHT_PX
+    (4800×2600 at 4x scale), so we use device_scale_factor=1 to avoid
+    double-scaling (which would produce a 19200×10400 image that exceeds
+    Pillow's decompression bomb limit).
+    """
     from helpers.html_to_image import render_html_to_image
     render_html_to_image(
         html_content=html,
         output_path=output_path,
-        size=(BASE_WIDTH, BASE_HEIGHT),
-        device_scale_factor=SCALE_FACTOR,
+        size=(IMAGE_WIDTH_PX, IMAGE_HEIGHT_PX),
+        device_scale_factor=1,
     )
     return output_path
 
