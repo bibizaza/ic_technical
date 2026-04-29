@@ -323,9 +323,49 @@ def run_prepare(
     log.info("Computing scores for date: %s", target_date.date())
 
     # -----------------------------------------------------------------------
+    # Step 2.5: Refresh mars_score sheet in ic_file.xlsx
+    # -----------------------------------------------------------------------
+    # pipeline.momentum.compute_scores reads pre-computed momentum from the
+    # mars_score sheet. Without this refresh, scores stay frozen at whatever
+    # the last momentum-repo run wrote — and weekly deltas (triangle arrows)
+    # collapse to zero on every IC slide.
+    excel_path = str(Path(dropbox_path) / "ic_file.xlsx")
+    momentum_repo = os.environ.get(
+        "IC_MOMENTUM_REPO",
+        "/Users/larazanella/Desktop/GitHub/Projects/momentum",
+    )
+    momentum_script = Path(momentum_repo) / "run_momentum.py"
+    if momentum_script.exists():
+        log.info("Refreshing mars_score sheet via %s ...", momentum_script)
+        import subprocess
+        _mom_proc = subprocess.run(
+            [
+                sys.executable, str(momentum_script),
+                "--prices", master_csv,
+                "--output", excel_path,
+                "--history-years", "1",
+                "--quiet",
+            ],
+            cwd=momentum_repo,
+            capture_output=True,
+            text=True,
+        )
+        if _mom_proc.returncode != 0:
+            log.warning(
+                "Momentum scoring failed (exit %d) — falling back to stale mars_score. stderr: %s",
+                _mom_proc.returncode, (_mom_proc.stderr or "")[:500],
+            )
+        else:
+            log.info("mars_score sheet refreshed")
+    else:
+        log.warning(
+            "Momentum script not found at %s — skipping refresh (set IC_MOMENTUM_REPO to override)",
+            momentum_script,
+        )
+
+    # -----------------------------------------------------------------------
     # Step 3: Compute momentum scores
     # -----------------------------------------------------------------------
-    excel_path = str(Path(dropbox_path) / "ic_file.xlsx")
     from pipeline.momentum import compute_scores, INSTRUMENT_MAP
     instrument_names = list(INSTRUMENT_MAP.keys())
     scores_dict = compute_scores(master_df, instrument_names, target_date, excel_path=excel_path)
