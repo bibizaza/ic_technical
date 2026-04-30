@@ -1660,7 +1660,7 @@ def create_fx_impact_analysis_chart_eur(
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
             print(f"[FX Impact EUR DEBUG] Setting page content...")
-            page.set_content(patch_cdn(html_content), wait_until='commit')
+            page.set_content(patch_cdn(html_content), wait_until='networkidle')
             page.wait_for_timeout(500)
             print(f"[FX Impact EUR DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()
@@ -2016,7 +2016,7 @@ def create_fx_impact_analysis_chart_chf(
                 'height': FX_IMPACT_PNG_HEIGHT_PX
             })
             print(f"[FX Impact CHF DEBUG] Setting page content...")
-            page.set_content(patch_cdn(html_content), wait_until='commit')
+            page.set_content(patch_cdn(html_content), wait_until='networkidle')
             page.wait_for_timeout(500)
             print(f"[FX Impact CHF DEBUG] Taking screenshot...")
             png_bytes = page.screenshot()
