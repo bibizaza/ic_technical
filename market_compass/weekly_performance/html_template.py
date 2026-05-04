@@ -2065,6 +2065,14 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
             margin-right: {{ 12 * scale }}px;
         }
 
+        .header-row .period-col.level {
+            font-size: {{ 9 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            margin-right: {{ 8 * scale }}px;
+            text-align: left;
+        }
+
         /* Data rows */
         .data-row {
             display: flex;
@@ -2115,6 +2123,18 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
             text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
+        /* Level column - current FX rate, plain text (no heatmap), left-aligned */
+        .value-cell.level {
+            background: transparent;
+            color: #040C38;
+            font-size: {{ 10 * scale }}px;
+            font-weight: 700;
+            text-shadow: none;
+            box-shadow: none;
+            margin-right: {{ 8 * scale }}px;
+            justify-content: flex-start;
+        }
+
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
@@ -2149,6 +2169,7 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
         <!-- Header -->
         <div class="header-row">
             <div class="currency-col"></div>
+            <div class="period-col level">Level</div>
             <div class="period-col ytd">YTD</div>
             <div class="period-col">1M</div>
             <div class="period-col">3M</div>
@@ -2162,6 +2183,7 @@ CURRENCY_HISTORICAL_HTML_TEMPLATE = '''
                 {{ row.flag_html | safe }}
                 <span class="currency-name">{{ row.name }}</span>
             </div>
+            <div class="value-cell level">{{ row.formatted_level }}</div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
             <div class="value-cell {{ row.m1_class }}">{{ row.m1_formatted }}</div>
             <div class="value-cell {{ row.m3_class }}">{{ row.m3_formatted }}</div>

@@ -985,6 +985,14 @@ def create_historical_html_performance_chart(
     for config in CURRENCY_CONFIG:
         ticker = config["ticker"]
 
+        # Current FX level (4 decimals for most pairs, 2 for JPY pairs per FX convention)
+        formatted_level = ""
+        prices = df_adj[ticker].dropna() if ticker in df_adj.columns else pd.Series(dtype=float)
+        if not prices.empty:
+            current_price = prices.iloc[-1]
+            decimals = 2 if "JPY" in ticker.upper() else 4
+            formatted_level = f"{current_price:,.{decimals}f}"
+
         # Calculate returns for all horizons
         ret_ytd = float("nan")
         start_of_year = pd.Timestamp(year=today.year, month=1, day=1)
@@ -1004,6 +1012,7 @@ def create_historical_html_performance_chart(
             "name": config["name"],
             "flag": config["flag"],
             "flag_html": get_flag_html(config["flag"]),
+            "formatted_level": formatted_level,
             "ytd_value": ret_ytd if not pd.isna(ret_ytd) else 0.0,
             "m1_value": ret_1m if not pd.isna(ret_1m) else 0.0,
             "m3_value": ret_3m if not pd.isna(ret_3m) else 0.0,
@@ -1021,6 +1030,7 @@ def create_historical_html_performance_chart(
             "name": row["name"],
             "flag": row["flag"],
             "flag_html": get_flag_html(row["flag"]),
+            "formatted_level": row["formatted_level"],
             "ytd_formatted": _format_percentage_with_sign(row["ytd_value"]),
             "ytd_class": _get_color_class_for_value(row["ytd_value"]),
             "m1_formatted": _format_percentage_with_sign(row["m1_value"]),
