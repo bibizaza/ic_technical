@@ -15,7 +15,7 @@ IC2 is the automated pipeline that generates the weekly Market Compass presentat
 
 - **Repository:** `~/Desktop/GitHub/Projects/ic_technical/` (branch: `feature/pipeline-v2`)
 - **Dropbox IC folder:** `~/Library/CloudStorage/Dropbox/Tools_In_Construction/ic/`
-- **Output PPTX:** `{Dropbox IC folder}/Market_Compass_YYYYMMDD.pptx`
+- **Output PPTX:** `{Dropbox IC folder}/{DDMMYYYY}_Herculis_Partners_Technical_Update.pptx`
 - **History:** `~/Desktop/GitHub/Projects/ic_technical/market_compass/data/history.json`
 - **Breadth cache:** `~/Desktop/GitHub/Projects/ic_technical/breadth_cache.json`
 - **Draft state:** `~/Desktop/GitHub/Projects/ic_technical/draft_state.json`
@@ -60,7 +60,7 @@ Step 1: What day/time is it?
 │   → NORMAL RUN (no questions needed)
 │   → Prices: latest available (Tuesday close)
 │   → Committee date: tomorrow (Wednesday)
-│   → File: Market_Compass_YYYYMMDD.pptx (Wednesday date)
+│   → File: {DDMMYYYY}_Herculis_Partners_Technical_Update.pptx (Wednesday date)
 │   → Source lines: "Data as of DD/MM/YYYY" (Wednesday date)
 │   → Proceed automatically.
 │
@@ -85,7 +85,7 @@ Step 1: What day/time is it?
         "Running IC2 pipeline:
          • Prices: [selection] ([date])
          • Committee date: [date]
-         • File: Market_Compass_YYYYMMDD.pptx
+         • File: {DDMMYYYY}_Herculis_Partners_Technical_Update.pptx
          Proceed?"
 ```
 
@@ -107,7 +107,7 @@ def resolve_dates(price_mode, price_date, committee_date):
 
 The committee date affects:
 - Slide 1 title: "March 21, 2026"
-- Filename: `Market_Compass_20260321.pptx`
+- Filename: `21032026_Herculis_Partners_Technical_Update.pptx`
 - All source lines: "Data as of 21/03/2026"
 
 The price date affects:
@@ -372,7 +372,7 @@ Steps:
 5. Run: python run_ic.py --stage assemble --date <price_date>
    --committee-date <committee_date>
 6. Verify the PPTX exists at
-   $IC_DROPBOX_PATH/Market_Compass_YYYYMMDD.pptx (committee date)
+   $IC_DROPBOX_PATH/{DDMMYYYY}_Herculis_Partners_Technical_Update.pptx (committee date)
    and the first slide title, filename, and source lines use the
    correct dates (committee on title/filename, price date on source).
 7. Call tools.ic_email.notify_success(pptx_path, committee_date,

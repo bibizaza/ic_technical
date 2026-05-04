@@ -109,8 +109,10 @@ def run_assemble(
     if template_path is None:
         template_path = str(Path(dropbox_path) / "shadow_template.pptx")
     if output_path is None:
-        date_str = committee_date.replace("-", "")
-        output_path = str(Path(dropbox_path) / f"Market_Compass_{date_str}.pptx")
+        # committee_date is YYYY-MM-DD; filename uses DDMMYYYY.
+        y, m, d = committee_date.split("-")
+        stamp_ddmmyyyy = f"{d}{m}{y}"
+        output_path = str(Path(dropbox_path) / f"{stamp_ddmmyyyy}_Herculis_Partners_Technical_Update.pptx")
 
     master_csv = str(Path(dropbox_path) / "master_prices.csv")
     excel_path = str(Path(dropbox_path) / "ic_file.xlsx")
