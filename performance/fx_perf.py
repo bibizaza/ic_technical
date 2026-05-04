@@ -771,11 +771,12 @@ def create_weekly_html_performance_chart(
         else:
             highlight_class = ""
 
-        # Get current exchange rate for the rate column
+        # Get current exchange rate (4 decimals for most pairs, 2 for JPY pairs per FX convention)
         ticker = row["ticker"]
         current_rate = df_adj[ticker].iloc[-1] if ticker in df_adj.columns else 0
         if pd.notna(current_rate):
-            formatted_rate = f"{current_rate:.2f}"
+            decimals = 2 if "JPY" in ticker.upper() else 4
+            formatted_rate = f"{current_rate:,.{decimals}f}"
         else:
             formatted_rate = ""
 

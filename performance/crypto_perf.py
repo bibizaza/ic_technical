@@ -825,11 +825,11 @@ def create_weekly_html_performance_chart(
         current_price = df_adj[ticker].iloc[-1] if ticker in df_adj.columns else 0
         if pd.notna(current_price):
             if current_price >= 1000:
-                formatted_price = f"{int(current_price):,}"
-            elif current_price >= 10:
-                formatted_price = f"{int(current_price)}"
+                formatted_price = f"{current_price:,.0f}"
+            elif current_price >= 1:
+                formatted_price = f"{current_price:,.2f}"
             else:
-                formatted_price = f"{current_price:.2f}"
+                formatted_price = f"{current_price:.4f}"
         else:
             formatted_price = ""
 
