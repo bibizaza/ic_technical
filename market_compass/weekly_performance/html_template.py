@@ -1635,6 +1635,14 @@ COMMODITIES_HISTORICAL_HTML_TEMPLATE = '''
             margin-right: {{ 8 * scale }}px;
         }
 
+        .header-row .period-col.level {
+            font-size: {{ 8 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            margin-right: {{ 6 * scale }}px;
+            text-align: left;
+        }
+
         /* Category group header */
         .category-header {
             display: flex;
@@ -1703,6 +1711,18 @@ COMMODITIES_HISTORICAL_HTML_TEMPLATE = '''
             text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
+        /* Level column - current price, plain text (no heatmap), left-aligned */
+        .value-cell.level {
+            background: transparent;
+            color: #040C38;
+            font-size: {{ 7 * scale }}px;
+            font-weight: 700;
+            text-shadow: none;
+            box-shadow: none;
+            margin-right: {{ 6 * scale }}px;
+            justify-content: flex-start;
+        }
+
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
@@ -1734,6 +1754,7 @@ COMMODITIES_HISTORICAL_HTML_TEMPLATE = '''
         <!-- Header -->
         <div class="header-row">
             <div class="market-col"></div>
+            <div class="period-col level">Level</div>
             <div class="period-col ytd">YTD</div>
             <div class="period-col">1M</div>
             <div class="period-col">3M</div>
@@ -1753,6 +1774,7 @@ COMMODITIES_HISTORICAL_HTML_TEMPLATE = '''
                 <span class="commodity-icon">{{ item.icon }}</span>
                 <span class="commodity-name">{{ item.name }}</span>
             </div>
+            <div class="value-cell level">{{ item.formatted_level }}</div>
             <div class="value-cell ytd {{ item.ytd_class }}">{{ item.ytd_formatted }}</div>
             <div class="value-cell {{ item.m1_class }}">{{ item.m1_formatted }}</div>
             <div class="value-cell {{ item.m3_class }}">{{ item.m3_formatted }}</div>

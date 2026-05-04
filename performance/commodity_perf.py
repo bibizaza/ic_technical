@@ -878,9 +878,23 @@ def create_historical_html_performance_chart(
             m6 = 0.0 if pd.isna(m6) else m6
             m12 = 0.0 if pd.isna(m12) else m12
 
+            # Current commodity price (adaptive precision: span ~4 to ~4,000)
+            formatted_level = ""
+            if ticker in df_adj.columns:
+                _prices = df_adj[ticker].dropna()
+                if not _prices.empty:
+                    _p = _prices.iloc[-1]
+                    if _p >= 1000:
+                        formatted_level = f"{_p:,.0f}"
+                    elif _p >= 100:
+                        formatted_level = f"{_p:,.1f}"
+                    else:
+                        formatted_level = f"{_p:,.2f}"
+
             items_data.append({
                 "name": item["name"],
                 "icon": item["icon"],
+                "formatted_level": formatted_level,
                 "ytd_value": ytd,  # Keep raw value for sorting
                 "ytd_formatted": _format_historical_percentage(ytd),
                 "ytd_class": _get_commodity_historical_color_class(ytd),
