@@ -541,8 +541,12 @@ def create_historical_performance_table(
                 m6 = row.get("6M", 0) if pd.notna(row.get("6M")) else 0
                 m12 = row.get("12M", 0) if pd.notna(row.get("12M")) else 0
 
+                current_yield = df_adj[ticker].iloc[-1] if ticker in df_adj.columns else float("nan")
+                formatted_yield = f"{current_yield:.2f}%" if pd.notna(current_yield) else ""
+
                 tenors.append({
                     "label": label,
+                    "formatted_yield": formatted_yield,
                     "ytd_formatted": _format_bps(ytd),
                     "ytd_class": _get_rates_color_class(ytd),
                     "m1_formatted": _format_bps(m1),

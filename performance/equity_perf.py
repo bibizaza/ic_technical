@@ -518,17 +518,27 @@ def create_historical_performance_table(
     for _, row in heat_df.iterrows():
         name = row["Name"]
 
-        # Find flag for this name
+        # Find flag and ticker for this name
         flag = ""
-        for ticker, config in INDEX_CONFIG.items():
+        ticker = ""
+        for tkr, config in INDEX_CONFIG.items():
             if config["name"] == name:
                 flag = config["flag"]
+                ticker = tkr
                 break
+
+        # Current index level
+        formatted_level = ""
+        if ticker and ticker in df_adj.columns:
+            current_price = df_adj[ticker].iloc[-1]
+            if pd.notna(current_price):
+                formatted_level = f"{current_price:,.0f}"
 
         rows.append({
             "name": name,
             "flag": flag,
             "flag_html": get_flag_html(flag),
+            "formatted_level": formatted_level,
             "ytd_formatted": format_percentage(row["YTD"]),
             "ytd_class": get_color_class(row["YTD"]),
             "m1_formatted": format_percentage(row["1M"]),

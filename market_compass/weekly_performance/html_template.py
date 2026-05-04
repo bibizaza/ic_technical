@@ -339,6 +339,14 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
             margin-right: {{ 16 * scale }}px;
         }
 
+        .header-row .period-col.level {
+            font-size: {{ 12 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            margin-right: {{ 10 * scale }}px;
+            text-align: left;
+        }
+
         /* Data rows */
         .data-row {
             display: flex;
@@ -389,6 +397,18 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
             text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
+        /* Level column - current price, plain text (no heatmap), left-aligned to sit close to index name */
+        .value-cell.level {
+            background: transparent;
+            color: #040C38;
+            font-size: {{ 11 * scale }}px;
+            font-weight: 700;
+            text-shadow: none;
+            box-shadow: none;
+            margin-right: {{ 10 * scale }}px;
+            justify-content: flex-start;
+        }
+
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
@@ -423,6 +443,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
         <!-- Header -->
         <div class="header-row">
             <div class="market-col"></div>
+            <div class="period-col level">Level</div>
             <div class="period-col ytd">YTD</div>
             <div class="period-col">1M</div>
             <div class="period-col">3M</div>
@@ -436,6 +457,7 @@ HISTORICAL_PERFORMANCE_HTML_TEMPLATE = '''
                 {{ row.flag_html | safe }}
                 <span class="market-name">{{ row.name }}</span>
             </div>
+            <div class="value-cell level">{{ row.formatted_level }}</div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
             <div class="value-cell {{ row.m1_class }}">{{ row.m1_formatted }}</div>
             <div class="value-cell {{ row.m3_class }}">{{ row.m3_formatted }}</div>
@@ -772,6 +794,13 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
             margin-right: {{ 10 * scale }}px;
         }
 
+        .header-row .period-col.level {
+            font-size: {{ 7 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            margin-right: {{ 6 * scale }}px;
+        }
+
         /* Country group header */
         .country-header {
             display: flex;
@@ -846,6 +875,17 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
             text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
+        /* Level column - current yield, plain text (no heatmap) */
+        .value-cell.level {
+            background: transparent;
+            color: #040C38;
+            font-size: {{ 7 * scale }}px;
+            font-weight: 700;
+            text-shadow: none;
+            box-shadow: none;
+            margin-right: {{ 6 * scale }}px;
+        }
+
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
@@ -878,6 +918,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         <!-- Header -->
         <div class="header-row">
             <div class="market-col"></div>
+            <div class="period-col level">Level</div>
             <div class="period-col ytd">YTD</div>
             <div class="period-col">1M</div>
             <div class="period-col">3M</div>
@@ -896,6 +937,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
             <div class="tenor-col">
                 <span class="tenor-label">{{ tenor.label }}</span>
             </div>
+            <div class="value-cell level">{{ tenor.formatted_yield }}</div>
             <div class="value-cell ytd {{ tenor.ytd_class }}">{{ tenor.ytd_formatted }}</div>
             <div class="value-cell {{ tenor.m1_class }}">{{ tenor.m1_formatted }}</div>
             <div class="value-cell {{ tenor.m3_class }}">{{ tenor.m3_formatted }}</div>
