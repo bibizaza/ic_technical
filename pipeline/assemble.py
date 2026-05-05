@@ -20,6 +20,8 @@ from pptx import Presentation
 from pptx.util import Pt
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
+from pipeline._atomic import atomic_write_text
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -64,6 +66,7 @@ def run_assemble(
     history_path: Optional[str] = None,
     config_path: str = "config/tickers.yaml",
     committee_date: Optional[str] = None,
+    allow_incomplete: bool = False,
 ) -> str:
     """
     Build the final PowerPoint from draft_state.json.
@@ -92,14 +95,35 @@ def run_assemble(
         ic_date, committee_date,
     )
 
-    # Validate subtitles
+    # Validate subtitles BEFORE any chart generation, save, or history mutation.
+    # A committee-facing deck with blank narratives + a "successful" history.json
+    # entry is worse than a hard failure: it looks green but ships incomplete.
+    # Use allow_incomplete=True (or --allow-incomplete) for layout-only/debug runs.
     missing_subtitles = [nm for nm, d in instruments.items() if not d.get("subtitle")]
-    if missing_subtitles:
-        log.warning("Missing subtitles: %s", ", ".join(missing_subtitles))
-
     missing_ytd = [k for k in ("equity", "commodity", "crypto") if not ytd_subtitles.get(k)]
-    if missing_ytd:
-        log.warning("Missing YTD overview subtitles: %s (placeholders will remain)", ", ".join(missing_ytd))
+
+    if missing_subtitles or missing_ytd:
+        msg_parts = []
+        if missing_subtitles:
+            msg_parts.append(
+                f"{len(missing_subtitles)} instrument subtitle(s) missing: "
+                + ", ".join(missing_subtitles)
+            )
+        if missing_ytd:
+            msg_parts.append(
+                "YTD overview subtitle(s) missing: " + ", ".join(missing_ytd)
+            )
+        message = "; ".join(msg_parts)
+
+        if allow_incomplete:
+            log.warning("[allow_incomplete] %s", message)
+        else:
+            raise RuntimeError(
+                f"Refusing to assemble incomplete deck — {message}. "
+                "Re-run the subtitle generation step, or pass --allow-incomplete "
+                "to ship a layout-only deck (history.json will still be updated; "
+                "use only for debugging)."
+            )
 
     # Resolve paths
     dropbox_path = os.environ.get(
@@ -203,6 +227,7 @@ def run_assemble(
         log.warning("Could not load history.json for WoW deltas: %s", _e)
 
     total = len(instruments)
+    failed_instruments: list[tuple[str, str]] = []  # (name, reason)
     for idx, (name, data) in enumerate(instruments.items()):
         if name not in INSTRUMENT_CONFIG:
             log.warning("Unknown instrument %s — skipping", name)
@@ -228,6 +253,7 @@ def run_assemble(
 
             if not chart_bytes:
                 log.warning("No chart generated for %s", name)
+                failed_instruments.append((name, "no chart generated"))
                 continue
 
             # Build view text from rating
@@ -252,6 +278,34 @@ def run_assemble(
 
         except Exception as e:
             log.warning("Failed to process %s: %s", name, e)
+            failed_instruments.append((name, str(e)))
+
+    # Also detect instruments that exist in INSTRUMENT_CONFIG but never appeared
+    # in draft_state — they have no slide at all, same "incomplete deck" risk.
+    missing_from_draft = [n for n in INSTRUMENT_CONFIG if n not in instruments]
+
+    if failed_instruments or missing_from_draft:
+        parts = []
+        if failed_instruments:
+            parts.append(
+                f"{len(failed_instruments)} instrument slide(s) failed to render: "
+                + ", ".join(f"{n} ({r})" for n, r in failed_instruments)
+            )
+        if missing_from_draft:
+            parts.append(
+                f"{len(missing_from_draft)} instrument(s) absent from draft_state: "
+                + ", ".join(missing_from_draft)
+            )
+        msg = "; ".join(parts)
+
+        if allow_incomplete:
+            log.warning("[allow_incomplete] %s", msg)
+        else:
+            raise RuntimeError(
+                f"Refusing to assemble incomplete deck — {msg}. "
+                "Investigate the chart pipeline / draft_state, or pass "
+                "--allow-incomplete for layout-only/debug runs."
+            )
 
     # =====================================================================
     # 3. Performance slides
@@ -705,8 +759,7 @@ def _update_history(
         # Keep last 52 weeks
         history[name] = sorted(history[name], key=lambda x: x["date"])[-52:]
 
-    with open(path, "w") as f:
-        json.dump(history, f, indent=2)
+    atomic_write_text(path, json.dumps(history, indent=2))
 
     log.info("Updated history.json (%d instruments)", len(instruments))
 

@@ -112,6 +112,11 @@ def main() -> int:
         default="INFO",
         help="Logging level: DEBUG | INFO | WARNING",
     )
+    parser.add_argument(
+        "--allow-incomplete",
+        action="store_true",
+        help="Assemble even when instrument/YTD subtitles are missing (layout-only / debug)",
+    )
     args = parser.parse_args()
 
     _setup_logging(args.log_level)
@@ -146,6 +151,7 @@ def main() -> int:
                 output_path=None,
                 config_path=args.config,
                 committee_date=args.committee_date,
+                allow_incomplete=args.allow_incomplete,
             )
 
     except KeyboardInterrupt:
