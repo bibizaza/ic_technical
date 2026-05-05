@@ -19,10 +19,18 @@ import blpapi
 import numpy as np
 import pandas as pd
 
+from pipeline._atomic import atomic_write_text
+
 log = logging.getLogger(__name__)
 
 BBG_HOST = os.environ.get("BLOOMBERG_HOST", "10.211.55.3")
 BBG_PORT = int(os.environ.get("BLOOMBERG_PORT", "8194"))
+
+
+class BloombergPartialFailure(RuntimeError):
+    """Bloomberg was reachable but one or more BDH batches failed.
+    Distinct from connection failure so callers can produce accurate alerts.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +410,7 @@ def update_master_prices_wide(
     # ── Pull from Bloomberg (batch of 50 tickers at a time to avoid limits) ──
     BATCH = 50
     all_long: list[pd.DataFrame] = []
+    failed_batches: list[str] = []
     for i in range(0, len(tickers_ordered), BATCH):
         batch = tickers_ordered[i : i + BATCH]
         try:
@@ -409,6 +418,15 @@ def update_master_prices_wide(
             all_long.append(raw)
         except Exception as e:
             log.warning("Bloomberg BDH failed for batch %d-%d: %s", i, i + BATCH, e)
+            failed_batches.append(f"batch {i}-{i + BATCH}: {e}")
+
+    # Refuse to write partial data: any failed batch means those tickers would
+    # be persisted as blanks and never retried (next run advances last_date).
+    if failed_batches:
+        raise BloombergPartialFailure(
+            "Bloomberg BDH partial failure — refusing to write incomplete price data. "
+            f"{len(failed_batches)} batch(es) failed: {'; '.join(failed_batches)}"
+        )
 
     if not all_long:
         log.warning("No Bloomberg price data returned")
@@ -447,24 +465,27 @@ def update_master_prices_wide(
         else:
             append_lines.append(line)
 
-    # ── Overwrite today's row if we re-pulled it ──────────────────────────────
+    # ── Build new file content in memory and write atomically ────────────────
+    # Single temp-file + os.replace so the master is never left half-written
+    # if the process dies between the overwrite and append steps.
+    with open(master_path, "r", encoding="utf-8-sig") as f:
+        content = f.read()
+
     if overwrite_line is not None:
-        with open(master_path, encoding="utf-8-sig") as f:
-            all_lines = f.readlines()
         today_str = last_date.strftime("%d/%m/%Y")
-        for idx in range(len(all_lines) - 1, -1, -1):
-            if all_lines[idx].startswith(today_str):
-                all_lines[idx] = overwrite_line + "\n"
+        lines = content.splitlines(keepends=True)
+        for idx in range(len(lines) - 1, -1, -1):
+            if lines[idx].startswith(today_str):
+                had_newline = lines[idx].endswith("\n")
+                lines[idx] = overwrite_line + ("\n" if had_newline else "")
                 log.info("Overwrote today's row (%s) with fresh Bloomberg data", today_str)
                 break
-        with open(master_path, "w", encoding="utf-8-sig") as f:
-            f.writelines(all_lines)
+        content = "".join(lines)
 
-    # ── Append any genuinely new rows ─────────────────────────────────────────
-    if append_lines:
-        with open(master_path, "a") as f:
-            for line in append_lines:
-                f.write("\n" + line)
+    for line in append_lines:
+        content += "\n" + line
+
+    atomic_write_text(master_path, content, encoding="utf-8-sig")
 
     n_written = (1 if overwrite_line else 0) + len(append_lines)
     log.info("Updated %d price rows in %s", n_written, master_path)

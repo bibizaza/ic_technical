@@ -17,6 +17,8 @@ from typing import Optional
 import pandas as pd
 import yaml
 
+from pipeline._atomic import atomic_write_text
+
 log = logging.getLogger(__name__)
 
 
@@ -263,6 +265,7 @@ def run_prepare(
                 connect_bloomberg, disconnect_bloomberg,
                 update_master_prices_wide,
                 pull_breadth, pull_fundamentals, pull_market_caps,
+                BloombergPartialFailure,
             )
             session = connect_bloomberg()
             try:
@@ -283,6 +286,25 @@ def run_prepare(
                 market_caps_raw = pull_market_caps(session, ic_tickers)
             finally:
                 disconnect_bloomberg(session)
+        except BloombergPartialFailure as e:
+            # Bloomberg was reachable but one or more BDH batches failed —
+            # distinct from a connection problem. Don't claim "not reachable".
+            log.error("Bloomberg partial-batch failure: %s", e)
+            try:
+                import os as _os, urllib.parse as _up, urllib.request as _ur
+                _token = _os.environ.get("TELEGRAM_BOT_TOKEN", "")
+                _chat = _os.environ.get("TELEGRAM_CHAT_ID", "979257663")
+                if _token:
+                    _url = f"https://api.telegram.org/bot{_token}/sendMessage"
+                    _data = _up.urlencode({
+                        "chat_id": _chat,
+                        "text": f"Bloomberg BDH partial failure (price data NOT updated), IC pipeline aborted: {e}",
+                    }).encode()
+                    _ur.urlopen(_ur.Request(_url, data=_data), timeout=10)
+            except Exception:
+                pass
+            # Re-raise unchanged so the original message + traceback survive.
+            raise
         except Exception as e:
             log.error("Bloomberg pull failed: %s", e)
             # Notify immediately — before any further processing
@@ -382,8 +404,7 @@ def run_prepare(
         breadth_records = breadth_df.to_dict(orient="records")
         # Persist for Bloomberg-unavailable runs
         try:
-            with open(_breadth_cache_path, "w") as _bf:
-                _json.dump(breadth_records, _bf, indent=2)
+            atomic_write_text(_breadth_cache_path, _json.dumps(breadth_records, indent=2))
             log.info("Saved breadth_cache.json (%d records)", len(breadth_records))
         except Exception as _be:
             log.warning("Could not save breadth_cache.json: %s", _be)
@@ -505,8 +526,7 @@ def run_prepare(
     }
 
     draft_out = Path(output_dir) / draft_path
-    with open(draft_out, "w") as f:
-        json.dump(draft_state, f, indent=2, default=str)
+    atomic_write_text(draft_out, json.dumps(draft_state, indent=2, default=str))
 
     log.info("draft_state.json saved to %s", draft_out)
     print(f"\nOK Prepare complete. Draft saved to: {draft_out}")
