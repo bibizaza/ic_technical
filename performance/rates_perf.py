@@ -344,6 +344,13 @@ def create_weekly_performance_chart(
     tickers = list(flat_mapping.keys())
     df = _load_price_data(excel_path, tickers)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+
+    # Forward-fill per ticker so a market closed on the as-of date (e.g. China
+    # bonds during May 1-5 holiday) still shows its last known yield rather
+    # than dropping out of the slide entirely.
+    _ticker_cols = [c for c in df_adj.columns if c != "Date"]
+    df_adj[_ticker_cols] = df_adj[_ticker_cols].ffill()
+
     perf = _build_returns_table(df_adj, flat_mapping)
 
     # Calculate max absolute value for bar scaling
@@ -526,6 +533,12 @@ def create_historical_performance_table(
     tickers = list(flat_mapping.keys())
     df = _load_price_data(excel_path, tickers)
     df_adj, used_date = adjust_prices_for_mode(df, price_mode)
+
+    # Forward-fill per ticker so a market closed on the as-of date still shows
+    # its last known yield instead of zeroing out across all horizons.
+    _ticker_cols = [c for c in df_adj.columns if c != "Date"]
+    df_adj[_ticker_cols] = df_adj[_ticker_cols].ffill()
+
     perf = _build_returns_table(df_adj, flat_mapping)
 
     # Build country data for template
