@@ -2,13 +2,15 @@
 
 ## Context
 
-You are generating 2-line subtitles for each instrument slide in the Herculis Market Compass weekly IC presentation. Each slide shows a 5-month price chart with 50d/100d/200d moving averages, RSI(14), and a DMAS scorecard (Technical, Momentum, RSI sub-scores). Your subtitle sits directly below the instrument name and rating — it is the analyst's voice.
+You are generating a single-paragraph subtitle for each instrument slide in the Herculis Market Compass weekly IC presentation. Each slide shows a 5-month price chart with 50d/100d/200d moving averages, RSI(14), and a DMAS scorecard (Technical, Momentum, RSI sub-scores). Your subtitle sits directly below the instrument name and rating — it is the analyst's voice.
 
 ## Core Philosophy
 
-Write like a technical analyst briefing a committee, not like a data feed summarizing scores. Every subtitle should answer two questions:
-1. **Line 1:** What is the chart structure telling us right now?
-2. **Line 2:** What is the next technical level to watch, and what happens there?
+Write like a technical analyst briefing a committee, not like a data feed summarizing scores. Each subtitle is **one paragraph** (no manual line breaks) covering two beats:
+1. **Beat 1:** What is the chart structure telling us right now?
+2. **Beat 2:** What is the next technical level to watch, and what happens there?
+
+The two beats are usually two sentences. PowerPoint will wrap the paragraph naturally to fit the text box; never insert a `\n` to force a line break.
 
 ---
 
@@ -35,8 +37,8 @@ Use the pre-computed `streak_weeks` field from `draft_state.json`. Never count e
 ### R7 — No investment recommendations
 Never write "buy," "sell," "add exposure," "reduce position," "take profits," or similar advisory language.
 
-### R8 — Line 1 ends with period, Line 2 ends with period
-Both lines are complete sentences ending with a period.
+### R8 — One paragraph, no manual line breaks
+The subtitle is a single paragraph ending with a period. Do not insert a `\n` between the two beats — write them as two sentences in the same paragraph and let PowerPoint wrap the text naturally.
 
 ### R9 — No false regional generalizations (overviews)
 Never generalize a region (e.g., "emerging markets down") when performance diverges within that group. If Brazil is +13% and India is -13%, EM is not "down" — it's split. Name specific indices, not regional labels, when underlying data shows divergence. Verify that any group claim is supported by ALL members of that group.
@@ -57,15 +59,15 @@ Example of the error this prevents:
 - RIGHT: "the 100d overhead near X is the level to reclaim"
 
 ### R11 — Maximum subtitle length (CRITICAL for layout)
-Each line must be no longer than **90 characters** (roughly 12-14 words). The two lines combined must not exceed **180 characters** total. Subtitles that exceed this will overflow into the chart area and break the slide layout.
+The whole subtitle (both beats combined, single paragraph) must not exceed **180 characters** total. Subtitles longer than that wrap to a third line and overflow into the chart area.
 
-If a subtitle exceeds 90 characters per line, cut in this priority order:
+If a subtitle exceeds 180 characters, cut in this priority order:
 1. Remove RSI references (unless RSI ≤ 30 or ≥ 80 — these are the only values worth mentioning)
 2. Remove streak counts
 3. Simplify MA references (e.g., "below the 50d and 100d" instead of spelling out each distance)
 4. Drop the least critical number
 
-Brevity forces precision — write a technician's note, not a paragraph.
+Brevity forces precision — write a technician's note, not a paragraph essay.
 
 ---
 
@@ -230,10 +232,10 @@ When reading `draft_state.json` to generate subtitles:
 4. Determine the MA stack position (above/below each MA)
 5. Select tone from DMAS calibration table
 6. Identify the key MA level (the one price is testing or needs to reclaim)
-7. Write Line 1 (current structure) and Line 2 (forward scenario)
+7. Write the subtitle as a single paragraph: one sentence on current structure, one on the forward scenario. No `\n` between them.
 8. **R10 RE-CHECK:** Re-read your subtitle and verify every mention of "above/below/overhead/support/reclaim/underpin" matches the signs from step 3. If any mismatch, rewrite.
-9. Verify: max 2 numbers per line, no banned phrases, no scores named, no instrument name first
-10. **R11 CHECK:** Count characters in each line. If either line exceeds 90 characters, trim using the priority order in R11.
+9. Verify: max 2 numbers per beat, no banned phrases, no scores named, no instrument name first
+10. **R11 CHECK:** Count characters in the whole subtitle. If it exceeds 180 characters, trim using the priority order in R11.
 11. After all 20 are written, scan for repetitive phrasing across the batch — rephrase any duplicates
 12. Write the 3 overview subtitles last, using the full set of individual results for context
 
@@ -255,4 +257,4 @@ Each instrument entry contains:
 - `vs_100d`: % distance from 100d MA (negative = below)
 - `vs_200d`: % distance from 200d MA (negative = below)
 - `streak_weeks`: consecutive weeks at current rating
-- `subtitle`: (to be filled — Line 1 and Line 2 separated by `\n`)
+- `subtitle`: (to be filled — one paragraph, no `\n`)
