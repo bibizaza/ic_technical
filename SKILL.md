@@ -165,19 +165,21 @@ Runs prepare → assemble in sequence. This is what the scheduled task uses.
 
 ### Context
 
-You are generating 2-line subtitles for each instrument slide in the Herculis Market Compass weekly IC presentation. Each slide shows a 5-month price chart with 50d/100d/200d moving averages, RSI(14), and a DMAS scorecard (Technical, Momentum, RSI sub-scores). Your subtitle sits directly below the instrument name and rating — it is the analyst's voice.
+You are generating a single-paragraph subtitle for each instrument slide in the Herculis Market Compass weekly IC presentation. Each slide shows a 5-month price chart with 50d/100d/200d moving averages, RSI(14), and a DMAS scorecard (Technical, Momentum, RSI sub-scores). Your subtitle sits directly below the instrument name and rating — it is the analyst's voice.
 
 ### Core Philosophy
 
-Write like a technical analyst briefing a committee, not like a data feed summarizing scores. Every subtitle should answer two questions:
-1. **Line 1:** What is the chart structure telling us right now?
-2. **Line 2:** What is the next technical level to watch, and what happens there?
+Write like a technical analyst briefing a committee, not like a data feed summarizing scores. Each subtitle is **one compact paragraph** (no manual line breaks, no `\n`) covering two beats:
+1. **Beat 1:** What is the chart structure telling us right now?
+2. **Beat 2:** What is the next technical level to watch, and what happens there?
+
+The two beats are usually two sentences in the same paragraph. After the first sentence ends with a period, continue immediately with the second sentence — **do not insert a line break**. PowerPoint wraps naturally; a forced `\n` causes a third visual line that overflows into the chart.
 
 ### Hard Rules (violations = automatic reject)
 
 **R1 — No scores in text:** Never mention DMAS, Technical score, Momentum score, RSI score value as a score, breadth rank, or fundamental rank by name. These are already displayed on the scorecard. Exception: RSI level can be referenced as a technical indicator (e.g., "RSI nearing oversold" or "RSI at 30"), but NOT as "RSI score at 30."
 
-**R2 — Max 2 numbers per line:** Each subtitle line may contain at most 2 numerical values. Prioritize MA distance percentages and RSI over raw prices. If a line needs 3+ numbers, rephrase to drop the least important one.
+**R2 — Max 2 numbers per beat:** Each beat (sentence) may contain at most 2 numerical values. Prioritize MA distance percentages and RSI over raw prices. If a beat needs 3+ numbers, rephrase to drop the least important one.
 
 **R3 — No promotional adjectives:** Banned: "extraordinary," "exceptional," "remarkable," "outstanding," "perfect," "relentless," "impressive," "stunning," "incredible," "powerful." Replace with factual technical language.
 
@@ -189,7 +191,7 @@ Write like a technical analyst briefing a committee, not like a data feed summar
 
 **R7 — No investment recommendations:** Never write "buy," "sell," "add exposure," "reduce position," "take profits," or similar advisory language.
 
-**R8 — Both lines end with period:** Both lines are complete sentences ending with a period. Each line must be under 120 characters so the subtitle fits within 2 visual lines in the PowerPoint text box. If a sentence exceeds 120 characters, shorten it — never let a 2-line subtitle wrap to 3 lines.
+**R8 — One paragraph, no manual line breaks:** Write a single paragraph (both beats run together as two sentences in the same string). Never insert `\n` between the beats — PowerPoint forces a line break wherever a `\n` appears, and combined with natural wrapping that produces 3 visual lines that overflow into the chart. The whole subtitle must stay under **180 characters total**. Both sentences end with a period.
 
 **R9 — No false regional generalizations:** Never say "EM rallies" if only one EM index is up and another is down. Never say "DM sells off" if one DM market is flat. Any group claim (EM, DM, metals, majors) must be supported by ALL members of that group. When performance diverges within a group, name specific indices instead of using regional labels.
 
@@ -207,7 +209,7 @@ Write like a technical analyst briefing a committee, not like a data feed summar
 | Testing a specific MA | Inflection point | "Clinging to the 200d as last support" |
 | Between MAs (trapped) | Indecision / range | "Trapped between the 100d and 200d" |
 
-**Forward-looking language (Line 2):** Almost always include a forward scenario:
+**Forward-looking language (Beat 2):** Almost always include a forward scenario:
 - "Needs to reclaim the 50d near X to restore bullish structure."
 - "A break below the 200d would open a new leg lower."
 - "The rising 200d near X is the first real support for a bounce."
@@ -321,9 +323,9 @@ When reading `draft_state.json` to generate subtitles:
 4. Determine the MA stack position (above/below each MA)
 5. Select tone from DMAS calibration table
 6. Identify the key MA level (the one price is testing or needs to reclaim)
-7. Write Line 1 (current structure) and Line 2 (forward scenario)
+7. Write the subtitle as a single paragraph: one sentence on current structure, then immediately one sentence on the forward scenario. **Do not insert `\n` between them.**
 8. **R10 CHECK:** Re-read every sentence that mentions an MA. Verify the direction word ("above"/"below"/"overhead"/"support"/"underpins") matches the sign from step 3. Fix any inversions.
-9. Verify: max 2 data values per line, no banned phrases, no scores named, no instrument name first
+9. Verify: max 2 data values per beat, no banned phrases, no scores named, no instrument name first, no `\n` anywhere in the subtitle
 10. After all 20 are written, scan for repetitive phrasing across the batch — rephrase any duplicates
 11. Write the 3 overview subtitles last, using the full set of individual results for context
 
@@ -429,7 +431,8 @@ def send_telegram(message: str, image_path: str = None):
 After every run, before sending the "complete" notification:
 
 - [ ] All 20 instrument slides have subtitles (not empty, not placeholder)
-- [ ] Subtitle line 1 ends with period for all instruments
+- [ ] No subtitle contains `\n` (single-paragraph format — line breaks cause 3-line overflow)
+- [ ] Every subtitle ends with a period
 - [ ] Overview subtitles are exactly 1 line each
 - [ ] DMAS scores on nutshell table match individual slide gauges
 - [ ] Rating on slide title matches nutshell table outlook
