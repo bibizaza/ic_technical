@@ -59,6 +59,7 @@ class CorpBondRow:
     flag: str           # e.g., "🇺🇸"
     credit_type: str    # "IG" or "HY"
     value: float        # Weekly return as decimal (e.g., 0.0032 for 0.32%)
+    level: float = float("nan")  # Current index level
 
 
 @dataclass
@@ -72,6 +73,7 @@ class CorpBondHistoricalRow:
     m3: float           # 3M return
     m6: float           # 6M return
     m12: float          # 12M return
+    level: float = float("nan")  # Current index level
 
 
 def _get_color_class(value: float) -> str:
@@ -231,11 +233,16 @@ def create_weekly_performance_chart(
             print(f"[Corp Bonds Weekly] DEBUG: Ticker {ticker} has NaN weekly return")
             continue
 
+        # Current index level (last non-null close)
+        _prices = df_adj[ticker].dropna()
+        _level = float(_prices.iloc[-1]) if not _prices.empty else float("nan")
+
         rows.append(CorpBondRow(
             name=config["name"],
             flag=config["flag"],
             credit_type=config["credit"],
             value=weekly_ret,
+            level=_level,
         ))
         print(f"[Corp Bonds Weekly] DEBUG: {config['name']}: {weekly_ret * 100:.2f}%")
 
@@ -278,6 +285,7 @@ def create_weekly_performance_chart(
             "bar_width": bar_width,
             "value_class": "positive" if row.value >= 0 else "negative",
             "formatted_value": f"+{row.value * 100:.2f}%" if row.value >= 0 else f"{row.value * 100:.2f}%",
+            "formatted_level": f"{row.level:,.2f}" if pd.notna(row.level) else "",
             "highlight_class": highlight_class,
         })
 
@@ -548,6 +556,10 @@ def create_historical_performance_chart(
         else:
             ytd = float("nan")
 
+        # Current index level (last non-null close)
+        _prices = df_adj[ticker].dropna()
+        _level = float(_prices.iloc[-1]) if not _prices.empty else float("nan")
+
         rows.append(CorpBondHistoricalRow(
             name=config["name"],
             flag=config["flag"],
@@ -557,6 +569,7 @@ def create_historical_performance_chart(
             m3=m3,
             m6=m6,
             m12=m12,
+            level=_level,
         ))
         print(f"[Corp Bonds Historical] DEBUG: {config['name']}: YTD={ytd * 100:.1f}%")
 
@@ -577,6 +590,7 @@ def create_historical_performance_chart(
             "flag_html": get_flag_html(row.flag),
             "credit_type": row.credit_type,
             "credit_class": "ig" if row.credit_type == "IG" else "hy",
+            "formatted_level": f"{row.level:,.2f}" if pd.notna(row.level) else "",
             "ytd_formatted": _format_percentage(row.ytd),
             "ytd_class": _get_color_class(row.ytd) if not pd.isna(row.ytd) else "neutral",
             "m1_formatted": _format_percentage(row.m1),

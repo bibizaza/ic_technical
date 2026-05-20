@@ -1,4 +1,4 @@
-"""Quadrant chart slide: Breadth Rank vs Fundamental Rank scatter plot with WoW arrows."""
+"""Quadrant chart slide: Breadth Rank vs Fundamental Rank scatter plot with month-over-month arrows."""
 
 from __future__ import annotations
 
@@ -55,9 +55,15 @@ _FUND_DISPLAY_TO_INSTRUMENT = {
 
 
 def _load_prev_ranks(
-    history_path: str, ic_date: str
+    history_path: str, ic_date: str, lookback_days: int = 28
 ) -> Dict[str, Tuple[int, int]]:
-    """Load previous week's (breadth_rank, fundamental_rank) from history.json.
+    """Load month-ago (breadth_rank, fundamental_rank) from history.json.
+
+    Picks the most recent history entry on or before `ic_date - lookback_days`,
+    so the quadrant arrow points from the position ~1 month ago to today.
+    The default 28 days = 4 weeks of pipeline runs, which matches the
+    weekly cadence and gives a stable monthly comparison even if a run
+    was missed.
 
     Returns dict keyed by instrument name → (breadth_rank, fund_rank).
     """
@@ -70,6 +76,7 @@ def _load_prev_ranks(
         history = json.load(f)
 
     ic_ts = pd.Timestamp(ic_date).date()
+    cutoff = ic_ts - pd.Timedelta(days=lookback_days)
 
     for name, entries in history.items():
         sorted_entries = sorted(
@@ -80,7 +87,7 @@ def _load_prev_ranks(
                 edate = pd.Timestamp(entry["date"]).date()
             except Exception:
                 continue
-            if edate < ic_ts:
+            if edate <= cutoff:
                 br = entry.get("breadth_rank")
                 fr = entry.get("fundamental_rank")
                 if br is not None and fr is not None:
@@ -160,7 +167,7 @@ def generate_quadrant_slide(
     fundamental_ranks : dict
         Instrument name → fundamental rank (1-9), matching the fundamental table.
     history_path : str
-        Path to history.json for WoW arrows.
+        Path to history.json for month-over-month arrows.
     ic_date : str
         Current IC date (YYYY-MM-DD).
     slide_name : str

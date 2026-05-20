@@ -1051,6 +1051,17 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
             color: #040C38;
         }
 
+        /* Level column — current index value, plain text */
+        .level {
+            width: {{ 65 * scale }}px;
+            flex-shrink: 0;
+            text-align: left;
+            font-size: {{ 9 * scale }}px;
+            font-weight: 700;
+            color: #040C38;
+            padding-left: {{ 4 * scale }}px;
+        }
+
         /* Bar container */
         .bar-container {
             flex: 1;
@@ -1119,7 +1130,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
             display: flex;
             justify-content: center;
             padding: {{ 8 * scale }}px 0 0 0;
-            margin-left: {{ 140 * scale }}px;
+            margin-left: {{ 209 * scale }}px;
             margin-right: {{ 55 * scale }}px;
         }
 
@@ -1142,6 +1153,7 @@ CORP_BONDS_WEEKLY_HTML_TEMPLATE = '''
                 <span class="credit-badge {{ row.credit_class }}">{{ row.credit_type }}</span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
+            <div class="level">{{ row.formatted_level }}</div>
             <div class="bar-container">
                 <div class="bar-track">
                     <div class="center-line"></div>
@@ -1229,6 +1241,14 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
             margin-right: {{ 12 * scale }}px;
         }
 
+        .header-row .period-col.level {
+            font-size: {{ 9 * scale }}px;
+            font-weight: 700;
+            color: #1B3A5A;
+            margin-right: {{ 10 * scale }}px;
+            text-align: left;
+        }
+
         /* Data rows */
         .data-row {
             display: flex;
@@ -1296,6 +1316,18 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
             text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
+        /* Level column - current index value, plain text */
+        .value-cell.level {
+            background: transparent;
+            color: #040C38;
+            font-size: {{ 8 * scale }}px;
+            font-weight: 700;
+            text-shadow: none;
+            box-shadow: none;
+            margin-right: {{ 10 * scale }}px;
+            justify-content: flex-start;
+        }
+
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
@@ -1327,6 +1359,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
         <!-- Header -->
         <div class="header-row">
             <div class="market-col"></div>
+            <div class="period-col level">Level</div>
             <div class="period-col ytd">YTD</div>
             <div class="period-col">1M</div>
             <div class="period-col">3M</div>
@@ -1341,6 +1374,7 @@ CORP_BONDS_HISTORICAL_HTML_TEMPLATE = '''
                 <span class="credit-badge {{ row.credit_class }}">{{ row.credit_type }}</span>
                 <span class="market-name">{{ row.name }}</span>
             </div>
+            <div class="value-cell level">{{ row.formatted_level }}</div>
             <div class="value-cell ytd {{ row.ytd_class }}">{{ row.ytd_formatted }}</div>
             <div class="value-cell {{ row.m1_class }}">{{ row.m1_formatted }}</div>
             <div class="value-cell {{ row.m3_class }}">{{ row.m3_formatted }}</div>
