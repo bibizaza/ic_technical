@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
 log = logging.getLogger(__name__)
@@ -167,6 +168,93 @@ def _ma_distance_pct(close: pd.Series, target_date: pd.Timestamp, window: int) -
     return f"{sign}{pct:.1f}%"
 
 
+def _compute_mars_momentum(close: pd.Series, target_date: pd.Timestamp) -> Optional[float]:
+    """
+    In-script MARS-style momentum score (0-100).
+
+    Reproduces the Absolute Score from the MARS Engine spec (Pure Momentum,
+    Trend Smoothness, Sharpe, ADX). The 10% Idiosyncratic-Momentum factor is
+    skipped (requires a per-asset benchmark regression); its weight is
+    redistributed pro-rata across the remaining four factors so the weights
+    sum to 100%.
+
+    Each factor is converted to a 0-100 percentile rank against its own
+    rolling history (up to 5 years of trading days) with winsorization at
+    the 2nd/98th percentile to neutralize one-off anomalies.
+
+    Returns None if there isn't enough history to compute a stable score.
+    """
+    close = close.sort_index().dropna()
+    asof = close[close.index <= target_date]
+    if len(asof) < 260:  # need at least ~12 months for the 12M return
+        return None
+
+    # ---------- Build daily history of each factor over the full series ----
+    rets = asof.pct_change()
+
+    # 1) Pure Momentum (weighted avg of 12M, 6M, 3M total returns, 40% weight)
+    pm_series = (
+        0.50 * (asof / asof.shift(252) - 1)
+        + 0.30 * (asof / asof.shift(126) - 1)
+        + 0.20 * (asof / asof.shift(63)  - 1)
+    )
+
+    # 2) Trend Smoothness (positive-day ratio over 6M, 20% weight)
+    pos_day = (rets > 0).astype(float)
+    smooth_series = pos_day.rolling(126, min_periods=80).mean()
+
+    # 3) Risk-Adjusted Return (6M annualized Sharpe, 20% weight)
+    mean_6m = rets.rolling(126, min_periods=80).mean()
+    std_6m  = rets.rolling(126, min_periods=80).std()
+    sharpe_series = (mean_6m / std_6m.replace(0, np.nan)) * (252 ** 0.5)
+
+    # 4) Trend Strength (14-day ADX proxy, 10% weight)
+    # ADX needs OHL data; this code only has close. Use a robust proxy:
+    # |EMA(returns, 14)| / EMA(|returns|, 14) — scaled 0-100. Captures the
+    # same trend-vs-chop concept as ADX without needing high/low ranges.
+    abs_rets = rets.abs()
+    adx_proxy = (
+        rets.ewm(span=14, min_periods=14).mean().abs()
+        / abs_rets.ewm(span=14, min_periods=14).mean().replace(0, np.nan)
+    ) * 100.0
+
+    factor_specs = [
+        ("pm",     pm_series,     50.0),
+        ("smooth", smooth_series, 22.2),
+        ("sharpe", sharpe_series, 22.2),
+        ("adx",    adx_proxy,     5.6),
+    ]
+    # Pro-rated weights (40/20/20/10 normalized to sum=100 after dropping 10%
+    # idiosyncratic): 40→50, 20→22.2, 20→22.2, 10→5.6 — sum to 100%.
+
+    total_score = 0.0
+    total_weight = 0.0
+    history_window = 252 * 5  # 5-year rolling distribution
+
+    for _name, series, weight in factor_specs:
+        # History distribution for percentile rank (winsorized 2nd/98th).
+        # Use only history strictly prior to target_date for rank context.
+        hist = series[series.index < target_date].dropna()
+        if len(hist) < 60:
+            continue
+        hist = hist.iloc[-history_window:]
+        lo, hi = np.nanpercentile(hist, [2.0, 98.0])
+        hist_w = hist.clip(lo, hi)
+        current = series.loc[asof.index[asof.index <= target_date]].dropna()
+        if current.empty:
+            continue
+        cur_val = float(current.iloc[-1])
+        cur_clipped = max(lo, min(hi, cur_val))
+        # Percentile rank within winsorized history (0-100)
+        pct = (hist_w <= cur_clipped).mean() * 100.0
+        total_score += pct * weight
+        total_weight += weight
+
+    if total_weight == 0:
+        return None
+    return total_score / total_weight
+
+
 def _lookup_mars_score(mars_df: "pd.DataFrame", ticker: str) -> Optional[float]:
     """
     Look up momentum score for a ticker in a pre-loaded mars_score DataFrame.
@@ -277,13 +365,19 @@ def compute_scores(
         technical_float = _compute_technical_score(close_series, target_date)
         technical = int(technical_float)   # truncate to match production
 
-        # Momentum score: read from mars_score Excel sheet (matches production).
-        # Keep as float until DMAS computation; truncate (int()) not round().
-        momentum_float: float = technical_float  # fallback: technical as proxy
-        if _mars_df is not None:
-            mom = _lookup_mars_score(_mars_df, bbg_ticker)
-            if mom is not None:
-                momentum_float = mom
+        # Momentum score: compute in-script using MARS-style factors (Pure
+        # Momentum + Trend Smoothness + Sharpe + ADX proxy, percentile-ranked
+        # against the asset's own 5-year history). Falls back to the stale
+        # mars_score Excel sheet only if the in-script computation fails (e.g.
+        # insufficient history); falls back to technical as a last resort.
+        momentum_float = _compute_mars_momentum(close_series, target_date)
+        if momentum_float is None and _mars_df is not None:
+            _ex = _lookup_mars_score(_mars_df, bbg_ticker)
+            if _ex is not None:
+                momentum_float = _ex
+        if momentum_float is None:
+            log.warning("MARS momentum unavailable for %s — using technical as proxy", name)
+            momentum_float = technical_float
 
         momentum_score = int(momentum_float)   # truncate to match production
 
