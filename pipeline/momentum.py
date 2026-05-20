@@ -168,19 +168,61 @@ def _ma_distance_pct(close: pd.Series, target_date: pd.Timestamp, window: int) -
     return f"{sign}{pct:.1f}%"
 
 
-def _compute_mars_momentum(close: pd.Series, target_date: pd.Timestamp) -> Optional[float]:
+def _idiosyncratic_residual_series(
+    asset_close: pd.Series, bench_close: pd.Series, window: int = 126
+) -> pd.Series:
+    """
+    Rolling-window residuals from regressing asset returns on benchmark returns.
+
+    For each day t, we fit alpha_t + beta_t * bench_ret over the trailing
+    `window` days using the standard OLS estimators:
+        beta_t  = cov(asset_ret, bench_ret) / var(bench_ret)   over [t-window, t]
+        alpha_t = mean(asset_ret) - beta_t * mean(bench_ret)   over [t-window, t]
+    Then return the cumulative residual over the same window:
+        idio_t = sum_{i ∈ [t-window, t]} (asset_ret_i - alpha_t - beta_t * bench_ret_i)
+
+    This isolates the asset-specific ("idiosyncratic") component of the move
+    from what's attributable to the broad market benchmark — matching MARS
+    spec section 4.2.4.
+    """
+    a = asset_close.sort_index().pct_change()
+    b = bench_close.sort_index().pct_change()
+    df = pd.concat([a, b], axis=1, join="inner").dropna()
+    df.columns = ["a", "b"]
+    if len(df) < window + 20:
+        return pd.Series(dtype=float)
+
+    cov_ab = df["a"].rolling(window).cov(df["b"])
+    var_b  = df["b"].rolling(window).var()
+    beta   = cov_ab / var_b.replace(0, np.nan)
+    alpha  = df["a"].rolling(window).mean() - beta * df["b"].rolling(window).mean()
+    resid  = df["a"] - (alpha + beta * df["b"])
+    return resid.rolling(window).sum()
+
+
+def _compute_mars_momentum(
+    close: pd.Series,
+    target_date: pd.Timestamp,
+    benchmark_close: Optional[pd.Series] = None,
+) -> Optional[float]:
     """
     In-script MARS-style momentum score (0-100).
 
-    Reproduces the Absolute Score from the MARS Engine spec (Pure Momentum,
-    Trend Smoothness, Sharpe, ADX). The 10% Idiosyncratic-Momentum factor is
-    skipped (requires a per-asset benchmark regression); its weight is
-    redistributed pro-rata across the remaining four factors so the weights
-    sum to 100%.
+    Reproduces the Absolute Score from the MARS Engine spec:
+      - Pure Momentum (40%) — weighted avg of 12M/6M/3M returns
+      - Trend Smoothness (20%) — % positive-return days over 6M
+      - Sharpe Ratio (20%) — 6M annualized
+      - Idiosyncratic Momentum (10%) — cumulative residual returns vs the
+        broad-market benchmark over 6M (requires `benchmark_close`)
+      - ADX-style Trend Strength (10%) — EWMA(returns)/EWMA(|returns|)
 
     Each factor is converted to a 0-100 percentile rank against its own
     rolling history (up to 5 years of trading days) with winsorization at
     the 2nd/98th percentile to neutralize one-off anomalies.
+
+    If `benchmark_close` is omitted, the Idiosyncratic Momentum factor is
+    skipped and its 10% weight is redistributed pro-rata across the four
+    remaining factors so the total stays 100%.
 
     Returns None if there isn't enough history to compute a stable score.
     """
@@ -192,40 +234,54 @@ def _compute_mars_momentum(close: pd.Series, target_date: pd.Timestamp) -> Optio
     # ---------- Build daily history of each factor over the full series ----
     rets = asof.pct_change()
 
-    # 1) Pure Momentum (weighted avg of 12M, 6M, 3M total returns, 40% weight)
+    # 1) Pure Momentum (weighted avg of 12M, 6M, 3M total returns)
     pm_series = (
         0.50 * (asof / asof.shift(252) - 1)
         + 0.30 * (asof / asof.shift(126) - 1)
         + 0.20 * (asof / asof.shift(63)  - 1)
     )
 
-    # 2) Trend Smoothness (positive-day ratio over 6M, 20% weight)
+    # 2) Trend Smoothness (positive-day ratio over 6M)
     pos_day = (rets > 0).astype(float)
     smooth_series = pos_day.rolling(126, min_periods=80).mean()
 
-    # 3) Risk-Adjusted Return (6M annualized Sharpe, 20% weight)
+    # 3) Risk-Adjusted Return (6M annualized Sharpe)
     mean_6m = rets.rolling(126, min_periods=80).mean()
     std_6m  = rets.rolling(126, min_periods=80).std()
     sharpe_series = (mean_6m / std_6m.replace(0, np.nan)) * (252 ** 0.5)
 
-    # 4) Trend Strength (14-day ADX proxy, 10% weight)
-    # ADX needs OHL data; this code only has close. Use a robust proxy:
-    # |EMA(returns, 14)| / EMA(|returns|, 14) — scaled 0-100. Captures the
-    # same trend-vs-chop concept as ADX without needing high/low ranges.
+    # 5) Trend Strength (14-day ADX proxy; ADX itself needs OHL — this proxy
+    # captures the same trend-vs-chop signal using closes only)
     abs_rets = rets.abs()
     adx_proxy = (
         rets.ewm(span=14, min_periods=14).mean().abs()
         / abs_rets.ewm(span=14, min_periods=14).mean().replace(0, np.nan)
     ) * 100.0
 
-    factor_specs = [
-        ("pm",     pm_series,     50.0),
-        ("smooth", smooth_series, 22.2),
-        ("sharpe", sharpe_series, 22.2),
-        ("adx",    adx_proxy,     5.6),
-    ]
-    # Pro-rated weights (40/20/20/10 normalized to sum=100 after dropping 10%
-    # idiosyncratic): 40→50, 20→22.2, 20→22.2, 10→5.6 — sum to 100%.
+    # 4) Idiosyncratic Momentum (only if benchmark provided)
+    idio_series: Optional[pd.Series] = None
+    if benchmark_close is not None:
+        idio_series = _idiosyncratic_residual_series(asof, benchmark_close, window=126)
+        if idio_series.empty:
+            idio_series = None
+
+    if idio_series is not None:
+        # Full 5-factor weights per MARS spec
+        factor_specs = [
+            ("pm",     pm_series,     40.0),
+            ("smooth", smooth_series, 20.0),
+            ("sharpe", sharpe_series, 20.0),
+            ("idio",   idio_series,   10.0),
+            ("adx",    adx_proxy,     10.0),
+        ]
+    else:
+        # Drop idiosyncratic, redistribute its 10% pro-rata
+        factor_specs = [
+            ("pm",     pm_series,     50.0),
+            ("smooth", smooth_series, 22.2),
+            ("sharpe", sharpe_series, 22.2),
+            ("adx",    adx_proxy,     5.6),
+        ]
 
     total_score = 0.0
     total_weight = 0.0
@@ -240,7 +296,9 @@ def _compute_mars_momentum(close: pd.Series, target_date: pd.Timestamp) -> Optio
         hist = hist.iloc[-history_window:]
         lo, hi = np.nanpercentile(hist, [2.0, 98.0])
         hist_w = hist.clip(lo, hi)
-        current = series.loc[asof.index[asof.index <= target_date]].dropna()
+        # Idio series may have a sparser index than asof (inner-joined with
+        # benchmark) — reindex robustly and take the latest non-null value.
+        current = series.reindex(asof.index[asof.index <= target_date]).dropna()
         if current.empty:
             continue
         cur_val = float(current.iloc[-1])
@@ -334,13 +392,30 @@ def compute_scores(
 
     wide_up_to = wide[wide.index <= target_date]
 
-    # Pre-load mars_score sheet once for all instruments
+    # Pre-load mars_score sheet once for all instruments (legacy fallback only)
     _mars_df = None
     if excel_path:
         try:
             _mars_df = pd.read_excel(excel_path, sheet_name="mars_score")
         except Exception as _e:
             log.warning("Could not read mars_score sheet from %s: %s", excel_path, _e)
+
+    # Pre-load MXWO Index series for the idiosyncratic-momentum factor.
+    # Used as the broad-market benchmark for every asset (the MARS spec calls
+    # for a "World ex-Country" benchmark for primary indices; using full MXWO
+    # is a sound v1 approximation — beta absorbs the country weight).
+    _benchmark = None
+    _BENCH_COL = "MXWO Index"
+    if _BENCH_COL in wide_up_to.columns:
+        _benchmark = wide_up_to[_BENCH_COL].dropna()
+        if _benchmark.empty:
+            _benchmark = None
+    if _benchmark is None:
+        log.warning(
+            "%s not found in master prices — idiosyncratic momentum factor will "
+            "be skipped and its 10%% weight redistributed",
+            _BENCH_COL,
+        )
 
     results = {}
 
@@ -366,11 +441,14 @@ def compute_scores(
         technical = int(technical_float)   # truncate to match production
 
         # Momentum score: compute in-script using MARS-style factors (Pure
-        # Momentum + Trend Smoothness + Sharpe + ADX proxy, percentile-ranked
-        # against the asset's own 5-year history). Falls back to the stale
-        # mars_score Excel sheet only if the in-script computation fails (e.g.
-        # insufficient history); falls back to technical as a last resort.
-        momentum_float = _compute_mars_momentum(close_series, target_date)
+        # Momentum + Trend Smoothness + Sharpe + Idiosyncratic Momentum + ADX
+        # proxy, percentile-ranked against the asset's own 5-year history).
+        # Falls back to the stale mars_score Excel sheet only if the in-script
+        # computation fails (e.g. insufficient history); falls back to
+        # technical as a last resort.
+        momentum_float = _compute_mars_momentum(
+            close_series, target_date, benchmark_close=_benchmark,
+        )
         if momentum_float is None and _mars_df is not None:
             _ex = _lookup_mars_score(_mars_df, bbg_ticker)
             if _ex is not None:
