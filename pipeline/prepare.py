@@ -393,10 +393,36 @@ def run_prepare(
     scores_dict = compute_scores(master_df, instrument_names, target_date, excel_path=excel_path)
 
     # -----------------------------------------------------------------------
-    # Step 4: Compute breadth
+    # Step 4: Compute breadth (sticky weekly snapshot)
     # -----------------------------------------------------------------------
+    # Once a successful run writes breadth for target_date, subsequent runs
+    # for the SAME target_date reuse those records instead of recomputing.
+    # This protects against Bloomberg returning slightly different values
+    # mid-week (which would otherwise re-rank instruments). New target_date
+    # → fresh pull.
     import json as _json
     _breadth_cache_path = Path(draft_path).parent / "breadth_cache.json"
+    _target_date_str = str(target_date.date())
+
+    def _load_sticky_cache(path: Path) -> tuple[Optional[str], Optional[list]]:
+        """Return (cached_target_date, records) from a sticky cache file.
+        Backward-compat: legacy format (a bare list) → (None, list)."""
+        if not path.exists():
+            return None, None
+        try:
+            with open(path, encoding="utf-8") as _f:
+                _data = _json.load(_f)
+        except Exception as _e:
+            log.warning("Could not parse cache %s: %s", path.name, _e)
+            return None, None
+        if isinstance(_data, list):  # legacy
+            return None, _data
+        if isinstance(_data, dict):
+            return _data.get("target_date"), _data.get("records") or []
+        return None, None
+
+    _cache_target, _cache_records = _load_sticky_cache(_breadth_cache_path)
+    _cache_hit = _cache_target == _target_date_str and _cache_records
 
     from pipeline.breadth import compute_composite_breadth
     # raw_breadth is "usable" when it's non-empty AND at least one row has a
@@ -408,26 +434,43 @@ def run_prepare(
         and all(c in raw_breadth.columns for c in _trend_cols)
         and raw_breadth[_trend_cols].notna().any(axis=None)
     )
-    if _raw_usable:
+    if _cache_hit:
+        breadth_records = _cache_records
+        log.info(
+            "Breadth: re-using sticky cache for target_date=%s (%d records). "
+            "Skipping recompute to keep ranks stable across re-runs.",
+            _target_date_str, len(breadth_records),
+        )
+    elif _raw_usable:
         breadth_df = compute_composite_breadth(raw_breadth)
         breadth_records = breadth_df.to_dict(orient="records")
-        # Persist for Bloomberg-unavailable runs
+        # Persist with target_date stamp so future same-week re-runs hit cache
         try:
-            atomic_write_text(_breadth_cache_path, _json.dumps(breadth_records, indent=2))
-            log.info("Saved breadth_cache.json (%d records)", len(breadth_records))
+            atomic_write_text(
+                _breadth_cache_path,
+                _json.dumps(
+                    {"target_date": _target_date_str, "records": breadth_records},
+                    indent=2,
+                ),
+            )
+            log.info(
+                "Breadth: computed fresh for target_date=%s (%d records). Cache updated.",
+                _target_date_str, len(breadth_records),
+            )
         except Exception as _be:
             log.warning("Could not save breadth_cache.json: %s", _be)
     elif skip_bloomberg:
         # Dev path: --skip-bloomberg was explicitly set. Fall back to whatever
         # cache exists so layout-only runs work without a live Bloomberg.
-        breadth_records = []
-        if _breadth_cache_path.exists():
-            try:
-                with open(_breadth_cache_path) as _bf:
-                    breadth_records = _json.load(_bf)
-                log.info("Loaded breadth from cache (%d records)", len(breadth_records))
-            except Exception as _be:
-                log.warning("Could not load breadth_cache.json: %s", _be)
+        breadth_records = _cache_records or []
+        if breadth_records:
+            log.info(
+                "Breadth: --skip-bloomberg + cache miss (cache target=%s, run target=%s) "
+                "— using stale cache records (%d).",
+                _cache_target, _target_date_str, len(breadth_records),
+            )
+        else:
+            log.warning("Breadth: --skip-bloomberg with no usable cache; breadth slide will be empty")
     else:
         # Bloomberg was attempted but pull_breadth came back unusable — either
         # an empty DataFrame or one where every breadth field is NaN. Silently
@@ -459,17 +502,83 @@ def run_prepare(
         raise RuntimeError(_msg)
 
     # -----------------------------------------------------------------------
-    # Step 5: Fundamental rankings (direct Bloomberg → Python ranking)
+    # Step 5: Fundamental rankings (sticky weekly snapshot)
     # -----------------------------------------------------------------------
+    # Same idempotent pattern as breadth: once written for target_date,
+    # subsequent same-week re-runs reuse the cached ranks + raw values
+    # instead of recomputing from a fresh Bloomberg pull.
+    _fund_cache_path = Path(draft_path).parent / "fundamental_cache.json"
     fundamental_df = pd.DataFrame()
     fundamental_records = {}
-    if not raw_fundamentals.empty:
+
+    _fund_cache_target = None
+    _fund_cache_df_rows: list = []
+    _fund_cache_raw: dict = {}
+    if _fund_cache_path.exists():
+        try:
+            with open(_fund_cache_path, encoding="utf-8") as _ff:
+                _fc = _json.load(_ff)
+            if isinstance(_fc, dict):
+                _fund_cache_target = _fc.get("target_date")
+                _fund_cache_df_rows = _fc.get("fundamental_df") or []
+                _fund_cache_raw = _fc.get("raw") or {}
+        except Exception as _e:
+            log.warning("Could not parse fundamental_cache.json: %s", _e)
+
+    _fund_cache_hit = (
+        _fund_cache_target == _target_date_str
+        and bool(_fund_cache_df_rows)
+    )
+
+    if _fund_cache_hit:
+        fundamental_df = pd.DataFrame(_fund_cache_df_rows)
+        fundamental_records = dict(zip(
+            fundamental_df["index_name"], fundamental_df["fundamental_rank"]
+        ))
+        # Rebuild raw_fundamentals (DataFrame indexed by name) so downstream
+        # slide rendering + draft_state population see identical raw values.
+        if _fund_cache_raw:
+            raw_fundamentals = pd.DataFrame.from_dict(
+                _fund_cache_raw, orient="index"
+            )
+        log.info(
+            "Fundamentals: re-using sticky cache for target_date=%s (%d indices).",
+            _target_date_str, len(fundamental_df),
+        )
+    elif not raw_fundamentals.empty:
         from pipeline.fundamentals import compute_fundamental_ranks as _compute_fund_ranks
         fundamental_df = _compute_fund_ranks(raw_fundamentals)
         # Build {name: rank} map for backward compat
         fundamental_records = dict(zip(
             fundamental_df["index_name"], fundamental_df["fundamental_rank"]
         ))
+        # Persist a stamped cache for this target_date
+        try:
+            _raw_dict = {
+                str(name): {
+                    str(col): (None if pd.isna(v) else float(v) if isinstance(v, (int, float)) else v)
+                    for col, v in raw_fundamentals.loc[name].items()
+                }
+                for name in raw_fundamentals.index
+            }
+            atomic_write_text(
+                _fund_cache_path,
+                _json.dumps(
+                    {
+                        "target_date": _target_date_str,
+                        "fundamental_df": fundamental_df.to_dict(orient="records"),
+                        "raw": _raw_dict,
+                    },
+                    indent=2,
+                    default=str,
+                ),
+            )
+            log.info(
+                "Fundamentals: computed fresh for target_date=%s (%d indices). Cache updated.",
+                _target_date_str, len(fundamental_df),
+            )
+        except Exception as _e:
+            log.warning("Could not save fundamental_cache.json: %s", _e)
     else:
         fundamental_records = {}
 
