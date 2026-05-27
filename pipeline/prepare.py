@@ -399,7 +399,16 @@ def run_prepare(
     _breadth_cache_path = Path(draft_path).parent / "breadth_cache.json"
 
     from pipeline.breadth import compute_composite_breadth
-    if not raw_breadth.empty:
+    # raw_breadth is "usable" when it's non-empty AND at least one row has a
+    # numeric value for the trend pillar (otherwise composite is NaN and rank
+    # is None — which silently corrupts history.json + the quadrant arrows).
+    _trend_cols = ["PCT_MEMB_PX_GT_50D_MOV_AVG", "PCT_MEMB_PX_GT_100D_MOV_AVG"]
+    _raw_usable = (
+        not raw_breadth.empty
+        and all(c in raw_breadth.columns for c in _trend_cols)
+        and raw_breadth[_trend_cols].notna().any(axis=None)
+    )
+    if _raw_usable:
         breadth_df = compute_composite_breadth(raw_breadth)
         breadth_records = breadth_df.to_dict(orient="records")
         # Persist for Bloomberg-unavailable runs
@@ -408,9 +417,10 @@ def run_prepare(
             log.info("Saved breadth_cache.json (%d records)", len(breadth_records))
         except Exception as _be:
             log.warning("Could not save breadth_cache.json: %s", _be)
-    else:
+    elif skip_bloomberg:
+        # Dev path: --skip-bloomberg was explicitly set. Fall back to whatever
+        # cache exists so layout-only runs work without a live Bloomberg.
         breadth_records = []
-        # Fall back to last cached breadth data
         if _breadth_cache_path.exists():
             try:
                 with open(_breadth_cache_path) as _bf:
@@ -418,6 +428,35 @@ def run_prepare(
                 log.info("Loaded breadth from cache (%d records)", len(breadth_records))
             except Exception as _be:
                 log.warning("Could not load breadth_cache.json: %s", _be)
+    else:
+        # Bloomberg was attempted but pull_breadth came back unusable — either
+        # an empty DataFrame or one where every breadth field is NaN. Silently
+        # falling back to breadth_cache.json poisons history.json (same ranks
+        # repeated for weeks) and breaks the quadrant month-over-month arrows.
+        # Hard-fail with a Telegram alert instead.
+        _msg = (
+            "Bloomberg pull_breadth returned no usable data "
+            f"(rows={len(raw_breadth)}, all-NaN trend cols=True) — refusing "
+            "to silently reuse breadth_cache.json. Likely an entitlement or "
+            "timing issue with the PCT_MEMB_PX_GT_*_MOV_AVG fields. "
+            "Investigate, then re-run prepare. To bypass intentionally, use "
+            "--skip-bloomberg."
+        )
+        log.error(_msg)
+        try:
+            import os as _os, urllib.parse as _up, urllib.request as _ur
+            _token = _os.environ.get("TELEGRAM_BOT_TOKEN", "")
+            _chat = _os.environ.get("TELEGRAM_CHAT_ID", "979257663")
+            if _token:
+                _url = f"https://api.telegram.org/bot{_token}/sendMessage"
+                _data = _up.urlencode({
+                    "chat_id": _chat,
+                    "text": f"IC pipeline aborted: {_msg}",
+                }).encode()
+                _ur.urlopen(_ur.Request(_url, data=_data), timeout=10)
+        except Exception:
+            pass
+        raise RuntimeError(_msg)
 
     # -----------------------------------------------------------------------
     # Step 5: Fundamental rankings (direct Bloomberg → Python ranking)
