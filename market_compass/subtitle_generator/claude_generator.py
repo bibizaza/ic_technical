@@ -62,7 +62,23 @@ GAINS_PHRASES = [
 
 
 def get_client(api_key: str = None):
-    """Get Anthropic client."""
+    """Get Anthropic client.
+
+    SAFETY GUARD: this is a *legacy* path that bills the pay-per-token Anthropic
+    API directly (NOT the Claude Code subscription). The production pipeline
+    (run_ic.py: prepare -> Claude Code writes subtitles -> assemble) does not use
+    it. To prevent accidental API billing from a stray run_ic alternative or an
+    inherited ANTHROPIC_API_KEY, the API call is refused unless the operator
+    explicitly opts in by setting IC_ALLOW_ANTHROPIC_API=1.
+    """
+    if os.environ.get("IC_ALLOW_ANTHROPIC_API") != "1":
+        raise RuntimeError(
+            "Refusing to call the pay-per-token Anthropic API. The production IC "
+            "pipeline writes subtitles via Claude Code (subscription), not the API. "
+            "If you really want to use the legacy direct-API path, set "
+            "IC_ALLOW_ANTHROPIC_API=1 explicitly."
+        )
+
     if not ANTHROPIC_AVAILABLE:
         raise ImportError(
             "anthropic package not installed. "
