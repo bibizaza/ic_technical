@@ -1,74 +1,77 @@
-[
-  {
-    "name": "SMI",
-    "composite": 59.7,
-    "trend": 57.5,
-    "conviction": 65.6,
-    "sentiment": 55.0,
-    "rank": 1
-  },
-  {
-    "name": "TASI",
-    "composite": 56.4,
-    "trend": 55.0,
-    "conviction": 61.6,
-    "sentiment": 51.1,
-    "rank": 2
-  },
-  {
-    "name": "S&P 500",
-    "composite": 53.6,
-    "trend": 52.8,
-    "conviction": 58.6,
-    "sentiment": 47.8,
-    "rank": 3
-  },
-  {
-    "name": "IBOV",
-    "composite": 50.6,
-    "trend": 53.5,
-    "conviction": 54.5,
-    "sentiment": 40.4,
-    "rank": 4
-  },
-  {
-    "name": "Nikkei 225",
-    "composite": 48.8,
-    "trend": 49.6,
-    "conviction": 46.0,
-    "sentiment": 51.3,
-    "rank": 5
-  },
-  {
-    "name": "Sensex",
-    "composite": 47.5,
-    "trend": 38.3,
-    "conviction": 56.3,
-    "sentiment": 50.0,
-    "rank": 6
-  },
-  {
-    "name": "MEXBOL",
-    "composite": 46.6,
-    "trend": 48.6,
-    "conviction": 52.1,
-    "sentiment": 35.7,
-    "rank": 7
-  },
-  {
-    "name": "DAX",
-    "composite": 44.7,
-    "trend": 38.8,
-    "conviction": 51.2,
-    "sentiment": 45.0,
-    "rank": 8
-  },
-  {
-    "name": "CSI 300",
-    "composite": 43.2,
-    "trend": 38.7,
-    "conviction": 42.4,
-    "sentiment": 51.7,
-    "rank": 9
-  }
-]
+{
+  "target_date": "2026-06-16",
+  "records": [
+    {
+      "name": "SMI",
+      "composite": 59.0,
+      "trend": 72.5,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 1
+    },
+    {
+      "name": "S&P 500",
+      "composite": 55.7,
+      "trend": 64.4,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 2
+    },
+    {
+      "name": "Nikkei 225",
+      "composite": 51.4,
+      "trend": 53.5,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 3
+    },
+    {
+      "name": "TASI",
+      "composite": 51.2,
+      "trend": 52.9,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 4
+    },
+    {
+      "name": "DAX",
+      "composite": 50.0,
+      "trend": 50.0,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 5
+    },
+    {
+      "name": "Sensex",
+      "composite": 50.0,
+      "trend": 50.0,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 5
+    },
+    {
+      "name": "MEXBOL",
+      "composite": 48.9,
+      "trend": 47.1,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 7
+    },
+    {
+      "name": "CSI 300",
+      "composite": 41.7,
+      "trend": 29.2,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 8
+    },
+    {
+      "name": "IBOV",
+      "composite": 36.4,
+      "trend": 16.0,
+      "conviction": 50.0,
+      "sentiment": 50.0,
+      "rank": 9
+    }
+  ]
+}

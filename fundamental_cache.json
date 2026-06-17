@@ -1,0 +1,196 @@
+{
+  "target_date": "2026-06-16",
+  "fundamental_df": [
+    {
+      "index_name": "MEXBOL",
+      "fundamental_rank": 1,
+      "value_rank": 2,
+      "growth_rank": 6,
+      "profitability_rank": 6,
+      "quality_rank": 3,
+      "leverage_rank": 2,
+      "dividend_rank": 3
+    },
+    {
+      "index_name": "IBOV",
+      "fundamental_rank": 2,
+      "value_rank": 1,
+      "growth_rank": 4,
+      "profitability_rank": 7,
+      "quality_rank": 4,
+      "leverage_rank": 8,
+      "dividend_rank": 1
+    },
+    {
+      "index_name": "TASI",
+      "fundamental_rank": 3,
+      "value_rank": 4,
+      "growth_rank": 7,
+      "profitability_rank": 1,
+      "quality_rank": 5,
+      "leverage_rank": 7,
+      "dividend_rank": 2
+    },
+    {
+      "index_name": "SMI",
+      "fundamental_rank": 3,
+      "value_rank": 6,
+      "growth_rank": 9,
+      "profitability_rank": 1,
+      "quality_rank": 2,
+      "leverage_rank": 4,
+      "dividend_rank": 4
+    },
+    {
+      "index_name": "S&P 500",
+      "fundamental_rank": 5,
+      "value_rank": 9,
+      "growth_rank": 2,
+      "profitability_rank": 3,
+      "quality_rank": 1,
+      "leverage_rank": 3,
+      "dividend_rank": 9
+    },
+    {
+      "index_name": "Sensex",
+      "fundamental_rank": 6,
+      "value_rank": 6,
+      "growth_rank": 3,
+      "profitability_rank": 3,
+      "quality_rank": 6,
+      "leverage_rank": 6,
+      "dividend_rank": 7
+    },
+    {
+      "index_name": "Nikkei 225",
+      "fundamental_rank": 7,
+      "value_rank": 6,
+      "growth_rank": 8,
+      "profitability_rank": 5,
+      "quality_rank": 7,
+      "leverage_rank": 1,
+      "dividend_rank": 8
+    },
+    {
+      "index_name": "DAX",
+      "fundamental_rank": 8,
+      "value_rank": 3,
+      "growth_rank": 5,
+      "profitability_rank": 9,
+      "quality_rank": 9,
+      "leverage_rank": 5,
+      "dividend_rank": 5
+    },
+    {
+      "index_name": "CSI 300",
+      "fundamental_rank": 8,
+      "value_rank": 5,
+      "growth_rank": 1,
+      "profitability_rank": 7,
+      "quality_rank": 8,
+      "leverage_rank": 9,
+      "dividend_rank": 6
+    }
+  ],
+  "raw": {
+    "S&P 500": {
+      "BEST_PE_RATIO": 22.104066394094854,
+      "PX_TO_BOOK_RATIO": 5.70933601213438,
+      "EV_TO_T12M_EBITDA": 15.908935144354455,
+      "EST_LTG_EPS_AGGTE": 16.508508162407498,
+      "OPER_MARGIN": 15.703835882064185,
+      "PROF_MARGIN": 12.56578302292917,
+      "BEST_ROE": 21.6760429157349,
+      "NET_DEBT_TO_EBITDA": 1.5682562624054155,
+      "BEST_DIV_YLD": 1.1492683859526316
+    },
+    "SMI": {
+      "BEST_PE_RATIO": 18.924292756506585,
+      "PX_TO_BOOK_RATIO": 4.542637658057165,
+      "EV_TO_T12M_EBITDA": 12.624826115412361,
+      "EST_LTG_EPS_AGGTE": 7.740515678755955,
+      "OPER_MARGIN": 18.29656426120257,
+      "PROF_MARGIN": 15.003005269071226,
+      "BEST_ROE": 20.54901352861374,
+      "NET_DEBT_TO_EBITDA": 1.6334108221834496,
+      "BEST_DIV_YLD": 2.9284631098504303
+    },
+    "DAX": {
+      "BEST_PE_RATIO": 16.006919664617573,
+      "PX_TO_BOOK_RATIO": 2.0110307450719436,
+      "EV_TO_T12M_EBITDA": 9.42745220625907,
+      "EST_LTG_EPS_AGGTE": 12.984956193193643,
+      "OPER_MARGIN": 9.701275699170916,
+      "PROF_MARGIN": 6.760725637692733,
+      "BEST_ROE": 11.514597083578657,
+      "NET_DEBT_TO_EBITDA": 1.7517463723417634,
+      "BEST_DIV_YLD": 2.839993455893276
+    },
+    "Nikkei 225": {
+      "BEST_PE_RATIO": 24.291736791633273,
+      "PX_TO_BOOK_RATIO": 3.2353303549689834,
+      "EV_TO_T12M_EBITDA": 10.820579969062209,
+      "EST_LTG_EPS_AGGTE": 8.151400086637173,
+      "OPER_MARGIN": 13.705674192049273,
+      "PROF_MARGIN": 9.89129049855493,
+      "BEST_ROE": 12.291698460423437,
+      "NET_DEBT_TO_EBITDA": 0.8124184155472156,
+      "BEST_DIV_YLD": 1.412965632899523
+    },
+    "CSI 300": {
+      "BEST_PE_RATIO": 15.758140701389724,
+      "PX_TO_BOOK_RATIO": 1.8878406256484792,
+      "EV_TO_T12M_EBITDA": 19.293681746624486,
+      "EST_LTG_EPS_AGGTE": 17.89873369430981,
+      "OPER_MARGIN": 11.89346669606038,
+      "PROF_MARGIN": 8.759065026900803,
+      "BEST_ROE": 11.54129443788745,
+      "NET_DEBT_TO_EBITDA": 8.139259921019756,
+      "BEST_DIV_YLD": 2.4182274607014946
+    },
+    "TASI": {
+      "BEST_PE_RATIO": 14.538126060376667,
+      "PX_TO_BOOK_RATIO": 2.191072938271582,
+      "EV_TO_T12M_EBITDA": 11.465069442564937,
+      "EST_LTG_EPS_AGGTE": 11.438725921252036,
+      "OPER_MARGIN": 20.759117897515765,
+      "PROF_MARGIN": 14.634474385682703,
+      "BEST_ROE": 14.774477748115372,
+      "NET_DEBT_TO_EBITDA": 2.154951657178207,
+      "BEST_DIV_YLD": 4.064366495445375
+    },
+    "Sensex": {
+      "BEST_PE_RATIO": 19.488724811450865,
+      "PX_TO_BOOK_RATIO": 3.0722522900698213,
+      "EV_TO_T12M_EBITDA": 13.689891560231136,
+      "EST_LTG_EPS_AGGTE": 14.770187734122153,
+      "OPER_MARGIN": 17.31569653177828,
+      "PROF_MARGIN": 12.28384097189016,
+      "BEST_ROE": 14.641672793072539,
+      "NET_DEBT_TO_EBITDA": 1.823772277560319,
+      "BEST_DIV_YLD": 1.813992726178943
+    },
+    "MEXBOL": {
+      "BEST_PE_RATIO": 13.5342271368633,
+      "PX_TO_BOOK_RATIO": 2.419189497628092,
+      "EV_TO_T12M_EBITDA": 5.911689952299892,
+      "EST_LTG_EPS_AGGTE": 11.519770091391223,
+      "OPER_MARGIN": 15.556400229436312,
+      "PROF_MARGIN": 8.03192070615145,
+      "BEST_ROE": 17.381733740727675,
+      "NET_DEBT_TO_EBITDA": 1.3571222066018094,
+      "BEST_DIV_YLD": 3.9183415522438927
+    },
+    "IBOV": {
+      "BEST_PE_RATIO": 8.427067623679173,
+      "PX_TO_BOOK_RATIO": 1.5570778927141056,
+      "EV_TO_T12M_EBITDA": 7.980980582593603,
+      "EST_LTG_EPS_AGGTE": 13.480259920152427,
+      "OPER_MARGIN": 12.783411278376214,
+      "PROF_MARGIN": 8.368037216600934,
+      "BEST_ROE": 16.102031948777757,
+      "NET_DEBT_TO_EBITDA": 2.7154976443901138,
+      "BEST_DIV_YLD": 6.292286003802923
+    }
+  }
+}
