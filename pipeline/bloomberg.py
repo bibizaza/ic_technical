@@ -88,6 +88,7 @@ def bbg_bdp(
     session.sendRequest(request)
 
     rows: Dict[str, Dict[str, float]] = {t: {} for t in tickers}
+    log = logging.getLogger(__name__)
 
     while True:
         ev = session.nextEvent(500)
@@ -97,6 +98,12 @@ def bbg_bdp(
                 for i in range(sec_data.numValues()):
                     sec = sec_data.getValueAsElement(i)
                     ticker_val = sec.getElementAsString("security")
+                    if sec.hasElement("securityError"):
+                        log.warning("bbg_bdp security error for %s: %s", ticker_val, sec.getElement("securityError"))
+                    if sec.hasElement("fieldExceptions"):
+                        for j in range(sec.getElement("fieldExceptions").numValues()):
+                            fe = sec.getElement("fieldExceptions").getValueAsElement(j)
+                            log.warning("bbg_bdp field exception for %s / %s: %s", ticker_val, fe.getElementAsString("fieldId"), fe.getElement("errorInfo"))
                     field_data = sec.getElement("fieldData")
                     for field in fields:
                         try:
@@ -275,12 +282,10 @@ def pull_breadth(
     fields = [
         "PCT_MEMB_PX_GT_50D_MOV_AVG",
         "PCT_MEMB_PX_GT_100D_MOV_AVG",
-        "PCT_MEMB_PX_BLW_LWR_BOLL_BAND",
-        "PCT_MEMB_PX_ABV_UPPER_BOLL_BAND",
-        "PCT_MEM_MACD_SL_SIGNAL_LST_10D",
-        "PCT_MEMB_MACD_GT_BASE_LINE_0",
-        "PCT_MEM_MACD_BUY_SIGNAL_LST_10D",
-        "PCT_MEMB_SIGNAL_GT_BASE_LINE_0",
+        "PCT_MEMB_PX_GT_20D_MOV_AVG",
+        "PCT_MEMB_ABOVE_MOV_AVG_200D",
+        "PCT_MEMB_WITH_14D_RSI_GT_70",
+        "PCT_MEMB_WITH_14D_RSI_LT_30",
     ]
     df = bbg_bdp(session, tickers, fields)
     # Map ticker → name

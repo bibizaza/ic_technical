@@ -323,6 +323,18 @@ const arrowPlugin = {
 
       ctx.restore();
     });
+
+    // "(1 Month)" legend — explains what the arrows represent
+    const legendX = xScale.right - 6;
+    const legendY = yScale.bottom - 8;
+    ctx.save();
+    ctx.font = '500 10.5px "DM Sans", sans-serif';
+    ctx.fillStyle = '#8a94a8';
+    ctx.globalAlpha = 0.85;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('→ (1 Month)', legendX, legendY);
+    ctx.restore();
   }
 };
 

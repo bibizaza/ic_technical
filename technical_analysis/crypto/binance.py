@@ -98,7 +98,7 @@ except Exception:
 # Set to 90 days (approximately three months) to focus on the recent trend.
 # The Streamlit app can override this value (e.g. to 180 days for six months)
 # by assigning to this module attribute at runtime.
-PLOT_LOOKBACK_DAYS: int = 90
+PLOT_LOOKBACK_DAYS: int = 274
 
 ###############################################################################
 # Internal helpers

@@ -256,9 +256,23 @@ def run_assemble(
                 failed_instruments.append((name, "no chart generated"))
                 continue
 
-            # Build view text from rating
+            # Build view text from rating + rounded last price
             rating = data.get("rating", "")
-            view_text = f"{name}: {rating}" if rating else ""
+            raw_price = data.get("price")
+            if raw_price is not None:
+                try:
+                    p = float(raw_price)
+                    if p >= 10:
+                        price_str = f"{round(p):,}"
+                    elif p >= 0.1:
+                        price_str = f"{p:.2f}"
+                    else:
+                        price_str = f"{p:.4f}"
+                    view_text = f"{name} ({price_str}): {rating}" if rating else f"{name} ({price_str})"
+                except (ValueError, TypeError):
+                    view_text = f"{name}: {rating}" if rating else ""
+            else:
+                view_text = f"{name}: {rating}" if rating else ""
 
             # Subtitle
             subtitle_text = data.get("subtitle") or ""

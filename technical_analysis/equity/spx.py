@@ -155,7 +155,7 @@ def _load_price_data(
 # rolling windows are always computed on the full price history and then
 # cropped to the lookback window to avoid artificially shortening longer
 # moving averages when displaying a shorter slice of data.
-PLOT_LOOKBACK_DAYS: int = 90
+PLOT_LOOKBACK_DAYS: int = 274
 
 # Technical Analysis V2 lookback days (can be overridden at runtime)
 TECH_V2_LOOKBACK_DAYS: int = 90
@@ -1303,7 +1303,7 @@ TECH_V2_DEVICE_SCALE = 4   # Playwright device scale factor for high-res output
 TECH_V2_HTML_SCALE = 1     # Scale factor for HTML elements (1 = base size)
 TECH_V2_PNG_WIDTH_PX = TECH_V2_BASE_WIDTH * TECH_V2_DEVICE_SCALE   # 3800
 TECH_V2_PNG_HEIGHT_PX = TECH_V2_BASE_HEIGHT * TECH_V2_DEVICE_SCALE  # 1680
-TECH_V2_LOOKBACK_DAYS = 85  # 4 months of trading days
+TECH_V2_LOOKBACK_DAYS = 195  # 9 months of trading days
 
 def _compute_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     """Compute RSI for a price series."""

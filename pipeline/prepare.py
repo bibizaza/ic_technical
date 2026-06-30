@@ -425,15 +425,24 @@ def run_prepare(
     _cache_hit = _cache_target == _target_date_str and _cache_records
 
     from pipeline.breadth import compute_composite_breadth
-    # raw_breadth is "usable" when it's non-empty AND at least one row has a
-    # numeric value for the trend pillar (otherwise composite is NaN and rank
-    # is None — which silently corrupts history.json + the quadrant arrows).
+    # raw_breadth is "usable" when it's non-empty, all pillar columns are present,
+    # trend has live data, and conviction/sentiment are not all-NaN (which would
+    # produce frozen 50s in the composite and silently corrupt history.json).
     _trend_cols = ["PCT_MEMB_PX_GT_50D_MOV_AVG", "PCT_MEMB_PX_GT_100D_MOV_AVG"]
+    _conviction_cols = ["PCT_MEMB_PX_GT_20D_MOV_AVG", "PCT_MEMB_ABOVE_MOV_AVG_200D"]
+    _sentiment_cols = ["PCT_MEMB_WITH_14D_RSI_GT_70", "PCT_MEMB_WITH_14D_RSI_LT_30"]
+    _all_pillar_cols = _trend_cols + _conviction_cols + _sentiment_cols
     _raw_usable = (
         not raw_breadth.empty
-        and all(c in raw_breadth.columns for c in _trend_cols)
+        and all(c in raw_breadth.columns for c in _all_pillar_cols)
         and raw_breadth[_trend_cols].notna().any(axis=None)
+        and raw_breadth[_conviction_cols].notna().any(axis=None)
+        and raw_breadth[_sentiment_cols].notna().any(axis=None)
     )
+    if not _raw_usable and not raw_breadth.empty:
+        missing = [c for c in _all_pillar_cols if c not in raw_breadth.columns]
+        all_nan = [c for c in _all_pillar_cols if c in raw_breadth.columns and raw_breadth[c].isna().all()]
+        log.warning("Breadth data unusable — missing cols: %s; all-NaN cols: %s", missing, all_nan)
     if _cache_hit:
         breadth_records = _cache_records
         log.info(

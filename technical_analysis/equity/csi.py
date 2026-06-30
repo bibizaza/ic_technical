@@ -108,7 +108,7 @@ except Exception:
 # align with the updated requirement from management.  When the user
 # selects a different timeframe (e.g. 6 months), ``app.py`` will
 # temporarily override this constant to 180 days.
-PLOT_LOOKBACK_DAYS: int = 90
+PLOT_LOOKBACK_DAYS: int = 274
 
 ###############################################################################
 # Internal helpers

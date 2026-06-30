@@ -3,8 +3,8 @@ Composite breadth score computation.
 
 Three-pillar model:
   TREND (40%)      : average(pct_gt_50d, pct_gt_100d)
-  CONVICTION (35%) : 0.50*macd_gt_0 + 0.25*signal_gt_0 + 0.25*net_signal_rescaled
-  SENTIMENT (25%)  : 50 - (pct_below_lower_boll - pct_above_upper_boll), clamped 0-100
+  CONVICTION (35%) : (pct_gt_20d - pct_above_200d + 100) / 2  — MA spread rescaled 0-100
+  SENTIMENT (25%)  : 50 - (pct_rsi_lt_30 - pct_rsi_gt_70), clamped 0-100
 
 COMPOSITE = 0.40*TREND + 0.35*CONVICTION + 0.25*SENTIMENT
 """
@@ -34,25 +34,16 @@ def compute_composite_breadth(raw_breadth: pd.DataFrame) -> pd.DataFrame:
     trend = df[["PCT_MEMB_PX_GT_50D_MOV_AVG", "PCT_MEMB_PX_GT_100D_MOV_AVG"]].mean(axis=1)
 
     # --- CONVICTION ---
-    macd_gt_0 = df["PCT_MEMB_MACD_GT_BASE_LINE_0"].fillna(50)
-    signal_gt_0 = df["PCT_MEMB_SIGNAL_GT_BASE_LINE_0"].fillna(50)
-
-    # Net signal: buy - sell (PCT_MEM_MACD_BUY_SIGNAL_LST_10D - PCT_MEM_MACD_SL_SIGNAL_LST_10D)
-    buy_pct = df["PCT_MEM_MACD_BUY_SIGNAL_LST_10D"].fillna(50)
-    sell_pct = df["PCT_MEM_MACD_SL_SIGNAL_LST_10D"].fillna(50)
-    net_signal_raw = buy_pct - sell_pct           # range roughly -100 to +100
-    net_signal_rescaled = (net_signal_raw + 100) / 2  # rescale to 0-100 (50=neutral)
-
-    conviction = (
-        0.50 * macd_gt_0
-        + 0.25 * signal_gt_0
-        + 0.25 * net_signal_rescaled
-    )
+    # Short-term vs long-term MA breadth spread: >0 means more members heating up short-term
+    gt_20d = df["PCT_MEMB_PX_GT_20D_MOV_AVG"].fillna(50)
+    above_200d = df["PCT_MEMB_ABOVE_MOV_AVG_200D"].fillna(50)
+    conviction = (gt_20d - above_200d + 100) / 2  # rescaled to 0-100, 50=neutral
 
     # --- SENTIMENT ---
-    above_upper = df["PCT_MEMB_PX_ABV_UPPER_BOLL_BAND"].fillna(0)
-    below_lower = df["PCT_MEMB_PX_BLW_LWR_BOLL_BAND"].fillna(0)
-    sentiment = (50 - (below_lower - above_upper)).clip(0, 100)
+    # RSI extremes: more overbought than oversold members → positive sentiment
+    rsi_gt_70 = df["PCT_MEMB_WITH_14D_RSI_GT_70"].fillna(0)
+    rsi_lt_30 = df["PCT_MEMB_WITH_14D_RSI_LT_30"].fillna(0)
+    sentiment = (50 - (rsi_lt_30 - rsi_gt_70)).clip(0, 100)
 
     # --- COMPOSITE ---
     composite = (
