@@ -547,7 +547,7 @@ BONDS_RATES_HTML_TEMPLATE = '''
         .row {
             display: flex;
             align-items: center;
-            height: {{ 20 * scale }}px;
+            height: {{ 14 * scale }}px;
             padding: 0 {{ 10 * scale }}px 0 {{ 24 * scale }}px;
         }
 
@@ -864,7 +864,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         /* Value cells */
         .value-cell {
             flex: 1;
-            height: {{ 18 * scale }}px;
+            height: {{ 13 * scale }}px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -889,7 +889,7 @@ BONDS_HISTORICAL_HTML_TEMPLATE = '''
         /* YTD column - emphasized */
         .value-cell.ytd {
             flex: 1.3;
-            height: {{ 20 * scale }}px;
+            height: {{ 14 * scale }}px;
             font-size: {{ 7 * scale }}px;
             font-weight: 700;
             margin-right: {{ 10 * scale }}px;
