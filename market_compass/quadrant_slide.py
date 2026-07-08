@@ -245,17 +245,16 @@ def generate_quadrant_slide(
 
     Path(img_path).unlink(missing_ok=True)
 
-    # Append "(Over 1 Month)" to the slide title if not already present
-    title_shape = target_slide.shapes.title
-    if title_shape and title_shape.has_text_frame:
-        tf = title_shape.text_frame
-        para = tf.paragraphs[0]
-        if "(Over 1 Month)" not in para.text:
-            if para.runs:
-                para.runs[-1].text += " (Over 1 Month)"
-            else:
-                para.add_run().text += " (Over 1 Month)"
+    # Append "(Over 1 Month)" to the title shape (a regular text box, not a
+    # title placeholder — so match by its text, not shapes.title).
+    for shape in target_slide.shapes:
+        if not getattr(shape, "has_text_frame", False):
+            continue
+        para = shape.text_frame.paragraphs[0]
+        if "Where Quality Meets Momentum" in para.text and "(Over 1 Month)" not in para.text and para.runs:
+            para.runs[-1].text += " (Over 1 Month)"
             print("[Quadrant] Appended '(Over 1 Month)' to slide title")
+            break
 
     # Log positions
     for idx_cfg in QUADRANT_INDICES:
