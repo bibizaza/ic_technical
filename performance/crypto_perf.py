@@ -295,7 +295,6 @@ def create_weekly_performance_chart(
         "XDOUSD Curncy": "Polkadot",
         "XVV Curncy": "AAVE",
         "CHYPEE Index":"HyperLiquid",
-        "CCTON Curncy": "Ton",
         "BGCI Index": "Bloomberg Galaxy Crypto",
     }
     mapping = ticker_mapping or default_mapping
@@ -391,7 +390,6 @@ def create_historical_performance_table(
         "XDOUSD Curncy": "Polkadot",
         "XVV Curncy": "AAVE",
         "CHYPEE Index":"HyperLiquid",
-        "CCTON Curncy": "Ton",
         "BGCI Index": "Bloomberg Galaxy Crypto",
     }
     mapping = ticker_mapping or default_mapping
@@ -720,7 +718,6 @@ def insert_crypto_performance_histo_slide(
 
 # Crypto configuration with display names and flag codes for logos
 CRYPTO_CONFIG = [
-    {"ticker": "CCTON Curncy", "name": "Ton", "flag": "ton"},
     {"ticker": "CHYPEE Index", "name": "HyperLiquid", "flag": "hyper"},
     {"ticker": "XDOUSD Curncy", "name": "Polkadot", "flag": "dot"},
     {"ticker": "XSOUSD Curncy", "name": "Solana", "flag": "sol"},
