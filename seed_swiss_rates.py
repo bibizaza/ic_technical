@@ -29,12 +29,16 @@ import pandas as pd
 from pipeline.bloomberg import connect_bloomberg, disconnect_bloomberg, bbg_bdh
 
 # label -> ticker; label only used for logging. Order = column append order.
+# 2Y is GSWISS02 (zero-padded); "GSWISS2" resolves to a different series.
 SWISS_TICKERS = {
-    "2Y": "GSWISS2 Index",
+    "2Y": "GSWISS02 Index",
     "10Y": "GSWISS10 Index",
     "30Y": "GSWISS30 Index",
 }
-START = "20060101"  # match the master CSV history start
+# A single 2006->today daily request truncates at ~5100 points and silently
+# drops the most recent year. The bond slides only look back 12M, so we seed
+# recent history (covers YTD + 12M with buffer) in one safe request.
+START = "20230101"
 
 
 def _fmt(v) -> str:
@@ -84,9 +88,10 @@ def main() -> int:
                 m[ds] = (r.get("PX_LAST"), r.get("PX_LOW"), r.get("PX_HIGH"))
             pulled[ticker] = m
             hit = sum(1 for ds in m if ds in date_to_row)
+            dates = sorted(pd.to_datetime(list(m), format="%d/%m/%Y")) if m else []
+            span = f"first={dates[0].date()} last={dates[-1].date()}" if dates else "first=None last=None"
             print(f"{label:4s} {ticker:16s} pulled={len(m):5d} rows, "
-                  f"aligned_to_existing_dates={hit:5d}, "
-                  f"first={min(m) if m else None} last={max(m) if m else None}")
+                  f"aligned_to_existing_dates={hit:5d}, {span}")
             if not m:
                 print(f"  !! NO DATA for {ticker} — fix the ticker symbol before seeding.")
     finally:

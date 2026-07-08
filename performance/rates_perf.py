@@ -103,7 +103,7 @@ COUNTRY_CONFIG = [
         "name": "Switzerland",
         "flag": "ch",
         "tickers": {
-            "GSWISS2 Index": "2Y",
+            "GSWISS02 Index": "2Y",
             "GSWISS10 Index": "10Y",
             "GSWISS30 Index": "30Y",
         }
@@ -180,7 +180,13 @@ def _load_price_data(excel_path: Union[str, pathlib.Path], tickers: List[str]) -
     out = df[["Date"] + tickers].copy()
     for t in tickers:
         out[t] = pd.to_numeric(out[t], errors="coerce")
-    return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+    out = out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+    # Forward-fill (like the crypto/commodity loaders): a market that is 1 day
+    # stale vs its peers (e.g. Eurozone govvies lagging US by a day) would
+    # otherwise be NaN on the max date and get the whole country dropped.
+    price_cols = [c for c in out.columns if c != "Date"]
+    out[price_cols] = out[price_cols].ffill()
+    return out
 
 
 def _compute_horizon_returns(
