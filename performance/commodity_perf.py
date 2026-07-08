@@ -1075,56 +1075,50 @@ def _load_commodity_price_data(excel_path, tickers):
             out[t] = pd.to_numeric(out[t], errors="coerce")
     return out.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
 
-def _compute_commodity_ytd_series(df, ticker):
-    """Compute weekly YTD performance series for a commodity."""
-    if ticker not in df.columns:
-        return [], []
+def _compute_commodity_ytd_grid(df, tickers):
+    """Return (labels, {ticker: [ytd, ...]}) with every series date-aligned on a
+    shared weekly grid.
 
+    Prices are forward-filled by DATE before sampling, so a line only goes flat
+    when the price is genuinely unchanged — not because a series with fewer valid
+    rows (e.g. copper/uranium have more exchange-holiday gaps than oil/gold) got
+    index-padded at the tail against a longer series' x-axis.
+    """
     last_date = df["Date"].max()
-    year = last_date.year
-    start_of_year = pd.Timestamp(year=year, month=1, day=1)
-    df_year = df[df["Date"] >= start_of_year].copy().sort_values("Date")
+    start_of_year = pd.Timestamp(year=last_date.year, month=1, day=1)
+    df_year = df[df["Date"] >= start_of_year].sort_values("Date").reset_index(drop=True)
+    if df_year.empty:
+        return [], {}
 
-    if len(df_year) == 0:
-        return [], []
+    cols = [t for t in tickers if t in df_year.columns]
+    # Forward-fill each price series over the full daily grid so gaps hold the
+    # last known price rather than dropping the point.
+    filled = df_year[cols].apply(pd.to_numeric, errors="coerce").ffill()
 
-    first_valid_idx = df_year[ticker].first_valid_index()
-    if first_valid_idx is None:
-        return [], []
-
-    baseline_price = df_year.loc[first_valid_idx, ticker]
-    if pd.isna(baseline_price) or baseline_price == 0:
-        return [], []
+    # Weekly sampling (every 5th trading day); daily when the year is still young.
+    step = 1 if len(df_year) < 22 else 5
+    idx = list(range(0, len(df_year), step))
+    if idx[-1] != len(df_year) - 1:
+        idx.append(len(df_year) - 1)
 
     month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    labels = [month_names[df_year["Date"].iloc[i].month - 1] for i in idx]
 
-    daily_labels = []
-    daily_values = []
-
-    for _, row in df_year.iterrows():
-        price = row[ticker]
-        date = row["Date"]
-        if not pd.isna(price):
-            ytd_return = (price - baseline_price) / baseline_price * 100
-            daily_labels.append(month_names[date.month - 1])
-            daily_values.append(round(ytd_return, 1))
-
-    # If fewer than 22 data points, use daily frequency instead of weekly
-    # This handles beginning of year when there's only a few days of data
-    if len(daily_values) < 22:
-        labels = daily_labels
-        values = daily_values
-    else:
-        # Sample to weekly (every 5th trading day)
-        weekly_indices = list(range(0, len(daily_values), 5))
-        if len(daily_values) > 0 and weekly_indices[-1] != len(daily_values) - 1:
-            weekly_indices.append(len(daily_values) - 1)
-
-        labels = [daily_labels[i] for i in weekly_indices]
-        values = [daily_values[i] for i in weekly_indices]
-
-    return labels, values
+    series = {}
+    for t in cols:
+        s = filled[t]
+        base_idx = s.first_valid_index()
+        if base_idx is None:
+            continue
+        baseline = s.loc[base_idx]
+        if pd.isna(baseline) or baseline == 0:
+            continue
+        series[t] = [
+            None if pd.isna(s.iloc[i]) else round((s.iloc[i] - baseline) / baseline * 100, 1)
+            for i in idx
+        ]
+    return labels, series
 
 def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price"):
     """Generate HTML-based Commodity YTD Evolution line chart."""
@@ -1137,27 +1131,17 @@ def create_commodity_ytd_evolution_chart(excel_path, *, price_mode="Last Price")
 
     chart_title = _get_commodity_chart_title(used_date)
 
-    all_labels = []
+    all_labels, series_map = _compute_commodity_ytd_grid(df_adj, list(COMMODITY_YTD_CONFIG.keys()))
     datasets = []
-
     for ticker, config in COMMODITY_YTD_CONFIG.items():
-        labels, values = _compute_commodity_ytd_series(df_adj, ticker)
-        if labels and values:
-            if len(labels) > len(all_labels):
-                all_labels = labels
+        values = series_map.get(ticker)
+        if values:
             datasets.append({
                 "label": config["name"],
                 "data": values,
                 "borderColor": config["color"],
                 "backgroundColor": "transparent",
             })
-
-    # Forward-fill so every line extends to the right edge
-    max_len = len(all_labels)
-    for dataset in datasets:
-        while len(dataset["data"]) < max_len:
-            last_val = dataset["data"][-1] if dataset["data"] else None
-            dataset["data"].append(last_val)
 
     # Check for insufficient data (< 3 data points)
     if len(all_labels) < 3:
