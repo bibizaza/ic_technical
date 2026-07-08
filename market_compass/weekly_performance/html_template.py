@@ -2569,6 +2569,9 @@ CRYPTO_HISTORICAL_HTML_TEMPLATE = '''
         .negative-3 { background: linear-gradient(135deg, #DC2626, #B91C1C); color: #FFFFFF; }
         .negative-4 { background: linear-gradient(135deg, #B91C1C, #991B1B); color: #FFFFFF; }
         .negative-5 { background: linear-gradient(135deg, #991B1B, #7F1D1D); color: #FFFFFF; }
+
+        /* Missing data - grey cell with a dash */
+        .neutral { background: linear-gradient(135deg, #B4BCC8, #94A3B8); color: #FFFFFF; }
     </style>
 </head>
 <body>

@@ -225,16 +225,19 @@ def _build_returns_table(
             "6M": _compute_horizon_returns(df, ticker, today, 180),
             "12M": _compute_horizon_returns(df, ticker, today, 365),
         }
-        # Year‑to‑date: look back to the start of the calendar year
+        # Year‑to‑date: anchor to the last price on/before Jan 1. If the series
+        # has no data before this year (e.g. a coin listed mid-year), anchor to
+        # its first available price this year instead of returning 0%.
         start_of_year = pd.Timestamp(year=today.year, month=1, day=1)
-        past_series = df.loc[df["Date"] <= start_of_year, ticker]
-        if len(past_series) > 0:
-            past_price = past_series.iloc[-1]
-            current_price = df[ticker].iloc[-1]
-            if past_price and not pd.isna(past_price):
-                results[ticker]["YTD"] = (current_price - past_price) / past_price * 100.0
-            else:
-                results[ticker]["YTD"] = float("nan")
+        current_price = df[ticker].iloc[-1]
+        prior = df.loc[df["Date"] <= start_of_year, ticker].dropna()
+        if len(prior) > 0:
+            base_price = prior.iloc[-1]
+        else:
+            this_year = df.loc[df["Date"] >= start_of_year, ticker].dropna()
+            base_price = this_year.iloc[0] if len(this_year) > 0 else float("nan")
+        if base_price and not pd.isna(base_price):
+            results[ticker]["YTD"] = (current_price - base_price) / base_price * 100.0
         else:
             results[ticker]["YTD"] = float("nan")
     table = pd.DataFrame.from_dict(results, orient="index")
@@ -985,7 +988,7 @@ def _get_crypto_historical_color_class(value: float) -> str:
     All values show green (positive) or red (negative) - no neutral/grey cells.
     """
     if pd.isna(value):
-        return "positive-1"  # Default to green for missing data
+        return "neutral"  # Grey cell for missing data
 
     abs_val = abs(value)
     # Always green or red based on sign (zero treated as positive)
@@ -1005,7 +1008,7 @@ def _get_crypto_historical_color_class(value: float) -> str:
 def _format_crypto_large_percentage(value: float) -> str:
     """Format large crypto percentages without decimal for values >= 100%."""
     if pd.isna(value):
-        return "N/A"
+        return "-"
 
     sign = "+" if value >= 0 else ""
     abs_val = abs(value)
@@ -1050,11 +1053,12 @@ def create_historical_html_performance_chart(
     # Prepare rows for template
     rows_data = []
     for _, row in perf_sorted.iterrows():
-        ytd_val = row["YTD"] if not pd.isna(row["YTD"]) else 0.0
-        m1_val = row["1M"] if not pd.isna(row["1M"]) else 0.0
-        m3_val = row["3M"] if not pd.isna(row["3M"]) else 0.0
-        m6_val = row["6M"] if not pd.isna(row["6M"]) else 0.0
-        m12_val = row["12M"] if not pd.isna(row["12M"]) else 0.0
+        # Keep NaN so missing horizons render as a grey "-" cell, not green +0.0%
+        ytd_val = row["YTD"]
+        m1_val = row["1M"]
+        m3_val = row["3M"]
+        m6_val = row["6M"]
+        m12_val = row["12M"]
 
         # Get flag for this crypto
         flag_code = name_to_flag.get(row["Name"], "")
