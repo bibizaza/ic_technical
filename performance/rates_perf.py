@@ -100,6 +100,15 @@ COUNTRY_CONFIG = [
         }
     },
     {
+        "name": "Switzerland",
+        "flag": "ch",
+        "tickers": {
+            "GSWISS2 Index": "2Y",
+            "GSWISS10 Index": "10Y",
+            "GSWISS30 Index": "30Y",
+        }
+    },
+    {
         "name": "China",
         "flag": "cn",
         "tickers": {
