@@ -44,6 +44,7 @@ CORP_BOND_CONFIG = {
     # Investment Grade
     "LUACTRUU Index": {"name": "US IG Corp", "flag": "us", "credit": "IG"},
     "LECPTREU Index": {"name": "EUR IG Corp", "flag": "eu", "credit": "IG"},
+    "SFC14T Index":   {"name": "CHF IG Corp", "flag": "ch", "credit": "IG"},
     "JPEIESGE Index": {"name": "EM IG Corp", "flag": "un", "credit": "IG"},
     # High Yield
     "LF98TRUU Index": {"name": "US HY Corp", "flag": "us", "credit": "HY"},
