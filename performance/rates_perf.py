@@ -91,21 +91,21 @@ COUNTRY_CONFIG = [
         }
     },
     {
-        "name": "Japan",
-        "flag": "jp",
-        "tickers": {
-            "GJGB2 Index": "2Y",
-            "GJGB10 Index": "10Y",
-            "GJGB30 Index": "30Y",
-        }
-    },
-    {
         "name": "Switzerland",
         "flag": "ch",
         "tickers": {
             "GSWISS02 Index": "2Y",
             "GSWISS10 Index": "10Y",
             "GSWISS30 Index": "30Y",
+        }
+    },
+    {
+        "name": "Japan",
+        "flag": "jp",
+        "tickers": {
+            "GJGB2 Index": "2Y",
+            "GJGB10 Index": "10Y",
+            "GJGB30 Index": "30Y",
         }
     },
     {
