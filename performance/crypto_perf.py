@@ -1201,7 +1201,11 @@ CRYPTO_YTD_CONFIG = {
     "XBIUSD Curncy": {"name": "Binance", "color": "#F3BA2F"},
     "XSOUSD Curncy": {"name": "Solana", "color": "#9945FF"},
     "XRPUSD Curncy": {"name": "Ripple", "color": "#0085C0"},
-    "CCTON Curncy": {"name": "Ton", "color": "#00CED1"},
+    # Toncoin: CCTON crypto spot died in Bloomberg (last data 2026-04-30). Use the
+    # Compass Crypto Reference Index Toncoin — a clean daily Toncoin spot reference
+    # (continuation of CCTON's level; the 21Shares Gram ETP was too illiquid
+    # early-2026 and produced a stale-repricing spike).
+    "CCRITON Index": {"name": "Ton", "color": "#00CED1"},
 }
 
 # Chart dimensions
