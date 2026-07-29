@@ -1,0 +1,394 @@
+<title>MIDAS Panel — Precious Metals Slide Mockups</title>
+<style>
+  :root{
+    --navy:#1a365d; --navy2:#1B3A5A; --navy3:#152D45; --navy4:#0F2132;
+    --gold:#c9a227; --cyan:#00B0F0; --ink:#040C38;
+    --green:#10B981; --green-d:#16A34A; --amber:#F59E0B; --red:#EF4444;
+    --grey:#94a3b8; --grey-d:#475569; --line:#D1D9E6; --paper:#f3f5f8;
+    --font:'Segoe UI',Calibri,'Helvetica Neue',Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--paper);color:var(--ink);padding:32px 20px 60px;line-height:1.4}
+  .wrap{max-width:1000px;margin:0 auto}
+  header.page{margin-bottom:28px}
+  header.page h1{font-size:26px;font-weight:700;letter-spacing:-.3px}
+  header.page .sub{color:var(--grey-d);font-size:14px;margin-top:6px;max-width:70ch}
+  .live-note{margin-top:12px;font-size:12.5px;background:#fff;border:1px solid var(--line);border-left:3px solid var(--gold);
+    border-radius:6px;padding:10px 14px;color:var(--grey-d)}
+  .live-note b{color:var(--ink)}
+
+  .option{margin-top:34px}
+  .option-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .badge{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#fff;
+    background:var(--navy);border-radius:5px;padding:4px 9px}
+  .option-head h2{font-size:18px;font-weight:700}
+  .option-head .tag{font-size:12.5px;color:var(--grey-d)}
+  .rationale{font-size:13px;color:var(--grey-d);margin:0 0 14px;max-width:78ch}
+  .rationale b{color:var(--ink)}
+
+  /* ---- SLIDE (960x600 proportions, scaled responsively) ---- */
+  .slide-scaler{overflow-x:auto}
+  .slide{width:960px;height:600px;background:#fff;position:relative;border:1px solid var(--line);
+    border-radius:8px;box-shadow:0 4px 18px rgba(20,45,69,.10);overflow:hidden;transform-origin:top left}
+  .banner{position:absolute;top:0;left:0;width:100%;height:52px;background:linear-gradient(135deg,#1a365d,#1e3a5f)}
+  .banner-text{position:absolute;left:15px;top:26px;transform:translateY(-50%);font-size:26px;font-weight:700;font-style:italic;color:#fff}
+  .logo-text{position:absolute;right:16px;top:26px;transform:translateY(-50%);font-size:17px;font-weight:700;font-style:italic;color:var(--gold);letter-spacing:.5px}
+  .gold-line{position:absolute;top:52px;left:0;width:100%;height:1px;background:var(--gold)}
+  .gold-bar{position:absolute;left:43px;top:93px;width:2px;height:64px;background:var(--gold);border-radius:1px}
+  .title{position:absolute;left:56px;top:88px;font-size:24px;font-weight:700;color:var(--cyan)}
+  .subtitle{position:absolute;left:56px;top:124px;font-size:15px;font-weight:700;color:var(--ink);max-width:850px;line-height:1.3}
+  .source{position:absolute;left:43px;top:578px;font-size:9px;font-weight:700;color:var(--grey)}
+
+  .chart-container{position:absolute;left:43px;top:182px;width:874px;height:388px;overflow:hidden;border-radius:8px}
+  .chart-wrapper{width:100%;height:100%;background:radial-gradient(ellipse 140% 140% at 20% 50%,#fff 0%,#fff 40%,#F4F7FA 55%,#E8EEF4 70%,#D8E2EC 85%,#C8D4E2 100%);border-radius:8px}
+  .main-col{display:flex;flex-direction:column;width:100%;height:100%}
+  .price-row{display:flex;height:296px}
+  .price-area{flex:1;position:relative;padding:6px 8px 4px 4px;background:linear-gradient(90deg,rgba(255,255,255,.95),rgba(255,255,255,.85) 70%,rgba(240,244,248,.6));
+    border:1px solid var(--line);border-right:none;border-radius:8px 0 0 0}
+  .legend{position:absolute;top:5px;left:0;right:0;display:flex;justify-content:center;gap:16px;font-size:9.5px;z-index:5}
+  .legend .it{display:flex;align-items:center;gap:4px}
+  .legend .ln{width:16px;height:3px;border-radius:2px}
+  .legend .tx{color:var(--ink);font-weight:700}
+  .price-area canvas,.rsi-area canvas{width:100%;height:100%;display:block}
+  .rsi-row{display:flex;height:92px}
+  .rsi-area{flex:1;position:relative;padding:2px 8px 4px 4px;background:linear-gradient(90deg,rgba(255,255,255,.95),rgba(255,255,255,.85) 70%,rgba(240,244,248,.6));
+    border:1px solid var(--line);border-top:none;border-right:none;border-radius:0 0 0 8px}
+  .rsi-tag{position:absolute;top:4px;left:8px;font-size:9px;font-weight:700;color:var(--grey-d);letter-spacing:.5px;z-index:5}
+
+  /* ---- RIGHT PANELS (shared) ---- */
+  .panel{width:210px;min-width:210px;padding:11px 13px;display:flex;flex-direction:column;gap:6px;color:#fff}
+  .panel-top{background:linear-gradient(180deg,var(--navy2),var(--navy3));border:1px solid var(--navy2);border-left:none;border-radius:0 8px 0 0}
+  .panel-btm{background:linear-gradient(180deg,var(--navy3),var(--navy4));border:1px solid var(--navy2);border-left:none;border-top:none;border-radius:0 0 8px 0;justify-content:center}
+  .p-title{font-size:8px;text-transform:uppercase;letter-spacing:1.6px;color:rgba(255,255,255,.6);text-align:center}
+  .p-foot{font-size:6.5px;color:rgba(255,255,255,.42);text-align:center;line-height:1.35;margin-top:auto;padding-top:5px}
+
+  /* verdict badge */
+  .verdict{text-align:center;font-weight:800;letter-spacing:.5px;line-height:1;border-radius:6px;padding:9px 6px}
+  .verdict .word{font-size:30px;display:block}
+  .verdict .cap{font-size:8px;letter-spacing:1.4px;text-transform:uppercase;opacity:.8;margin-top:3px}
+  .v-long{background:linear-gradient(180deg,rgba(16,185,129,.22),rgba(16,185,129,.08));color:#5eead4;border:1px solid rgba(16,185,129,.5)}
+  .v-cash{background:linear-gradient(180deg,rgba(148,163,184,.22),rgba(148,163,184,.06));color:#cbd5e1;border:1px solid rgba(148,163,184,.4)}
+
+  /* allocation gauge */
+  .alloc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:8px;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.7)}
+  .alloc-row .val{font-size:13px;font-weight:800;color:#fff;letter-spacing:0}
+  .gauge{height:6px;background:rgba(255,255,255,.15);border-radius:3px;position:relative;overflow:hidden}
+  .gauge .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green),var(--green-d))}
+  .gauge .fill.cash{background:rgba(148,163,184,.55)}
+
+  /* chip rows */
+  .chip{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,.22);border-radius:5px;padding:5px 8px}
+  .chip .k{font-size:8px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.72)}
+  .chip .v{font-size:11px;font-weight:800;letter-spacing:.3px}
+  .v-red{color:#fca5a5}.v-amber{color:#fcd34d}.v-green{color:#6ee7b7}.v-grey{color:#cbd5e1}.v-white{color:#fff}
+
+  /* sub-score (DMAS legacy) */
+  .subs{background:rgba(0,0,0,.2);border-radius:5px;padding:6px 7px}
+  .subs.muted{opacity:.72}
+  .subs .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+  .subs .lab{font-size:7.5px;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.7)}
+  .subs .num{font-size:13px;font-weight:800}
+  .bar{height:3px;background:rgba(255,255,255,.15);border-radius:2px;margin:3px 0}
+  .bar .f{height:100%;border-radius:2px}
+  .dot-row{display:flex;align-items:center;gap:4px;font-size:6.5px;text-transform:uppercase;letter-spacing:.5px}
+  .dot{width:5px;height:5px;border-radius:50%}
+  .divider{height:1px;background:rgba(255,255,255,.14);margin:2px 0}
+  .lead-cap{font-size:7px;text-transform:uppercase;letter-spacing:1.2px;color:var(--gold);text-align:center}
+
+  /* edge mini-bars (Option B) */
+  .edge{background:rgba(0,0,0,.24);border-radius:5px;padding:6px 8px}
+  .edge .hd{font-size:7.5px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.7);margin-bottom:5px}
+  .ebar{display:grid;grid-template-columns:38px 1fr 26px;align-items:center;gap:5px;margin-bottom:4px}
+  .ebar .nm{font-size:8px;color:rgba(255,255,255,.85);font-weight:700}
+  .ebar .track{height:6px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden}
+  .ebar .track i{display:block;height:100%;border-radius:3px}
+  .ebar .sh{font-size:9px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+  .narr{font-size:7px;line-height:1.4;color:rgba(255,255,255,.62);background:rgba(0,0,0,.18);border-radius:4px;padding:5px 7px}
+
+  .caption{font-size:11.5px;color:var(--grey-d);margin-top:10px;padding-left:2px}
+  footer.page{margin-top:46px;font-size:12px;color:var(--grey-d);border-top:1px solid var(--line);padding-top:16px}
+</style>
+
+<div class="wrap">
+  <header class="page">
+    <h1>MIDAS on the precious-metals technical slide</h1>
+    <p class="sub">Three ways to swap the right-hand panel from <b>DMAS</b> to <b>MIDAS</b>. The left half — price chart, 50/100/200-day moving averages and the RSI strip — is <b>identical and unchanged</b> in every option. Only the navy panel on the right changes.</p>
+    <div class="live-note">Panel data is <b>live Gold MIDAS, 28 Jul 2026</b>: verdict <b>CASH</b> · allocation <b>0%</b> · grade <b>SELL</b> · valuation <b>STRETCHED</b>. Historical edge (2019–): MIDAS Sharpe <b>1.44</b> on Gold, and MIDAS beat DMAS &amp; Buy-&amp;-Hold on all four metals. DMAS / Technical / Momentum sub-numbers shown are indicative.</div>
+  </header>
+
+  <!-- ============ OPTION A ============ -->
+  <section class="option">
+    <div class="option-head">
+      <span class="badge">Option A</span>
+      <h2>Minimal</h2>
+      <span class="tag">smallest possible change</span>
+    </div>
+    <p class="rationale">Same panel skeleton as today. The DMAS 0–100 score becomes a <b>LONG / CASH verdict</b> plus an <b>allocation gauge</b>; Technical &amp; Momentum stay exactly where they are. Lowest risk, reads instantly to anyone used to the current deck.</p>
+    <div class="slide-scaler">
+      <div class="slide" id="slideA">
+        <div class="banner"><span class="banner-text">Precious Metals</span></div>
+        <span class="logo-text">HERCULIS</span>
+        <div class="gold-line"></div>
+        <div class="gold-bar"></div>
+        <div class="title">Gold: Cautious</div>
+        <div class="subtitle">MIDAS moves to cash — gold sits well above fair value and trend quality is fading despite the record spot.</div>
+        <div class="chart-container">
+          <div class="chart-wrapper"><div class="main-col">
+            <div class="price-row">
+              <div class="price-area">
+                <div class="legend">
+                  <div class="it"><div class="ln" style="background:#1B3A5A"></div><span class="tx">Price (4,029.61)</span></div>
+                  <div class="it"><div class="ln" style="background:#10B981"></div><span class="tx">50-day MA</span></div>
+                  <div class="it"><div class="ln" style="background:#F59E0B"></div><span class="tx">100-day MA</span></div>
+                  <div class="it"><div class="ln" style="background:#EF4444"></div><span class="tx">200-day MA</span></div>
+                </div>
+                <canvas class="price-cv"></canvas>
+              </div>
+              <!-- PANEL A -->
+              <div class="panel panel-top">
+                <div class="p-title">MIDAS Signal</div>
+                <div class="verdict v-cash"><span class="word">CASH</span><span class="cap">Positioning</span></div>
+                <div class="alloc-row"><span>Allocation</span><span class="val">0%</span></div>
+                <div class="gauge"><div class="fill cash" style="width:2%"></div></div>
+                <div class="subs">
+                  <div class="row"><span class="lab">Technical</span><span class="num" style="color:#F59E0B">42</span></div>
+                  <div class="bar"><div class="f" style="width:42%;background:#F59E0B"></div></div>
+                  <div class="dot-row"><span class="dot" style="background:#F59E0B"></span><span style="color:#F59E0B">Neutral</span></div>
+                </div>
+                <div class="subs">
+                  <div class="row"><span class="lab">Momentum</span><span class="num" style="color:#EF4444">34</span></div>
+                  <div class="bar"><div class="f" style="width:34%;background:#EF4444"></div></div>
+                  <div class="dot-row"><span class="dot" style="background:#EF4444"></span><span style="color:#EF4444">Bearish</span></div>
+                </div>
+                <div class="p-foot">MIDAS is a proprietary Herculis regime model (LONG / CASH). Technical &amp; Momentum shown for context.</div>
+              </div>
+            </div>
+            <div class="rsi-row">
+              <div class="rsi-area"><div class="rsi-tag">RSI (14)</div><canvas class="rsi-cv"></canvas></div>
+              <div class="panel panel-btm">
+                <div class="subs" style="width:100%">
+                  <div class="row"><span class="lab">RSI (14)</span><span class="num" style="color:#F59E0B">46</span></div>
+                  <div class="bar"><div class="f" style="width:46%;background:#F59E0B"></div></div>
+                  <div class="dot-row"><span class="dot" style="background:#F59E0B"></span><span style="color:#F59E0B">Neutral</span></div>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+        <div class="source">Source: Bloomberg, Herculis Group. Data as of 28/07/2026</div>
+      </div>
+    </div>
+    <p class="caption">Change footprint: 1 header + swap the big number for a verdict badge and allocation gauge. Everything else in the panel is untouched.</p>
+  </section>
+
+  <!-- ============ OPTION B ============ -->
+  <section class="option">
+    <div class="option-head">
+      <span class="badge">Option B</span>
+      <h2>Completely different</h2>
+      <span class="tag">MIDAS-native positioning card</span>
+    </div>
+    <p class="rationale">Drops the 0–100 gauge metaphor entirely and shows MIDAS for what it is: a <b>positioning model with a valuation read and a proven edge</b>. Leads with the regime, then valuation &amp; grade, then the <b>historical Sharpe advantage</b> that is the whole reason to prefer MIDAS over DMAS — plus the model's one-line rationale.</p>
+    <div class="slide-scaler">
+      <div class="slide" id="slideB">
+        <div class="banner"><span class="banner-text">Precious Metals</span></div>
+        <span class="logo-text">HERCULIS</span>
+        <div class="gold-line"></div>
+        <div class="gold-bar"></div>
+        <div class="title">Gold: Cautious</div>
+        <div class="subtitle">MIDAS moves to cash — gold sits well above fair value and trend quality is fading despite the record spot.</div>
+        <div class="chart-container">
+          <div class="chart-wrapper"><div class="main-col">
+            <div class="price-row">
+              <div class="price-area">
+                <div class="legend">
+                  <div class="it"><div class="ln" style="background:#1B3A5A"></div><span class="tx">Price (4,029.61)</span></div>
+                  <div class="it"><div class="ln" style="background:#10B981"></div><span class="tx">50-day MA</span></div>
+                  <div class="it"><div class="ln" style="background:#F59E0B"></div><span class="tx">100-day MA</span></div>
+                  <div class="it"><div class="ln" style="background:#EF4444"></div><span class="tx">200-day MA</span></div>
+                </div>
+                <canvas class="price-cv"></canvas>
+              </div>
+              <!-- PANEL B -->
+              <div class="panel panel-top">
+                <div class="p-title">MIDAS · Positioning Model</div>
+                <div class="verdict v-cash"><span class="word">CASH</span><span class="cap">0% Allocated · Grade SELL</span></div>
+                <div class="chip"><span class="k">Valuation</span><span class="v v-red">STRETCHED</span></div>
+                <div class="chip"><span class="k">vs Fair Value</span><span class="v v-amber">Overvalued</span></div>
+                <div class="chip"><span class="k">Trend Quality</span><span class="v v-grey">Low</span></div>
+                <div class="edge">
+                  <div class="hd">Historical edge · Sharpe since 2019</div>
+                  <div class="ebar"><span class="nm">MIDAS</span><span class="track"><i style="width:100%;background:linear-gradient(90deg,#10B981,#16A34A)"></i></span><span class="sh" style="color:#6ee7b7">1.44</span></div>
+                  <div class="ebar"><span class="nm">Buy&amp;Hold</span><span class="track"><i style="width:62%;background:rgba(148,163,184,.7)"></i></span><span class="sh" style="color:#cbd5e1">0.90</span></div>
+                  <div class="ebar"><span class="nm">DMAS</span><span class="track"><i style="width:54%;background:rgba(148,163,184,.55)"></i></span><span class="sh" style="color:#cbd5e1">0.78</span></div>
+                </div>
+                <div class="narr">Gold +above fair value with deteriorating trend — model holds cash until the regime turns.</div>
+                <div class="p-foot">MIDAS beat DMAS &amp; Buy-&amp;-Hold on all four metals, net of costs.</div>
+              </div>
+            </div>
+            <div class="rsi-row">
+              <div class="rsi-area"><div class="rsi-tag">RSI (14)</div><canvas class="rsi-cv"></canvas></div>
+              <div class="panel panel-btm">
+                <div class="subs" style="width:100%">
+                  <div class="row"><span class="lab">RSI (14)</span><span class="num" style="color:#F59E0B">46</span></div>
+                  <div class="bar"><div class="f" style="width:46%;background:#F59E0B"></div></div>
+                  <div class="dot-row"><span class="dot" style="background:#F59E0B"></span><span style="color:#F59E0B">Neutral</span></div>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+        <div class="source">Source: Bloomberg, Herculis Group. Data as of 28/07/2026</div>
+      </div>
+    </div>
+    <p class="caption">Sharpe bars for Buy&amp;Hold / DMAS are illustrative placeholders — MIDAS 1.44 is the live backtest figure; the other two get wired to the same DMAS-vs-MIDAS table.</p>
+  </section>
+
+  <!-- ============ OPTION C ============ -->
+  <section class="option">
+    <div class="option-head">
+      <span class="badge">Option C</span>
+      <h2>A mix</h2>
+      <span class="tag">MIDAS-led, DMAS kept as context</span>
+    </div>
+    <p class="rationale">Answers "MIDAS <b>or both?</b>". MIDAS makes the call at the top — verdict, allocation, valuation — and the familiar <b>DMAS composite stays underneath, muted</b>, so nothing analysts rely on is removed. Good transition option while the committee gets comfortable with MIDAS driving the decision.</p>
+    <div class="slide-scaler">
+      <div class="slide" id="slideC">
+        <div class="banner"><span class="banner-text">Precious Metals</span></div>
+        <span class="logo-text">HERCULIS</span>
+        <div class="gold-line"></div>
+        <div class="gold-bar"></div>
+        <div class="title">Gold: Cautious</div>
+        <div class="subtitle">MIDAS moves to cash — gold sits well above fair value and trend quality is fading despite the record spot.</div>
+        <div class="chart-container">
+          <div class="chart-wrapper"><div class="main-col">
+            <div class="price-row">
+              <div class="price-area">
+                <div class="legend">
+                  <div class="it"><div class="ln" style="background:#1B3A5A"></div><span class="tx">Price (4,029.61)</span></div>
+                  <div class="it"><div class="ln" style="background:#10B981"></div><span class="tx">50-day MA</span></div>
+                  <div class="it"><div class="ln" style="background:#F59E0B"></div><span class="tx">100-day MA</span></div>
+                  <div class="it"><div class="ln" style="background:#EF4444"></div><span class="tx">200-day MA</span></div>
+                </div>
+                <canvas class="price-cv"></canvas>
+              </div>
+              <!-- PANEL C -->
+              <div class="panel panel-top">
+                <div class="lead-cap">The Call · MIDAS</div>
+                <div class="verdict v-cash"><span class="word">CASH</span><span class="cap">Positioning</span></div>
+                <div class="alloc-row"><span>Allocation</span><span class="val">0%</span></div>
+                <div class="gauge"><div class="fill cash" style="width:2%"></div></div>
+                <div class="chip"><span class="k">Valuation</span><span class="v v-red">STRETCHED</span></div>
+                <div class="divider"></div>
+                <div class="lead-cap" style="color:rgba(255,255,255,.5)">Context · DMAS 38</div>
+                <div class="subs muted">
+                  <div class="row"><span class="lab">Technical</span><span class="num" style="color:#F59E0B">42</span></div>
+                  <div class="bar"><div class="f" style="width:42%;background:#F59E0B"></div></div>
+                  <div class="row" style="margin-top:5px"><span class="lab">Momentum</span><span class="num" style="color:#EF4444">34</span></div>
+                  <div class="bar"><div class="f" style="width:34%;background:#EF4444"></div></div>
+                </div>
+                <div class="p-foot">MIDAS drives the positioning call; DMAS shown for reference.</div>
+              </div>
+            </div>
+            <div class="rsi-row">
+              <div class="rsi-area"><div class="rsi-tag">RSI (14)</div><canvas class="rsi-cv"></canvas></div>
+              <div class="panel panel-btm">
+                <div class="subs" style="width:100%">
+                  <div class="row"><span class="lab">RSI (14)</span><span class="num" style="color:#F59E0B">46</span></div>
+                  <div class="bar"><div class="f" style="width:46%;background:#F59E0B"></div></div>
+                  <div class="dot-row"><span class="dot" style="background:#F59E0B"></span><span style="color:#F59E0B">Neutral</span></div>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+        <div class="source">Source: Bloomberg, Herculis Group. Data as of 28/07/2026</div>
+      </div>
+    </div>
+    <p class="caption">Keeps DMAS visible for continuity — the boss's "or both?" resolved as MIDAS-led with DMAS demoted to context.</p>
+  </section>
+
+  <footer class="page">
+    Same left chart in all three · only the navy right panel changes · applies to Gold, Silver, Platinum, Palladium (MIDAS is precious-metals only; Oil/Copper keep the DMAS panel).
+  </footer>
+</div>
+
+<script>
+// ---- faithful-enough Gold price series: long climb, record spot, recent stall ----
+function series(){
+  const n=90, out=[];
+  let p=3300;
+  for(let i=0;i<n;i++){
+    const drift = i<70 ? 11 : (i<82 ? 4 : -6);           // climb, then plateau, then pullback
+    const wob = Math.sin(i/5)*14 + Math.sin(i/2.3)*7;
+    p = p + drift + wob*0.35;
+    out.push(p);
+  }
+  // anchor the last point to the live spot
+  out[n-1]=4029.61;
+  return out;
+}
+function sma(a,w){return a.map((_,i)=>{const s=Math.max(0,i-w+1);const sl=a.slice(s,i+1);return sl.reduce((x,y)=>x+y,0)/sl.length;});}
+
+function drawPrice(cv){
+  const dpr=Math.max(2,window.devicePixelRatio||1);
+  const w=cv.clientWidth,h=cv.clientHeight;
+  cv.width=w*dpr;cv.height=h*dpr;const c=cv.getContext('2d');c.scale(dpr,dpr);
+  const price=series(), ma50=sma(price,50), ma100=sma(price,100), ma200=sma(price,200);
+  const all=price.concat(ma50,ma100.slice(30),ma200.slice(60)).filter(v=>!isNaN(v));
+  let lo=Math.min(...all), hi=Math.max(...all); const pad=(hi-lo)*0.10; lo-=pad; hi+=pad;
+  const padL=6,padR=10,padT=26,padB=16;
+  const X=i=>padL+(i/(price.length-1))*(w-padL-padR);
+  const Y=v=>padT+(1-(v-lo)/(hi-lo))*(h-padT-padB);
+  // faint fib grid
+  c.strokeStyle='rgba(148,163,184,.28)';c.lineWidth=1;c.setLineDash([4,4]);
+  for(let k=0;k<=6;k++){const y=padT+(k/6)*(h-padT-padB);c.beginPath();c.moveTo(padL,y);c.lineTo(w-padR,y);c.stroke();}
+  c.setLineDash([]);
+  const line=(arr,col,wd,skip=0)=>{c.strokeStyle=col;c.lineWidth=wd;c.beginPath();let started=false;
+    arr.forEach((v,i)=>{if(i<skip||isNaN(v))return;const x=X(i),y=Y(v);if(!started){c.moveTo(x,y);started=true;}else c.lineTo(x,y);});c.stroke();};
+  line(ma200,'#EF4444',1.6,60);
+  line(ma100,'#F59E0B',1.6,30);
+  line(ma50,'#10B981',1.6,0);
+  line(price,'#1B3A5A',2.4,0);
+  // axis labels (y)
+  c.fillStyle='#040C38';c.font='700 10px '+getComputedStyle(document.body).fontFamily;c.textAlign='left';
+  for(let k=0;k<=4;k++){const v=lo+(k/4)*(hi-lo);const y=Y(v);c.fillText(Math.round(v).toLocaleString(),padL+2,y-3);}
+}
+function drawRsi(cv){
+  const dpr=Math.max(2,window.devicePixelRatio||1);
+  const w=cv.clientWidth,h=cv.clientHeight;
+  cv.width=w*dpr;cv.height=h*dpr;const c=cv.getContext('2d');c.scale(dpr,dpr);
+  const price=series();const d=[];for(let i=1;i<price.length;i++)d.push(price[i]-price[i-1]);
+  const rsi=[];for(let i=0;i<d.length;i++){const s=Math.max(0,i-13);const win=d.slice(s,i+1);
+    const g=win.filter(x=>x>0).reduce((a,b)=>a+b,0)/14;const l=-win.filter(x=>x<0).reduce((a,b)=>a+b,0)/14;
+    rsi.push(l===0?70:100-100/(1+g/l));}
+  rsi[rsi.length-1]=46;
+  const padL=6,padR=10,padT=14,padB=12;
+  const X=i=>padL+(i/(rsi.length-1))*(w-padL-padR);
+  const Y=v=>padT+(1-v/100)*(h-padT-padB);
+  // zones
+  c.fillStyle='rgba(239,68,68,.08)';c.fillRect(padL,Y(100),w-padL-padR,Y(70)-Y(100));
+  c.fillStyle='rgba(16,185,129,.08)';c.fillRect(padL,Y(30),w-padL-padR,Y(0)-Y(30));
+  c.strokeStyle='rgba(148,163,184,.4)';c.setLineDash([4,4]);c.lineWidth=1;
+  [30,70].forEach(v=>{c.beginPath();c.moveTo(padL,Y(v));c.lineTo(w-padR,Y(v));c.stroke();});
+  c.setLineDash([]);
+  c.strokeStyle='#8B5CF6';c.lineWidth=2;c.beginPath();rsi.forEach((v,i)=>{const x=X(i),y=Y(v);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();
+  c.fillStyle='#040C38';c.font='700 9px '+getComputedStyle(document.body).fontFamily;c.textAlign='left';
+  c.fillText('70',padL+2,Y(70)-2);c.fillText('30',padL+2,Y(30)-2);
+}
+function fit(){
+  // scale each 960px slide down to fit its container width
+  document.querySelectorAll('.slide-scaler').forEach(sc=>{
+    const slide=sc.querySelector('.slide');const avail=sc.clientWidth;
+    const s=Math.min(1,avail/960);slide.style.transform='scale('+s+')';
+    sc.style.height=(600*s)+'px';
+  });
+}
+function render(){
+  fit();
+  document.querySelectorAll('.price-cv').forEach(drawPrice);
+  document.querySelectorAll('.rsi-cv').forEach(drawRsi);
+}
+window.addEventListener('load',render);
+window.addEventListener('resize',render);
+</script>

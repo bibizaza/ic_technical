@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.cdnfonts.com/css/calibri-light');
+:root{
+  --navy:#1a365d; --navy2:#1B3A5A; --navy3:#152D45; --navy4:#0F2132;
+  --gold:#c9a227; --cyan:#00B0F0; --ink:#040C38;
+  --green:#10B981; --green-d:#16A34A; --amber:#F59E0B; --red:#EF4444; --grey:#94a3b8;
+  --line:#D1D9E6;
+  --font:'Calibri','Segoe UI','Helvetica Neue',Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:960px;height:600px;background:#fff;position:relative;font-family:var(--font);overflow:hidden}
+.banner{position:absolute;top:0;left:0;width:100%;height:52px;background:linear-gradient(135deg,#1a365d,#1e3a5f)}
+.banner-text{position:absolute;left:15px;top:26px;transform:translateY(-50%);font-size:26px;font-weight:700;font-style:italic;color:#fff}
+.logo-text{position:absolute;right:16px;top:26px;transform:translateY(-50%);font-size:17px;font-weight:700;font-style:italic;color:var(--gold);letter-spacing:.5px}
+.gold-line{position:absolute;top:52px;left:0;width:100%;height:1px;background:var(--gold)}
+.gold-bar{position:absolute;left:43px;top:93px;width:2px;height:64px;background:var(--gold);border-radius:1px}
+.title{position:absolute;left:56px;top:88px;font-size:24px;font-weight:700;color:var(--cyan)}
+.subtitle{position:absolute;left:56px;top:124px;font-size:15px;font-weight:700;color:var(--ink);max-width:850px;line-height:1.3}
+.source{position:absolute;left:43px;top:578px;font-size:9px;font-weight:700;color:var(--grey)}
+.chart-container{position:absolute;left:43px;top:182px;width:874px;height:388px;overflow:hidden;border-radius:8px}
+.chart-wrapper{width:100%;height:100%;background:radial-gradient(ellipse 140% 140% at 20% 50%,#fff 0%,#fff 40%,#F4F7FA 55%,#E8EEF4 70%,#D8E2EC 85%,#C8D4E2 100%);border-radius:8px}
+.main-col{display:flex;flex-direction:column;width:100%;height:100%}
+.price-row{display:flex;height:296px}
+.price-area{flex:1;position:relative;padding:6px 8px 4px 4px;background:linear-gradient(90deg,rgba(255,255,255,.95),rgba(255,255,255,.85) 70%,rgba(240,244,248,.6));border:1px solid var(--line);border-right:none;border-radius:8px 0 0 0}
+.legend{position:absolute;top:5px;left:0;right:0;display:flex;justify-content:center;gap:16px;font-size:9.5px;z-index:5}
+.legend .it{display:flex;align-items:center;gap:4px}
+.legend .ln{width:16px;height:3px;border-radius:2px}
+.legend .tx{color:var(--ink);font-weight:700}
+.price-area canvas,.rsi-area canvas{width:100%;height:100%;display:block}
+.rsi-row{display:flex;height:92px}
+.rsi-area{flex:1;position:relative;padding:2px 8px 4px 4px;background:linear-gradient(90deg,rgba(255,255,255,.95),rgba(255,255,255,.85) 70%,rgba(240,244,248,.6));border:1px solid var(--line);border-top:none;border-right:none;border-radius:0 0 0 8px}
+.rsi-tag{position:absolute;top:4px;left:8px;font-size:9px;font-weight:700;color:var(--grey);letter-spacing:.5px;z-index:5}
+/* PANEL */
+.panel{width:210px;min-width:210px;padding:10px 13px;display:flex;flex-direction:column;gap:5px;color:#fff}
+.panel-top{background:linear-gradient(180deg,var(--navy2),var(--navy3));border:1px solid var(--navy2);border-left:none;border-radius:0 8px 0 0}
+.panel-btm{background:linear-gradient(180deg,var(--navy3),var(--navy4));border:1px solid var(--navy2);border-left:none;border-top:none;border-radius:0 0 8px 0;justify-content:center}
+.p-title{font-size:8px;text-transform:uppercase;letter-spacing:1.6px;color:rgba(255,255,255,.6);text-align:center}
+.p-foot{font-size:6.5px;color:rgba(255,255,255,.42);text-align:center;line-height:1.35;margin-top:auto;padding-top:5px}
+.verdict{text-align:center;font-weight:800;letter-spacing:.5px;line-height:1;border-radius:6px;padding:9px 6px}
+.verdict .word{font-size:32px;display:block}
+.v-cash{background:linear-gradient(180deg,rgba(148,163,184,.22),rgba(148,163,184,.06));color:#cbd5e1;border:1px solid rgba(148,163,184,.4)}
+.v-long{background:linear-gradient(180deg,rgba(16,185,129,.22),rgba(16,185,129,.08));color:#5eead4;border:1px solid rgba(16,185,129,.5)}
+.chip{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,.22);border-radius:5px;padding:6px 9px}
+.chip .k{font-size:8.5px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.72)}
+.chip .v{font-size:11px;font-weight:800;letter-spacing:.3px}
+.v-red{color:#fca5a5}.v-amber{color:#fcd34d}.v-grey{color:#cbd5e1}
+.edge{background:rgba(0,0,0,.24);border-radius:5px;padding:7px 9px}
+.edge .hd{font-size:7.5px;text-transform:uppercase;letter-spacing:.7px;color:rgba(255,255,255,.7);margin-bottom:6px}
+.ebar{display:grid;grid-template-columns:46px 1fr 26px;align-items:center;gap:6px;margin-bottom:5px}
+.ebar .nm{font-size:8.5px;color:rgba(255,255,255,.85);font-weight:700}
+.ebar .track{height:7px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden}
+.ebar .track i{display:block;height:100%;border-radius:3px}
+.ebar .sh{font-size:10px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+.narr{font-size:7.5px;line-height:1.45;color:rgba(255,255,255,.64);background:rgba(0,0,0,.18);border-radius:4px;padding:6px 8px}
+.subs{background:rgba(0,0,0,.2);border-radius:5px;padding:6px 7px;width:100%}
+.subs .row{display:flex;justify-content:space-between;align-items:center}
+.subs .lab{font-size:7.5px;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.7)}
+.subs .num{font-size:13px;font-weight:800}
+.bar{height:3px;background:rgba(255,255,255,.15);border-radius:2px;margin:3px 0}
+.bar .f{height:100%;border-radius:2px}
+.dot-row{display:flex;align-items:center;gap:4px;font-size:6.5px;text-transform:uppercase;letter-spacing:.5px}
+.dot{width:5px;height:5px;border-radius:50%}
+</style>
+</head>
+<body>
+  <div class="banner"><span class="banner-text">Precious Metals</span></div>
+  <span class="logo-text">HERCULIS</span>
+  <div class="gold-line"></div>
+  <div class="gold-bar"></div>
+  <div class="title">Gold: Cautious</div>
+  <div class="subtitle">MIDAS stays in cash — gold remains stretched versus fair value and trend quality has weakened since the peak.</div>
+  <div class="chart-container">
+    <div class="chart-wrapper"><div class="main-col">
+      <div class="price-row">
+        <div class="price-area">
+          <div class="legend">
+            <div class="it"><div class="ln" style="background:#1B3A5A"></div><span class="tx">Price (4,029.61)</span></div>
+            <div class="it"><div class="ln" style="background:#10B981"></div><span class="tx">50-day MA</span></div>
+            <div class="it"><div class="ln" style="background:#F59E0B"></div><span class="tx">100-day MA</span></div>
+            <div class="it"><div class="ln" style="background:#EF4444"></div><span class="tx">200-day MA</span></div>
+          </div>
+          <canvas id="priceCv"></canvas>
+        </div>
+        <!-- MIDAS PANEL (Option B, edited) -->
+        <div class="panel panel-top">
+          <div class="p-title">MIDAS · Positioning Model</div>
+          <div class="verdict v-cash"><span class="word">CASH</span></div>
+          <div class="chip"><span class="k">Valuation</span><span class="v v-red">STRETCHED</span></div>
+          <div class="chip"><span class="k">vs Fair Value</span><span class="v v-amber">Overvalued</span></div>
+          <div class="chip"><span class="k">Trend Quality</span><span class="v v-grey">Low</span></div>
+          <div class="edge">
+            <div class="hd">Historical edge · Sharpe since 2019</div>
+            <div class="ebar"><span class="nm">MIDAS</span><span class="track"><i style="width:100%;background:linear-gradient(90deg,#10B981,#16A34A)"></i></span><span class="sh" style="color:#6ee7b7">1.44</span></div>
+            <div class="ebar"><span class="nm">Buy&amp;Hold</span><span class="track"><i style="width:63%;background:rgba(148,163,184,.7)"></i></span><span class="sh" style="color:#cbd5e1">0.9</span></div>
+          </div>
+          <div class="narr">Above fair value with a fading trend — MIDAS holds cash until the regime turns.</div>
+          <div class="p-foot">Proprietary Herculis model · Sharpe since 2019, net of costs.</div>
+        </div>
+      </div>
+      <div class="rsi-row">
+        <div class="rsi-area"><div class="rsi-tag">RSI (14)</div><canvas id="rsiCv"></canvas></div>
+        <div class="panel panel-btm">
+          <div class="subs">
+            <div class="row"><span class="lab">RSI (14)</span><span class="num" id="rsiNum" style="color:#F59E0B">—</span></div>
+            <div class="bar"><div class="f" id="rsiBar" style="width:50%;background:#F59E0B"></div></div>
+            <div class="dot-row"><span class="dot" id="rsiDot" style="background:#F59E0B"></span><span id="rsiLab" style="color:#F59E0B">Neutral</span></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="source">Source: Bloomberg, Herculis Group. MIDAS positioning as of 28/07/2026</div>
+
+<script>
+const PX=[3229.56,3290.13,3314.96,3294.52,3357.51,3343.84,3300.87,3287.48,3317.94,3289.25,3381.59,3353.43,3372.72,3352.65,3310.42,3326.19,3323.69,3355.12,3385.92,3432.34,3385.23,3388.11,3369.38,3370.9,3368.39,3368.48,3323.67,3332.33,3327.92,3274.33,3303.14,3338.84,3357.45,3326.12,3337.15,3336.5,3301.92,3313.66,3324.05,3355.59,3343.51,3324.55,3347.13,3338.97,3349.94,3397.05,3431.48,3387.29,3368.68,3337.3,3314.61,3326.62,3275.18,3289.93,3363.48,3373.59,3380.6,3369.33,3396.38,3397.75,3342.37,3348.26,3355.86,3335.39,3336.19,3332.72,3315.78,3348.43,3338.71,3371.86,3365.89,3393.57,3397.37,3417.08,3447.95,3476.07,3533.16,3559.42,3545.85,3586.69,3635.98,3626.63,3640.75,3634.07,3643.14,3678.99,3689.98,3659.9,3644.28,3685.3,3746.7,3764.01,3736.16,3749.44,3759.98,3833.55,3858.96,3865.74,3856.58,3886.54,3960.98,3984.85,4042.03,3976.86,4017.79,4110.27,4142.94,4207.48,4326.58,4251.82,4356.3,4125.22,4098.42,4126.28,4113.05,3982.21,3952.14,3930.07,4024.54,4002.92,4001.42,3932.09,3979.57,3977.21,4001.26,4115.76,4126.85,4195.39,4171.52,4084.06,4044.96,4067.24,4077.98,4077.19,4065.14,4136.31,4130.69,4162.15,4157.61,4239.43,4232.21,4205.85,4203.08,4207.62,4197.78,4190.66,4208.24,4228.84,4280.18,4299.63,4305.01,4302.32,4338.33,4332.62,4338.88,4443.6,4484.47,4479.42,4479.42,4533.21,4332.35,4339.49,4319.37,4319.37,4332.29,4449.15,4494.83,4456.47,4477.65,4509.5,4597.51,4586.52,4626.58,4616.15,4596.09,4670.89,4763.43,4831.73,4936.02,4987.49,5008.7,5180.16,5417.21,5375.24,4894.23,4661.38,4946.76,4964.93,4779.05,4964.36,5057.8,5025.45,5084.39,4922.19,5042.04,4992.08,4877.89,4977.56,4996.1,5107.45,5227.42,5143.85,5164.78,5184.97,5278.93,5322.12,5088.83,5140.36,5082.3,5171.74,5138.53,5191.98,5176.46,5079.21,5019.49,5005.61,4818.5,4650.02,4510.92,4616.33,4758.57,4676.76,4649.85,4646.36,4738.04,4740.31,4774.19,4827.31,4820.66,4787.89,4739.9,4694.14,4709.5,4682.08,4596.75,4547.95,4617.85,4614.21,4521.91,4556.92,4691.36,4685.8,4715.25,4736.17,4715.13,4688.76,4651.98,4540.08,4566.67,4482.61,4544.19,4543.05,4509.4,4570.5,4507.88,4453.98,4495.29,4540.26,4484.98,4488.86,4434.81,4474.8,4328.45,4330.17,4260.85,4072.31,4212.26,4219.33,4311.69,4331.21,4256.93,4209.97,4155.71,4190.06,4117.19,3999.41,4026.73,4028.18,4015.91,4008.02,4030.65,4122.35,4176.94,4165.23,4106.24,4077.43,4123.64,4119.93,4002.39,4052.85,4060.55,3976.5,4017.39,4008.03,4076.99,4130.25,4049.48,4052.79,4076.26,4029.61];
+const LBL=["Mar 09","Mar 10","Mar 11","Mar 12","Mar 13","Mar 17","Mar 18","Mar 19","Mar 30","Mar 31","Apr 01","Apr 02","Apr 06","Apr 07","Apr 08","Apr 13","Apr 14","Apr 15","Apr 20","Apr 21","Apr 22","Apr 23","Apr 24","Apr 27","Apr 28","Apr 29","Apr 30","May 01","May 04","May 05","May 06","May 07","May 08","May 11","May 12","May 13","May 14","May 15","May 18","May 19","May 20","May 21","May 22","May 25","May 26","May 27","May 28","May 29","Jun 01","Jun 02","Jun 03","Jun 04","Jun 05","Jun 08","Jun 09","Jun 10","Jun 11","Jun 12","Jun 15","Jun 16","Jun 17","Jun 18","Jun 19","Jun 22","Jun 23","Jun 24","Jun 25","Jun 26","Jun 29","Jun 30","Jul 01","Jul 02","Jul 03","Jul 06","Jul 07","Jul 08","Jul 09","Jul 10","Jul 13","Jul 14","Jul 15","Jul 16","Jul 17","Jul 20","Jul 21","Jul 22","Jul 23","Jul 24","Jul 27","Jul 28"];
+// LBL covers the LAST 90 points (indices 210..299 of PX)
+const SHOW=90, START=PX.length-SHOW;
+function sma(a,w){return a.map((_,i)=>{const s=Math.max(0,i-w+1);const sl=a.slice(s,i+1);return sl.reduce((x,y)=>x+y,0)/sl.length;});}
+function rsiCalc(a,p=14){const out=[];let g=0,l=0;for(let i=1;i<a.length;i++){const d=a[i]-a[i-1];const gg=Math.max(d,0),ll=Math.max(-d,0);if(i<=p){g+=gg;l+=ll;if(i===p){g/=p;l/=p;out[i]=100-100/(1+g/l);}else out[i]=null;}else{g=(g*(p-1)+gg)/p;l=(l*(p-1)+ll)/p;out[i]=l===0?100:100-100/(1+g/l);}}out[0]=null;return out;}
+const MA50=sma(PX,50),MA100=sma(PX,100),MA200=sma(PX,200),RSI=rsiCalc(PX,14);
+
+function px2(cv){const dpr=Math.max(1,window.devicePixelRatio||1);const w=cv.clientWidth,h=cv.clientHeight;cv.width=w*dpr;cv.height=h*dpr;const c=cv.getContext('2d');c.scale(dpr,dpr);return {c,w,h};}
+
+function drawPrice(){
+  const {c,w,h}=px2(document.getElementById('priceCv'));
+  const seg=(arr)=>arr.slice(START);
+  const p=seg(PX),m50=seg(MA50),m100=seg(MA100),m200=seg(MA200);
+  const all=p.concat(m50,m100,m200).filter(v=>v!=null&&!isNaN(v));
+  let lo=Math.min(...all),hi=Math.max(...all);const pad=(hi-lo)*0.08;lo-=pad;hi+=pad;
+  const padL=6,padR=10,padT=26,padB=18;
+  const X=i=>padL+(i/(SHOW-1))*(w-padL-padR);
+  const Y=v=>padT+(1-(v-lo)/(hi-lo))*(h-padT-padB);
+  c.strokeStyle='rgba(148,163,184,.26)';c.lineWidth=1;c.setLineDash([4,4]);
+  for(let k=0;k<=6;k++){const y=padT+(k/6)*(h-padT-padB);c.beginPath();c.moveTo(padL,y);c.lineTo(w-padR,y);c.stroke();}
+  c.setLineDash([]);
+  const line=(arr,col,wd)=>{c.strokeStyle=col;c.lineWidth=wd;c.beginPath();let s=false;arr.forEach((v,i)=>{if(v==null||isNaN(v))return;const x=X(i),y=Y(v);if(!s){c.moveTo(x,y);s=true;}else c.lineTo(x,y);});c.stroke();};
+  line(m200,'#EF4444',1.6);line(m100,'#F59E0B',1.6);line(m50,'#10B981',1.6);line(p,'#1B3A5A',2.4);
+  c.fillStyle='#040C38';c.font='700 10px '+getComputedStyle(document.body).fontFamily;c.textAlign='left';
+  for(let k=0;k<=4;k++){const v=lo+(k/4)*(hi-lo);c.fillText(Math.round(v).toLocaleString(),padL+2,Y(v)-3);}
+  const ticks=[0,15,30,45,60,75,89];
+  ticks.forEach(i=>{if(!LBL[i])return;
+    c.textAlign = i===0?'left':(i===89?'right':'center');
+    const x = i===0?padL:(i===89?w-padR:X(i));
+    c.fillText(LBL[i],x,h-4);});
+}
+function drawRsi(){
+  const {c,w,h}=px2(document.getElementById('rsiCv'));
+  const r=RSI.slice(START);
+  const padL=6,padR=10,padT=12,padB=10;
+  const X=i=>padL+(i/(SHOW-1))*(w-padL-padR);
+  const Y=v=>padT+(1-v/100)*(h-padT-padB);
+  c.fillStyle='rgba(239,68,68,.08)';c.fillRect(padL,Y(100),w-padL-padR,Y(70)-Y(100));
+  c.fillStyle='rgba(16,185,129,.08)';c.fillRect(padL,Y(30),w-padL-padR,Y(0)-Y(30));
+  c.strokeStyle='rgba(148,163,184,.4)';c.setLineDash([4,4]);c.lineWidth=1;
+  [30,70].forEach(v=>{c.beginPath();c.moveTo(padL,Y(v));c.lineTo(w-padR,Y(v));c.stroke();});c.setLineDash([]);
+  c.strokeStyle='#8B5CF6';c.lineWidth=2;c.beginPath();let s=false;r.forEach((v,i)=>{if(v==null)return;const x=X(i),y=Y(v);if(!s){c.moveTo(x,y);s=true;}else c.lineTo(x,y);});c.stroke();
+  c.fillStyle='#040C38';c.font='700 9px '+getComputedStyle(document.body).fontFamily;c.textAlign='left';
+  c.fillText('70',padL+2,Y(70)-2);c.fillText('30',padL+2,Y(30)-2);
+  const last=Math.round(r[r.length-1]);
+  const col=last>=70?'#EF4444':last<=30?'#10B981':'#F59E0B';
+  const lab=last>=70?'Overbought':last<=30?'Oversold':'Neutral';
+  const n=document.getElementById('rsiNum');n.textContent=last;n.style.color=col;
+  const b=document.getElementById('rsiBar');b.style.width=last+'%';b.style.background=col;
+  document.getElementById('rsiDot').style.background=col;
+  const L=document.getElementById('rsiLab');L.textContent=lab;L.style.color=col;
+}
+function render(){drawPrice();drawRsi();document.body.setAttribute('data-ready','true');}
+window.addEventListener('load',()=>setTimeout(render,60));
+</script>
+</body>
+</html>
