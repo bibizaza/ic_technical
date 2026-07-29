@@ -22,7 +22,7 @@ CONDA_ENV="ptf_opt"
 EXCEL="$IC_DROPBOX/ic_file.xlsx"
 MASTER="$IC_DROPBOX/master_prices.csv"
 TEMPLATE="$IC_DROPBOX/template.pptx"
-HISTORY="$IC_DROPBOX/score_history/history.json"
+HISTORY="$IC_DROPBOX/history.json"
 OUTPUT="$IC_DROPBOX"
 
 # === PARSE ARGUMENTS ===

@@ -46,7 +46,9 @@ class HistoryTracker:
             storage_path = os.environ.get("IC_HISTORY_PATH")
 
         if storage_path is None:
-            # Try to find Dropbox folder (Tools_In_Construction/ic/score_history)
+            # Try to find Dropbox folder (Tools_In_Construction/ic) — canonical
+            # history is ic/history.json at the folder root (not score_history/,
+            # which holds the pre-2026-07 relic frozen at the breadth-field breakage).
             dropbox_path = self._find_dropbox_path()
             if dropbox_path:
                 storage_path = os.path.join(dropbox_path, "history.json")
@@ -64,7 +66,7 @@ class HistoryTracker:
         print(f"[HistoryTracker] Loaded {len(self.data)} assets")
 
     def _find_dropbox_path(self) -> Optional[str]:
-        """Auto-detect Dropbox folder and return IC score_history subfolder."""
+        """Auto-detect Dropbox folder and return the IC folder (Tools_In_Construction/ic)."""
         import sys
 
         # Common Dropbox root locations
@@ -85,8 +87,8 @@ class HistoryTracker:
                 os.path.expanduser("~/Dropbox (Personal)"),
             ]
 
-        # IC Technical subfolder path
-        ic_subfolder = os.path.join("Tools_In_Construction", "ic", "score_history")
+        # IC Technical folder (canonical history lives at ic/history.json)
+        ic_subfolder = os.path.join("Tools_In_Construction", "ic")
 
         for dropbox_root in dropbox_roots:
             if os.path.isdir(dropbox_root):
