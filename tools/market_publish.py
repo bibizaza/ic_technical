@@ -95,7 +95,7 @@ def export_pdf(pptx: Path, pdf: Path | None = None) -> Path:
 
 
 def pdf_pages(pdf: Path) -> list[str]:
-    import fitz  # PyMuPDF
+    import pymupdf as fitz
     with fitz.open(pdf) as doc:
         return [page.get_text() for page in doc]
 
@@ -103,7 +103,7 @@ def pdf_pages(pdf: Path) -> list[str]:
 def ocr_pages(pdf: Path) -> list[str]:
     """OCR of every page at 250 dpi; cached by the PDF's hash, so a rerun of the check is instant.
     Windows' own OCR (windows_ocr.ps1); env MARKET_OCR replaces it (a command: images in, texts out split by \\f)."""
-    import fitz
+    import pymupdf as fitz
     engine = os.environ.get("MARKET_OCR") or "windows_ocr.ps1"  # in the cache name: two OCR tools never share a cache
     cache = Path(tempfile.gettempdir()) / "committee-ocr" / f"py-{hashlib.sha1(pdf.read_bytes()).hexdigest()}-{hashlib.sha1(engine.encode()).hexdigest()[:8]}.json"
     if cache.exists():
@@ -194,7 +194,7 @@ def selftest(pptx: Path) -> None:
             print(f"FAIL {name}: {e}")
     with tempfile.TemporaryDirectory() as tmp:
         pdf = Path(tmp) / "selftest.pdf"
-        step("PDF reader (PyMuPDF)", lambda: __import__("fitz").__doc__.split(":")[0])
+        step("PDF reader (PyMuPDF)", lambda: __import__("pymupdf").__doc__.split(":")[0])
         step("PowerPoint makes the PDF", lambda: f"{len(pdf_pages(export_pdf(pptx, pdf)))} pages")
         step("Windows OCR reads page 1", lambda: f"{len(powershell('windows_ocr.ps1', page_png(pdf, tmp)).strip())} characters")
         step("Market login", lambda: "token received" if login() else "")
@@ -202,7 +202,7 @@ def selftest(pptx: Path) -> None:
 
 
 def page_png(pdf: Path, tmp: str) -> str:
-    import fitz
+    import pymupdf as fitz
     with fitz.open(pdf) as doc:
         path = str(Path(tmp) / "p1.png")
         doc[0].get_pixmap(dpi=250).save(path)
