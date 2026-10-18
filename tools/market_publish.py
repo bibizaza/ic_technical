@@ -3,7 +3,8 @@
     python tools/market_publish.py pdf <deck.pptx>            -> <deck>.pdf next to it, made by PowerPoint
     python tools/market_publish.py check <deck.pdf>           -> every number of the summary and notes is in the PDF?
     python tools/market_publish.py publish <deck.pdf>         -> check, then upload the PDF, summary and notes
-    python tools/market_publish.py selftest <deck.pptx>       -> PowerPoint, PDF reader, OCR, login: OK or FAIL
+    python tools/market_publish.py selftest [deck.pptx]       -> PowerPoint, PDF reader, OCR, login: OK or FAIL
+                                                                 (default deck: template.pptx in IC_DROPBOX_PATH)
 
 The summary and notes files sit next to the PDF: <deck>.summary.md (Committee page text) and <deck>.notes.txt
 (one line per slide, "s5 · title · message", read by Ask Market). Login: .env MARKET_PUBLISHER_EMAIL and
@@ -237,7 +238,7 @@ def main() -> None:
     if a.command == "logic":
         return logic_check()
     if a.command == "selftest":
-        return selftest(Path(a.file))
+        return selftest(Path(a.file) if a.file else Path(os.environ.get("IC_DROPBOX_PATH", ".")) / "template.pptx")
     if a.command == "pdf":
         pdf = export_pdf(Path(a.file))
         return print(f"{pdf} · {len(pdf_pages(pdf))} pages")

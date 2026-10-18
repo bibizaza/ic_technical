@@ -49,12 +49,13 @@ MARKET_PUBLISHER_PASSWORD=<same file>
    schtasks /Create /XML tools\ic_wtscheduler_task.xml /TN "IC2 Market Compass" /RU User3 /RP <password>
    ```
 
-5. Market publishing (step 8 of the run, `market_publish.py`): `python -m pip install pymupdf`, add the two
-   `MARKET_PUBLISHER_*` lines to `.env`, then test everything once with a real deck:
-   ```powershell
-   python tools\market_publish.py selftest "C:\path\to\<deck>.pptx"
+5. Market publishing (step 8 of the run, `market_publish.py`): copy `intern-market.env` (made on the Mac by
+   `setup-publisher.mjs --save-login`) to this PC, then from the repo root:
+   ```bat
+   git pull && tools\setup_market.cmd C:\path\to\intern-market.env
    ```
-   Four lines must say OK: PDF reader, PowerPoint makes the PDF, Windows OCR, Market login.
+   It adds the login to `.env`, deletes the file, installs PyMuPDF and runs the selftest. Four lines must say
+   OK: PDF reader, PowerPoint makes the PDF, Windows OCR, Market login.
 
 ## Thursday shift
 
