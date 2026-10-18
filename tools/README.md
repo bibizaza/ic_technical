@@ -25,6 +25,8 @@ SMTP_PORT=587
 SMTP_USER=financialquant86@gmail.com
 SMTP_PASS=<same Gmail app password as HTEI>
 RECIPIENT=jcourtial@herculis.ch
+MARKET_PUBLISHER_EMAIL=<intern publisher account, from setup-publisher.mjs --env-file>
+MARKET_PUBLISHER_PASSWORD=<same file>
 ```
 
 ## One-time setup
@@ -46,6 +48,13 @@ RECIPIENT=jcourtial@herculis.ch
    ```powershell
    schtasks /Create /XML tools\ic_wtscheduler_task.xml /TN "IC2 Market Compass" /RU User3 /RP <password>
    ```
+
+5. Market publishing (step 8 of the run, `market_publish.py`): `python -m pip install pymupdf`, add the two
+   `MARKET_PUBLISHER_*` lines to `.env`, then test everything once with a real deck:
+   ```powershell
+   python tools\market_publish.py selftest "C:\path\to\<deck>.pptx"
+   ```
+   Four lines must say OK: PDF reader, PowerPoint makes the PDF, Windows OCR, Market login.
 
 ## Thursday shift
 

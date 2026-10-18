@@ -71,6 +71,16 @@ def notify_success(pptx_path: Path, committee_date: str, price_date: str) -> Non
     send_email(subject, body)
 
 
+def notify_market(published: bool, detail: str, summary: str = "") -> None:
+    """Step 8: tell jcourtial whether the deck went live on market.herculis.ai, with the summary readers now see."""
+    subject = f"IC Market Compass {'on Market' if published else 'NOT on Market'}"
+    body = f"{detail}\n" + (f"\nCommittee page summary (live now):\n\n{summary}\n" if summary else "")
+    try:
+        send_email(subject, body)
+    except Exception as e:
+        log.error("Market email could not be sent: %s", e)
+
+
 def notify_failure(stage: str, error: str) -> None:
     subject = f"IC Market Compass FAILED at {stage}"
     body = (

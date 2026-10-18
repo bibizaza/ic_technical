@@ -379,7 +379,10 @@ Steps:
    correct dates (committee on title/filename, price date on source).
 7. Call tools.ic_email.notify_success(pptx_path, committee_date,
    price_date). This sends the "IC generated" email to jcourtial.
-8. If .committee_override was used, delete it.
+8. Publish to Market — follow "Market website" below (PDF, summary,
+   slide notes, check, upload, email). A failure here never undoes
+   steps 1-7: report it with notify_market(False, ...) and go on.
+9. If .committee_override was used, delete it.
 
 Any failure at any step: call tools.ic_email.notify_failure(stage, err).
 ```
@@ -447,11 +450,33 @@ After every run, before sending the "complete" notification:
 
 ## Market website (market.herculis.ai)
 
-Nothing to do in this pipeline. The deck reaches Market after a person exports the
-Herculis Partners PDF: the `committee-publish` skill (run on the Mac) writes the page
-summary and one note per slide from the final PDF, checks every number against it, and
-uploads it. Slide notes come from the PDF, not the PPTX, because the deck can be edited
-after this run.
+Step 8 of the Wednesday run puts the deck on market.herculis.ai (the Committee page, and the slide notes that
+Ask Market reads). Everything runs here with `tools/market_publish.py`; the files sit next to the PPTX.
+
+1. **PDF:** `python tools/market_publish.py pdf "<deck>.pptx"` — PowerPoint saves `<deck>.pdf` next to it.
+2. **Read every page of the PDF** (the Read tool takes a PDF, 20 pages at a time). Most figures are pictures:
+   read them from the page images, not only the text.
+3. **Write `<deck>.summary.md`** (UTF-8): 6–7 bullets, each ending with its pages, e.g. `[p. 18, 23-31]`.
+   The main message, the outlook by asset class with ratings, the notable year-to-date moves and RSI flags.
+4. **Write `<deck>.notes.txt`** (UTF-8): one line per content slide, skipping the cover, section dividers
+   ("HIGHLIGHTS", "ASSET CLASSES"), contacts and disclaimer:
+   `s<PDF page> · <slide title> · <main message, key numbers, rating, the committee's view>`, under 400
+   characters. Example: `s24 · CSI 300 (4,276) · Rated Bearish. Trading 6.0% below the 50-day with all moving
+   averages overhead. RSI at 31 nearing oversold; no base forming yet.` Ratings, DMAS, RSI, moving-average gaps
+   and year-to-date figures belong in the notes: readers ask for them.
+5. **Rules for both files:** copy every number exactly as printed in the deck (same rounding); never compute one;
+   nothing from outside the deck; ratings and views are the committee's ("rated Bullish", "the committee…"),
+   never advice or a forecast of your own; never write "EODHD".
+6. **Check:** `python tools/market_publish.py check "<deck>.pdf"` — every number must be in the PDF's text or in
+   what Windows OCR reads on its pictures; each `s<page>` must exist, one line per page. Fix and rerun until
+   "Check passed." Never work around a failed number: take it out. The first run reads every page (a few
+   minutes); reruns are instant. After 5 failed rounds, stop: `notify_market(False, "<the check output>")`.
+7. **Upload:** `python tools/market_publish.py publish "<deck>.pdf"` (login from `.env`; the title, committee
+   date and topics come from the file name). Live at once. Publishing again replaces the PDF and the row.
+8. **Email:** `from tools.ic_email import notify_market`; `notify_market(True, "<the publish output>",
+   summary=<the summary text>)` — jcourtial reads what went live.
+
+The Mac version of the same step (`committee-publish` skill, market-herculis repo) publishes the Macro Update.
 
 ## Manual Run Workflow
 
