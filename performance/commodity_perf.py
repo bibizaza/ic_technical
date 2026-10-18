@@ -617,7 +617,7 @@ def create_weekly_html_performance_chart(
             # Get current price for the price column
             current_price = df_adj[ticker].iloc[-1] if ticker in df_adj.columns else 0
             if pd.notna(current_price):
-                formatted_price = f"{int(current_price):,}"
+                formatted_price = f"{current_price:,.0f}"  # rounded, as on the asset slides
             else:
                 formatted_price = ""
 

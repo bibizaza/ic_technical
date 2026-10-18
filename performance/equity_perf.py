@@ -331,7 +331,7 @@ def create_weekly_performance_chart(
 
         # Get and format price (integer with thousand separator)
         price = last_prices.get(ticker, 0)
-        formatted_price = f"{int(price):,}" if price else ""
+        formatted_price = f"{price:,.0f}" if price else ""  # rounded, as on the asset slides (int() cut 67,777.52 to 67,777)
 
         # Determine highlight class
         highlight_class = ""

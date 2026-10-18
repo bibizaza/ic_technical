@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import numpy as np
 
+from technical_analysis.core.indicators import compute_rsi
+
 from .config import EQUITY_ASSETS, COMMO_ASSETS, CRYPTO_ASSETS
 from .market_caps import get_equity_market_caps
 from .crypto_data import fetch_crypto_market_caps
@@ -44,23 +46,9 @@ def calculate_rsi(prices: pd.Series, period: int = 14) -> float:
     if len(prices) < period + 1:
         return 50.0  # Neutral if insufficient data
 
-    # Calculate price changes
-    delta = prices.diff()
-
-    # Separate gains and losses
-    gains = delta.where(delta > 0, 0)
-    losses = (-delta).where(delta < 0, 0)
-
-    # Calculate average gains and losses (Wilder's smoothing)
-    avg_gain = gains.ewm(alpha=1/period, min_periods=period).mean()
-    avg_loss = losses.ewm(alpha=1/period, min_periods=period).mean()
-
-    # Calculate RS and RSI
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-
-    # Get the last valid value
-    last_rsi = rsi.iloc[-1]
+    # The same simple-average RSI as the single-asset slides and the subtitles: with Wilder's smoothing here,
+    # this table printed S&P 500 59 while its own slide said 64 (14 Oct 2026 deck).
+    last_rsi = compute_rsi(prices, period).iloc[-1]
     if pd.isna(last_rsi):
         return 50.0
 
@@ -92,8 +80,9 @@ def calculate_vs_ma(prices: pd.Series, ma_period: int = 50) -> float:
     if pd.isna(ma) or ma == 0:
         return 0.0
 
-    pct_vs_ma = ((current_price - ma) / ma) * 100
-    return round(pct_vs_ma, 2)
+    # Unrounded: the slide rounds once to 1 decimal. Rounding to 2 first turned SMI -1.6515 into -1.65, shown
+    # as -1.6, while its own slide said 1.7% below (14 Oct 2026 deck).
+    return float(((current_price - ma) / ma) * 100)
 
 
 def get_outlook(dmas: int) -> str:
