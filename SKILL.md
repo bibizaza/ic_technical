@@ -445,6 +445,14 @@ After every run, before sending the "complete" notification:
 - [ ] Filename uses committee date, not run date
 - [ ] PPTX file exists in Dropbox IC folder
 
+## Market website (market.herculis.ai)
+
+Nothing to do in this pipeline. The deck reaches Market after a person exports the
+Herculis Partners PDF: the `committee-publish` skill (run on the Mac) writes the page
+summary and one note per slide from the final PDF, checks every number against it, and
+uploads it. Slide notes come from the PDF, not the PPTX, because the deck can be edited
+after this run.
+
 ## Manual Run Workflow
 
 When the user says "run the ic" or similar outside of the scheduled task:
