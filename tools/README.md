@@ -25,7 +25,7 @@ SMTP_PORT=587
 SMTP_USER=financialquant86@gmail.com
 SMTP_PASS=<same Gmail app password as HTEI>
 RECIPIENT=jcourtial@herculis.ch
-MARKET_PUBLISHER_EMAIL=<intern publisher account, from setup-publisher.mjs --env-file>
+MARKET_PUBLISHER_EMAIL=<intern publisher account, from setup-publisher.mjs --save-login>
 MARKET_PUBLISHER_PASSWORD=<same file>
 ```
 
