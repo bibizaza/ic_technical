@@ -168,6 +168,50 @@ def _ma_distance_pct(close: pd.Series, target_date: pd.Timestamp, window: int) -
     return f"{sign}{pct:.1f}%"
 
 
+def _price_trajectory_pct(close: pd.Series, target_date: pd.Timestamp, kind: str) -> str:
+    """Recent price trajectory at target_date, as a formatted percentage string.
+
+    kind = "1w"     : change vs the last close on or before target_date - 7 days
+    kind = "1m"     : change vs the last close on or before target_date - 1 calendar month
+    kind = "52w_hi" : distance from the highest close over (target_date - 365 days, target_date],
+                      so 0.0% or negative
+
+    Lookbacks are calendar dates, not row counts: crypto trades 7 days a week and
+    equities 5, so a fixed number of rows would cover different periods.
+    Returns "N/A" when there is not enough history.
+    """
+    close_up_to = close[close.index <= target_date].dropna()
+    if close_up_to.empty:
+        return "N/A"
+    price = float(close_up_to.iloc[-1])
+
+    if kind == "52w_hi":
+        window = close_up_to[close_up_to.index > target_date - pd.Timedelta(days=365)]
+        if window.empty or close_up_to.index[0] > target_date - pd.Timedelta(days=365):
+            return "N/A"  # less than a year of history: the "52w high" would be partial
+        high = float(window.max())
+        pct = (price / high - 1) * 100
+    else:
+        if kind == "1w":
+            anchor = target_date - pd.Timedelta(days=7)
+        elif kind == "1m":
+            anchor = target_date - pd.DateOffset(months=1)
+        else:
+            raise ValueError(f"unknown trajectory kind: {kind}")
+        past = close_up_to[close_up_to.index <= anchor]
+        if past.empty:
+            return "N/A"
+        base = float(past.iloc[-1])
+        if base == 0:
+            return "N/A"
+        pct = (price / base - 1) * 100
+
+    if abs(pct) < 0.05:
+        pct = 0.0  # avoid "-0.0%"
+    sign = "+" if pct >= 0 else ""
+    return f"{sign}{pct:.1f}%"
+
+
 def _idiosyncratic_residual_series(
     asset_close: pd.Series, bench_close: pd.Series, window: int = 126
 ) -> pd.Series:
@@ -470,6 +514,11 @@ def compute_scores(
         vs_100d = _ma_distance_pct(close_series, target_date, 100)
         vs_200d = _ma_distance_pct(close_series, target_date, 200)
 
+        # Price trajectory (calendar-date lookbacks)
+        chg_1w      = _price_trajectory_pct(close_series, target_date, "1w")
+        chg_1m      = _price_trajectory_pct(close_series, target_date, "1m")
+        vs_52w_high = _price_trajectory_pct(close_series, target_date, "52w_hi")
+
         # Current price
         price = float(close_series.iloc[-1])
 
@@ -483,6 +532,9 @@ def compute_scores(
             "vs_50d":       vs_50d,
             "vs_100d":      vs_100d,
             "vs_200d":      vs_200d,
+            "chg_1w":       chg_1w,
+            "chg_1m":       chg_1m,
+            "vs_52w_high":  vs_52w_high,
             "price":        price,
             "score_date":   str(target_date.date()),
         }

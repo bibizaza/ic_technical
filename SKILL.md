@@ -318,7 +318,7 @@ Overview slides get **exactly 1 line, max 100 characters**. Write a broad macro 
 When reading `draft_state.json` to generate subtitles:
 
 1. **Read all 20 instruments first** before writing any subtitle — batch awareness prevents repetition
-2. For each instrument, extract: `rating`, `dmas`, `technical`, `momentum`, `rsi`, `vs_50d`, `vs_100d`, `vs_200d`, `streak_weeks`, `price`
+2. For each instrument, extract: `rating`, `dmas`, `technical`, `momentum`, `rsi`, `vs_50d`, `vs_100d`, `vs_200d`, `chg_1w`, `chg_1m`, `vs_52w_high`, `streak_weeks`, `price`. Use price trajectory only when it is meaningful: a 1m move beyond ±5%, a 1w move beyond ±3%, or more than 10% below the 52w high. Near-zero values are noise; don't mention them. Rules R2 (max 2 numbers per beat) and R5 (exact values only) still apply.
 3. **R10 CHECK:** For each MA field, note the sign: negative = price BELOW that MA (overhead resistance); positive = price ABOVE (support below). Write this down before drafting.
 4. Determine the MA stack position (above/below each MA)
 5. Select tone from DMAS calibration table

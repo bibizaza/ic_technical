@@ -189,6 +189,10 @@ def _build_enriched_context(
     lines.append(f"DMAS: {scores['dmas']} | Technical: {scores['technical']} | Momentum: {scores['momentum']} | RSI: {scores['rsi']}")
     lines.append(f"Rating: {scores['rating']}")
     lines.append(f"Price vs 50d MA: {scores['vs_50d']} | vs 100d MA: {scores['vs_100d']} | vs 200d MA: {scores['vs_200d']}")
+    lines.append(
+        f"Price change: 1w {scores.get('chg_1w', 'N/A')} | 1m {scores.get('chg_1m', 'N/A')} "
+        f"| vs 52w high {scores.get('vs_52w_high', 'N/A')}"
+    )
 
     if market_cap != "N/A":
         lines.append(f"Market Cap: {market_cap}")

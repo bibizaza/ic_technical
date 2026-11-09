@@ -223,7 +223,7 @@ This means: price is BELOW 50d, BELOW 100d, ABOVE 200d.
 When reading `draft_state.json` to generate subtitles:
 
 1. **Read all 20 instruments first** before writing any subtitle — batch awareness prevents repetition
-2. For each instrument, extract: `rating`, `dmas_score`, `dmas_wow`, `technical_score`, `momentum_score`, `rsi_value`, `vs_50d`, `vs_100d`, `vs_200d`, `streak_weeks`, `price`
+2. For each instrument, extract: `rating`, `dmas_score`, `dmas_wow`, `technical_score`, `momentum_score`, `rsi_value`, `vs_50d`, `vs_100d`, `vs_200d`, `chg_1w`, `chg_1m`, `vs_52w_high`, `streak_weeks`, `price`. Use price trajectory only when it is meaningful: a 1m move beyond ±5%, a 1w move beyond ±3%, or more than 10% below the 52w high. Near-zero values are noise; don't mention them. Rules R2 (max 2 numbers per beat) and R5 (exact values only) still apply.
 3. **R10 CHECK (mandatory):** Before any writing, explicitly state for each instrument:
    - "vs_50d = X% → price is [ABOVE/BELOW] 50d"
    - "vs_100d = Y% → price is [ABOVE/BELOW] 100d"
