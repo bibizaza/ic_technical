@@ -88,12 +88,14 @@ from technical_analysis.common_helpers import (
     _interpolate_color,
     _load_price_data_from_obj,
     _load_price_data_generic,
+    _get_cached_excel_sheet,
     _compute_range_bounds,
     generate_average_gauge_image,
     generate_range_gauge_only_image,
     generate_range_gauge_chart_image,
     generate_range_callout_chart_image,
 )
+from technical_analysis.har_range import har_trading_range
 from technical_analysis.powerpoint_utils import (
     find_slide_by_placeholder,
     insert_score_number,
@@ -360,6 +362,41 @@ def _apply_range_guards(
     return (lower, higher)
 
 
+def _load_ohlc_for_har(excel_path, ticker: str, price_mode: str = "Last Price"):
+    """Full price, high and low history of ``ticker`` from the ``data_prices`` sheet, indexed by date.
+
+    master_prices.csv stores every ticker as (#price, #low, #high); in the temp Excel built by
+    ``data_loader.create_temp_excel_from_csv`` these are the columns ``<ticker>``, ``<ticker>.1``
+    (low) and ``<ticker>.2`` (high). High/low are None if those columns are missing.
+    Returns None if the ticker is not in the sheet.
+    """
+    if isinstance(excel_path, (str, pathlib.Path)):
+        sheet = _get_cached_excel_sheet(excel_path, "data_prices")
+    else:  # file-like object
+        if hasattr(excel_path, "seek"):
+            excel_path.seek(0)
+        sheet = pd.read_excel(excel_path, sheet_name="data_prices")
+        if hasattr(excel_path, "seek"):
+            excel_path.seek(0)
+    raw = sheet.drop(index=0)
+    raw = raw[raw[raw.columns[0]] != "DATES"]
+    col = next((c for c in raw.columns if str(c).upper() == ticker.upper()), None)
+    if col is None:
+        return None
+    out = pd.DataFrame({"Date": pd.to_datetime(raw[raw.columns[0]], errors="coerce"),
+                        "Price": pd.to_numeric(raw[col], errors="coerce")})
+    for name, suffix in (("Low", ".1"), ("High", ".2")):
+        out[name] = pd.to_numeric(raw[f"{col}{suffix}"], errors="coerce") if f"{col}{suffix}" in raw.columns else np.nan
+    out = out.dropna(subset=["Date", "Price"]).sort_values("Date").reset_index(drop=True)
+    if callable(adjust_prices_for_mode):  # same "Last Close" handling as the chart's own price loader
+        out, _ = adjust_prices_for_mode(out, price_mode)
+    out = out.set_index("Date")
+    out = out[~out.index.duplicated(keep="last")]
+    high = out["High"] if out["High"].notna().any() else None
+    low = out["Low"] if out["Low"].notna().any() else None
+    return out["Price"], high, low
+
+
 def get_trading_range(
     ticker: str,
     current_price: float,
@@ -369,7 +406,13 @@ def get_trading_range(
     days_forward: int = 5,
 ) -> Tuple[float, float]:
     """
-    Calculate trading range using rolling 5 trading days high/low.
+    1-week trading range for the technical slide (same method for every instrument).
+
+    Primary: daily HAR volatility forecast for the next 7 calendar days
+    (``technical_analysis/har_range.py``); range = price +/- one forecast standard deviation
+    (about 70-76% of weeks close inside). Width guard 3%..60%.
+    Fallback, if HAR cannot be computed (no Excel path, ticker missing, < ~1.3 years of history):
+    high/low of the last ``days_forward`` closes, symmetric, width guard 3%..20% (the previous method).
 
     Parameters
     ----------
@@ -378,20 +421,33 @@ def get_trading_range(
     current_price : float
         Current price.
     df : pandas.DataFrame
-        DataFrame with 'Price' column (price history).
-    excel_path : str or Path, optional
-        Path to Excel file (unused, kept for compatibility).
+        DataFrame with 'Price' column (price history), used by the fallback only.
+    excel_path : str, Path or file-like, optional
+        Workbook with the ``data_prices`` sheet; HAR reads the full history (with highs/lows) from it.
     price_mode : str, default "Last Price"
-        Price mode for data adjustment (unused, kept for compatibility).
+        Price mode for data adjustment ("Last Close" drops today's row, as for the chart).
     days_forward : int, default 5
-        Number of trading days for rolling window.
+        Number of closes for the fallback high/low window.
 
     Returns
     -------
     tuple[float, float]
         (lower_range, higher_range)
     """
-    # Rolling 5 trading days high/low (using close prices)
+    if excel_path is not None:
+        try:
+            ohlc = _load_ohlc_for_har(excel_path, ticker, price_mode)
+            rng = har_trading_range(*ohlc, current_price=current_price) if ohlc is not None else None
+            if rng is not None:
+                lower, higher = rng
+                print(f"[{ticker}] Using HAR 1-week range (+/-{(higher / current_price - 1) * 100:.1f}%)")
+                return _apply_range_guards(lower, higher, current_price, max_pct=0.60)
+            why = "ticker not in data_prices" if ohlc is None else "not enough history"
+            print(f"[{ticker}] HAR range not available ({why}); using price-range fallback")
+        except Exception as exc:  # never break the deck because of the range
+            print(f"[{ticker}] HAR range failed ({exc}); using price-range fallback")
+
+    # Fallback: rolling high/low of the last ``days_forward`` closes
     recent = df["Price"].tail(days_forward)
     higher = recent.max()
     lower = recent.min()
@@ -1463,14 +1519,14 @@ def create_technical_analysis_v2_chart(
     period_low = df["Price"].min()
     fib_levels = _compute_fibonacci_levels(period_high, period_low)
 
-    # Trading range (use volatility index if available, else price-based fallback)
+    # 1-week trading range: HAR volatility forecast (fallback: 21-day high/low of closes)
     lower_range, higher_range = get_trading_range(
         ticker=ticker,
         current_price=last_price,
         df=df,
         excel_path=excel_path,
         price_mode=price_mode,
-        days_forward=21,  # 1-month forward projection
+        days_forward=21,  # fallback window only
     )
 
     # Smart rounding based on price magnitude to preserve meaningful precision
