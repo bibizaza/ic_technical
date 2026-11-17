@@ -254,6 +254,13 @@ def main(argv):
     L += ['', 'B episodes on the R1 base: ' + ', '.join(f'{r.entry.date()}→{r.end.date()} ({r.reason})' for r in epb.itertuples()), '',
           '## Report only (written after the verdict)', '',
           'Zweig thrust days: ' + ', '.join(str(d.date()) for d in zweig_days(br.adv, br.dec)), '']
+    # spec 6t pre-run data note: same gates on the single-source sample (Unicorn only, to 2020-02-10)
+    ss = gates(inputs.loc[:'2020-02-10'], dmas, thrusts[thrusts <= pd.Timestamp('2020-02-10')])
+    L += ['## Report only: single breadth source, 1965-04 → 2020-02-10 (spec 6t data note; no G7)', '',
+          f'Episodes: {len(ss["ep"])}. Gates met: {sum(bool(c[2]) for c in ss["checks"])} of {len(ss["checks"])}.', '',
+          '| Gate | Evidence | Result |', '|---|---|---|']
+    L += [f'| {n} | {e} | {"PASS" if p else "FAIL"} |' for n, e, p in ss['checks']]
+    L.append('')
     (HERE / 'RESULTS_b.md').write_text('\n'.join(L))
     out['ep'].to_csv(HERE / 'out/b_episodes.csv', index=False)
     print('\n'.join(L))
