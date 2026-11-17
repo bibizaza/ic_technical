@@ -658,3 +658,12 @@ D = industries with a negative return. Industries move together far more than si
 
 ### Run condition
 B runs once, only when `BBG_NYSE_ADV` / `BBG_NYSE_DEC` reach the end of the sample (user download). No partial run on the 1965-2020 free data.
+
+### 6t pre-run data note (2026-11-17, before any return of B was computed)
+The Bloomberg file (NYAADV / NYADCL Index, from 2004-07-16) counts a narrower universe than the
+Unicorn files: about 60% of the advancing and declining counts; daily correlation 0.97; 10-day ratio
+correlation 0.96, median absolute difference 0.06. On the 2004-07..2020-02 overlap, the 1.97 crossing
+fires 12 times on Bloomberg vs 6 on Unicorn (Unicorn matches Deemer's published table). After the
+splice date, Bloomberg gives 2 thrust days (2020-06-05, 2023-01-12). Decision: the test runs as
+registered (Unicorn to 2020-02-10, Bloomberg after). Added report, no gate: the same gates on the
+single-source sample 1965-04 → 2020-02-10.
