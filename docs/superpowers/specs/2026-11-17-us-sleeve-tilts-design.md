@@ -40,3 +40,52 @@ long-short test (`macro_health/results/regime_sectors_test.md`) in 1973–2005 a
   returns (3-month blocks, 2,000 draws, `default_rng(7)`) not-better share < 25%.
 - **Implementation note (not tested here):** Delphi would use SPDR sector ETFs; Ken French industries
   do not map one-to-one. A mapping is a later step, only if S1 passes.
+
+---
+
+# Added 2026-11-17 (before any run): volatility sizing (V1, V2) and C5 on sector ETFs (S2)
+
+Same discipline: fixed here, no change after results, no variants. Cash = `FRED_DTB3`/100/252
+before 2007-05-31 and `BIL.US_TR` after (corrected cash leg). S&P daily total return = `BBG_SPX`
+change + `SHILLER_SPX_DIV`/price/252 (as in the gauge). Decide at close t, trade at close t+1,
+earn from t+2. Cost 10 bp × |Δ weight|. **Turnover** = sum of |Δ weight| per year.
+
+## Volatility sizing
+
+**Mechanism (Moreira–Muir):** volatility clusters, but expected return does not rise with it, so
+return per unit of risk is lower when volatility is high. Cut size gradually as volatility rises.
+
+- `σ(t)` = standard deviation of the last 21 daily S&P total returns ending at t, × √252.
+- **Target weight** `v(t) = min(1, 0.15 / σ(t))`.
+- **When to trade:** at the first decision date (Tuesday rule) of each month, move to the target if
+  |target − held| ≥ 0.10; at any other weekly decision date, only if |target − held| ≥ 0.25.
+
+**V1 — volatility sizing alone** (equity weight = v; the rest in cash).
+- Window: first monthly decision in 1955-01 → end. Halves: → 1989-12-31 and 1990-01-01 →.
+  Also shown: 1993-04 → end with the gauge halves (split 2010), and P2021 (information).
+- **Gate:** Sharpe(V1) > Sharpe(buy & hold) in FULL and both halves; bootstrap (63-day blocks,
+  2,000 draws, `default_rng(7)`) not-better share < 25%; turnover ≤ 2.35 a year.
+
+**V2 — R1 with volatility sizing** (equity weight = R1 sleeve weight × v, both as defined; when R1 is
+in Cash the weight is 0 ("all") or 0.5 × v ("half")). The trading thresholds apply to the combined
+weight; R1's own state changes always trade at their scheduled dates.
+- Window: as R1 (1993-04 → end, halves split 2010-01-01), P2021 for information.
+- **Gate:** Sharpe(V2) > Sharpe(R1) in FULL, H1 and H2; bootstrap vs R1 < 25%; turnover ≤ 2.35 a year.
+
+## S2 — C5 on SPDR sector ETFs (monthly)
+
+**Question:** does the S1 gain survive with real, tradable sector ETFs?
+
+- **Predictions:** C5 exactly as reproduced in S1 (`research/us_gauge/run_s1.py`), made at month-end t,
+  held during month t+1.
+- **Mapping (Ken French → ETF):** NoDur→XLP, Durbl→XLY, Manuf→XLI, Enrgy→XLE, Chems→XLB, BusEq→XLK,
+  Telcm→IYZ until 2018-05, XLC from 2018-06, Utils→XLU, Shops→XLY, Hlth→XLV, Money→XLF, Other→none.
+- **Pick:** go down the C5 ranking (best first); take the first **3 distinct** ETFs that have a return
+  for the month; skip Other and ETFs with no data yet.
+- **Portfolio S2:** 70% SPY + 10% in each of the 3 ETFs, rebalanced monthly; cost 10 bp × turnover.
+- **Benchmark:** 100% SPY. Data: `macro_health/data/regime_market/raw/bbg_tr_*.csv` (monthly total
+  return; SPY from 1998-01, most sectors from 1998-12). Cash: Ken French RF.
+- **Window:** first month where SPY and at least 9 mapped ETFs have returns (1999-01) → last month
+  with data. Halves split at 2013-01-01. P2021 for information.
+- **Gate:** Sharpe(S2) > Sharpe(SPY) in FULL and both halves; bootstrap (3-month blocks, 2,000
+  draws, `default_rng(7)`) not-better share < 25%.
