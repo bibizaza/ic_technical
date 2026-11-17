@@ -2,6 +2,15 @@
 
 Date: 2026-11-16. Status: draft for approval.
 
+## 0. Correction log
+
+- **2026-11-17 — cash leg data error.** Steps 1, 1b, 1c and 2 used `BIL.US` (EODHD unadjusted close)
+  as the cash return from 2007-05-31. BIL pays its yield as monthly dividends, so its price is flat:
+  cash earned ~0% instead of the T-bill rate (e.g. ~5% in 2024). The pre-registered intent was BIL's
+  total return. **Fix:** use `BIL.US_TR` (adjusted close). No rule, threshold, window or gate changes.
+  All four steps are re-run and their verdicts re-read with the corrected cash leg; the old results
+  stay in git history.
+
 ## 1. Intent
 
 Replace the pure technical DMAS rating with a **quantitative "Invested / Cash" gauge** per market,
