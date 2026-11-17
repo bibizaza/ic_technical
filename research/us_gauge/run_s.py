@@ -179,8 +179,8 @@ def eur_cash() -> pd.Series:
         s = pd.concat([rd(de).loc[:'1998-12-31'], rd(ez).loc['1999-01-01':]])
         s.attrs['source'] = 'FRED IR3TIB01DEM156N (to 1998-12) + IR3TIB01EZM156N (from 1999-01)'
         return s
-    d = pd.read_csv(SCRATCH / 'euribor3m.csv')
-    s = pd.Series(d.OBS_VALUE.astype(float).to_numpy(), index=pd.to_datetime(d.TIME_PERIOD))
+    s = pd.read_csv(Path.home() / 'Library/CloudStorage/Dropbox/Tools_In_Construction/data/market_store/ECB_EURIBOR3M.csv',
+                    index_col=0, parse_dates=True).iloc[:, 0].astype(float)
     s.attrs['source'] = 'ECB Euribor 3M monthly (from 1994-01); FRED unreachable'
     return s
 
