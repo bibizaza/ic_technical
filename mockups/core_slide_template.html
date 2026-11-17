@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><title>US Equity Gauge</title>
+<style>
+:root{--navy:#1B3A5A;--ink:#040C38;--sky:#00AEEF;--gold:#C9A227;--green:#16A34A;--red:#DC2626}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1600px;height:1000px;font-family:Calibri,'Segoe UI',Arial,sans-serif;background:#fff;color:var(--ink);position:relative;overflow:hidden}
+.top{height:86px;background:var(--navy);border-bottom:3px solid var(--gold);display:flex;align-items:center;padding-left:26px}
+.top h1{color:#fff;font-style:italic;font-size:46px;font-weight:700}
+.head{margin:40px 0 0 72px;border-left:4px solid var(--gold);padding-left:22px}
+.head h2{color:var(--sky);font-size:40px;font-weight:700}
+.head p{font-size:23px;font-weight:700;margin-top:10px;max-width:1340px;line-height:1.25}
+.card{position:absolute;left:72px;top:270px;width:1456px;height:682px;border:1px solid #D9DEE7;border-radius:10px;overflow:hidden;display:flex}
+.chart{flex:1;padding:16px 20px;background:linear-gradient(90deg,#fff 60%,#F4F6FA);display:flex;flex-direction:column}
+.legend{display:flex;gap:26px;justify-content:center;font-size:15px;font-weight:700;margin-bottom:4px}
+.legend i{display:inline-block;width:26px;height:5px;border-radius:3px;vertical-align:middle;margin-right:7px}
+.mat{margin-top:8px}
+.mat .t{font-size:13px;font-weight:700;color:#64748B;letter-spacing:1px;margin:0 0 4px 4px}
+.mat table{width:100%;border-collapse:collapse;font-weight:700}
+.mat th{font-size:12.5px;color:#475569;font-weight:700;padding:3px 3px;text-align:center;border-bottom:1px solid #E2E8F0}
+.mat td{text-align:center;padding:4px 3px;font-size:17px}
+.mat td.l{text-align:left;font-size:14px;color:#475569;width:72px}
+.mat td.up{color:var(--green)}.mat td.dn{color:var(--red)}
+.mat .sep{border-left:2px solid #E2E8F0}
+.panel{width:560px;background:var(--navy);color:#fff;padding:12px 18px;display:flex;flex-direction:column;gap:6px}
+.ptitle{text-align:center;letter-spacing:3px;font-size:13px;color:#C8D3E3}
+.state{display:flex;align-items:center;gap:6px;background:#244668;border:2px solid #3E5D80;border-radius:8px;padding:2px 10px 0 4px}
+.state .s b{font-size:44px;letter-spacing:2px;color:#E6F4EA;display:block;line-height:1}
+.state .s span{font-size:15px;color:#C8D3E3;display:block;margin-top:6px;line-height:1.3}
+.sec{letter-spacing:1px;font-size:12.5px;color:#C8D3E3;margin:4px 0 -2px 2px}
+.g{background:#16314D;border-radius:6px;padding:6px 12px 0}
+.gh{display:flex;justify-content:space-between;align-items:flex-start;font-size:15px}
+.gh small{display:block;font-size:12px;color:#9FB2CC;font-weight:400;margin-top:1px}
+.gh span{font-weight:700;font-size:17px}
+.row3{display:flex;gap:7px}
+.mini{flex:1;padding:6px 8px 0}
+.mini .gh{font-size:14px;flex-direction:column}.mini .gh span{font-size:11.5px;letter-spacing:1px;margin-top:2px;order:3}
+.src{position:absolute;left:72px;bottom:16px;font-size:15px;color:#8A97AD;font-weight:700}
+.draft{position:absolute;right:24px;top:100px;background:#FEF3C7;color:#92400E;font-weight:700;font-size:14px;padding:4px 10px;border-radius:4px}
+svg text{font-family:Calibri,'Segoe UI',Arial,sans-serif}
+</style></head><body>
+<div class="top"><h1>Equities</h1></div>
+<div class="draft">DRAFT — for discussion</div>
+<div class="head"><h2>{{HEAD}}</h2><p>{{LEAD}}</p></div>
+<div class="card">
+ <div class="chart">
+  <div class="legend"><span><i style="background:var(--ink)"></i>S&amp;P 500 ({{PXLAST}})</span><span><i style="background:#9DC3E6;height:10px"></i>Share invested</span><span><i style="background:#F87171"></i>Trend key out</span></div>
+  <svg id="c" width="856" height="470"></svg>
+  <div class="mat"><div class="t">WHEN IT MATTERED · BACK-TEST, AFTER COSTS (green = better than the S&amp;P 500)</div>
+   <table><tr><th></th>{{TH}}</tr><tr><td class="l">Gauge</td>{{TC}}</tr><tr><td class="l">S&amp;P 500</td>{{TB}}</tr></table></div>
+ </div>
+ <div class="panel">
+  <div class="ptitle">HERCULIS · US EQUITY GAUGE</div>
+  <div class="state">{{DIAL}}<div class="s"><b>{{STATE}}</b><span>{{STATESUB}}</span></div></div>
+  <div class="sec">THE TWO KEYS · cash only when both are red</div>
+  {{KEYS}}
+  <div class="sec">EARLY RE-ENTRY · these buy back early, only while in cash</div>
+  <div class="row3">{{RE}}</div>
+ </div>
+</div>
+<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Gauge as of {{ASOF}}. Back-test 1999–2026, daily, after 10 bp costs; not a guarantee.</div>
+<script>
+const D={{DATA}};
+const svg=document.getElementById('c'),W=856,H=470,L=58,R=12,T=14,B=34,ph=280,wy=T+ph+30,wh=H-B-wy;
+const n=D.dates.length,x=i=>L+i*(W-L-R)/(n-1);
+const lo=Math.min(...D.px)*0.98,hi=Math.max(...D.px)*1.01,y=v=>T+(hi-v)/(hi-lo)*ph;
+let s='';
+for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#E2E8F0" stroke-dasharray="4 4"/><text x="${L-8}" y="${y(v)+5}" font-size="14" font-weight="700" text-anchor="end" fill="#040C38">${Math.round(v).toLocaleString('en-US')}</text>`}
+const dec=D.dec;dec.forEach((r,j)=>{if(r.dmas<45){const i0=D.dates.indexOf(r.d),i1=j+1<dec.length?D.dates.indexOf(dec[j+1].d):n-1;if(i0>=0)s+=`<rect x="${x(i0)}" y="${T}" width="${Math.max(2,x(i1)-x(i0))}" height="${ph}" fill="#FEE2E2" opacity=".55"/>`}});
+s+=`<polyline fill="none" stroke="#040C38" stroke-width="3" points="${D.px.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
+s+=`<text x="${L}" y="${wy-8}" font-size="13" fill="#64748B" font-weight="700">SHARE INVESTED</text>`;
+const yw=v=>wy+(1-v)*wh;[0,0.5,1].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1="${yw(v)}" y2="${yw(v)}" stroke="#E2E8F0" stroke-dasharray="4 4"/><text x="${L-8}" y="${yw(v)+5}" font-size="13" text-anchor="end" font-weight="700" fill="#040C38">${v*100}%</text>`});
+let a=`${x(0)},${yw(0)} `;D.w.forEach((v,i)=>{if(v!==null)a+=`${x(i)},${yw(v)} `});a+=`${x(n-1)},${yw(0)}`;
+s+=`<polygon points="${a}" fill="#9DC3E6" opacity=".8"/>`;
+const months={};D.dates.forEach((d,i)=>{const m=d.slice(0,7);if(!(m in months))months[m]=i});
+Object.entries(months).forEach(([m,i],k)=>{if(k%2==0)s+=`<text x="${x(i)}" y="${H-10}" font-size="14" font-weight="700" text-anchor="middle" fill="#040C38">${new Date(m+'-15').toLocaleString('en-US',{month:'short'})}</text>`});
+svg.innerHTML=s;
+</script></body></html>

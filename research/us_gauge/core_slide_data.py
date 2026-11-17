@@ -69,6 +69,7 @@ def main():
         now=dict(weight=float(core.iloc[-1]), v2=float(w2.iloc[-1]), target=float(v.iloc[-1]), sigma21=float(sig),
                  dmas=float(gf.dmas.iloc[-1]), rev_z=float(gf.rev_z.iloc[-1]), r1_cash=bool(gf.cash_R1.iloc[-1]),
                  vix=float(inputs.vix.iloc[-1]), breadth_ratio=float(ratio.iloc[-1]),
+                 fall_1y=float(1 - inputs.px.iloc[-1] / inputs.px.iloc[-252:].max()),
                  f_on=bool(wf.iloc[-1] > 0), s_on=bool(ws.iloc[-1] > 0), b_on=bool(wb.iloc[-1] > 0)),
         periods=per)
     (ROOT / 'mockups/core_slide_data.json').write_text(json.dumps(out))
