@@ -163,6 +163,54 @@ are reported **for information only** and are never used to pick the rule.
 - The **switch-risk table**: for each gauge band, the share of weeks that flipped state within 4 and 13 weeks.
 - Worst 5 drawdowns of each rule, with dates.
 
+## 6b. Step 1b — re-entry rule and earnings alone (pre-registered 2026-11-17, before any run)
+
+**Why:** step 1 (R1) failed only the drawdown gate (−35% vs −24%): in mid-2000 and mid-2002 the trend
+had broken but revisions were still positive (analysts cut late), so R1 stayed invested. Revisions
+looked useful for coming back in after a fall. This idea comes **from** the step-1 result, so the US
+test alone cannot confirm it: **R2 is adopted only if it passes on the US and then on Europe
+(STOXX 600) with the same rules, unchanged.**
+
+Same data, signals (DMAS, REV_z), trading mechanics (decide at close t, trade at close t+1, weight
+earns from t+2, 10 bp), period, halves, metrics, bootstrap and versions (all / half) as step 1.
+
+### R2 — trend exits, earnings re-entry (state machine on weekly decision dates)
+
+State: `pos` ∈ {Invested, Cash}, `mode` ∈ {trend, earnings}, `armed` ∈ {True, False}.
+"Monthly" = the first decision date of a calendar month. REV_z NaN never arms and counts as "not ≥ 0".
+
+1. **Start** (first monthly date): Invested if DMAS ≥ 45, else Cash. mode = trend.
+   armed = (Cash and REV_z < 0).
+2. **Invested, mode trend** (= R0): monthly date and DMAS < 45 → Cash; other date and DMAS < 30 → Cash.
+3. **Invested, mode earnings** (= R1 logic): if DMAS ≥ 45 → mode = trend (no trade).
+   Else, with "out" = (DMAS < 45 and REV_z < 0): monthly date and out → Cash; other date and out and
+   DMAS < 30 → Cash.
+4. **On every move to Cash:** mode = trend; armed = (REV_z < 0).
+5. **Cash:** first, if REV_z < 0 → armed = True. Then:
+   - monthly date and DMAS ≥ 45 → Invested, mode trend (normal re-entry);
+   - else, on **any** decision date, armed and REV_z ≥ 0 → Invested, mode earnings, armed = False
+     (**early re-entry**: revisions were negative during this cash spell and have now recovered).
+
+Effect: before a first exit, earnings cannot keep the sleeve invested (this is the step-1 failure);
+after an exit, earnings can bring it back early, once they have been cut and recover.
+
+### R3 — earnings alone (information + candidate)
+
+Cash at a monthly date when REV_z < 0 (NaN = invested). No early exit, no early re-entry.
+Tested because R1 suggested revisions carry most of the value. Gate vs R0 as below; also reported
+vs BH in FULL, H1, H2.
+
+### Gate (unchanged from 6.4, "all" version, each candidate vs R0)
+
+Sharpe > R0 in FULL, H1, H2; FULL maxDD ≥ R0 maxDD − 0.02; bootstrap not-better share < 0.25;
+FULL switches/year ≤ R0. **Multiple testing:** three candidates have now been tried on the US
+(R1, R2, R3). A US PASS is a candidate for the Europe check, not a final result.
+
+### Europe check (after the US run, only for candidates that pass)
+
+STOXX 600 (`SXXP Index`) price + BEst EPS FY1, FY2, BF12 (manual Bloomberg export, same settings as
+the S&P file) and a EUR cash rate (free, FRED 3-month euro interbank, monthly). Same rules, no change.
+
 ## 7. Step 2 — CoT positioning (shape only; pre-registered in full before it runs)
 
 - **Data:** CFTC *Traders in Financial Futures*, E-mini S&P 500, **leveraged funds** net position as
