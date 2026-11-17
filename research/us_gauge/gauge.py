@@ -39,3 +39,8 @@ def vix_high(vix: pd.Series, window=21, level=25.0) -> pd.Series:
 def r4_cash(t_in: pd.Series, r_in: pd.Series, v_high: pd.Series) -> pd.Series:
     """Section 6c: broken trend and either negative revisions or high VIX."""
     return ~t_in & (~r_in | v_high)
+
+
+def r5_cash(t_in: pd.Series, r_in: pd.Series, c_in: pd.Series) -> pd.Series:
+    """Section 7b: cash when at least two of the three keys are out."""
+    return (~t_in & ~r_in) | (~t_in & ~c_in) | (~r_in & ~c_in)
