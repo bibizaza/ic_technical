@@ -667,3 +667,18 @@ fires 12 times on Bloomberg vs 6 on Unicorn (Unicorn matches Deemer's published 
 splice date, Bloomberg gives 2 thrust days (2020-06-05, 2023-01-12). Decision: the test runs as
 registered (Unicorn to 2020-02-10, Bloomberg after). Added report, no gate: the same gates on the
 single-source sample 1965-04 → 2020-02-10.
+
+## 11. Product decision (user, 2026-11-17)
+
+**Core (herculis.ai quant page and Delphi core) = no sector tilt.** Equity part = 100% S&P 500
+(SPY). Equity weight = max(V2, F floor, S-live weight, B weight), where V2 = R1 timing x volatility
+size (spec 6c / run_k1.v2_weights), F = VIX re-entry floor 50% (6y), S-live = shock re-entry at the
+live V2 size (6s, 6sl), B = Deemer breadth thrust at the live V2 size (6t). Cash = T-bill / BIL.
+Reference result (RESULTS_sens.md, 100% SPY column, 1999-02 → 2026-08, 10 bp): total +1261%,
+Sharpe 0.72, worst fall -25.4% (S&P 500: +877%, 0.42, -55.3%).
+
+**Satellite (Delphi only, later) = the sector tilt as a separate overlay.** It is kept only if it
+shows real added value on its own, measured against SPY, under a test pre-registered before it
+runs. Reason: in the core, the 70/30 tilt left the 27-year return unchanged (+1266% vs +1261%),
+cut the worst fall slightly (-23.5% vs -25.4%) and lost 14 points in 2014-2018; that is not enough
+to put it in the core.
