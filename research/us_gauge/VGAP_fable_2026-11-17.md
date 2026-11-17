@@ -53,12 +53,12 @@ The two only separate after day 21. A rule that buys in week one buys both.
 
 | Idea | Claim | Sample and evidence | Published / crowded |
 |---|---|---|---|
-| Breadth thrust (Zweig 1986; Deemer; Whaley 2009) | A burst of advancing stocks within 10 days marks a durable low | About 20 Zweig signals since 1945, said to have no losing 12-month outcome. Vendors disagree on the list; some count invalid signals in 1974 and 2008. One S&P test since 2007: 53% winners. No audited out-of-sample study found | Yes, widely watched |
+| Breadth thrust (Zweig 1986; Deemer; Whaley 2009) | A burst of advancing stocks within 10 days marks a durable low | Zweig's book (quoted by secondary sources): 14 thrusts since 1945, average +24.6% in 11 months. Deemer's own page: 25 signals since 1945, no return statistics. "No losing outcome" is a vendor claim. Vendors disagree on the list; some count invalid signals in 1974 and 2008. One S&P test since 2007: 53% winners. No audited out-of-sample study found | Yes, widely watched |
 | Lowry 90% up-volume days | Two 90% up days after 90% down days end a panic | Vendor studies only; no count or failure table found | Yes |
 | Below the 200-day average / oversold | Deep discount reverts | Tested here (section 3): no usable edge | Folk rule |
 | VIX curve back to contango (VIX < VIX3M) | Forced hedging has ended | No rigorous study found; vendor heuristics. Tested here: no edge, fails in 2008 | Yes |
-| Slow + fast trend (Goulding, Harvey, Mazzoleni, JFE 2023) | Blending 12-month and 1-month momentum handles turning points; "rebound" state = slow negative, fast positive | US 1969-2018 monthly; a 50/50 blend had the best Sharpe (0.51). Later notes warn the rebound subsample is small. Tested here: rebound months earn nothing extra | Yes, used by CTAs |
-| Volatility targeting (Moreira-Muir 2017; Harvey et al. 2018) | Scaling by past vol raises equity Sharpe and cuts the left tail | Long samples, many assets. Cederburg et al.: no significant out-of-sample gain across 104 strategies | Yes, about $400 bn by one 2020 estimate |
+| Slow + fast trend (Goulding, Harvey, Mazzoleni, JFE 2023) | Blending 12-month and 1-month momentum handles turning points; "rebound" state = slow negative, fast positive | US 1969-2018 monthly; a 50/50 blend had the best Sharpe (0.51). The paper says rebound months are followed by Bull-like returns. Tested here: true in 1955-89 only (+0.8% a month), not in 1929-54 or 1990-2026 | Yes, used by CTAs |
+| Volatility targeting (Moreira-Muir 2017; Harvey et al. 2018) | Scaling by past vol raises equity Sharpe and cuts the left tail | Long samples, many assets. Cederburg et al.: 103 strategies, managed wins 53 and loses 50, only 8 significant | Yes, about $400 bn by one 2020 estimate |
 | Put selling / variance premium (Bollerslev-Tauchen-Zhou 2009; CBOE PUT) | Insurance is overpriced, most after spikes | PUT index 1986-2018: Sharpe 0.65 vs 0.49 for the S&P, worst fall -33%. Tested here as a cash leg: hurts | Yes |
 
 How the large systematic players actually do in V rebounds:
@@ -200,3 +200,13 @@ a different volatility estimator; put-write cash leg; and the earlier C, P, X.
 - PUT index: https://www.cboe.com/insights/posts/white-paper-shows-volatility-risk-premium-facilitated-higher-risk-adjusted-returns-for-put-index ; https://www.wikipedia.org/wiki/CBOE_S%26P_500_PutWrite_Index
 
 Literature figures come from search summaries, not from the papers themselves; check before quoting them to a client.
+
+## Corrections (2026-11-17, after reading the papers)
+
+Full paper check: `PAPERS_fable_2026-11-17.md`. Changes made above:
+- Cederburg et al.: 103 strategies, not 104 (53 wins, 50 losses, 8 significant).
+- Zweig: the book's count is 14 thrusts since 1945 (+24.6% in 11 months), as quoted by secondary sources; I had written "about 20". The original was not read.
+- Momentum turning points: the paper claims rebound months earn Bull-like returns; my data confirm that only for 1955-89.
+- Not verified in a primary source, do not quote: the $400 bn vol-control estimate; the PUT index Sharpe 0.65 vs 0.49.
+- Candidate B is now Deemer's rule only (`PREREG_B_draft.md`); free NYSE breadth history 1965-2020 was found, so Bloomberg is needed only from 2015.
+- No number from my own tests changed.

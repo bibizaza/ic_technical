@@ -562,3 +562,99 @@ Europe PASS = all of:
 Also reported (no gate): base without S, base+S-full, halves split 2007-01-01, price-only
 returns, per-episode P&L of live vs frozen, and the US product by period and stress window
 (V2+F+S-frozen, V2+F+S-live, V2+F+S-full, K1+F+S-live macro-only).
+
+## 6t. Breadth thrust re-entry "B" (pre-registered 2026-11-17, before any run)
+
+Draft by Fable 5.2, 2026-11-17. To be copied into the gauge spec and committed **before** any run.
+Code: `research/us_gauge/run_b.py` (guarded: needs `--one-run`). Tests: `tests/test_us_gauge_breadth.py`
+(synthetic data and the thrust-date check only; no return of the rule has been computed).
+
+### Origin and what has already been seen
+
+- Source of the rule: Walter Deemer, "Breakaway Momentum 101" (walterdeemer.com/bam.htm, read in full).
+  His table lists 25 signals since 1945. He states the concept dates from the 1970s and that the
+  signals after 1973 were noted in real time. The page has been public since 2002.
+- Seen so far: the thrust **dates** on the free breadth series (they reproduce Deemer's table,
+  16 of 16 between 1965 and 2019, each within 2 trading days). I also know the S&P 500 history.
+  Not seen: any return, Sharpe, episode count or P&L of rule B.
+- The rule is 40+ years old and widely watched. Expect decay (see "Hurdle").
+
+### Data
+
+- NYSE advancing issues A_t and declining issues D_t, daily, all NYSE issues.
+  - 1965-03-01 → 2020-02-10: `UNICORN_NYSE_ADV`, `UNICORN_NYSE_DEC` (Unicorn Research Corporation free
+    files, taken from the Internet Archive copy of unicorn.us.com/advdec, snapshot 2026-01-10).
+  - From 2020-02-11: Bloomberg, downloaded by hand, stored as `BBG_NYSE_ADV`, `BBG_NYSE_DEC`.
+    Download from 2015-01-01 so that five years overlap. The run reports the overlap difference.
+    Bloomberg values are used only after 2020-02-10.
+  - Days with A <= 0 or D <= 0 are dropped (6 days in the free file, all zero rows).
+- S&P 500, cash and DMAS: as in 6s (`load_inputs`, `out/dmas_daily_1955.csv`).
+- Europe: no STOXX 600 breadth series exists in the store, so there is no Europe holdout for B.
+  The US gate set below is the test. This is weaker than S; say so in any write-up.
+
+### Definitions (zero free choices)
+
+- Ratio: R_t = (sum of A over the 10 most recent valid breadth days ending t) /
+  (sum of D over the same 10 days).
+- **Thrust day:** R_t > 1.97 and R on the previous valid day <= 1.97 (an upward crossing).
+- Trigger at close t when: t is a thrust day; the base rule's equity weight in force on t is below 1
+  (base in Cash); B is not already On; and at least 63 closes exist.
+- L = lowest S&P 500 close of the 63 closes ending t.
+- **On:**
+  - binary base (R0, R1): weight = max(base weight, 1.0);
+  - product (V2+F+S): weight = max(product weight, v(t)), v(t) = min(1, 0.15 / sigma21(t)), updated
+    every day (decided t, in force t+2), forced trades (no V2 bands).
+- **End**, checked at every close after t, first that holds: base weight in force is 1 (base takes
+  over); close below L (stop); 126 trading days after t.
+- Re-trigger: thrust days during an episode are ignored. A new episode needs a new thrust day after
+  the end.
+- Mechanics: decide close t, trade close t+1, earn from t+2; 10 bp per unit weight change. The base
+  rule keeps its Tuesday / first-of-month state machine unchanged. B is evaluated every trading day,
+  as S is in `run_s.py`.
+- Not used: Deemer's later 20-day rule (ratio > 1.72), which he added in 2019 after seeing 2016;
+  Zweig's thrust (reported only, after the verdict).
+
+### Test (one run)
+
+Primary: R0+B vs R0, S&P 500, Tuesday base, decisions from 1965-04-01 to the last breadth day.
+H1 to 1990-12-31, H2 from 1991-01-01. All gates must hold.
+
+- G1 Sharpe R0+B > R0 in FULL, H1, H2, and on the mean of the five decision weekdays.
+- G2 maxDD >= R0 - 0.02 in FULL and inside 2000-03-01..2003-03-31, 2007-10-01..2009-06-30, 2022.
+- G3 FULL Sharpe > R0 without 2020-02-19..2020-08-31 and 2025-02-19..2025-06-30.
+- G4 paired moving-block bootstrap (63 days, 2,000 draws, seed 7): share(not better) < 0.10.
+- G5 placebo, 1,000 draws, default_rng(7): each episode moved to a uniformly random day with base
+  weight 0; L = lowest of the 63 closes ending there; same stop, base-invested end and 126-day limit.
+  Real Sharpe gain > 90th percentile.
+- G6 more than half of the episodes have a positive return difference vs R0.
+- G7 product: V2+F+S+B has Sharpe >= V2+F+S and maxDD >= V2+F+S - 0.02, 1993-06 onward. S is sized
+  live (spec 6sl passed; `S_SIZE = 'live'` in `run_b.py`).
+- G8 (kept): the episodes entered from 2003-01-01, after the
+  rule was public, have a positive total return difference vs R0.
+
+Report, no gate: metrics by period, episode table, product by stress window, overlap check of the two
+breadth sources, Zweig thrust dates. Sensitivities (threshold 1.90 / 2.05, window 63 → 21) only after
+the verdict is written.
+
+### Hurdle after publication
+
+- McLean and Pontiff (2016, read): across 97 published stock predictors, returns are 26% lower out of
+  sample and 58% lower after publication. Their sample is cross-sectional stock anomalies, not market
+  timing, so it is a guide, not a measurement.
+- Applied here: whatever the pre-2003 episodes show, plan on about 40% of it afterwards. That is why
+  G5 (placebo) and G8 (post-publication episodes) carry the weight, and why a pass on G1 alone would
+  mean little.
+- Expected triggers: Deemer's table has 13 ten-day signals from 1975 to 2023, about one every
+  3.5 years. Only those that fall while the base rule is in Cash become episodes. If there are fewer
+  than 10 episodes, the result is reported as "too few to conclude", whatever the gates say.
+- My prior that B passes every gate: about 1 in 4.
+
+### Backup proxy (not part of the test)
+
+Kenneth French daily 49-industry portfolios (from 1926): A = industries with a positive return,
+D = industries with a negative return. Industries move together far more than single stocks, so the
+1.97 threshold does not carry over and a new threshold would be a free choice. Use it only to describe
+1926-1965, never as the test series.
+
+### Run condition
+B runs once, only when `BBG_NYSE_ADV` / `BBG_NYSE_DEC` reach the end of the sample (user download). No partial run on the 1965-2020 free data.
