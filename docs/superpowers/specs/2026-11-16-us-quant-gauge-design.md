@@ -211,6 +211,39 @@ FULL switches/year ≤ R0. **Multiple testing:** three candidates have now been 
 STOXX 600 (`SXXP Index`) price + BEst EPS FY1, FY2, BF12 (manual Bloomberg export, same settings as
 the S&P file) and a EUR cash rate (free, FRED 3-month euro interbank, monthly). Same rules, no change.
 
+## 6c. Step 1c — R1 + VIX, Sharpe goal (pre-registered 2026-11-17, before any run)
+
+**Goal set by the user (2026-11-17): the best return per unit of risk → Sharpe is the main measure.**
+From this step on, maximum drawdown is reported but is **not** a gate condition. This applies
+going forward only: R1, R2 and R3 keep their earlier verdicts.
+
+**Why VIX:** R1 lost most in 2000–02, when the trend was broken but revisions were still positive.
+VIX was often high in those years. **Honesty note:** before fixing the level, Claude looked at VIX
+alone in 1999–2003 (21-day average ≥ 25 about 32–51% of the time per year; 17% of the time over
+1993–2026). No rule result was seen. 25 is a common round "stress" level.
+
+**Data:** `FRED_VIXCLS` (daily VIX close from 1990-01-02), aligned to S&P days (last value on or before).
+
+### R4 — trend + earnings + VIX
+
+- `V_high(t)` = 21-trading-day average of VIX close, ending at t, is ≥ 25.
+- **Cash when T is out AND (R is out OR V_high).** Otherwise Invested.
+  (= R1, plus: a broken trend with high VIX goes to cash even when revisions are positive.)
+- Same Delphi mechanics as R1: monthly state; early exit at other dates when the gauge says Cash and
+  DMAS < 30; no early re-entry; t+1 execution, t+2 return; 10 bp; all / half.
+
+### Gate (Sharpe goal, "all" version)
+
+1. Sharpe(R4) > Sharpe(R1) in FULL, H1 and H2 (R1 = the best rule so far);
+2. Sharpe(R4) > Sharpe(BH) in FULL;
+3. paired block bootstrap R4 vs R1 (63-day blocks, 2,000 draws, `default_rng(7)`): share of draws with
+   Sharpe(R4) ≤ Sharpe(R1) below 25%;
+4. switches per year of R4 ≤ R0's (2.35): no more trading than DMAS alone.
+
+**Also reported (information only, not gated):** every rule (BH, R0, R1, R2, R3, R4) on the period
+**2021-01-01 → end** (a sub-period of the same run), and max drawdown everywhere. Four candidates have
+now been tried on the US; any PASS still needs the unchanged Europe check.
+
 ## 7. Step 2 — CoT positioning (shape only; pre-registered in full before it runs)
 
 - **Data:** CFTC *Traders in Financial Futures*, E-mini S&P 500, **leveraged funds** net position as
