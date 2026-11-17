@@ -122,3 +122,8 @@ After K1, no more US candidates are tested (US closed; Europe next).
    share < 25%;
 4. equity-weight turnover ≤ 2.35 a year.
 Also reported: max drawdown, CAGR, and the sector-reset turnover.
+
+**K1 data rule (added 2026-11-17 after the first K1 run stopped on input validation, before any K1
+metric was computed):** the sector ETF series miss 2 S&P trading days in 1999–2026 (XLI 1999-01-26,
+IYZ 2000-06-28). On a missing day the ETF price is carried forward from the last observation
+(return 0 that day; the price move is booked on the next day with a price). No other change.
