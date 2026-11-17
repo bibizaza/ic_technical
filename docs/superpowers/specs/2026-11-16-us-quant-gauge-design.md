@@ -7,7 +7,10 @@ Date: 2026-11-16. Status: draft for approval.
 - **2026-11-17 — cash leg data error.** Steps 1, 1b, 1c and 2 used `BIL.US` (EODHD unadjusted close)
   as the cash return from 2007-05-31. BIL pays its yield as monthly dividends, so its price is flat:
   cash earned ~0% instead of the T-bill rate (e.g. ~5% in 2024). The pre-registered intent was BIL's
-  total return. **Fix:** use `BIL.US_TR` (adjusted close). No rule, threshold, window or gate changes.
+  total return. **Worse:** BIL's 2017-11-30 share split shows as a +100% one-day "cash return" in the
+  price series, so every excess-return series had a −100% day: all Sharpe values and bootstraps so far
+  are distorted (e.g. buy & hold 0.29). **Fix:** use `BIL.US_TR` (adjusted close, split- and
+  dividend-adjusted). No rule, threshold, window or gate changes.
   All four steps are re-run and their verdicts re-read with the corrected cash leg; the old results
   stay in git history.
 
