@@ -225,6 +225,10 @@ def main(argv):
     out['checks'].append(('G7 product: V2+F+S+B Sharpe >= V2+F+S and maxDD >= -0.02',
                           f'{mp1["sharpe"]:.4f} vs {mp0["sharpe"]:.4f}; {mp1["maxdd"]:.4f} vs {mp0["maxdd"]:.4f}',
                           bool(mp1['sharpe'] >= mp0['sharpe'] and mp1['maxdd'] >= mp0['maxdd'] - .02)))
+    post = out['ep'][out['ep'].entry >= pd.Timestamp('2003-01-01')]
+    g8 = float(np.prod(1 + post.pnl_vs_R0) - 1) if len(post) else np.nan
+    out['checks'].append(('G8 episodes from 2003 (rule public): total P&L vs R0 > 0',
+                          f'{g8:+.2%} over {len(post)} episodes (added to the code after the first run; spec 6t had it)', bool(g8 > 0)))
     verdict = all(c[2] for c in out['checks'])
     ov = br.attrs['overlap']
     L = ['# Breadth thrust re-entry B', '', f'Verdict: **{"PASS" if verdict else "FAIL"}**', '',
