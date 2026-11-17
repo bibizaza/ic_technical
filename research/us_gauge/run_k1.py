@@ -51,7 +51,7 @@ def v2_weights(inputs):
     return run_vol.daily_weights(inputs.index, usable, v, sleeve), v, baseline
 
 
-def combine(returns, picks, weight, cash):
+def combine(returns, picks, weight, cash, spy_share=.7):
     """Holdings recorded before each day's return; reset after first-day close.
 
     Reset costs, like inherited equity costs, debit the next return day.
@@ -82,8 +82,8 @@ def combine(returns, picks, weight, cash):
             if month not in picks or len(set(picks[month])) != 3:
                 raise ValueError(f'Missing three distinct picks: {month}')
             target = pd.Series(0., index=returns.columns)
-            target.loc['SPY'] = .7
-            target.loc[picks[month]] = .1
+            target.loc['SPY'] = spy_share
+            target.loc[picks[month]] = round((1 - spy_share) / 3, 12)
             pending = (target - held).abs().sum()
             held = target
         previous_month = month
