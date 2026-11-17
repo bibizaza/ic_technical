@@ -531,3 +531,34 @@ reachable, the same rates from the ECB/Bundesbank sources; the switch is recorde
 Europe PASS = all of: FULL Sharpe R0+S > R0; weekday-mean Sharpe > R0; FULL maxDD >= R0 - 0.02;
 placebo real gain > 90th pct; more than half of episodes positive. Also reported: price-only
 returns (no dividend proxy), halves split 2007-01-01, episode table.
+
+## 6sl. S-live: shock re-entry sized by the live volatility target (pre-registered 2026-11-17, before any run)
+
+Origin: Fable's V-gap study (`research/us_gauge/VGAP_fable_2026-11-17.md`, part I). In the product,
+S sets its weight once, at v(t) of the trigger close (16% in March 2020), and keeps it frozen for
+the whole episode. Europe validated S at full weight (R0 base), not at that size. S-live keeps
+every S rule of 6s (trigger, episodes, stop, 126-day end, re-trigger limit) and only changes the
+weight while S is On:
+ - S-frozen (today): S weight = v(trigger close), constant over the episode.
+ - S-live (candidate): S weight on earn day t+2 = v(t), the same daily target the V2 sizing uses,
+   v(t) = min(1, 0.15/sigma21(t)) (`run_vol.target_weight`). No bands; every change pays 10 bp.
+ - S-full (report only, a risk-budget choice for the user): S weight = 1.
+ Product weight = max(base weight, F floor if present, S weight). Base and episodes are the same
+ in all three; only the S weight differs.
+The US numbers (3 episodes: 1998, 2020, 2025) were seen in the V-gap study: the US run is
+information only.
+
+**Europe run (the test, one run).** STOXX 600 (`BBG_SXXP`), same inputs as the 6s Europe run:
+equity = SXXP price change + 3.0%/252; cash = ECB Euribor 3M monthly (stored as `ECB_EURIBOR3M`),
+sample from 1994-02-01 (the 6s run sample, so results are comparable); DMAS from
+`out/dmas_sxxp_daily.csv`. Base = R0 timing on SXXP (Tuesday, cash below 45, early exit below 30)
+x volatility size, exactly as V2 does it (`run_fast.v2_from_states` on the R0 states, bands 0.10 at
+month start / 0.25 otherwise). No F (not built for Europe). S episodes from `run_s.shock_episodes`
+on SXXP closes with the binary R0 weight (the 6s episodes).
+Europe PASS = all of:
+ 1. FULL Sharpe base+S-live > base+S-frozen;
+ 2. weekday-mean Sharpe (Monday..Friday decision days) base+S-live > base+S-frozen;
+ 3. FULL maxDD base+S-live >= base+S-frozen - 0.02.
+Also reported (no gate): base without S, base+S-full, halves split 2007-01-01, price-only
+returns, per-episode P&L of live vs frozen, and the US product by period and stress window
+(V2+F+S-frozen, V2+F+S-live, V2+F+S-full, K1+F+S-live macro-only).
