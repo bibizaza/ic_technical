@@ -1,18 +1,25 @@
 <!doctype html><html><head><meta charset="utf-8"><title>US Equity Gauge</title>
 <style>
-:root{--navy:#1B3A5A;--ink:#040C38;--sky:#00AEEF;--gold:#C9A227;--green:#16A34A;--red:#DC2626;--amber:#F59E0B;--grey:#94A3B8}
+:root{--navy:#1B3A5A;--ink:#040C38;--sky:#00AEEF;--gold:#C9A227;--green:#16A34A;--red:#DC2626}
 *{box-sizing:border-box;margin:0;padding:0}
 body{width:1600px;height:1000px;font-family:Calibri,'Segoe UI',Arial,sans-serif;background:#fff;color:var(--ink);position:relative;overflow:hidden}
 .top{height:86px;background:var(--navy);border-bottom:3px solid var(--gold);display:flex;align-items:center;padding-left:26px}
 .top h1{color:#fff;font-style:italic;font-size:46px;font-weight:700}
-.head{margin:52px 0 0 72px;border-left:4px solid var(--gold);padding-left:22px}
+.head{margin:44px 0 0 72px;border-left:4px solid var(--gold);padding-left:22px}
 .head h2{color:var(--sky);font-size:40px;font-weight:700}
 .head p{font-size:24px;font-weight:700;margin-top:12px;max-width:1300px;line-height:1.25}
-.card{position:absolute;left:72px;top:300px;width:1456px;height:640px;border:1px solid #D9DEE7;border-radius:10px;overflow:hidden;display:flex}
-.chart{flex:1;padding:18px 22px;background:linear-gradient(90deg,#fff 60%,#F4F6FA)}
-.legend{display:flex;gap:26px;justify-content:center;font-size:15px;font-weight:700;margin-bottom:6px}
+.card{position:absolute;left:72px;top:282px;width:1456px;height:664px;border:1px solid #D9DEE7;border-radius:10px;overflow:hidden;display:flex}
+.chart{flex:1;padding:16px 22px;background:linear-gradient(90deg,#fff 60%,#F4F6FA);display:flex;flex-direction:column}
+.legend{display:flex;gap:26px;justify-content:center;font-size:15px;font-weight:700;margin-bottom:4px}
 .legend i{display:inline-block;width:26px;height:5px;border-radius:3px;vertical-align:middle;margin-right:7px}
-.panel{width:470px;background:var(--navy);color:#fff;padding:18px 20px;display:flex;flex-direction:column;gap:9px}
+.mat{margin-top:6px}
+.mat .t{font-size:13px;font-weight:700;color:#64748B;letter-spacing:1px;margin:0 0 4px 4px}
+.mat table{width:100%;border-collapse:collapse;font-size:15px;font-weight:700}
+.mat th{font-size:13px;color:#475569;font-weight:700;padding:3px 4px;text-align:center;border-bottom:1px solid #E2E8F0}
+.mat td{text-align:center;padding:4px;font-size:17px}
+.mat td.l{text-align:left;font-size:14px;color:#475569;width:150px}
+.mat td.g{color:var(--green)}.mat td.r{color:var(--red)}
+.panel{width:470px;background:var(--navy);color:#fff;padding:14px 20px;display:flex;flex-direction:column;gap:7px}
 .ptitle{text-align:center;letter-spacing:3px;font-size:13px;color:#C8D3E3}
 .state{border:2px solid #3E5D80;border-radius:8px;background:#244668;text-align:center;padding:8px 0 6px}
 .state b{font-size:54px;letter-spacing:2px;color:#E6F4EA}
@@ -20,14 +27,16 @@ body{width:1600px;height:1000px;font-family:Calibri,'Segoe UI',Arial,sans-serif;
 .row{background:#16314D;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;font-size:14px;letter-spacing:1px}
 .row .l small{display:block;letter-spacing:0;color:#9FB2CC;font-size:12px;margin-top:2px}
 .row .r{font-weight:700;font-size:20px;letter-spacing:0}
-.in{color:#4ADE80}.out{color:#F87171}.mid{color:#FBBF24}
-.edge{background:#16314D;border-radius:6px;padding:9px 14px;font-size:13px}
-.edge .t{letter-spacing:1px;color:#C8D3E3;margin-bottom:6px}
+.in{color:#4ADE80}.out{color:#F87171}.mid{color:#FBBF24}.sb{color:#9FB2CC}
+.box{background:#16314D;border-radius:6px;padding:8px 14px;font-size:13px}
+.box .t{letter-spacing:1px;color:#C8D3E3;margin-bottom:5px}
+.re{display:flex;justify-content:space-between;align-items:center;margin:4px 0;font-size:14px;font-weight:700}
+.re small{display:block;font-weight:400;color:#9FB2CC;font-size:12px}
 .bar{display:flex;align-items:center;gap:10px;margin:4px 0;font-weight:700;font-size:14px}
 .bar .n{width:96px}.bar .tr{flex:1;height:9px;background:#2F4B6B;border-radius:5px;overflow:hidden}
-.bar .f{height:100%;border-radius:5px}.bar .v{width:92px;text-align:right}
+.bar .f{height:100%;border-radius:5px;display:block}.bar .v{width:92px;text-align:right}
 .note{font-size:13px;color:#D6DEEA;line-height:1.35;background:#16314D;border-radius:6px;padding:8px 12px}
-.src{position:absolute;left:72px;bottom:22px;font-size:15px;color:#8A97AD;font-weight:700}
+.src{position:absolute;left:72px;bottom:18px;font-size:15px;color:#8A97AD;font-weight:700}
 .draft{position:absolute;right:24px;top:100px;background:#FEF3C7;color:#92400E;font-weight:700;font-size:14px;padding:4px 10px;border-radius:4px}
 svg text{font-family:Calibri,'Segoe UI',Arial,sans-serif}
 </style></head><body>
@@ -37,43 +46,45 @@ svg text{font-family:Calibri,'Segoe UI',Arial,sans-serif}
 <p>The trend broke below its switch, but analysts are still raising earnings — the gauge stays invested. Volatility has risen, so the size steps down toward 69% at the next rebalance.</p></div>
 <div class="card">
  <div class="chart">
-  <div class="legend"><span><i style="background:var(--ink)"></i>S&amp;P 500 (7,567)</span><span><i style="background:#9DC3E6;height:10px"></i>Equity weight held</span><span><i style="background:#F87171"></i>Trend key out</span></div>
-  <svg id="c" width="964" height="580"></svg>
+  <div class="legend"><span><i style="background:var(--ink)"></i>S&amp;P 500 (7,562)</span><span><i style="background:#9DC3E6;height:10px"></i>Equity weight held</span><span><i style="background:#F87171"></i>Trend key out</span></div>
+  <svg id="c" width="964" height="470"></svg>
+  <div class="mat"><div class="t">WHEN IT MATTERED · RETURN IN THE PERIOD (back-test; green = better than the S&amp;P 500)</div>
+   <table><tr><th></th><th>2008 crisis</th><th>COVID fall</th><th>2022</th><th>Liberation Day fall</th><th>COVID rebound</th><th>2025</th></tr><tr><td class="l">Gauge</td><td class="g">−5%</td><td class="g">−8%</td><td class="g">−10%</td><td class="g">−5%</td><td class="r">+17%</td><td class="g">+20%</td></tr><tr><td class="l">S&amp;P 500</td><td>−55%</td><td>−34%</td><td>−18%</td><td>−19%</td><td>+58%</td><td>+18%</td></tr></table></div>
  </div>
  <div class="panel">
   <div class="ptitle">HERCULIS · US EQUITY GAUGE</div>
-  <div class="state"><b>INVESTED</b><span>93% of the sleeve · target 69% at the 1 Dec rebalance</span></div>
+  <div class="state"><b>INVESTED</b><span>93% in S&amp;P 500 · target 69% at the 1 Dec rebalance</span></div>
   <div class="row"><div class="l">TREND KEY<small>DMAS 39 · switch at 45</small></div><div class="r out">OUT</div></div>
   <div class="row"><div class="l">EARNINGS KEY<small>3-m revisions +0.9 σ · switch at 0</small></div><div class="r in">IN</div></div>
   <div class="row"><div class="l">DISTANCE TO CASH<small>earnings must fall 0.9 σ (trend already out)</small></div><div class="r mid">+0.9</div></div>
-  <div class="row"><div class="l">SWITCH RISK<small>18% flips within 4 weeks in this band</small></div><div class="r in">LOW</div></div>
   <div class="row"><div class="l">VOLATILITY (21 d)<small>size = 15% ÷ volatility, max 100%</small></div><div class="r mid">21.7%</div></div>
-  <div class="row"><div class="l">SECTOR TILT (C5)<small>30% of the sleeve, monthly</small></div><div class="r" style="font-size:16px">Energy · Staples · Utilities</div></div>
-  <div class="edge"><div class="t">HISTORICAL EDGE · SHARPE 1999–2026 (worst fall)</div>
-   <div class="bar"><span class="n">Gauge</span><span class="tr"><span class="f" style="width:96%;background:#22C55E;display:block"></span></span><span class="v">0.67 (−24%)</span></div>
-   <div class="bar"><span class="n">Buy&amp;Hold</span><span class="tr"><span class="f" style="width:60%;background:#94A3B8;display:block"></span></span><span class="v">0.42 (−55%)</span></div>
+  <div class="box"><div class="t">EARLY RE-ENTRY · active only while in cash</div>
+   <div class="re"><div>Fear is over<small>VIX halves from its peak, below 30 · VIX 19.3</small></div><span class="sb">STANDBY</span></div>
+   <div class="re"><div>Shock rebound<small>−15% fall from a 1-year high, then +10%</small></div><span class="sb">STANDBY</span></div>
+   <div class="re"><div>Breadth thrust<small>10-day NYSE up/down 0.84 · fires above 1.97</small></div><span class="sb">STANDBY</span></div>
   </div>
-  <div class="note">Cash only when BOTH keys are out. Size follows volatility; sectors follow the macro trend model. Every rule fixed before testing.</div>
+  <div class="box"><div class="t">HISTORICAL EDGE · SHARPE 1999–2026 (worst fall)</div>
+   <div class="bar"><span class="n">Gauge</span><span class="tr"><span class="f" style="width:95%;background:#22C55E"></span></span><span class="v">0.71 (−26%)</span></div>
+   <div class="bar"><span class="n">Buy&amp;Hold</span><span class="tr"><span class="f" style="width:56%;background:#94A3B8"></span></span><span class="v">0.42 (−55%)</span></div>
+  </div>
+  <div class="note">Cash only when BOTH keys are out. Size follows volatility. Three rules buy back early. All rules fixed before testing.</div>
  </div>
 </div>
-<div class="src">Source: Bloomberg, FRED, Ken French, Herculis Group. Gauge as of 10/11/2026; sector picks as of 08/2026 (macro data lag). Back-test after costs, not a guarantee.</div>
+<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Gauge as of 13/11/2026. Back-test 1999–2026, daily, after 10 bp costs; not a guarantee.</div>
 <script>
 const D={"dates": ["2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12", "2026-01-13", "2026-01-14", "2026-01-15", "2026-01-16", "2026-01-20", "2026-01-21", "2026-01-22", "2026-01-23", "2026-01-26", "2026-01-27", "2026-01-28", "2026-01-29", "2026-01-30", "2026-02-02", "2026-02-03", "2026-02-04", "2026-02-05", "2026-02-06", "2026-02-09", "2026-02-10", "2026-02-11", "2026-02-12", "2026-02-13", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-23", "2026-02-24", "2026-02-25", "2026-02-26", "2026-02-27", "2026-03-02", "2026-03-03", "2026-03-04", "2026-03-05", "2026-03-06", "2026-03-09", "2026-03-10", "2026-03-11", "2026-03-12", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-25", "2026-03-26", "2026-03-27", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-10", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17", "2026-04-20", "2026-04-21", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-04-30", "2026-05-01", "2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29", "2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-06", "2026-07-07", "2026-07-08", "2026-07-09", "2026-07-10", "2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16", "2026-07-17", "2026-07-20", "2026-07-21", "2026-07-22", "2026-07-23", "2026-07-24", "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31", "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28", "2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13"], "px": [6858.47, 6902.05, 6944.82, 6920.93, 6921.46, 6966.28, 6977.27, 6963.74, 6926.6, 6944.47, 6940.01, 6796.86, 6875.62, 6913.35, 6915.61, 6950.23, 6978.6, 6978.03, 6969.01, 6939.03, 6976.44, 6917.81, 6882.72, 6798.4, 6932.3, 6964.82, 6941.81, 6941.47, 6832.76, 6836.17, 6843.22, 6881.31, 6861.89, 6909.51, 6837.75, 6890.07, 6946.13, 6908.86, 6878.88, 6881.62, 6816.63, 6869.5, 6830.71, 6740.02, 6795.99, 6781.48, 6775.8, 6672.62, 6632.19, 6699.38, 6716.09, 6624.7, 6606.49, 6506.48, 6581.0, 6556.37, 6591.9, 6477.16, 6368.85, 6343.72, 6528.52, 6575.32, 6582.69, 6611.83, 6616.85, 6782.81, 6824.66, 6816.89, 6886.24, 6967.38, 7022.95, 7041.28, 7126.06, 7109.14, 7064.01, 7137.9, 7108.4, 7165.08, 7173.91, 7138.8, 7135.95, 7209.01, 7230.12, 7200.75, 7259.22, 7365.12, 7337.11, 7398.93, 7412.84, 7400.96, 7444.25, 7501.24, 7408.5, 7403.05, 7353.61, 7432.97, 7445.72, 7473.47, 7519.12, 7520.36, 7563.63, 7580.06, 7599.96, 7609.78, 7553.68, 7584.31, 7383.74, 7405.73, 7386.65, 7266.99, 7394.3, 7431.46, 7554.29, 7511.35, 7420.1, 7500.58, 7472.79, 7365.46, 7358.22, 7357.49, 7354.02, 7440.43, 7499.36, 7483.23, 7483.24, 7537.43, 7503.85, 7482.71, 7543.64, 7575.39, 7515.34, 7543.59, 7572.4, 7533.77, 7457.69, 7443.28, 7509.2, 7498.96, 7408.3, 7411.98, 7413.18, 7428.78, 7316.15, 7437.63, 7489.72, 7600.5, 7736.52, 7723.55, 7709.96, 7757.64, 7753.11, 7728.2, 7748.5, 7798.99, 7785.76, 7745.06, 7691.76, 7707.98, 7641.16, 7674.37, 7652.86, 7677.28, 7675.7, 7730.99, 7711.76, 7686.14, 7631.47, 7666.6, 7747.71, 7718.6, 7673.52, 7636.36, 7591.7, 7656.98, 7619.98, 7585.73, 7551.81, 7637.76, 7650.5, 7764.7, 7764.64, 7706.03, 7704.13, 7743.41, 7683.69, 7670.84, 7651.54, 7666.45, 7722.72, 7773.95, 7818.93, 7801.77, 7765.36, 7811.54, 7807.24, 7805.45, 7718.94, 7744.06, 7659.44, 7690.73, 7712.57, 7757.17, 7663.43, 7623.68, 7676.77, 7722.6, 7743.98, 7720.39, 7580.07, 7541.4, 7568.92, 7688.62, 7353.73, 7376.86, 7549.94, 7520.93, 7619.38, 7592.4, 7561.67], "w": [0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933, 0.933], "dec": [{"d": "2026-01-06", "dmas": 76, "rev": 0.44, "cash": false}, {"d": "2026-01-13", "dmas": 76, "rev": 0.48, "cash": false}, {"d": "2026-01-20", "dmas": 61, "rev": 0.39, "cash": false}, {"d": "2026-01-27", "dmas": 69, "rev": 0.34, "cash": false}, {"d": "2026-02-03", "dmas": 64, "rev": 0.14, "cash": false}, {"d": "2026-02-10", "dmas": 65, "rev": -0.19, "cash": false}, {"d": "2026-02-17", "dmas": 57, "rev": -0.34, "cash": false}, {"d": "2026-02-24", "dmas": 61, "rev": -0.41, "cash": false}, {"d": "2026-03-03", "dmas": 53, "rev": 0.71, "cash": false}, {"d": "2026-03-10", "dmas": 49, "rev": 0.78, "cash": false}, {"d": "2026-03-17", "dmas": 41, "rev": 0.9, "cash": false}, {"d": "2026-03-24", "dmas": 25, "rev": 1.32, "cash": false}, {"d": "2026-03-31", "dmas": 24, "rev": 1.39, "cash": false}, {"d": "2026-04-07", "dmas": 33, "rev": 1.43, "cash": false}, {"d": "2026-04-14", "dmas": 74, "rev": 1.55, "cash": false}, {"d": "2026-04-21", "dmas": 79, "rev": 1.7, "cash": false}, {"d": "2026-04-28", "dmas": 77, "rev": 1.8, "cash": false}, {"d": "2026-05-05", "dmas": 79, "rev": 2.37, "cash": false}, {"d": "2026-05-12", "dmas": 84, "rev": 2.54, "cash": false}, {"d": "2026-05-19", "dmas": 77, "rev": 2.55, "cash": false}, {"d": "2026-05-26", "dmas": 90, "rev": 2.68, "cash": false}, {"d": "2026-06-02", "dmas": 88, "rev": 2.79, "cash": false}, {"d": "2026-06-09", "dmas": 74, "rev": 2.66, "cash": false}, {"d": "2026-06-16", "dmas": 79, "rev": 2.55, "cash": false}, {"d": "2026-06-23", "dmas": 72, "rev": 1.88, "cash": false}, {"d": "2026-06-30", "dmas": 73, "rev": 2.18, "cash": false}, {"d": "2026-07-07", "dmas": 72, "rev": 2.17, "cash": false}, {"d": "2026-07-14", "dmas": 70, "rev": 2.09, "cash": false}, {"d": "2026-07-21", "dmas": 66, "rev": 2.12, "cash": false}, {"d": "2026-07-28", "dmas": 60, "rev": 2.47, "cash": false}, {"d": "2026-08-04", "dmas": 80, "rev": 2.35, "cash": false}, {"d": "2026-08-11", "dmas": 75, "rev": 2.23, "cash": false}, {"d": "2026-08-18", "dmas": 72, "rev": 2.19, "cash": false}, {"d": "2026-08-25", "dmas": 69, "rev": 1.93, "cash": false}, {"d": "2026-09-01", "dmas": 66, "rev": 2.06, "cash": false}, {"d": "2026-09-08", "dmas": 67, "rev": 2.1, "cash": false}, {"d": "2026-09-15", "dmas": 62, "rev": 2.07, "cash": false}, {"d": "2026-09-22", "dmas": 74, "rev": 2.13, "cash": false}, {"d": "2026-09-29", "dmas": 68, "rev": 1.78, "cash": false}, {"d": "2026-10-06", "dmas": 74, "rev": 2.0, "cash": false}, {"d": "2026-10-13", "dmas": 68, "rev": 1.93, "cash": false}, {"d": "2026-10-20", "dmas": 59, "rev": 1.76, "cash": false}, {"d": "2026-10-27", "dmas": 58, "rev": 1.42, "cash": false}, {"d": "2026-11-03", "dmas": 44, "rev": 1.05, "cash": false}, {"d": "2026-11-10", "dmas": 39, "rev": 0.93, "cash": false}]};
-const svg=document.getElementById('c'),W=964,H=580,L=58,R=12,T=14,B=40,ph=360,wy=T+ph+28,wh=H-B-wy;
+const svg=document.getElementById('c'),W=964,H=470,L=58,R=12,T=14,B=34,ph=280,wy=T+ph+30,wh=H-B-wy;
 const n=D.dates.length,x=i=>L+i*(W-L-R)/(n-1);
 const lo=Math.min(...D.px)*0.98,hi=Math.max(...D.px)*1.01,y=v=>T+(hi-v)/(hi-lo)*ph;
 let s='';
 for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#E2E8F0" stroke-dasharray="4 4"/><text x="${L-8}" y="${y(v)+5}" font-size="14" font-weight="700" text-anchor="end" fill="#040C38">${Math.round(v).toLocaleString('en-US')}</text>`}
-// trend-out shading on price panel
 const dec=D.dec;dec.forEach((r,j)=>{if(r.dmas<45){const i0=D.dates.indexOf(r.d),i1=j+1<dec.length?D.dates.indexOf(dec[j+1].d):n-1;if(i0>=0)s+=`<rect x="${x(i0)}" y="${T}" width="${Math.max(2,x(i1)-x(i0))}" height="${ph}" fill="#FEE2E2" opacity=".55"/>`}});
 s+=`<polyline fill="none" stroke="#040C38" stroke-width="3" points="${D.px.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
-// weight panel
 s+=`<text x="${L}" y="${wy-8}" font-size="13" fill="#64748B" font-weight="700">EQUITY WEIGHT HELD</text>`;
 const yw=v=>wy+(1-v)*wh;[0,0.5,1].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1="${yw(v)}" y2="${yw(v)}" stroke="#E2E8F0" stroke-dasharray="4 4"/><text x="${L-8}" y="${yw(v)+5}" font-size="13" text-anchor="end" font-weight="700" fill="#040C38">${v*100}%</text>`});
 let a=`${x(0)},${yw(0)} `;D.w.forEach((v,i)=>{if(v!==null)a+=`${x(i)},${yw(v)} `});a+=`${x(n-1)},${yw(0)}`;
 s+=`<polygon points="${a}" fill="#9DC3E6" opacity=".8"/>`;
-// x labels
 const months={};D.dates.forEach((d,i)=>{const m=d.slice(0,7);if(!(m in months))months[m]=i});
-Object.entries(months).forEach(([m,i],k)=>{if(k%2==0)s+=`<text x="${x(i)}" y="${H-12}" font-size="14" font-weight="700" text-anchor="middle" fill="#040C38">${new Date(m+'-15').toLocaleString('en-US',{month:'short'})}</text>`});
+Object.entries(months).forEach(([m,i],k)=>{if(k%2==0)s+=`<text x="${x(i)}" y="${H-10}" font-size="14" font-weight="700" text-anchor="middle" fill="#040C38">${new Date(m+'-15').toLocaleString('en-US',{month:'short'})}</text>`});
 svg.innerHTML=s;
 </script></body></html>
