@@ -52,26 +52,56 @@ def main():
     r = net_returns(core, inputs.eq_ret, inputs.cash_ret).loc['1999-02-01':]
     bh = inputs.eq_ret.loc[r.index]
     cash = inputs.cash_ret.reindex(r.index)
+    # ---- single source of truth: the product built step by step, same period, same execution ----
+    steps = {'S&P 500 buy & hold': None, '1. Keys only (100% or 0%)': w1, '2. + volatility sizing': w2,
+             '3. + fear-over re-entry (F)': pd.concat([w2, wf], axis=1).max(axis=1).where(w2.notna()),
+             '4. + shock re-entry (S-live)': pd.concat([w2, wf, ws], axis=1).max(axis=1).where(w2.notna()),
+             '5. + breadth re-entry (B) = CORE': core}
+    rets = {k: (bh if wk is None else net_returns(wk, inputs.eq_ret, inputs.cash_ret).loc[r.index]) for k, wk in steps.items()}
+    full_lab = f'Full {r.index[0]:%Y-%m} → {r.index[-1]:%Y-%m-%d}'
+    wins = [(full_lab, None, None)] + [w_ for w_ in WINDOWS if not w_[0].startswith('FULL')]
+    rows = []
+    for name, a, b in wins:
+        for k, x in rets.items():
+            t_, s_, d_ = stats(x.loc[a:b], cash)
+            nd = len(x.loc[a:b])
+            rows.append(dict(window=name, step=k, total=t_, cagr=(1 + t_) ** (252 / nd) - 1 if nd > 250 else np.nan, sharpe=s_, maxdd=d_))
+    bu = pd.DataFrame(rows)
+    bu.to_csv(ROOT / 'research/us_gauge/out/core_buildup.csv', index=False)
+    L = ['# The core, built step by step (single source of truth)', '',
+         f'Every number on the slide comes from this file. Period {r.index[0].date()} → {r.index[-1].date()}. '
+         'Signals at the close of day t, trade at the close of day t+1, earn from day t+2. '
+         '10 bp per unit of weight traded. Equity = S&P 500 with dividends; cash = 3-month T-bill, then BIL from 2007-06. '
+         'ETF fee (0.09%/yr) and taxes not deducted. Code: `core_slide_data.py`.', '']
+    for metric, fmt, title in (('sharpe', '{:.2f}', 'Sharpe'), ('cagr', '{:.1%}', 'Return a year'),
+                               ('total', '{:+.0%}', 'Total return'), ('maxdd', '{:.1%}', 'Worst fall')):
+        piv = bu.pivot_table(index='window', columns='step', values=metric, sort=False)[list(steps)]
+        L += [f'## {title}', '', '| Period | ' + ' | '.join(steps) + ' |', '|---|' + '---:|' * len(steps)]
+        L += [f'| {w_} | ' + ' | '.join('' if pd.isna(v_) else fmt.format(v_) for v_ in row) + ' |' for w_, row in piv.iterrows()]
+        L.append('')
+    (ROOT / 'research/us_gauge/RESULTS_core.md').write_text('\n'.join(L))
     per = []
-    for name, a, b in WINDOWS:
+    for name, a, b in wins:
         tc, sc, dc = stats(r.loc[a:b], cash)
         tb, sb, db = stats(bh.loc[a:b], cash)
         per.append(dict(window=name, core_total=tc, core_sharpe=sc, core_dd=dc, bh_total=tb, bh_sharpe=sb, bh_dd=db))
-    y = idx[idx >= '2026-01-01']
+    y = idx[idx >= '2025-01-01']
     last = idx[-1]
-    dec = gf.loc['2026-01-01':]
+    dec = gf.loc['2025-01-01':]
     sig = inputs.eq_ret.rolling(21).std().iloc[-1] * np.sqrt(252)
     out = dict(
         asof=str(last.date()), breadth_asof=str(br.index[-1].date()),
         dates=[str(d.date()) for d in y], px=[round(float(p), 2) for p in inputs.px.loc[y]],
         w=[None if pd.isna(x) else round(float(x), 3) for x in core.loc[y]],
+        tgt=[None if pd.isna(x) else round(float(x), 3) for x in (v * (w1 > 0)).loc[y]],
         dec=[dict(d=str(d.date()), dmas=int(round(rw.dmas)), rev=round(float(rw.rev_z), 2), cash=bool(rw.cash_R1)) for d, rw in dec.iterrows()],
         now=dict(weight=float(core.iloc[-1]), v2=float(w2.iloc[-1]), target=float(v.iloc[-1]), sigma21=float(sig),
                  dmas=float(gf.dmas.iloc[-1]), rev_z=float(gf.rev_z.iloc[-1]), r1_cash=bool(gf.cash_R1.iloc[-1]),
                  vix=float(inputs.vix.iloc[-1]), breadth_ratio=float(ratio.iloc[-1]),
                  fall_1y=float(1 - inputs.px.iloc[-1] / inputs.px.iloc[-252:].max()),
+                 last_decision=str(gf.index[-1].date()),
                  f_on=bool(wf.iloc[-1] > 0), s_on=bool(ws.iloc[-1] > 0), b_on=bool(wb.iloc[-1] > 0)),
-        periods=per)
+        periods=per, full_label=full_lab)
     (ROOT / 'mockups/core_slide_data.json').write_text(json.dumps(out))
     print(json.dumps(out['now'], indent=1), out['asof'], out['breadth_asof'])
     for p in per:

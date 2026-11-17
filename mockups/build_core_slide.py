@@ -1,100 +1,132 @@
 """Build mockups/us_gauge_slide.html from mockups/core_slide_data.json (written by research/us_gauge/core_slide_data.py).
 
-Every reading on the right panel is a gauge: a scale, the switch mark, the current value.
+Liquid-glass style: every reading is a glass capsule with a liquid fill, a glowing switch notch and its value.
+Rebalancing rule (research/us_gauge/volsize.daily_weights): Tuesday decisions; on the first Tuesday of a month
+the position moves to the volatility target if the gap is >= 10 points, on other Tuesdays only if >= 25 points.
 """
 import json
-import math
+from datetime import date, timedelta
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-RED, AMBER, GREEN, TRACK, MUTE = '#F87171', '#FBBF24', '#4ADE80', '#2F4B6B', '#9FB2CC'
+LIQ = {'green': ('#6EE7B7', '#10B981', '#047857'), 'red': ('#FDA4AF', '#F43F5E', '#9F1239'),
+       'amber': ('#FDE68A', '#F59E0B', '#B45309'), 'sky': ('#BAE6FD', '#38BDF8', '#1D4ED8'),
+       'grey': ('#CBD5E1', '#64748B', '#334155')}
+_uid = [0]
 
 
 def minus(s: str) -> str:
     return s.replace('-', '−')
 
 
-def hgauge(title, sub, value, lo, hi, zones, marks, vtxt, status, scolor, w=500, cls='g'):
-    """Horizontal gauge. zones: [(a, b, color)]; marks: [(x, label)]."""
-    x0, x1, yb, h = 8, w - 8, 30, 9
-    X = lambda v: x0 + (min(max(v, lo), hi) - lo) / (hi - lo) * (x1 - x0)
-    s = [f'<rect x="{x0}" y="{yb}" width="{x1 - x0}" height="{h}" rx="5" fill="{TRACK}"/>']
-    s += [f'<rect x="{X(a):.1f}" y="{yb}" width="{X(b) - X(a):.1f}" height="{h}" fill="{c}" opacity=".55"/>' for a, b, c in zones]
+def capsule(value, lo, hi, color, marks=(), w=500, h=34, ghost=None, ghost_label=''):
+    """Glass capsule. marks: [(x, label)]. ghost: a second level shown as a dashed glowing line."""
+    _uid[0] += 1
+    u = _uid[0]
+    c1, c2, c3 = LIQ[color]
+    pad, top = 4, 6
+    X = lambda v: pad + (min(max(v, lo), hi) - lo) / (hi - lo) * (w - 2 * pad)
+    ih = h - 2 * pad
+    r = ih / 2
+    fw = max(X(value) - pad, ih)
+    s = [f'''<defs>
+ <linearGradient id="lq{u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{c1}"/><stop offset=".45" stop-color="{c2}"/><stop offset="1" stop-color="{c3}"/></linearGradient>
+ <linearGradient id="gl{u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+ <linearGradient id="sh{u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#fff" stop-opacity=".12"/></linearGradient>
+ <filter id="bl{u}" x="-20%" y="-80%" width="140%" height="260%"><feGaussianBlur stdDeviation="7"/></filter>
+</defs>''']
+    s.append(f'<rect x="{pad}" y="{top + pad + 4}" width="{fw}" height="{ih}" rx="{r}" fill="{c2}" opacity=".55" filter="url(#bl{u})"/>')
+    s.append(f'<rect x=".75" y="{top + .75}" width="{w - 1.5}" height="{h - 1.5}" rx="{h / 2}" fill="url(#sh{u})" stroke="rgba(255,255,255,.38)" stroke-width="1.2"/>')
+    s.append(f'<rect x="{pad}" y="{top + pad}" width="{w - 2 * pad}" height="{ih}" rx="{r}" fill="rgba(2,6,23,.55)"/>')
+    s.append(f'<rect x="{pad}" y="{top + pad}" width="{fw}" height="{ih}" rx="{r}" fill="url(#lq{u})"/>')
+    s.append(f'<rect x="{pad + 5}" y="{top + pad + 2}" width="{max(fw - 10, 4)}" height="{ih * .42}" rx="{ih * .21}" fill="url(#gl{u})"/>')
+    s.append(f'<rect x="{h / 2}" y="{top + 2}" width="{w - h}" height="2" rx="1" fill="#fff" opacity=".35"/>')
+    if ghost is not None:
+        gx = X(ghost)
+        s.append(f'<line x1="{gx:.1f}" x2="{gx:.1f}" y1="{top - 3}" y2="{top + h + 3}" stroke="#FBBF24" stroke-width="3" stroke-dasharray="5 3"/>'
+                 f'<text x="{gx:.1f}" y="{top + h + 18}" font-size="13" font-weight="700" fill="#FBBF24" text-anchor="middle">{ghost_label}</text>')
     for m, lab in marks:
-        s.append(f'<line x1="{X(m):.1f}" x2="{X(m):.1f}" y1="{yb - 4}" y2="{yb + h + 4}" stroke="#fff" stroke-width="2"/>'
-                 f'<text x="{X(m):.1f}" y="{yb + h + 17}" font-size="11.5" fill="{MUTE}" text-anchor="middle">{lab}</text>')
-    s.append(f'<path d="M{X(value):.1f},{yb - 2} l-7,-11 h14 z" fill="#fff"/>'
-             f'<text x="{X(value):.1f}" y="{yb - 16}" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">{vtxt}</text>')
-    s.append(f'<text x="{x0}" y="{yb + h + 17}" font-size="11.5" fill="{MUTE}">{minus(f"{lo:g}")}</text>'
-             f'<text x="{x1}" y="{yb + h + 17}" font-size="11.5" fill="{MUTE}" text-anchor="end">{minus(f"{hi:g}")}</text>')
-    return (f'<div class="{cls}"><div class="gh"><div><b>{title}</b><small>{sub}</small></div><span style="color:{scolor}">{status}</span></div>'
-            f'<svg width="{w}" height="58">{"".join(s)}</svg></div>')
+        mx = X(m)
+        s.append(f'<rect x="{mx - 3:.1f}" y="{top}" width="6" height="{h}" rx="3" fill="#fff" opacity=".35" filter="url(#bl{u})"/>'
+                 f'<rect x="{mx - 1.5:.1f}" y="{top + 1}" width="3" height="{h - 2}" rx="1.5" fill="#fff"/>'
+                 f'<text x="{mx:.1f}" y="{top + h + 17}" font-size="12" fill="#A5B4CF" text-anchor="middle">{lab}</text>')
+    s.append(f'<text x="2" y="{top + h + 17}" font-size="11.5" fill="#64748B">{minus(f"{lo:g}")}</text>'
+             f'<text x="{w - 2}" y="{top + h + 17}" font-size="11.5" fill="#64748B" text-anchor="end">{minus(f"{hi:g}")}</text>')
+    return f'<svg width="{w}" height="{h + 26}" style="overflow:visible">{"".join(s)}</svg>'
 
 
-def dial(weight, target):
-    cx, cy, r = 150, 118, 96
-    P = lambda f, rr=r: (cx - rr * math.cos(math.pi * f), cy - rr * math.sin(math.pi * f))
-    def arc(a, b, c, wdt=18):
-        (xa, ya), (xb, yb) = P(a), P(b)
-        return f'<path d="M{xa:.1f},{ya:.1f} A{r},{r} 0 0 1 {xb:.1f},{yb:.1f}" stroke="{c}" stroke-width="{wdt}" fill="none"/>'
-    s = arc(0, 1, TRACK) + arc(0, weight, '#38BDF8')
-    tx, ty = P(target, r + 14)
-    ix, iy = P(target, r - 14)
-    s += f'<line x1="{ix:.1f}" y1="{iy:.1f}" x2="{tx:.1f}" y2="{ty:.1f}" stroke="{AMBER}" stroke-width="3"/>'
-    lx, ly = P(target, r + 30)
-    s += f'<text x="{lx:.1f}" y="{ly:.1f}" font-size="12" fill="{AMBER}" text-anchor="middle" font-weight="700">target {target:.0%}</text>'
-    nx, ny = P(weight, r - 28)
-    s += f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="{cx}" cy="{cy}" r="7" fill="#fff"/>'
-    s += f'<text x="{cx - r}" y="{cy + 20}" font-size="12" fill="{MUTE}" text-anchor="middle">0% cash</text>'
-    s += f'<text x="{cx + r}" y="{cy + 20}" font-size="12" fill="{MUTE}" text-anchor="middle">100%</text>'
-    return f'<svg width="300" height="142">{s}</svg>'
+def chip(text, color):
+    return f'<span class="chip {color}">{text}</span>'
+
+
+def block(title, sub, value_txt, chip_html, svg, cls='blk'):
+    return (f'<div class="{cls}"><div class="bh"><div class="bt"><b>{title}</b><small>{sub}</small></div>'
+            f'<div class="bv"><strong>{value_txt}</strong>{chip_html}</div></div>{svg}</div>')
+
+
+def next_rebalance(asof: str) -> date:
+    d = date.fromisoformat(asof)
+    first = date(d.year + (d.month == 12), d.month % 12 + 1, 1)
+    return first + timedelta(days=(1 - first.weekday()) % 7)        # first Tuesday of next month
 
 
 def main():
     D = json.loads((HERE / 'core_slide_data.json').read_text())
     n = D['now']
     P = {p['window']: p for p in D['periods']}
-    full = P['FULL 1999-02 to 2026-08']
+    full = P[D['full_label']]
     trend_in, earn_in = n['dmas'] >= 45, n['rev_z'] >= 0
     cash = not trend_in and not earn_in
-    w, tg = n['weight'], n['target']
-    state = 'CASH' if cash else 'INVESTED'
-    head = ('S&amp;P 500: Invested — size trimmed' if not cash and tg < w - .05 else f'S&amp;P 500: {state.title()}')
+    w, tg = n['weight'], n['target'] * (0 if cash else 1)
+    gap = abs(w - tg) * 100
+    nr = next_rebalance(D['asof'])
+    nr_txt = f'{nr.strftime("%a")} {nr.day} {nr.strftime("%b")}'
+    if cash:
+        head, move = 'S&amp;P 500: Cash', 'We stay in cash until a key turns back on, or an early re-entry fires.'
+    elif gap >= 10:
+        head = f'S&amp;P 500: Invested — stepping down to {tg:.0%} on {nr.day} {nr.strftime("%B")}'
+        move = (f'Volatility rose, so the target is now {tg:.0%}. We keep {w:.0%} until the monthly rebalance on {nr_txt}, '
+                f'unless the gap reaches 25 points before (today {gap:.0f}).')
+    else:
+        head, move = f'S&amp;P 500: Invested at {w:.0%}', f'The target ({tg:.0%}) is within 10 points of today: no trade at the {nr_txt} rebalance.'
+    why = ('The trend score fell below its switch, but analysts still raise earnings, so we stay invested. '
+           if not trend_in and earn_in else 'Trend and earnings both point up. ' if trend_in and earn_in else '')
+    pos = (f'<div class="pos"><div class="ph"><div class="bt"><b>POSITION IN THE S&amp;P 500</b><small>the rest sits in T-bills</small></div>'
+           f'<div class="pnow"><div><span>today</span><strong>{w:.0%}</strong></div><em>→</em>'
+           f'<div><span>{nr_txt}</span><strong class="amb">{tg:.0%}</strong></div></div></div>'
+           + capsule(w * 100, 0, 100, 'sky', [], w=524, h=36, ghost=tg * 100, ghost_label=f'target {tg:.0%}')
+           + f'<div class="rule"><span><i>mid-month</i> trade only if gap ≥ 25 pts · now {gap:.0f}</span>'
+             f'<span><i>{nr_txt}</i> move to target if gap ≥ 10 pts</span></div></div>')
     keys = [
-        hgauge('Trend score', 'DMAS · below 45 the trend key turns red', n['dmas'], 0, 100,
-               [(0, 45, RED), (45, 100, GREEN)], [(30, '30'), (45, '45 switch')], f'{n["dmas"]:.0f}',
-               'IN' if trend_in else 'OUT', GREEN if trend_in else RED),
-        hgauge('Earnings momentum', 'analysts’ 3-month revisions, in σ · below 0 turns red', n['rev_z'], -3, 3,
-               [(-3, 0, RED), (0, 3, GREEN)], [(0, '0 switch')], minus(f'{n["rev_z"]:+.1f}'),
-               'IN' if earn_in else 'OUT', GREEN if earn_in else RED),
-        hgauge('Market volatility', f'above 15% the size is cut · size now {tg:.0%}', n['sigma21'] * 100, 0, 40,
-               [(0, 15, GREEN), (15, 40, AMBER)], [(15, '15% full size')], f'{n["sigma21"]:.1%}',
-               f'SIZE {tg:.0%}', AMBER if tg < 1 else GREEN),
+        block('Trend score', 'DMAS 0–100 · switch at 45', f'{n["dmas"]:.0f}', chip('ON' if trend_in else 'OFF', 'g' if trend_in else 'r'),
+              capsule(n['dmas'], 0, 100, 'green' if trend_in else 'red', [(45, '45')], w=524, h=28)),
+        block('Earnings momentum', 'analysts’ 3-month revisions (σ) · switch at 0', minus(f'{n["rev_z"]:+.1f}'),
+              chip('ON' if earn_in else 'OFF', 'g' if earn_in else 'r'),
+              capsule(n['rev_z'], -3, 3, 'green' if earn_in else 'red', [(0, '0')], w=524, h=28)),
+        block('Market volatility', '21-day · above 15% the position is scaled down', f'{n["sigma21"]:.1%}',
+              chip(f'SIZE {n["target"]:.0%}', 'a' if n['target'] < 1 else 'g'),
+              capsule(n['sigma21'] * 100, 0, 40, 'amber' if n['sigma21'] > .15 else 'green', [(15, '15%')], w=524, h=28)),
     ]
-    sb = 'ACTIVE' if cash else 'STANDBY'
+    st = 'ACTIVE' if cash else 'STANDBY'
     re = [
-        hgauge('Fear over', 'VIX: half its peak, below 30', n['vix'], 0, 60,
-               [(0, 30, GREEN), (30, 60, RED)], [(30, '30')], f'{n["vix"]:.1f}', 'ON' if n['f_on'] else sb, GREEN if n['f_on'] else MUTE, w=158, cls='g mini'),
-        hgauge('Shock', 'fall from 1-year high', n['fall_1y'] * 100, 0, 30,
-               [(15, 30, AMBER)], [(15, '15%')], f'{n["fall_1y"]:.1%}', 'ON' if n['s_on'] else sb, GREEN if n['s_on'] else MUTE, w=158, cls='g mini'),
-        hgauge('Breadth', 'NYSE stocks up ÷ down', n['breadth_ratio'], 0, 3,
-               [(1.97, 3, GREEN)], [(1.97, '1.97')], f'{n["breadth_ratio"]:.2f}', 'ON' if n['b_on'] else sb, GREEN if n['b_on'] else MUTE, w=158, cls='g mini'),
+        block('Fear over', 'VIX halves, below 30', f'{n["vix"]:.1f}', chip('ON' if n['f_on'] else st, 'g' if n['f_on'] else 'm'),
+              capsule(n['vix'], 0, 60, 'grey', [(30, '30')], w=152, h=20), 'mini'),
+        block('Shock', 'fall from 1-yr high', f'{n["fall_1y"]:.1%}', chip('ON' if n['s_on'] else st, 'g' if n['s_on'] else 'm'),
+              capsule(n['fall_1y'] * 100, 0, 30, 'grey', [(15, '15%')], w=152, h=20), 'mini'),
+        block('Breadth', 'NYSE up ÷ down, 10 d', f'{n["breadth_ratio"]:.2f}', chip('ON' if n['b_on'] else st, 'g' if n['b_on'] else 'm'),
+              capsule(n['breadth_ratio'], 0, 3, 'grey', [(1.97, '1.97')], w=152, h=20), 'mini'),
     ]
     cols = [('2008 crisis', '2008 crisis 2007-10 to 2009-03'), ('COVID fall', 'COVID fall 19 Feb-23 Mar 2020'), ('2022', '2022 full year'),
-            ('Liberation Day fall', 'Liberation Day fall 19 Feb-8 Apr 2025'), ('COVID rebound', 'COVID rebound 24 Mar-31 Aug 2020'), ('2025', '2025 full year')]
+            ('Lib. Day fall', 'Liberation Day fall 19 Feb-8 Apr 2025'), ('COVID rebound', 'COVID rebound 24 Mar-31 Aug 2020'), ('2025', '2025 full year')]
     th = ''.join(f'<th>{a}</th>' for a, _ in cols) + '<th class="sep">Sharpe 1999–2026</th><th>Worst fall</th>'
     tc = ''.join(f'<td class="{"up" if P[k]["core_total"] > P[k]["bh_total"] else "dn"}">{minus(f"{P[k]['core_total']:+.0%}")}</td>' for _, k in cols)
-    tc += f'<td class="sep up">{full["core_sharpe"]:.2f}</td><td class="up">{minus(f"{full['core_dd']:.0%}")}</td>'
+    tc += f'<td class="sep up">{full["core_sharpe"]:.2f}</td><td class="up">{minus(f"{full['core_dd']:.1%}")}</td>'
     tb = ''.join(f'<td>{minus(f"{P[k]['bh_total']:+.0%}")}</td>' for _, k in cols)
-    tb += f'<td class="sep">{full["bh_sharpe"]:.2f}</td><td>{minus(f"{full['bh_dd']:.0%}")}</td>'
+    tb += f'<td class="sep">{full["bh_sharpe"]:.2f}</td><td>{minus(f"{full['bh_dd']:.1%}")}</td>'
     asof = '/'.join(reversed(D['asof'].split('-')))
-    lead = (f'The trend score fell below its switch (45), but analysts are still raising earnings, so the gauge stays invested. '
-            f'Volatility is up, so the position steps down to {tg:.0%} at the next rebalance.' if not cash and not trend_in and earn_in
-            else 'Both keys are in: the gauge is invested.' if not cash else 'Both keys are out: the gauge is in cash.')
-    data = json.dumps({k: D[k] for k in ('dates', 'px', 'w', 'dec')})
+    data = json.dumps({k: D[k] for k in ('dates', 'px', 'w', 'tgt', 'dec')})
     html = (HERE / 'core_slide_template.html').read_text()
-    for k, v in dict(HEAD=head, LEAD=lead, PXLAST=f'{D["px"][-1]:,.0f}', STATE=state, DIAL=dial(w, tg),
-                     STATESUB=f'{w:.0%} of the portfolio in the S&amp;P 500 today', KEYS=''.join(keys), RE=''.join(re),
+    for k, v in dict(HEAD=head, LEAD=why + move, PXLAST=f'{D["px"][-1]:,.0f}', POS=pos, KEYS=''.join(keys), RE=''.join(re),
                      TH=th, TC=tc, TB=tb, ASOF=asof, DATA=data).items():
         html = html.replace('{{' + k + '}}', v)
     (HERE / 'us_gauge_slide.html').write_text(html)
