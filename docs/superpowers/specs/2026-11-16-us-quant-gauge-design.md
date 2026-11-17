@@ -487,3 +487,47 @@ Report (no gate): early re-entry table; K1 / K1 + F (C5 and macro-only) with X, 
  Thresholds 55 and 65 shown only after the verdict.
 Europe (one run, after a US pass): STOXX 600 price index + dividend proxy as available, EUR cash, R0+X vs
  R0 from the first DMAS date. PASS = FULL and weekday-mean Sharpe > base, maxDD >= base - 0.02.
+
+---
+
+## 6s. Shock re-entry "S" (pre-registered 2026-11-17, before any run)
+
+Origin: Fable's V-shape event study (`research/us_gauge/VSHAPE_fable_2026-11-17.md`). On 41 S&P falls
+since 1955, falls of 15%+ that hit their low within 63 trading days of a 1-year high ("shock from a
+high") rebounded (5 V / 1 failed, +11.7% in 3 months), while fast falls inside a broken trend failed.
+**S was found by looking at the US data, so the US run is NOT evidence. Only the Europe run (STOXX
+600, never studied) decides.** The user asked for both runs.
+
+Definitions (daily closes P of the price index):
+ h_t = date of the highest close in the 252 trading days ending t; H = P(h_t).
+ L_t = lowest close from h_t to t; l_t its date.
+ Trigger on close t when all hold: L_t <= 0.85 * H; l_t is at most 63 trading days after h_t;
+ P_t >= 1.10 * L_t; and S is not already On.
+ Re-trigger limit: after an episode for a given h ends, a new episode for the same h needs a lower L
+ (a new low within 63 days of h). A new h (new 1-year high) resets this.
+On: the equity state is Invested whatever the base rule says.
+ - R0 / R1 (binary base): weight = max(base weight, 1.0).
+ - V2 product: weight = max(V2 weight, v(t)), with v(t) = min(1, 0.15/sigma21) at the trigger close
+   (S overrides the timing, not the size). S trades are forced trades (bypass V2 bands). F, if
+   present, keeps its own floor: weight = max(V2, F floor, S weight).
+End (checked every close): base state Invested (base takes over), close below L (stop), or 126
+ trading days after the trigger.
+Mechanics: decide close t, trade close t+1, earn t+2; 10 bp per unit weight change.
+
+US run (information only, not evidence): R0+S vs R0, S&P 500, Tuesday base, 1955-01 → 2026-11, the
+same gates as 6x/6z (G1 FULL/H1 to 1990/H2/weekday mean; G2 FULL and 2000-03..2003-03,
+2007-10..2009-06, 2022 drawdowns within 2 pp; G3 without 2020-02-19..08-31 and 2025-02-19..06-30;
+G4 bootstrap < 0.10; G5 placebo: each episode moved to a random day with base weight 0, L = lowest
+close of the prior 21 days, same stop and 126-day limit, 1,000 draws, default_rng(7), real gain >
+90th pct; G6 more than half of episodes positive vs base). Product report: V2+F+S vs V2+F, and
+K1+F+S macro-only, by period and stress window.
+
+**Europe run (the test, one run):** STOXX 600 (`BBG_SXXP`), R0 base built exactly as in the US
+(DMAS from `pipeline/momentum.py` on SXXP closes, cash below 45, early exit below 30, Tuesday rule),
+decisions from 1988-01-01. Equity return = SXXP price change + 3.0%/252 a day (dividend proxy; SXXP
+is a price index). Cash = EUR 3-month interbank rate (FRED IR3TIB01DEM156N Germany to 1998-12,
+IR3TIB01EZM156N euro area from 1999-01; monthly, % a year /100/252, carried daily). If FRED is not
+reachable, the same rates from the ECB/Bundesbank sources; the switch is recorded.
+Europe PASS = all of: FULL Sharpe R0+S > R0; weekday-mean Sharpe > R0; FULL maxDD >= R0 - 0.02;
+placebo real gain > 90th pct; more than half of episodes positive. Also reported: price-only
+returns (no dividend proxy), halves split 2007-01-01, episode table.
