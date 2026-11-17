@@ -127,3 +127,30 @@ Also reported: max drawdown, CAGR, and the sector-reset turnover.
 metric was computed):** the sector ETF series miss 2 S&P trading days in 1999–2026 (XLI 1999-01-26,
 IYZ 2000-06-28). On a missing day the ETF price is carried forward from the last observation
 (return 0 that day; the price move is booked on the next day with a price). No other change.
+
+---
+
+# Added 2026-11-17 (before any run): M1 — macro-only sector rank (user request)
+
+**Why:** C5 picks XLP/XLU/XLE in ~65% of months and XLK in 11% (`RESULTS_stress.md`). Each C5
+forecast is `a_i + b_gi·g12 + b_ii·i12` (expanding OLS per industry, `sectors.trend_pred`). The
+intercept `a_i` (the "normal level") is the industry's average beta-adjusted return; low-beta
+industries have a positive one, so it keeps defensives on top. M1 asks: does the **macro part
+alone** pick sectors? This reopens the US file for one user-requested test; it counts as test
+no. 13 on this history (multiple-testing note in the review).
+
+- **M1 prediction:** the same fit as C5, same inputs, lag, vintage and training rows, but the
+  score is `b_gi·g12(t) + b_ii·i12(t)` (C5 minus its intercept). **Check first:** intercept +
+  macro part must equal the reproduced C5 to 1e-9; if not, stop.
+- **M1a — signal test (Ken French 12, as the published C5 test):** `sectors.evaluate` with the
+  M1 score, beta-adjusted 1-month target, windows 1973-01→2005-12 and 2006-01→2026-09. Alpha is
+  measured against the historical-mean and momentum long-shorts (as published).
+  **Gate:** IC p < 0.10 and alpha p < 0.10 in **both** windows (the published C5 rule).
+- **M1b — on SPDR ETFs:** S2 exactly (`run_s2.py`: mapping, pick rule, 70% SPY + 3×10%, monthly,
+  10 bp, cache, window 1999-01 → last month, halves split 2013-01-01) with M1 scores.
+  **Gate:** Sharpe(M1b) > Sharpe(SPY) in FULL and both halves; bootstrap vs SPY (3-month blocks,
+  2,000 draws, `default_rng(7)`) not-better share < 25%.
+- **Reported, no gate:** S2 (full C5) and a fixed tilt 70% SPY + 10% XLP/XLU/XLE (placebo), same
+  window; share of months each ETF is picked; P2021; K1 with M1 picks (K1 rules unchanged).
+- **Verdict reading:** M1 replaces C5 in the combo only if M1a and M1b both pass. Any M1 result
+  is US in-sample by construction of the earlier work; it is not evidence for Europe.
