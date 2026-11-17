@@ -32,7 +32,7 @@ def cash_daily(dtb3: pd.Series, bil: pd.Series, index: pd.DatetimeIndex) -> pd.S
 def load_inputs() -> pd.DataFrame:
     series = {name: load(name, refresh=False).sort_index() for name in (
         'BBG_SPX', 'BBG_SPX_EPS_FY1', 'BBG_SPX_EPS_FY2',
-        'SHILLER_SPX_DIV', 'FRED_DTB3', 'BIL.US')}
+        'SHILLER_SPX_DIV', 'FRED_DTB3', 'BIL.US', 'FRED_VIXCLS')}
     for name, s in series.items():
         if s.empty:
             raise ValueError(f'Missing offline series: {name}')
@@ -44,6 +44,7 @@ def load_inputs() -> pd.DataFrame:
     return pd.DataFrame({
         'px': px, 'eq_ret': px.pct_change(fill_method=None) + div / px / 252,
         'cash_ret': cash_daily(series['FRED_DTB3'], series['BIL.US'], idx),
+        'vix': series['FRED_VIXCLS'].reindex(idx, method='ffill'),
         'fy1': fy1.reindex(idx, method='ffill'),
         'fy2': fy2.reindex(idx, method='ffill'),
     })

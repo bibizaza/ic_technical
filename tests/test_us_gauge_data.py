@@ -28,7 +28,8 @@ def test_fy2_copy_is_blanked(monkeypatch):
     fy2 = pd.Series([110, 100, 100, 100, 110, 110, 110, 110], idx)
     series = {'BBG_SPX': pd.Series(1000., idx), 'BBG_SPX_EPS_FY1': fy1,
               'BBG_SPX_EPS_FY2': fy2, 'FRED_DTB3': pd.Series(5., idx),
-              'BIL.US': pd.Series(100., idx), 'SHILLER_SPX_DIV': pd.Series(20., idx)}
+              'BIL.US': pd.Series(100., idx), 'SHILLER_SPX_DIV': pd.Series(20., idx),
+              'FRED_VIXCLS': pd.Series([20., 30.], [idx[1], idx[4] - pd.Timedelta(hours=12)])}
     def offline(name, refresh):
         assert refresh is False
         return series[name]
@@ -36,6 +37,9 @@ def test_fy2_copy_is_blanked(monkeypatch):
     got = data.load_inputs()
     assert got.fy2.iloc[1:4].isna().all()
     assert got.fy2.iloc[4] == 110
+    assert pd.isna(got.vix.iloc[0])
+    assert got.vix.iloc[1:4].eq(20.).all()
+    assert got.vix.iloc[4:].eq(30.).all()
 
 
 @pytest.mark.skipif(not STORE.exists(), reason='Dropbox store missing')

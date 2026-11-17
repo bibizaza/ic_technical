@@ -29,3 +29,13 @@ def gauge_frame(dmas: pd.Series, rev_z: pd.Series) -> pd.DataFrame:
     gf['deep'] = gf.dmas < 30
     gf['band'] = np.select([gf.G >= 1, gf.G >= .5, gf.G >= 0, gf.G >= -.5], BANDS[:4], default=BANDS[4])
     return gf
+
+
+def vix_high(vix: pd.Series, window=21, level=25.0) -> pd.Series:
+    """Trailing S&P-trading-day mean through t; unavailable means are not high."""
+    return vix.rolling(window, min_periods=window).mean().ge(level)
+
+
+def r4_cash(t_in: pd.Series, r_in: pd.Series, v_high: pd.Series) -> pd.Series:
+    """Section 6c: broken trend and either negative revisions or high VIX."""
+    return ~t_in & (~r_in | v_high)
