@@ -88,7 +88,7 @@ def main():
     positions.to_csv(out / 'step1b_positions_r2.csv', index_label='date')
     pd.concat([worst_drawdowns(r).assign(rule=rule, version=version)
                for (rule, version), (_, r) in runs.items()], ignore_index=True).to_csv(out / 'step1b_drawdowns.csv', index=False)
-    (HERE / 'RESULTS_step1b.md').write_text('\n'.join(result))
+    (HERE / 'RESULTS_step1b.md').write_text('Re-run 2026-11-17 with corrected cash leg (BIL.US_TR); see spec correction log.\n\n' + '\n'.join(result))
     print(f'Step 1b outputs written to {out}')
 
 

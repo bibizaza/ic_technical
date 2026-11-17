@@ -1,3 +1,5 @@
+Re-run 2026-11-17 with corrected cash leg (BIL.US_TR); see spec correction log.
+
 # US quant gauge — step 1 results
 
 Verdict: FAIL
@@ -9,22 +11,22 @@ H1 ends 2009-12-31; H2 starts 2010-01-01. Both are slices of the FULL simulation
 
 | Condition | Evidence | Result |
 |---|---|---|
-| Sharpe R1 > R0 in FULL, H1 and H2 | FULL: 0.313954 > 0.205355 (PASS); H1: 0.607989 > 0.449011 (PASS); H2: 0.219392 > 0.134455 (PASS) | PASS |
+| Sharpe R1 > R0 in FULL, H1 and H2 | FULL: 0.705737 > 0.602609 (PASS); H1: 0.598689 > 0.440433 (PASS); H2: 0.802953 > 0.755099 (PASS) | PASS |
 | FULL maxdd R1 >= maxdd R0 - 0.02 | -0.350627 >= -0.259724 | FAIL |
-| Paired bootstrap not-better share < 0.25 | 0.0480 < 0.25 | PASS |
+| Paired bootstrap not-better share < 0.25 | 0.1255 < 0.25 | PASS |
 | FULL switches/year R1 <= R0 | 1.370375 <= 2.353470 | PASS |
 
 ## All / half comparison (FULL)
 
 | Rule | Version | Sharpe | CAGR | Max DD | Calmar | Volatility | Switches/year | Share in Cash |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| BH | none | 0.293512 | 10.84% | -55.25% | 0.196169 | 18.35% | 0.000000 | 0.00% |
-| R0 | all | 0.205355 | 8.52% | -23.97% | 0.355285 | 10.93% | 2.353470 | 32.42% |
-| R0 | half | 0.267099 | 9.97% | -35.54% | 0.280590 | 13.17% | 2.353470 | 32.42% |
-| R1 | all | 0.313954 | 11.07% | -35.06% | 0.315597 | 12.85% | 1.370375 | 19.94% |
-| R1 | half | 0.314728 | 11.19% | -36.88% | 0.303491 | 14.41% | 1.370375 | 19.94% |
+| BH | none | 0.518978 | 10.84% | -55.25% | 0.196169 | 18.35% | 0.000000 | 0.00% |
+| R0 | all | 0.602609 | 8.78% | -23.97% | 0.366396 | 10.93% | 2.353470 | 32.42% |
+| R0 | half | 0.611259 | 10.11% | -34.71% | 0.291216 | 13.17% | 2.353470 | 32.42% |
+| R1 | all | 0.705737 | 11.26% | -35.06% | 0.321170 | 12.84% | 1.370375 | 19.94% |
+| R1 | half | 0.644741 | 11.29% | -36.88% | 0.306139 | 14.41% | 1.370375 | 19.94% |
 
-Bootstrap R1 <= R0: all 0.0480; half 0.0780.
+Bootstrap R1 <= R0: all 0.1255; half 0.1815.
 Paired moving blocks: 63 trading days, 2,000 draws, numpy.random.default_rng(7).
 All versus half remains the user’s decision; the gate applies only to all.
 

@@ -101,7 +101,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     table.to_csv(out / 'step2_metrics.csv', index=False)
     gf.to_csv(out / 'step2_signals.csv', index_label='date')
-    (HERE / 'RESULTS_step2.md').write_text('\n'.join(result))
+    (HERE / 'RESULTS_step2.md').write_text('Re-run 2026-11-17 with corrected cash leg (BIL.US_TR); see spec correction log.\n\n' + '\n'.join(result))
     print(f'Step 2 verdict: {verdict}. Outputs written to {out}')
 
 

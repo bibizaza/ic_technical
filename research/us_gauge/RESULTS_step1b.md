@@ -1,3 +1,5 @@
+Re-run 2026-11-17 with corrected cash leg (BIL.US_TR); see spec correction log.
+
 # US quant gauge — step 1b results
 
 First decision: 1993-04-06. Common return sample: 1993-04-08 to 2026-11-13 (8,459 trading days).
@@ -9,27 +11,27 @@ Three candidates (R1, R2, R3) have now been tried on the US. A US PASS qualifies
 
 | Condition | Evidence | Result |
 |---|---|---|
-| FULL Sharpe > R0 | 0.193964 > 0.205355 | FAIL |
-| H1 Sharpe > R0 | 0.394935 > 0.449011 | FAIL |
-| H2 Sharpe > R0 | 0.131580 > 0.134455 | FAIL |
+| FULL Sharpe > R0 | 0.562861 > 0.602609 | FAIL |
+| H1 Sharpe > R0 | 0.386853 > 0.440433 | FAIL |
+| H2 Sharpe > R0 | 0.735078 > 0.755099 | FAIL |
 | FULL maxDD >= R0 maxDD - 0.02 | -0.370661 >= -0.259724 | FAIL |
-| Bootstrap not-better share < 0.25 | 0.7365 < 0.25 | FAIL |
+| Bootstrap not-better share < 0.25 | 0.8355 < 0.25 | FAIL |
 | FULL switches/year <= R0 | 2.770540 <= 2.353470 | FAIL |
 
-Bootstrap R2 <= R0: all 0.7365; half 0.7680.
+Bootstrap R2 <= R0: all 0.8355; half 0.8745.
 
 ## R3 vs R0 — FAIL (all)
 
 | Condition | Evidence | Result |
 |---|---|---|
-| FULL Sharpe > R0 | 0.239800 > 0.205355 | PASS |
-| H1 Sharpe > R0 | 0.537479 > 0.449011 | PASS |
-| H2 Sharpe > R0 | 0.149760 > 0.134455 | PASS |
+| FULL Sharpe > R0 | 0.642434 > 0.602609 | PASS |
+| H1 Sharpe > R0 | 0.527174 > 0.440433 | PASS |
+| H2 Sharpe > R0 | 0.746235 > 0.755099 | FAIL |
 | FULL maxDD >= R0 maxDD - 0.02 | -0.299371 >= -0.259724 | FAIL |
-| Bootstrap not-better share < 0.25 | 0.3400 < 0.25 | FAIL |
+| Bootstrap not-better share < 0.25 | 0.3630 < 0.25 | FAIL |
 | FULL switches/year <= R0 | 1.549119 <= 2.353470 | PASS |
 
-Bootstrap R3 <= R0: all 0.3400; half 0.3525.
+Bootstrap R3 <= R0: all 0.3630; half 0.3885.
 
 Paired moving blocks: 63 trading days, 2,000 draws, numpy.random.default_rng(7), separately for each candidate/version.
 All versus half remains the user’s decision; only all enters the gate.
@@ -38,12 +40,12 @@ All versus half remains the user’s decision; only all enters the gate.
 
 | Period | R3 version | R3 Sharpe | BH Sharpe | R3 maxDD | BH maxDD |
 |---|---|---:|---:|---:|---:|
-| FULL | all | 0.239800 | 0.293512 | -0.299371 | -0.552546 |
-| FULL | half | 0.281853 | 0.293512 | -0.356591 | -0.552546 |
-| H1 | all | 0.537479 | 0.309898 | -0.299371 | -0.552546 |
-| H1 | half | 0.438523 | 0.309898 | -0.356591 | -0.552546 |
-| H2 | all | 0.149760 | 0.292921 | -0.230503 | -0.337936 |
-| H2 | half | 0.229499 | 0.292921 | -0.230503 | -0.337936 |
+| FULL | all | 0.642434 | 0.518978 | -0.299371 | -0.552546 |
+| FULL | half | 0.623915 | 0.518978 | -0.356591 | -0.552546 |
+| H1 | all | 0.527174 | 0.297232 | -0.299371 | -0.552546 |
+| H1 | half | 0.425281 | 0.297232 | -0.356591 | -0.552546 |
+| H2 | all | 0.746235 | 0.771910 | -0.230503 | -0.337936 |
+| H2 | half | 0.820119 | 0.771910 | -0.230503 | -0.337936 |
 
 ## R2 earnings re-entries
 

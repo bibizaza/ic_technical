@@ -12,7 +12,7 @@ from research.us_gauge import data
 STORE = Path('/Users/larazanella/Library/CloudStorage/Dropbox/Tools_In_Construction/data/market_store')
 
 
-def test_cash_daily_switches_to_bil():
+def test_cash_daily_switches_to_bil_total_return():
     idx = pd.bdate_range('2007-05-25', '2007-06-06')
     bil_idx = idx[idx >= '2007-05-30']
     bil = pd.Series(100 * 1.0001 ** np.arange(len(bil_idx)), bil_idx)
@@ -28,7 +28,7 @@ def test_fy2_copy_is_blanked(monkeypatch):
     fy2 = pd.Series([110, 100, 100, 100, 110, 110, 110, 110], idx)
     series = {'BBG_SPX': pd.Series(1000., idx), 'BBG_SPX_EPS_FY1': fy1,
               'BBG_SPX_EPS_FY2': fy2, 'FRED_DTB3': pd.Series(5., idx),
-              'BIL.US': pd.Series(100., idx), 'SHILLER_SPX_DIV': pd.Series(20., idx),
+              'BIL.US_TR': pd.Series(100., idx), 'SHILLER_SPX_DIV': pd.Series(20., idx),
               'FRED_VIXCLS': pd.Series([20., 30.], [idx[1], idx[4] - pd.Timedelta(hours=12)])}
     def offline(name, refresh):
         assert refresh is False
@@ -76,3 +76,19 @@ def test_store_import_does_not_write_bytecode(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, 'dont_write_bytecode', False)
     assert data.load('sample', refresh=False) == 42
     assert not (tmp_path / '__pycache__').exists()
+
+
+@pytest.mark.skipif(not STORE.exists(), reason='Dropbox store missing')
+def test_real_cash_has_no_daily_return_above_one_percent():
+    cash = data.load_inputs().cash_ret.dropna()
+    assert cash.max() <= .01
+
+
+@pytest.mark.skipif(not STORE.exists(), reason='Dropbox store missing')
+def test_real_cash_mean_annual_return_tracks_dtb3():
+    cash = data.load_inputs().cash_ret.loc['2008':'2026'].dropna()
+    dtb3 = data.load('FRED_DTB3', refresh=False).sort_index().reindex(cash.index, method='ffill') / 100
+    # Annualize each year's observed daily mean, including partial 2026.
+    annual_cash = cash.groupby(cash.index.year).mean() * 252
+    annual_bill = dtb3.groupby(dtb3.index.year).mean()
+    assert abs(annual_cash.mean() - annual_bill.mean()) < .005

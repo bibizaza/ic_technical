@@ -23,7 +23,7 @@ def load(name: str, refresh=False) -> pd.Series:
 
 
 def cash_daily(dtb3: pd.Series, bil: pd.Series, index: pd.DatetimeIndex) -> pd.Series:
-    """DTB3 through May 30, 2007; stored BIL close returns thereafter."""
+    """DTB3 through May 30, 2007; stored BIL total-return adjusted close returns thereafter."""
     cash = dtb3.sort_index().reindex(index, method='ffill') / 100 / 252
     bil_daily = bil.sort_index().reindex(index, method='ffill').pct_change(fill_method=None)
     return cash.where(index <= pd.Timestamp('2007-05-30'), bil_daily).rename('cash_ret')
@@ -32,7 +32,7 @@ def cash_daily(dtb3: pd.Series, bil: pd.Series, index: pd.DatetimeIndex) -> pd.S
 def load_inputs() -> pd.DataFrame:
     series = {name: load(name, refresh=False).sort_index() for name in (
         'BBG_SPX', 'BBG_SPX_EPS_FY1', 'BBG_SPX_EPS_FY2',
-        'SHILLER_SPX_DIV', 'FRED_DTB3', 'BIL.US', 'FRED_VIXCLS')}
+        'SHILLER_SPX_DIV', 'FRED_DTB3', 'BIL.US_TR', 'FRED_VIXCLS')}
     for name, s in series.items():
         if s.empty:
             raise ValueError(f'Missing offline series: {name}')
@@ -43,7 +43,7 @@ def load_inputs() -> pd.DataFrame:
     div = series['SHILLER_SPX_DIV'].reindex(idx, method='ffill')
     return pd.DataFrame({
         'px': px, 'eq_ret': px.pct_change(fill_method=None) + div / px / 252,
-        'cash_ret': cash_daily(series['FRED_DTB3'], series['BIL.US'], idx),
+        'cash_ret': cash_daily(series['FRED_DTB3'], series['BIL.US_TR'], idx),
         'vix': series['FRED_VIXCLS'].reindex(idx, method='ffill'),
         'fy1': fy1.reindex(idx, method='ffill'),
         'fy2': fy2.reindex(idx, method='ffill'),

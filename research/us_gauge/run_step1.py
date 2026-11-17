@@ -139,7 +139,7 @@ def main():
                '- For a holiday Tuesday mapped into the preceding month (for example January 1 mapped to December 31), monthly grouping follows Task 4: the actual decision date’s calendar month. This differs from a literal calendar-Tuesday interpretation of spec 6.2; no alternate rule was run.',
                '- The initial position is undefined until the first decision has executed. All rules use the common first defined return (two trading rows after the first April 1993 decision); no initial-allocation switch cost is assumed.',
                '- No thresholds, windows, trading rules, or gates were fitted to results; only the two approved information-only sensitivities were run.', '']
-    (HERE / 'RESULTS.md').write_text('\n'.join(result))
+    (HERE / 'RESULTS.md').write_text('Re-run 2026-11-17 with corrected cash leg (BIL.US_TR); see spec correction log.\n\n' + '\n'.join(result))
     print(f'Verdict: {verdict}; outputs written to {out}')
 
 
