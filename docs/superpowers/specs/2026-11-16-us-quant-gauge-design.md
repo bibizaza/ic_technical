@@ -257,6 +257,43 @@ now been tried on the US; any PASS still needs the unchanged Europe check.
   vote). It must beat the step-1 winner with the same kind of gate.
 - **Caveat:** the test runs from about 2009, so there are few bear markets. Power is low.
 
+## 7b. Step 2 — CoT positioning, full pre-registration (2026-11-17, before any run)
+
+Nothing CoT-related has been looked at on this data except HTEI's earlier finding (hedge-fund ES
+positioning has a *positive* link to later returns, t = +2.77). Gate uses the Sharpe goal (6c).
+
+**Data** (`market_store`, see CATALOG): `CFTC_ES_LEV_LONG`, `CFTC_ES_LEV_SHORT`, `CFTC_ES_OI`
+(E-mini S&P 500, leveraged funds, by report date), `CFTC_ES_RELEASE_LAG_DAYS`.
+
+**Point in time:** a report is usable from its release date = report date + lag days. A decision at t
+uses the **latest report whose release date ≤ t**.
+
+**Signal C:**
+1. `net(r) = (LEV_LONG − LEV_SHORT) / OI` for each report r.
+2. `C_z` = z-score of net against the previous **156 reports** (3 years; current report excluded),
+   minimum 104 reports. Before that: undefined.
+3. **C is "in" when C_z ≥ 0** (follow the hedge funds). Undefined → not decided (see period).
+
+**R5 — 2-of-3 vote:** keys T (DMAS ≥ 45), R (REV_z ≥ 0), C (C_z ≥ 0).
+**Cash when at least 2 of the 3 keys are out.** Same Delphi mechanics as R1 (monthly state, early exit
+when Cash and DMAS < 30, no early re-entry, t+1 execution, t+2 return, 10 bp, all / half).
+
+**Window (CoT history is short):** first decision date in **July 2008** (first month where C_z is
+defined for every decision) → end. Halves: 2008-07 → 2017-06 and 2017-07 → end. R1, R0 and BH are
+re-measured on the **same window** (slices of their full runs). P2021 (2021-01-01 → end) shown for
+information.
+
+**Gate ("all" version):**
+1. Sharpe(R5) > Sharpe(R1) on the window and in both halves;
+2. Sharpe(R5) > Sharpe(BH) on the window;
+3. paired block bootstrap R5 vs R1 on the window (63-day blocks, 2,000 draws, `default_rng(7)`):
+   not-better share < 25%;
+4. switches per year R5 ≤ R0 on the window.
+
+**Caveat:** ~18 years, few bear markets (2008 tail, 2011, 2015–16, 2018, 2020, 2022): low power.
+Five candidates have now been tried on the US; any PASS still needs a Europe check (EUR-relevant CoT:
+Euro Stoxx 50 futures, if available).
+
 ## 8. Later steps
 
 Credit spreads (IG/HY OAS, from 1989/1994) and macro (recession model, regime; macro_health) as
