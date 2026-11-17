@@ -89,3 +89,36 @@ weight; R1's own state changes always trade at their scheduled dates.
   with data. Halves split at 2013-01-01. P2021 for information.
 - **Gate:** Sharpe(S2) > Sharpe(SPY) in FULL and both halves; bootstrap (3-month blocks, 2,000
   draws, `default_rng(7)`) not-better share < 25%.
+
+---
+
+# Added 2026-11-17 (before any run): the full US combo (K1) — last US test
+
+**Question:** do the three layers that passed add up when used together?
+Timing = R1 (trend + earnings). Size = volatility sizing (as in V2). Content = C5 sector tilt (as in S2).
+After K1, no more US candidates are tested (US closed; Europe next).
+
+**K1, daily:**
+- **Equity weight** `w(t)` = the V2-all daily weight, exactly as in `run_vol.py` (R1 state × v, same
+  trading thresholds, same t+2 convention). The rest is in cash (DTB3 → BIL.US_TR, as corrected).
+- **Inside the equity part:** 70% SPY + 10% in each of the 3 S2 ETFs for that month (same C5
+  predictions, mapping and pick rule as `run_s2.py`). The month-t+1 picks start at the close of the
+  first trading day of month t+1 (earn from the next day). Within a month the 4 holdings drift
+  (buy and hold); they are reset to 70/10/10/10 at each monthly reset.
+- **Returns:** daily total return from `SPY.US_TR` and `<ETF>.US_TR` (EODHD adjusted).
+- **Costs:** 10 bp × |Δ equity weight| + 10 bp × equity weight × (sum of |Δ weights| inside the
+  equity part at each monthly reset).
+- **Window:** 1999-02-01 → the last day of the last month with a C5 pick (2026-08-31). Halves split
+  2013-01-01 (as S2). P2021 for information.
+
+**Compared with (same window, same daily data):**
+- **V2-SPY:** the same equity weight `w(t)`, but 100% SPY inside the equity part (timing + size only).
+- **BH:** 100% SPY.
+
+**Gate:**
+1. Sharpe(K1) > Sharpe(V2-SPY) in FULL, H1 and H2;
+2. Sharpe(K1) > Sharpe(BH) in FULL;
+3. paired block bootstrap K1 vs V2-SPY (63-day blocks, 2,000 draws, `default_rng(7)`) not-better
+   share < 25%;
+4. equity-weight turnover ≤ 2.35 a year.
+Also reported: max drawdown, CAGR, and the sector-reset turnover.
