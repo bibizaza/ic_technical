@@ -449,3 +449,41 @@ Honesty: design informed by memory of 2002, 2008-09, 2020, 2022, 2025 stress pat
 - G7: V2 = `run_k1.v2_weights` (R1 states). Spells for V2+P = R1 Cash spells on its Tuesday dates;
   weight = max(V2 weight, 0.50) while On.
 - Fallback F uses the same code with VIX in place of OAS (same-day, no lag), sample from 1990-01.
+
+---
+
+## 6z. Faster re-entry "X" (pre-registered 2026-11-17, before any run)
+
+Idea 1 of `research/us_gauge/IDEAS_fable_2026-11-17.md`, requested by the user. Mechanism: the base rule
+leaves early on a deep break (DMAS < 30 on any Tuesday) but comes back only on the first decision of
+a month. Rebounds are front-loaded, so this calendar delay costs money. The F placebo (random
+half re-entries inside cash spells did about as well as F) points the same way.
+
+Rule X (changes only the base state machine `trading.sleeve_weights`):
+- First decision of a month: unchanged (Cash if the rule's cash signal holds, else Invested).
+- Other decision dates: unchanged early exit (Invested and cash signal and DMAS < 30 -> Cash), and
+  **new: Cash and DMAS >= 60 -> Invested** (60 = 45 + 15, the mirror of the exit at 30 = 45 - 15).
+- Applies to R0 (cash signal DMAS < 45) and to R1 (cash signal DMAS < 45 and REV_z < 0).
+- Weight on re-entry: 1 (base). V2 sizing then applies as usual (state changes are forced trades).
+- Mechanics unchanged: decide close t, trade t+1, earn t+2, 10 bp.
+
+Primary test: R0+X vs R0, S&P 500, Tuesday decisions from 1955-01-01 to 2026-11-13, T-bill/BIL cash.
+H1 to 1990-12-31, H2 from 1991-01-01. Also at 25 bp (report).
+Gates (all):
+ G1 Sharpe > base in FULL, H1, H2, and on the mean over Mon..Fri decision weekdays.
+ G2 maxDD >= base - 0.02 in FULL and within 2000-03-01..2003-03-31, 2007-10-01..2009-06-30, 2022-01-01..2022-12-31.
+ G3 FULL Sharpe > base after removing 2020-02-19..2020-08-31 and 2025-02-19..2025-06-30.
+ G4 Paired moving-block bootstrap (63 days, 2,000 draws, default_rng(7)): share(not better) < 0.10.
+ G5 Placebo, 1,000 draws (default_rng(7)): each real early re-entry is moved to a uniformly random
+    non-first-of-month decision date in the same cash spell, from the spell start up to (not
+    including) the base rule's own re-entry date; everything after follows the X state machine.
+    Real Sharpe gain > 90th percentile of placebo gains.
+ G6 More than half of early re-entries have positive cumulative return difference vs base over the
+    days until the two rules hold the same state again.
+Product (report, and a gate G7): R1+X vs R1 and V2(R1+X) vs V2, 1993-04 to 2026-11. G7: V2 with X
+ Sharpe >= V2 and maxDD >= V2 - 0.02.
+Report (no gate): early re-entry table; K1 / K1 + F (C5 and macro-only) with X, by period and in the
+ stress windows of `RESULTS_combo_f.md`; F re-judged on top of X (does V2+X+F beat V2+X?).
+ Thresholds 55 and 65 shown only after the verdict.
+Europe (one run, after a US pass): STOXX 600 price index + dividend proxy as available, EUR cash, R0+X vs
+ R0 from the first DMAS date. PASS = FULL and weekday-mean Sharpe > base, maxDD >= base - 0.02.
