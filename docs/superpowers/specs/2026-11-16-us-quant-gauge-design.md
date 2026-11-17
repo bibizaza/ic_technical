@@ -329,3 +329,61 @@ further pillars, one at a time, with the same gate. Then Europe with the same me
 6. Evaluation from April 1993, halves split at 2010.
 7. Trend key T uses the 4-factor DMAS (no MXWO) for the whole history and live.
 8. Gauge score G = max((DMAS − 45)/15, REV_z), with fixed bands and switch-risk cut-offs (25% / 50%).
+
+---
+
+## 6x. Capitulation floor "C" (pre-registered 2026-11-17, before any run; US test #13)
+
+Designed by Fable 5.2 (blind: no returns computed, no events counted), at the user's request to
+"position for a rebound" after an extreme, fast fall. Origin: `RESULTS_stress.md` (2020, 2025
+rebounds missed). The US test cannot confirm it; adoption needs US PASS and then Europe PASS, same
+code, one run each. No variant, threshold or gate changes. (Numbering note: M1 in the sleeve-tilts
+spec was also called #13; C is the 14th candidate on this history, the fallback the 15th.)
+
+Definitions (daily closes P = `BBG_SPX`, price index):
+ r_t = ln(P_t/P_{t-1}); s_t = std(r, ddof=1) over the 252 days ending t-21;
+ Z_t = ln(P_t/P_{t-21}) / (s_t * sqrt(21)).
+State: Idle / Armed / On, evaluated at every trading-day close, independent of the base rule state.
+ Idle -> Armed: Z_t <= -3. L = P_t.
+ Armed: L = min(L, P_t). If P_t > P_{t-5} and P_t > L -> On, e = t, L frozen.
+        If 21 trading days pass since the last day with Z <= -3 -> Idle.
+ On: target weight = max(base target weight, 0.50). Floor is not multiplied by V2 sizing.
+     End -> Idle when P_t < L (stop) or t = e + 63 trading days. Re-arming needs Z_t <= -3 on a later day.
+Mechanics: decide at close t, trade at close t+1, earn from t+2, 10 bp per unit weight change.
+ Override changes are forced trades (bypass V2 10%/25% bands). Base rule state machine runs unchanged.
+
+Primary test: R0+C vs R0, S&P 500 1955-2026, T-bill cash. H1 to 1990-12-31, H2 from 1991-01-01.
+Secondary (report only): R1+C vs R1 and V2+C vs V2, 1993-2026. Also report at 25 bp cost.
+Gates (all must hold, primary test):
+ G1 Sharpe > base in FULL, H1, H2, and on the mean over base-rule decision weekdays Mon-Fri.
+ G2 maxDD >= base maxDD - 0.02 in FULL, and within 2000-03-01..2003-03-31 and 2007-10-01..2009-06-30.
+ G3 FULL Sharpe > base after removing 2020-02-19..2020-08-31 and 2025-02-19..2025-06-30.
+ G4 Paired moving-block bootstrap (63 days, 2,000 draws, default_rng(7)): share(C not better) < 0.10.
+ G5 Placebo: 1,000 draws (default_rng(7)); each real episode's entry moved to a uniformly random trading day
+    with base weight < 0.50, L = lowest close of the prior 21 days, same stop and 63-day limit.
+    Real Sharpe gain > 90th percentile of placebo gains.
+ G6 More than half of On episodes have positive cumulative return difference vs base.
+Report (no gate): per-episode table (arm, entry, end, reason, P&L vs base); Z -2.5/-3.5 and floor 25%/100%
+ shown only after the gate verdict is written.
+Fallback (test #14): identical with floor 0.25, run only if G1, G3-G6 pass and G2 fails.
+Europe (one run): STOXX 600, EUR cash, R0+C vs R0 from first available date; R1+C from 2005-04 report only.
+ PASS = FULL Sharpe > base, maxDD >= base - 0.02, bootstrap share < 0.25, placebo > 90th percentile.
+Multiple testing: 13th US candidate (Bonferroni p ~0.004 not attainable); a US PASS is "qualifies for Europe",
+ never "significant". Design was informed by knowledge of the 1987, 2008 and 2020 paths.
+
+**Implementation notes (fixed before any run, Claude):**
+- Equity returns are total return (`eq_ret` = price change + Shiller dividend/252); the signal uses
+  the price index only. Cash = DTB3 then BIL total return (as corrected).
+- R0 base = existing `sleeve_weights` with cash = DMAS < 45, deep = DMAS < 30, all-to-cash.
+  Primary decisions: Tuesday rule (`decision_dates`) from 1955-01-01; returns from the first
+  effective base weight. G1 weekday mean: the same base on Mon, Tue, Wed, Thu, Fri decision days
+  (last trading day on or before that weekday), C unchanged; mean of the 5 Sharpes, C vs base.
+- Combined weight on each return day = max(base weight, floor), where the floor is 0.50 on the
+  days from e+2 through end+1 (end = the close where the stop or time limit hits).
+- Armed: on each day, L is updated first, then entry is checked, then the 21-day lapse. The arming
+  day cannot be an entry (P_t = L). In Idle, arming is checked from the day after an episode ends.
+- Lapse counter: trading days since the last day with Z <= -3; lapse when it reaches 21.
+- G2 window drawdowns restart wealth at the window start. G3 drops the listed days, then computes
+  Sharpe. Placebo L = minimum of the 21 closes ending at the placebo entry day; placebo windows
+  that overlap are merged (max floor). G6 episode P&L = compounded combined return / compounded
+  base return - 1, over the episode's effective days.
