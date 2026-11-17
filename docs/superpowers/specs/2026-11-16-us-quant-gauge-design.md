@@ -387,3 +387,65 @@ Multiple testing: 13th US candidate (Bonferroni p ~0.004 not attainable); a US P
   Sharpe. Placebo L = minimum of the 21 closes ending at the placebo entry day; placebo windows
   that overlap are merged (max floor). G6 episode P&L = compounded combined return / compounded
   base return - 1, over the episode's effective days.
+
+---
+
+## 6y. "Panic is over" floor P (pre-registered 2026-11-17, before any run and before opening LF98OAS/LP01OAS/V2X)
+
+Designed by Fable 5.2 (blind: nothing run, nothing counted, new Bloomberg series not opened) at the
+user's request ("set it up"), after C failed. Story for clients: "we come back when panic ends,
+measured by credit and fear gauges, not by guessing headlines".
+
+Hypothesis: re-enter when stress recedes, not when price is low (C failed: RESULTS_c.md).
+Inputs: OAS = LF98OAS Index daily close, lagged 1 trading day; VIX = FRED_VIXCLS same-day close; P = S&P close.
+Decision dates: the base rule's weekly dates (first of month sets base state, as now).
+Cash spell: consecutive decision dates with base state = Cash; d0 = first of them.
+ OASpk_t = max OAS from (d0 - 21 trading days) to t.  L_t = lowest P close from d0 to t.
+Entry (decision date t, base Cash, no entry or stop yet in this spell):
+ OAS_t <= 0.75 * OASpk_t AND VIX_t < 30  -> On; freeze L = L_t.
+On: sleeve weight = max(base weight, 0.50); the 0.50 is not multiplied by V2 sizing; forced trade
+ (bypasses V2 bands).
+End: (a) base state becomes Invested -> Off, base/V2 weight applies;
+     (b) stop on a decision date: OAS_t > OASpk at entry, or P_t < L -> Off, and no re-entry in this spell.
+Mechanics: decide close t, trade close t+1, earn from t+2, 10 bp. Base state machine unchanged.
+
+Fallback F (run and reported separately, 1990+): entry VIX_t <= 0.5 * VIXpk_t AND VIX_t < 30,
+ VIXpk defined like OASpk; stop: VIX_t > VIXpk at entry, or P_t < L. Everything else identical.
+ Adoption order: P if P passes; F only if P fails and F passes.
+
+Primary test: R0+P vs R0, S&P 500, from first daily LF98OAS date to 2026 (no monthly splicing).
+ H1 to 2009-12-31, H2 from 2010-01-01. Also at 25 bp (report).
+Gates (all):
+ G1 Sharpe > base in FULL, H1, H2, and on the Mon-Fri decision-weekday mean.
+ G2 maxDD >= base - 0.02 in FULL and within 2000-03-01..2003-03-31, 2007-10-01..2009-06-30,
+    2022-01-01..2022-12-31.
+ G3 FULL Sharpe > base after removing 2020-02-19..2020-08-31 and 2025-02-19..2025-06-30.
+ G4 Paired moving-block bootstrap (63 days, 2,000 draws, default_rng(7)): share(not better) < 0.10.
+ G5 Placebo, 1,000 draws (default_rng(7)): each real entry moved to a uniformly random base-Cash decision
+    date (max one per spell, same weight, same price stop, same end). Real Sharpe gain > 90th percentile.
+ G6 More than half of On episodes have positive cumulative return difference vs base.
+ G7 Product check: V2+P Sharpe >= V2 and maxDD >= V2 - 0.02, 1994-2026.
+Report (no gate): episode table (spell start, entry, end, reason, OAS, VIX, P&L vs base); share of the
+ 2020 and 2025 rebounds captured; VIX vs VIX3M at entries from 2009-09; thresholds 0.67/0.80 and VIX 25/35
+ and floor 1.00 shown only after the verdict.
+Europe (one run, after a US pass): STOXX 600, EUR cash, R0 base, OAS = LP01OAS, VIX = V2X, thresholds
+ 0.75 and 30 unchanged, from the first date with both series.
+ PASS = FULL and weekday-mean Sharpe > base, maxDD >= base - 0.02, placebo > 90th percentile.
+Honesty: design informed by memory of 2002, 2008-09, 2020, 2022, 2025 stress paths. Prior odds: US pass
+ about 1 in 3, US + Europe about 1 in 6. Expected capture: second half of V rebounds only.
+
+**Implementation notes (fixed before any data is opened, Claude):**
+- R0 base = `run_c.base_r0` (DMAS < 45 cash, DMAS < 30 early exit, all-to-cash), Tuesday rule for
+  the primary; G1 weekday mean uses Mon..Fri bases exactly as in C. DMAS from `out/dmas_daily_1955.csv`.
+- "OAS lagged 1 trading day": OAS_t = the last LF98OAS close on or before the S&P trading day before t.
+  Days with no OAS value carry the last value. The sample starts at the first decision date with
+  OAS available for the whole lookback (d0 - 21 days).
+- Spells and states are read on decision dates only. A spell that is already open at sample start
+  begins at the sample start. The floor earns from entry+2 through end+1, as in C.
+- Placebo "same end": the placebo On ends when the base turns Invested or at the price stop
+  (P_t < L with L = lowest close from d0 to the placebo entry). No OAS stop in the placebo. Spells
+  with a real entry and spells without one are both eligible; one placebo entry per real entry,
+  spells drawn without replacement, then a uniform decision date inside the spell.
+- G7: V2 = `run_k1.v2_weights` (R1 states). Spells for V2+P = R1 Cash spells on its Tuesday dates;
+  weight = max(V2 weight, 0.50) while On.
+- Fallback F uses the same code with VIX in place of OAS (same-day, no lag), sample from 1990-01.
