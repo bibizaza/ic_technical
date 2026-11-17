@@ -31,6 +31,20 @@ def layer(index, ep, live):
     return s
 
 
+def committee(index, dec_dates, desired, band=.10):
+    """Wednesday committee: at each Tuesday close t, move to the desired weight if it differs from the
+    held weight by >= band, or if we go to / leave cash. Trade Wednesday (t+1), earn from Thursday (t+2)."""
+    ch, held = pd.Series(np.nan, index=index), np.nan
+    for d in dec_dates:
+        want = float(desired.loc[d])
+        if np.isnan(held) or (want == 0) != (held == 0) or abs(want - held) >= band - 1e-12:
+            held = want
+        p = index.get_loc(d) + 2
+        if p < len(index):
+            ch.iloc[p] = held
+    return ch.ffill()
+
+
 def main():
     with read_only_external():
         inputs = load_inputs()
@@ -49,6 +63,9 @@ def main():
     epb = thrust_episodes(inputs.px, w1, thrust_days(ratio))
     wb = layer(idx, epb, live)
     core = pd.concat([w2, wf, ws, wb], axis=1).max(axis=1).where(w2.notna())
+    st_dec = s1.reindex(idx).ffill()                       # R1 state decided at each date (1 invested)
+    desired = pd.concat([st_dec * v, wf.shift(-2), ws.shift(-2), wb.shift(-2)], axis=1).max(axis=1)
+    wc = committee(idx, s1.index[idx.get_indexer(s1.index) + 2 < len(idx)], desired)
     r = net_returns(core, inputs.eq_ret, inputs.cash_ret).loc['1999-02-01':]
     bh = inputs.eq_ret.loc[r.index]
     cash = inputs.cash_ret.reindex(r.index)
@@ -56,7 +73,8 @@ def main():
     steps = {'S&P 500 buy & hold': None, '1. Keys only (100% or 0%)': w1, '2. + volatility sizing': w2,
              '3. + fear-over re-entry (F)': pd.concat([w2, wf], axis=1).max(axis=1).where(w2.notna()),
              '4. + shock re-entry (S-live)': pd.concat([w2, wf, ws], axis=1).max(axis=1).where(w2.notna()),
-             '5. + breadth re-entry (B) = CORE': core}
+             '5. + breadth re-entry (B), daily': core,
+             '6. CORE: Wednesday committee, act if gap >= 10 pts': wc}
     rets = {k: (bh if wk is None else net_returns(wk, inputs.eq_ret, inputs.cash_ret).loc[r.index]) for k, wk in steps.items()}
     full_lab = f'Full {r.index[0]:%Y-%m} → {r.index[-1]:%Y-%m-%d}'
     wins = [(full_lab, None, None)] + [w_ for w_ in WINDOWS if not w_[0].startswith('FULL')]
@@ -82,7 +100,7 @@ def main():
     (ROOT / 'research/us_gauge/RESULTS_core.md').write_text('\n'.join(L))
     per = []
     for name, a, b in wins:
-        tc, sc, dc = stats(r.loc[a:b], cash)
+        tc, sc, dc = stats(rets['6. CORE: Wednesday committee, act if gap >= 10 pts'].loc[a:b], cash)
         tb, sb, db = stats(bh.loc[a:b], cash)
         per.append(dict(window=name, core_total=tc, core_sharpe=sc, core_dd=dc, bh_total=tb, bh_sharpe=sb, bh_dd=db))
     y = idx[idx >= '2025-01-01']
@@ -92,10 +110,10 @@ def main():
     out = dict(
         asof=str(last.date()), breadth_asof=str(br.index[-1].date()),
         dates=[str(d.date()) for d in y], px=[round(float(p), 2) for p in inputs.px.loc[y]],
-        w=[None if pd.isna(x) else round(float(x), 3) for x in core.loc[y]],
+        w=[None if pd.isna(x) else round(float(x), 3) for x in wc.loc[y]],
         tgt=[None if pd.isna(x) else round(float(x), 3) for x in (v * (w1 > 0)).loc[y]],
         dec=[dict(d=str(d.date()), dmas=int(round(rw.dmas)), rev=round(float(rw.rev_z), 2), cash=bool(rw.cash_R1)) for d, rw in dec.iterrows()],
-        now=dict(weight=float(core.iloc[-1]), v2=float(w2.iloc[-1]), target=float(v.iloc[-1]), sigma21=float(sig),
+        now=dict(weight=float(wc.iloc[-1]), desired=float(desired.iloc[-1]), v2=float(w2.iloc[-1]), target=float(v.iloc[-1]), sigma21=float(sig),
                  dmas=float(gf.dmas.iloc[-1]), rev_z=float(gf.rev_z.iloc[-1]), r1_cash=bool(gf.cash_R1.iloc[-1]),
                  vix=float(inputs.vix.iloc[-1]), breadth_ratio=float(ratio.iloc[-1]),
                  fall_1y=float(1 - inputs.px.iloc[-1] / inputs.px.iloc[-252:].max()),

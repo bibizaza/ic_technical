@@ -2,105 +2,63 @@
 <style>
 :root{--navy:#1B3A5A;--ink:#040C38;--sky:#00AEEF;--gold:#C9A227}
 *{box-sizing:border-box;margin:0;padding:0}
-body{width:1600px;height:1000px;font-family:'Segoe UI','Helvetica Neue',Calibri,Arial,sans-serif;background:#fff;color:var(--ink);position:relative;overflow:hidden}
+body{width:1600px;height:1000px;font-family:Calibri,'Segoe UI',Arial,sans-serif;background:#fff;color:var(--ink);position:relative;overflow:hidden}
 .top{height:86px;background:var(--navy);border-bottom:3px solid var(--gold);display:flex;align-items:center;padding-left:26px}
-.top h1{color:#fff;font-style:italic;font-size:46px;font-weight:700;font-family:Calibri,'Segoe UI',Arial,sans-serif}
-.head{margin:34px 0 0 72px;border-left:4px solid var(--gold);padding-left:22px}
-.head h2{color:var(--sky);font-size:38px;font-weight:700;letter-spacing:-.3px}
-.head p{font-size:21px;font-weight:600;margin-top:10px;max-width:1380px;line-height:1.3}
-.card{position:absolute;left:72px;top:262px;width:1456px;height:692px;border-radius:22px;overflow:hidden;display:flex;
- background:linear-gradient(135deg,#0A1330 0%,#101B3E 55%,#0A1027 100%);box-shadow:0 18px 50px rgba(4,12,56,.28)}
-.blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55}
-.chart{position:relative;flex:1;padding:18px 22px 14px;display:flex;flex-direction:column;color:#E2E8F0}
-.legend{display:flex;gap:24px;justify-content:center;font-size:14px;font-weight:600;color:#CBD5E1;margin-bottom:2px}
-.legend i{display:inline-block;width:24px;height:4px;border-radius:3px;vertical-align:middle;margin-right:7px}
-.mat{margin-top:6px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:8px 10px 6px}
-.mat .t{font-size:12px;font-weight:700;color:#94A3B8;letter-spacing:1.2px;margin:0 0 3px 2px}
-.mat table{width:100%;border-collapse:collapse;font-weight:700}
-.mat th{font-size:12px;color:#94A3B8;font-weight:600;padding:2px 3px;text-align:center}
-.mat td{text-align:center;padding:3px;font-size:17px;color:#E2E8F0}
-.mat td.l{text-align:left;font-size:13px;color:#94A3B8;width:70px;font-weight:600}
-.mat td.up{color:#6EE7B7}.mat td.dn{color:#FDA4AF}
-.mat .sep{border-left:1px solid rgba(255,255,255,.12)}
-.panel{position:relative;width:584px;padding:12px 22px 10px 26px;display:flex;flex-direction:column;gap:6px;color:#fff;
- background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border-left:1px solid rgba(255,255,255,.12)}
-.ptitle{text-align:center;letter-spacing:4px;font-size:12px;color:#94A3B8;font-weight:600}
-.pos,.blk,.mini{background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);border-radius:16px;
- box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
-.pos{padding:8px 14px 6px}
-.ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
-.bt b{font-size:15px;font-weight:700;letter-spacing:.2px}
-.bt small{display:block;font-size:12px;color:#94A3B8;margin-top:1px}
-.pos .bt b{letter-spacing:1.5px;font-size:13px;color:#CBD5E1}
-.pnow{display:flex;align-items:flex-end;gap:12px}
-.pnow div{text-align:center}
-.pnow span{display:block;font-size:11px;color:#94A3B8;letter-spacing:1px;text-transform:uppercase}
-.pnow strong{font-size:34px;font-weight:700;line-height:1;color:#E0F2FE}
-.pnow strong.amb{color:#FCD34D}
-.pnow em{font-style:normal;font-size:24px;color:#94A3B8;margin-bottom:4px}
-.rule{display:flex;justify-content:space-between;font-size:12px;color:#CBD5E1;margin-top:2px}
-.rule i{font-style:normal;font-weight:700;color:#fff;background:rgba(255,255,255,.1);border-radius:8px;padding:1px 7px;margin-right:4px}
-.sec{letter-spacing:1.5px;font-size:11.5px;color:#94A3B8;font-weight:600;margin:3px 0 -3px 4px}
-.blk{padding:6px 14px 0}
-.bh{display:flex;justify-content:space-between;align-items:flex-start}
-.bv{display:flex;align-items:center;gap:10px}
-.bv strong{font-size:24px;font-weight:700}
-.chip{font-size:11.5px;font-weight:700;letter-spacing:1px;padding:3px 10px;border-radius:999px;border:1px solid;backdrop-filter:blur(4px)}
-.chip.g{color:#6EE7B7;background:rgba(16,185,129,.16);border-color:rgba(110,231,183,.45)}
-.chip.r{color:#FDA4AF;background:rgba(244,63,94,.16);border-color:rgba(253,164,175,.45)}
-.chip.a{color:#FCD34D;background:rgba(245,158,11,.16);border-color:rgba(252,211,77,.45)}
-.chip.m{color:#94A3B8;background:rgba(148,163,184,.1);border-color:rgba(148,163,184,.35)}
-.row3{display:flex;gap:8px}
-.mini{flex:1;padding:6px 10px 0}
-.mini .bh{flex-direction:column;gap:3px}
-.mini .bt b{font-size:14px}.mini .bt small{font-size:11px}
-.mini .bv strong{font-size:18px}.mini .chip{font-size:10px;padding:2px 8px}
-.src{position:absolute;left:72px;bottom:14px;font-size:14px;color:#8A97AD;font-weight:600}
+.top h1{color:#fff;font-style:italic;font-size:46px;font-weight:700}
+.head{margin:44px 0 0 72px;border-left:4px solid var(--gold);padding-left:22px}
+.head h2{color:var(--sky);font-size:42px;font-weight:700}
+.head p{font-size:23px;font-weight:700;margin-top:12px;max-width:1360px;line-height:1.3}
+.card{position:absolute;left:72px;top:290px;width:1456px;height:650px;border:1px solid #D9DEE7;border-radius:12px;overflow:hidden;display:flex}
+.chart{flex:1;padding:18px 24px;display:flex;flex-direction:column}
+.legend{display:flex;gap:28px;justify-content:center;font-size:15px;font-weight:700;margin-bottom:4px}
+.legend i{display:inline-block;width:26px;height:5px;border-radius:3px;vertical-align:middle;margin-right:7px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th{font-size:13px;color:#64748B;font-weight:700;padding:4px;text-align:center;border-bottom:1px solid #E2E8F0}
+td{text-align:center;padding:5px 4px;font-size:18px;font-weight:700}
+td.l{text-align:left;font-size:14px;color:#64748B;width:80px}
+tr.g td:not(.l){color:#1B3A5A}
+.panel{width:500px;background:#F6F8FB;border-left:1px solid #E2E8F0;padding:22px 26px;display:flex;flex-direction:column;gap:14px}
+.dec{background:var(--navy);color:#fff;border-radius:12px;padding:16px 20px;text-align:center}
+.dec small{display:block;font-size:13px;letter-spacing:2px;color:#C8D3E3}
+.dec b{display:block;font-size:44px;letter-spacing:1px;margin:4px 0 2px}
+.dec span{font-size:16px;color:#C8D3E3}
+.gg{background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:10px 16px 4px}
+.gh{display:flex;justify-content:space-between;align-items:flex-start}
+.gh b{font-size:18px}.gh small{display:block;font-size:13px;color:#64748B;margin-top:1px}
+.gv{text-align:right}.gv strong{font-size:24px;display:block;line-height:1}.gv span{font-size:13px;font-weight:700;letter-spacing:1px}
+.re{font-size:14px;color:#475569}.re b{color:var(--ink)}
+.src{position:absolute;left:72px;bottom:20px;font-size:15px;color:#8A97AD;font-weight:700}
 .draft{position:absolute;right:24px;top:100px;background:#FEF3C7;color:#92400E;font-weight:700;font-size:14px;padding:4px 10px;border-radius:4px}
-svg text{font-family:'Segoe UI','Helvetica Neue',Calibri,Arial,sans-serif}
+svg text{font-family:Calibri,'Segoe UI',Arial,sans-serif}
 </style></head><body>
 <div class="top"><h1>Equities</h1></div>
 <div class="draft">DRAFT — for discussion</div>
 <div class="head"><h2>{{HEAD}}</h2><p>{{LEAD}}</p></div>
 <div class="card">
- <div class="blob" style="width:420px;height:300px;left:-80px;top:-60px;background:#3B82F6"></div>
- <div class="blob" style="width:380px;height:300px;left:520px;top:420px;background:#8B5CF6;opacity:.35"></div>
- <div class="blob" style="width:360px;height:320px;right:-60px;top:-40px;background:#06B6D4;opacity:.3"></div>
  <div class="chart">
-  <div class="legend"><span><i style="background:#F8FAFC"></i>S&amp;P 500 ({{PXLAST}})</span><span><i style="background:linear-gradient(90deg,#38BDF8,#1D4ED8);height:10px"></i>Share invested</span><span><i style="background:#FBBF24"></i>Volatility target</span><span><i style="background:rgba(244,63,94,.6);height:10px"></i>Trend key off</span></div>
-  <svg id="c" width="826" height="476"></svg>
-  <div class="mat"><div class="t">WHEN IT MATTERED · BACK-TEST AFTER COSTS · green = better than the S&amp;P 500</div>
-   <table><tr><th></th>{{TH}}</tr><tr><td class="l">Gauge</td>{{TC}}</tr><tr><td class="l">S&amp;P 500</td>{{TB}}</tr></table></div>
+  <div class="legend"><span><i style="background:var(--ink)"></i>S&amp;P 500 ({{PXLAST}})</span><span><i style="background:#9DC3E6;height:10px"></i>Share of the portfolio in the S&amp;P 500</span></div>
+  <svg id="c" width="908" height="440"></svg>
+  <table><tr><th></th>{{TH}}</tr><tr class="g"><td class="l">Gauge</td>{{TC}}</tr><tr><td class="l">S&amp;P 500</td>{{TB}}</tr></table>
  </div>
  <div class="panel">
-  <div class="ptitle">HERCULIS · US EQUITY GAUGE</div>
-  {{POS}}
-  <div class="sec">THE TWO KEYS · CASH ONLY WHEN BOTH ARE OFF</div>
-  {{KEYS}}
-  <div class="sec">EARLY RE-ENTRY · BUYS BACK EARLY, ONLY WHILE IN CASH</div>
-  <div class="row3">{{RE}}</div>
+  <div class="dec"><small>COMMITTEE DECISION · WEDNESDAY {{WED}}</small><b>{{VERB}}</b><span>{{MOVE}} · rest in T-bills</span></div>
+  {{GAUGES}}
+  <div class="re"><b>Early re-entry rules</b> (fear over, shock, breadth): {{RE}}.</div>
  </div>
 </div>
-<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Gauge as of {{ASOF}}. Back-test 1999–2026, daily, after 10 bp costs; not a guarantee.</div>
+<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Data to {{ASOF}}; the final decision uses the close of Tuesday {{TUE}}. Back-test 1999–2026, weekly committee, after 10 bp costs; not a guarantee.</div>
 <script>
 const D={{DATA}};
-const svg=document.getElementById('c'),W=826,H=476,L=56,R=10,T=12,B=30,ph=270,wy=T+ph+34,wh=H-B-wy;
+const svg=document.getElementById('c'),W=908,H=440,L=58,R=10,T=10,B=30,ph=260,wy=T+ph+34,wh=H-B-wy;
 const n=D.dates.length,x=i=>L+i*(W-L-R)/(n-1);
 const lo=Math.min(...D.px)*0.97,hi=Math.max(...D.px)*1.01,y=v=>T+(hi-v)/(hi-lo)*ph;
-let s=`<defs>
- <linearGradient id="wa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7DD3FC" stop-opacity=".85"/><stop offset="1" stop-color="#1D4ED8" stop-opacity=".25"/></linearGradient>
- <filter id="gw" x="-5%" y="-20%" width="110%" height="140%"><feGaussianBlur stdDeviation="3"/></filter></defs>`;
-for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,255,255,.08)"/><text x="${L-8}" y="${y(v)+4}" font-size="12.5" font-weight="600" text-anchor="end" fill="#94A3B8">${Math.round(v).toLocaleString('en-US')}</text>`}
-const dec=D.dec;dec.forEach((r,j)=>{if(r.dmas<45){const i0=D.dates.indexOf(r.d),i1=j+1<dec.length?D.dates.indexOf(dec[j+1].d):n-1;if(i0>=0)s+=`<rect x="${x(i0)}" y="${T}" width="${Math.max(2,x(i1)-x(i0))}" height="${ph}" fill="rgba(244,63,94,.16)"/>`}});
-const pts=D.px.map((v,i)=>x(i)+','+y(v)).join(' ');
-s+=`<polyline fill="none" stroke="#93C5FD" stroke-width="5" opacity=".35" filter="url(#gw)" points="${pts}"/><polyline fill="none" stroke="#F8FAFC" stroke-width="2.2" points="${pts}"/>`;
-s+=`<text x="${L}" y="${wy-10}" font-size="12" fill="#94A3B8" font-weight="700" letter-spacing="1.2">SHARE INVESTED</text>`;
-const yw=v=>wy+(1-v)*wh;[0,0.5,1].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1="${yw(v)}" y2="${yw(v)}" stroke="rgba(255,255,255,.08)"/><text x="${L-8}" y="${yw(v)+4}" font-size="12" text-anchor="end" font-weight="600" fill="#94A3B8">${v*100}%</text>`});
-let a=`${x(0)},${yw(0)} `,ln='';D.w.forEach((v,i)=>{if(v!==null){a+=`${x(i)},${yw(v)} `;ln+=`${x(i)},${yw(v)} `}});a+=`${x(n-1)},${yw(0)}`;
-s+=`<polygon points="${a}" fill="url(#wa)"/><polyline points="${ln}" fill="none" stroke="#BAE6FD" stroke-width="2"/>`;
-let tl='';D.tgt.forEach((v,i)=>{if(v!==null)tl+=`${x(i)},${yw(v)} `});
-s+=`<polyline points="${tl}" fill="none" stroke="#FBBF24" stroke-width="1.6" stroke-dasharray="4 3" opacity=".9"/>`;
+let s='';
+for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#E2E8F0"/><text x="${L-8}" y="${y(v)+5}" font-size="13" font-weight="700" text-anchor="end" fill="#64748B">${Math.round(v).toLocaleString('en-US')}</text>`}
+s+=`<polyline fill="none" stroke="#040C38" stroke-width="2.5" points="${D.px.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
+const yw=v=>wy+(1-v)*wh;[0,0.5,1].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1="${yw(v)}" y2="${yw(v)}" stroke="#E2E8F0"/><text x="${L-8}" y="${yw(v)+5}" font-size="13" text-anchor="end" font-weight="700" fill="#64748B">${v*100}%</text>`});
+let a=`${x(0)},${yw(0)} `;D.w.forEach((v,i)=>{if(v!==null)a+=`${x(i)},${yw(v)} `});a+=`${x(n-1)},${yw(0)}`;
+s+=`<polygon points="${a}" fill="#9DC3E6"/>`;
 const months={};D.dates.forEach((d,i)=>{const m=d.slice(0,7);if(!(m in months))months[m]=i});
-Object.entries(months).forEach(([m,i])=>{const mo=+m.slice(5);if(mo%3==1){const lab=new Date(m+'-15').toLocaleString('en-US',{month:'short'})+" '"+m.slice(2,4);s+=`<text x="${x(i)}" y="${H-8}" font-size="12.5" font-weight="600" text-anchor="middle" fill="#CBD5E1">${lab}</text>`}});
+Object.entries(months).forEach(([m,i])=>{if(+m.slice(5)%3==1){const lab=new Date(m+'-15').toLocaleString('en-US',{month:'short'})+" '"+m.slice(2,4);s+=`<text x="${x(i)}" y="${H-8}" font-size="13" font-weight="700" text-anchor="middle" fill="#040C38">${lab}</text>`}});
 svg.innerHTML=s;
 </script></body></html>
