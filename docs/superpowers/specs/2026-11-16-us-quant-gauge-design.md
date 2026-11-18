@@ -698,3 +698,27 @@ to put it in the core.
 - Desired weight rounded to the nearest 5 points. Trade next day if the gap is >= 10 points, or to/from cash.
 - RESULTS_core.md row 6 (1999-02 → 2026-11-13): Sharpe 0.69, +1108%, worst fall −20.1%. Not rounded: 0.70 / −19.9%. Keys on Tuesdays: 0.70 / −25.9% (stronger 2013–2026: 1.01 vs 0.90).
 - Slide: no back-test (it goes to herculis.ai). Chart shows the 200-day average. Re-entry rules shown with their current reading and trigger.
+
+### 6h. H: HTEI re-entry — pre-registration (2026-11-18, before any run)
+
+**Idea.** The gauge is trend-following and misses V-shaped rebounds. HTEI is contrarian (high fear = BUY). Test HTEI's BUY zone as a 4th re-entry layer, used only when the keys put us in cash.
+
+**Data.** `Tools_In_Construction/HTEI/daily_signals/signals_history.csv`, column `us_score`, read-only. Row date = close date of the inputs. 4,203 rows are a backtest, 155 rows are live (from 2026-04-13). The HTEI components were chosen on 2010–2026 data, so this test is mostly IN-SAMPLE for HTEI. A PASS means "promising, keep watching live", not proof.
+
+**Rule (fixed before the run).**
+- Trigger day t: `us_score < 35` at close t (level, not crossing).
+- An episode starts at a trigger day only if the base keys weight in force is 0 (cash), using the product keys (daily, month lock).
+- Episode mechanics = B (run_b.thrust_episodes): L = lowest close of the 63 closes ending t; end at the first of: base invested, close below L, 126 trading days. Triggers inside an episode are ignored; after the end, the next trigger day starts a new episode.
+- Size = live volatility target v (as S-live and B). Trade t+1 close, earn from t+2.
+- Product + H: desired = max(product desired, H), rounded to 5 points, trade next day if gap >= 10 pts or to/from cash (spec 11b). 10 bp costs.
+
+**Sample.** First HTEI date (2010-02-08) → last common date. Halves: to 2017-12-31 and from 2018-01-01.
+
+**Gates (all must pass).**
+- G1. Sharpe(product + H) > Sharpe(product).
+- G2. Worst fall(product + H) >= worst fall(product) − 2 points.
+- G3. Placebo: 1,000 draws, `default_rng(7)`, each episode moved to a random day with base weight 0 (run_b.placebo_spans: same L, stop, base-invested end and time limit), same sizing and execution. p = share of placebo Sharpe >= real Sharpe. Pass if p <= 0.10.
+- G4. More than half of the episodes beat cash (S&P return over the episode days > T-bill return).
+- G5. Both halves: Sharpe(product + H) >= Sharpe(product).
+
+**One run.** No change of threshold (35), exits or sample after the run. Results go to `research/us_gauge/RESULTS_h.md`.
