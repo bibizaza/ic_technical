@@ -16,16 +16,16 @@ HERE = Path(__file__).resolve().parent
 # colours used inside the builder's SVG/HTML snippets; the rest of each look lives in its template
 STYLES = {
     'ic': dict(GREEN='#16A34A', RED='#DC2626', AMBER='#D97706', TRACK='#E5E9F0', MARK='#040C38', LAB='#475569',
-               END='#94A3B8', GREY='#94A3B8', tpl='core_slide_template.html', out='us_gauge_slide.html',
+               END='#94A3B8', GREY='#94A3B8', BARH=12, tpl='core_slide_template.html', out='us_gauge_slide.html',
                name='US equities', W=268, trend=('Trend', 'score 0–100 · switch at 45'), vol_size=True,
                earn=('Earnings', 'revisions, 3 months · switch at 0', '')),
     # herculis.ai tokens (market-herculis/quant-web/site/tokens.css): positive, negative, gold accent, text, muted, dim
     'herculis': dict(GREEN='#287451', RED='#a74950', AMBER='#8c6d2b', TRACK='#e4e8e1', MARK='#252d2a', LAB='#465349',
-                     END='#727c75', GREY='#8597a0', tpl='core_slide_template_herculis.html', out='us_gauge_slide_herculis.html',
-                     name='S&amp;P 500', W=410, trend=('Trend', ''), vol_size=False,
+                     END='#727c75', GREY='#8597a0', BARH=16, tpl='core_slide_template_herculis.html', out='us_gauge_slide_herculis.html',
+                     name='S&amp;P 500', W=410, trend=('Trend', 'moving averages + 3–12-month momentum'), vol_size=False,
                      earn=('Earnings', '3-month revisions vs 5-year average', 'σ')),
 }
-GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY = (STYLES['ic'][k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY'))
+GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY, BARH = (STYLES['ic'][k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY', 'BARH'))
 
 
 def minus(s: str) -> str:
@@ -34,8 +34,8 @@ def minus(s: str) -> str:
 
 def bar(value, lo, hi, color, mark, mark_label, w=440):
     X = lambda v: 6 + (min(max(v, lo), hi) - lo) / (hi - lo) * (w - 12)
-    return (f'<svg width="{w}" height="38"><rect x="6" y="8" width="{w - 12}" height="12" rx="6" fill="{TRACK}"/>'
-            f'<rect x="6" y="8" width="{max(X(value) - 6, 12):.1f}" height="12" rx="6" fill="{color}"/>'
+    return (f'<svg width="{w}" height="38"><rect x="6" y="{14 - BARH // 2}" width="{w - 12}" height="{BARH}" rx="{BARH // 2}" fill="{TRACK}"/>'
+            f'<rect x="6" y="{14 - BARH // 2}" width="{max(X(value) - 6, 12):.1f}" height="{BARH}" rx="{BARH // 2}" fill="{color}"/>'
             f'<rect x="{X(mark) - 1.5:.1f}" y="3" width="3" height="22" rx="1.5" fill="{MARK}"/>'
             f'<text x="{X(mark):.1f}" y="36" font-size="12" fill="{LAB}" text-anchor="middle" font-weight="700">{mark_label}</text>'
             f'<text x="6" y="36" font-size="11" fill="{END}">{minus(f"{lo:g}")}</text>'
@@ -52,11 +52,11 @@ def wednesday_after(d: date) -> date:
 
 
 def main():
-    global GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY
+    global GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY, BARH
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--style', choices=sorted(STYLES), default='ic', help='ic (default, navy/gold) or herculis (herculis.ai skin)')
     S = STYLES[ap.parse_args().style]
-    GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY = (S[k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY'))
+    GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY, BARH = (S[k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY', 'BARH'))
     D = json.loads((HERE / 'core_slide_data.json').read_text())
     n = D['now']
     trend_in, earn_in = n['dmas'] >= 45, n['rev_z'] >= 0

@@ -18,13 +18,13 @@ body{width:1600px;height:1000px;font-family:var(--sans);color:var(--text);positi
 .top .meta{margin-left:auto;display:flex;align-items:center;gap:18px;font-size:14px;color:var(--muted)}
 .draft{font-weight:600;color:var(--gold-ink);background:var(--glass);border:1px solid var(--gold-edge);border-radius:5px;padding:5px 11px}
 .head{margin:30px 72px 0}
-.head h2{font-size:46px;font-weight:600;line-height:1.1;letter-spacing:-.015em;margin-top:8px}
+.head h2{font-size:50px;font-weight:700;line-height:1.1;letter-spacing:-.03em;margin-top:8px}
 .head p:not(.eyebrow){font-size:22px;font-weight:500;color:var(--text-2);margin-top:12px;max-width:1400px;line-height:1.35}
 .body{position:absolute;left:72px;top:262px;width:1456px;height:672px;display:flex;gap:24px}
 .left{width:470px;display:flex;flex-direction:column;gap:14px}
 /* white glass cards with gold edges, as on herculis.ai (no marble inside: the page already has it) */
 .card,.gg{background:linear-gradient(116deg,var(--surface),var(--glass) 60%,var(--veil));border:1px solid var(--surface);border-right-color:var(--gold-edge);border-bottom-color:var(--gold-edge);
- border-radius:8px;box-shadow:inset 1px 1px 1px var(--surface),var(--shadow-sm)}
+ border-radius:14px;box-shadow:inset 1px 1px 1px var(--surface),var(--shadow-sm)}
 /* allocation: S&P 500 / T-bills gauge */
 .dec{padding:20px 26px 18px}
 .alloc{display:flex;align-items:center;gap:30px}
@@ -34,15 +34,16 @@ body{width:1600px;height:1000px;font-family:var(--sans);color:var(--text);positi
 .legend2 div+div{border-top:1px solid var(--gold-hair)}
 .legend2 i{width:12px;height:12px;border-radius:50%;flex:none}
 .legend2 span{flex:1;font-size:17px;font-weight:500;color:var(--text-2)}
-.legend2 b{font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--score);font-variant-numeric:tabular-nums}
+.legend2 b{font-size:26px;font-weight:700;letter-spacing:-.02em;color:var(--score);font-variant-numeric:tabular-nums}
 .dec .last{margin-top:14px;padding-top:12px;border-top:1px solid var(--gold-hair);font-size:15px;color:var(--muted);line-height:1.4}
 /* the three signals, stacked */
 .sig{flex:1;display:flex;flex-direction:column;gap:14px}
-.gg{flex:1;padding:12px 18px 2px;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.gg{flex:1;padding:10px 18px 6px;display:flex;flex-direction:column;justify-content:center;gap:12px}
 .gh{display:flex;justify-content:space-between;align-items:flex-start}
-.gh b{font-size:18px;font-weight:600}.gh small{display:block;font-size:13px;color:var(--muted);margin-top:2px}
-.gv{text-align:right}.gv strong{font-variant-numeric:tabular-nums;font-size:26px;font-weight:600;color:var(--score);display:block;line-height:1;letter-spacing:-.02em}
-.gv span{font-size:12px;font-weight:600;letter-spacing:.12em;display:block;margin-top:4px}
+.gh b{font-size:19px;font-weight:700}.gh small{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+.gv{display:flex;flex-direction:row-reverse;align-items:center;gap:12px}.gv strong{font-variant-numeric:tabular-nums;font-size:34px;font-weight:700;color:var(--score);display:block;line-height:1;letter-spacing:-.02em}
+.gv span{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,currentColor 13%,transparent)}
+.gv span:empty{display:none}
 /* charts: price on top, exposure in its own card below */
 .right{flex:1;display:flex;flex-direction:column;gap:14px}
 .chart{padding:14px 18px 4px}
@@ -76,7 +77,7 @@ svg text{font-family:var(--sans)}
    <svg id="c" width="944" height="414"></svg>
   </div>
   <div class="card chart">
-   <div class="legend"><span><i style="background:#b29a5e66;height:10px"></i>Share invested in the S&amp;P 500 · now <b>{{HELD}}</b></span></div>
+   <div class="legend"><span><i style="background:#b29a5e80;height:10px"></i>Share invested in the S&amp;P 500 · now <b>{{HELD}}</b></span></div>
    <svg id="e" width="944" height="156"></svg>
   </div>
  </div>
@@ -93,18 +94,18 @@ const months=(H)=>{const m0={};let s='';D.dates.forEach((d,i)=>{const m=d.slice(
  const lo=Math.min(...D.px,...mav)*0.97,hi=Math.max(...D.px)*1.01,y=v=>T+(hi-v)/(hi-lo)*ph;let s='';
  for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;s+=ytxt(y(v),Math.round(v).toLocaleString('en-US'))}
  s+=`<polyline fill="none" stroke="#97752c" stroke-width="2.5" stroke-dasharray="7 5" points="${D.ma200.map((v,i)=>v===null?'':x(i)+','+y(v)).join(' ')}"/>`;
- s+=`<polyline fill="none" stroke="#303934" stroke-width="2.5" stroke-linejoin="round" points="${D.px.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
+ s+=`<polyline fill="none" stroke="#303934" stroke-width="3" stroke-linejoin="round" points="${D.px.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
  document.getElementById('c').innerHTML=s+months(H)}
 // exposure chart
 {const H=156,T=8,B=30,wh=H-T-B,yw=v=>T+(1-v)*wh;let s='';[0,0.5,1].forEach(v=>s+=ytxt(yw(v),v*100+'%'));
  let a=`${x(0)},${yw(0)} `,edge='';D.w.forEach((v,i)=>{if(v!==null){a+=`${x(i)},${yw(v)} `;edge+=`${x(i)},${yw(v)} `}});a+=`${x(n-1)},${yw(0)}`;
- s+=`<polygon points="${a}" fill="#b29a5e66"/><polyline fill="none" stroke="#a58b4e" stroke-width="1.5" points="${edge}"/>`;
+ s+=`<polygon points="${a}" fill="#b29a5e80"/><polyline fill="none" stroke="#97752c" stroke-width="2" points="${edge}"/>`;
  document.getElementById('e').innerHTML=s+months(H)}
 // allocation gauge: three-quarter ring. One light track, the S&P 500 share drawn on top in gold, number in the centre ("75" over "% invested").
-{const cx=84,cy=80,r=70,sw=14,F=f=>{const t=(225-270*f)*Math.PI/180;return `${(cx+r*Math.cos(t)).toFixed(1)},${(cy-r*Math.sin(t)).toFixed(1)}`},
+{const cx=84,cy=80,r=68,sw=18,F=f=>{const t=(225-270*f)*Math.PI/180;return `${(cx+r*Math.cos(t)).toFixed(1)},${(cy-r*Math.sin(t)).toFixed(1)}`},
  arc=(f,c)=>f>0.002?`<path d="M${F(0)} A${r} ${r} 0 ${270*f>180?1:0} 1 ${F(f)}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>`:'';
  let s=arc(1,'#e7eae3')+arc(HELD,'#a58b4e');
- s+=`<text x="${cx}" y="${cy+12}" font-size="46" font-weight="600" text-anchor="middle" fill="#303934" letter-spacing="-1.5">${Math.round(HELD*100)}</text>`;
+ s+=`<text x="${cx}" y="${cy+12}" font-size="50" font-weight="700" text-anchor="middle" fill="#303934" letter-spacing="-2">${Math.round(HELD*100)}</text>`;
  s+=`<text x="${cx}" y="${cy+36}" font-size="15" font-weight="500" text-anchor="middle" fill="#5f6a63">% invested</text>`;
  document.getElementById('g').innerHTML=s}
 </script></body></html>
