@@ -27,13 +27,11 @@ body{width:1600px;height:1000px;font-family:var(--sans);color:var(--text);positi
  border-radius:8px;box-shadow:inset 1px 1px 1px var(--surface),var(--shadow-sm)}
 /* allocation: S&P 500 / T-bills gauge */
 .dec{padding:20px 26px 18px}
-.alloc{display:flex;align-items:center;gap:22px}
+.alloc{display:flex;align-items:flex-end;gap:18px}
 .alloc svg{flex:none}
-.split{display:flex;flex-direction:column;gap:12px;white-space:nowrap}
-.split div{display:flex;align-items:baseline;gap:10px}
-.split i{display:inline-block;width:14px;height:14px;border-radius:3px;align-self:center}
-.split b{font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--score);min-width:54px}
-.split span{font-size:17px;font-weight:500;color:var(--text-2)}
+.rest{display:flex;flex-direction:column;padding-bottom:8px;white-space:nowrap}
+.rest b{font-size:30px;font-weight:600;letter-spacing:-.02em;color:var(--muted);line-height:1.1}
+.rest span{font-size:16px;font-weight:500;color:var(--muted)}
 .dec .last{margin-top:14px;padding-top:12px;border-top:1px solid var(--gold-hair);font-size:15px;color:var(--muted);line-height:1.4}
 /* the three signals, stacked */
 .sig{flex:1;display:flex;flex-direction:column;gap:14px}
@@ -59,11 +57,8 @@ svg text{font-family:var(--sans)}
  <div class="left">
   <div class="card dec">
    <div class="alloc">
-    <svg id="g" width="200" height="118" viewBox="0 0 200 118"></svg>
-    <div class="split">
-     <div><i style="background:var(--gold-mid)"></i><b>{{HELD}}</b><span>S&amp;P 500</span></div>
-     <div><i style="background:var(--line-2)"></i><b>{{CASHW}}</b><span>T-bills</span></div>
-    </div>
+    <svg id="g" width="250" height="138" viewBox="0 0 250 138"></svg>
+    <div class="rest"><b>{{CASHW}}</b><span>T-bills</span></div>
    </div>
    <div class="last">{{MOVE}}</div>
   </div>
@@ -99,11 +94,14 @@ const months=(H)=>{const m0={};let s='';D.dates.forEach((d,i)=>{const m=d.slice(
  let a=`${x(0)},${yw(0)} `,edge='';D.w.forEach((v,i)=>{if(v!==null){a+=`${x(i)},${yw(v)} `;edge+=`${x(i)},${yw(v)} `}});a+=`${x(n-1)},${yw(0)}`;
  s+=`<polygon points="${a}" fill="#b29a5e66"/><polyline fill="none" stroke="#a58b4e" stroke-width="1.5" points="${edge}"/>`;
  document.getElementById('e').innerHTML=s+months(H)}
-// allocation gauge: half ring, gold = share in the S&P 500, grey = T-bills
-{const cx=100,cy=104,r=82,sw=26,pt=f=>{const t=Math.PI*(1-f);return `${(cx+r*Math.cos(t)).toFixed(1)},${(cy-r*Math.sin(t)).toFixed(1)}`};
- let s=`<path d="M${pt(0)} A${r} ${r} 0 0 1 ${pt(1)}" fill="none" stroke="#d9ddcf" stroke-width="${sw}"/>`;
- if(HELD>0)s+=`<path d="M${pt(0)} A${r} ${r} 0 0 1 ${pt(HELD)}" fill="none" stroke="#a58b4e" stroke-width="${sw}"/>`;
- s+=`<text x="${cx}" y="${cy-6}" font-size="40" font-weight="600" text-anchor="middle" fill="#303934" letter-spacing="-1">${Math.round(HELD*100)}%</text>`;
- s+=`<text x="${cx}" y="${cy+12}" font-size="13" font-weight="500" text-anchor="middle" fill="#5f6a63">invested</text>`;
+// allocation gauge: rounded half ring. Gold = share in the S&P 500 (number in the centre), grey = T-bills (label beside it).
+{const cx=125,cy=120,r=104,sw=24,cap=(sw/2)/r/Math.PI,gap=0.012,
+ pt=f=>{const t=Math.PI*(1-f);return `${(cx+r*Math.cos(t)).toFixed(1)},${(cy-r*Math.sin(t)).toFixed(1)}`},
+ arc=(f0,f1,c)=>f1-f0>0.001?`<path d="M${pt(f0)} A${r} ${r} 0 0 1 ${pt(f1)}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>`:'';
+ let s=`<defs><linearGradient id="gold" x1="0" x2="1"><stop offset="0" stop-color="#b9a067"/><stop offset="1" stop-color="#8c6d2b"/></linearGradient></defs>`;
+ const a=HELD>=1?1-cap:HELD-gap/2-cap,b=HELD<=0?cap:HELD+gap/2+cap;
+ s+=arc(b,1-cap,'#dfe3da')+arc(cap,a,'url(#gold)');
+ s+=`<text x="${cx}" y="${cy-14}" font-size="50" font-weight="600" text-anchor="middle" fill="#303934" letter-spacing="-1.5">${Math.round(HELD*100)}%</text>`;
+ s+=`<text x="${cx}" y="${cy+10}" font-size="16" font-weight="500" text-anchor="middle" fill="#465349">S&amp;P 500</text>`;
  document.getElementById('g').innerHTML=s}
 </script></body></html>

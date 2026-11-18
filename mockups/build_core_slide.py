@@ -17,11 +17,13 @@ HERE = Path(__file__).resolve().parent
 STYLES = {
     'ic': dict(GREEN='#16A34A', RED='#DC2626', AMBER='#D97706', TRACK='#E5E9F0', MARK='#040C38', LAB='#475569',
                END='#94A3B8', GREY='#94A3B8', tpl='core_slide_template.html', out='us_gauge_slide.html',
-               name='US equities', W=268),
+               name='US equities', W=268, trend=('Trend', 'score 0–100 · switch at 45'),
+               earn=('Earnings', 'revisions, 3 months · switch at 0', '')),
     # herculis.ai tokens (market-herculis/quant-web/site/tokens.css): positive, negative, gold accent, text, muted, dim
     'herculis': dict(GREEN='#287451', RED='#a74950', AMBER='#8c6d2b', TRACK='#e4e8e1', MARK='#252d2a', LAB='#465349',
                      END='#727c75', GREY='#8597a0', tpl='core_slide_template_herculis.html', out='us_gauge_slide_herculis.html',
-                     name='S&amp;P 500', W=410),
+                     name='S&amp;P 500', W=410, trend=('Trend (DMAS)', 'switch at 45'),
+                     earn=('Earnings', '3-month revisions vs 5-year average · switch at 0', 'σ')),
 }
 GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY = (STYLES['ic'][k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY'))
 
@@ -107,9 +109,9 @@ def main():
                       f'breadth: up/down {n["breadth_ratio"]:.2f} (trigger 1.97)'))
     W = S['W']
     gauges = ''.join([
-        gauge('Trend', 'score 0–100 · switch at 45', f'{n["dmas"]:.0f}', 'ON' if trend_in else 'OFF', GREEN if trend_in else RED,
+        gauge(*S['trend'], f'{n["dmas"]:.0f}', 'ON' if trend_in else 'OFF', GREEN if trend_in else RED,
               bar(n['dmas'], 0, 100, GREEN if trend_in else RED, 45, '45', W)),
-        gauge('Earnings', 'revisions, 3 months · switch at 0', minus(f'{n["rev_z"]:+.1f}'), 'ON' if earn_in else 'OFF',
+        gauge(*S['earn'][:2], minus(f'{n["rev_z"]:+.1f}') + S['earn'][2], 'ON' if earn_in else 'OFF',
               GREEN if earn_in else RED, bar(n['rev_z'], -3, 3, GREEN if earn_in else RED, 0, '0', W)),
         gauge('Volatility', 'size = 15% ÷ volatility', f'{sig:.0%}', f'SIZE {want:.0%}',
               AMBER if n['target'] < 1 else GREEN, bar(sig * 100, 0, 40, AMBER if sig > .15 else GREEN, 15, '15%', W)),
