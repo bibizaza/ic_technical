@@ -750,6 +750,6 @@ to put it in the core.
 ### 11c. S and B at 100% during an episode (user decision, 2026-11-18)
 
 - Replaces the live vol size of S and B in 11b. F stays a 50% floor. Everything else as 11b.
-- Basis: US evidence at 100% on the plain trend rule: S 1955–2026, 7 episodes, 6 add value, 1 stop (Oct 1987, −8% vs base); B 1965–2026, pre-registered, 14/14 gates, 10 of 10 episodes positive. The six-market test (6L) failed; the user decided that non-US markets have their own structure and do not overrule US evidence (US-first).
+- Basis: US evidence at 100% on the plain trend rule: S 1955–2026, 7 episodes, 6 add value, 1 stop (Oct 1987, −8% vs base); B 1965–2026, pre-registered, 14/14 gates, 9 of 10 episodes add value (one +0.00%). The six-market test (6L) failed; the user decided that non-US markets have their own structure and do not overrule US evidence (US-first).
 - RESULTS_core.md row 6 (1999-02 → 2026-11-13): Sharpe 0.73, worst fall −20.1%; COVID rebound +31%, 2009 rebound +34%. The worst fall does not include any failed S or B episode (none since 1998). Expected cost of a 1987-type failure: about 8–10 points.
 - 1987 lesson: STOPS_s_2026-11-18.md. The stop was a retest of the low, not a new crash; the stop is kept because in other markets it avoided further falls in about half the cases.
