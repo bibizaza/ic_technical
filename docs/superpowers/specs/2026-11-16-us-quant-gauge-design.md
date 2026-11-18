@@ -773,3 +773,9 @@ to put it in the core.
 **Consequence (declared now).** PASS or too few → 11c stays. Fail on G2 or G4 only → S at max(live, 50%), B stays at 100%. Fail on G1 and G5 → S back to the live vol size, B stays at 100%. Any other combination → 11c stays, result recorded.
 
 **One run.** Results to `research/us_gauge/RESULTS_lus.md`. A vol-sized base (R0 x vol size, S-live vs S-full) is reported as information only.
+
+### 11d. Shock re-entry at a 50% floor (user decision, 2026-11-18)
+
+- Replaces 11c for S only: during a shock episode the weight is max(live vol size, 50%). B stays at 100%. F stays a 50% floor.
+- Basis: 6LU (S&P 1928–1954) had 4 episodes ("too few", so 11c would formally stay) but every gate went against S at 100%: stops in Oct 1929 (−22%) and Sep 1930 (−15%), worst fall −55% vs −46%. With the 1955–90 half also weak, the user locked the 50% floor. The user judges the 1928–54 market very different from today; the floor is a hedge against a 1929/1987-type retest, not a verdict on that period.
+- RESULTS_core.md row 6 (1999-02 → 2026-11-13): Sharpe 0.71, worst fall −20.1%, COVID rebound +21%, 2009 rebound +34%.
