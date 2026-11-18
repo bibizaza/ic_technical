@@ -1,6 +1,6 @@
 # ML sizing of the shock re-entry ("M") — design and pre-registration
 
-Draft by Fable 5.2, 2026-11-18. Design only: **nothing was fitted, no label or return after any event was
+Draft by Fable 5.2, 2026-11-18. **Approved by the user on 2026-11-18 ("Approve, build it"), before any run.** Design only: **nothing was fitted, no label or return after any event was
 computed.** Only event entry dates were counted (scratch `mlcount/count.py`, `count_gated.py`, read-only).
 To be committed before any feature or label file is built. Parent spec: `2026-11-16-us-quant-gauge-design.md` (11d core).
 
