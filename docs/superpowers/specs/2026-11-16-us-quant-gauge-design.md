@@ -779,3 +779,15 @@ to put it in the core.
 - Replaces 11c for S only: during a shock episode the weight is max(live vol size, 50%). B stays at 100%. F stays a 50% floor.
 - Basis: 6LU (S&P 1928–1954) had 4 episodes ("too few", so 11c would formally stay) but every gate went against S at 100%: stops in Oct 1929 (−22%) and Sep 1930 (−15%), worst fall −55% vs −46%. With the 1955–90 half also weak, the user locked the 50% floor. The user judges the 1928–54 market very different from today; the floor is a hedge against a 1929/1987-type retest, not a verdict on that period.
 - RESULTS_core.md row 6 (1999-02 → 2026-11-13): Sharpe 0.71, worst fall −20.1%, COVID rebound +21%, 2009 rebound +34%.
+
+### 6ST. Stress test on synthetic paths — method fixed before the run (2026-11-18)
+
+**Purpose.** Information, not a gate. See how the price-driven part of the core behaves in many crash histories that never happened, and how S at live / 50% floor / 100% compares.
+
+**Paths.** Stationary block bootstrap (geometric blocks, mean 63 trading days) of US daily S&P returns 1928-01 → 2026-11 (`GSPC.INDX` price change; dividends `SHILLER_SPX_DIV`/price/252 carried with each day). 1,000 paths of 30 years (7,560 days) plus 300 warm-up days, `default_rng(7)`.
+- World A: blocks start anywhere.
+- World B (crisis world): blocks start only in years with an S&P drawdown deeper than 20%: 1929–1932, 1937–1938, 1940–1942, 1946, 1962, 1966, 1969–1970, 1973–1974, 1987, 2000–2002, 2007–2009, 2020, 2022. 500 paths.
+
+**Rules on each path (price only: no earnings key, no VIX, no breadth).** Buy & hold; R0 (DMAS < 45 → cash, month lock, exit < 30, Tuesday); V = R0 x vol size (`v2_from_states`); V + S at live size; V + S at max(live, 50%) (the product, spec 11d); V + S at 100%. Trade t+1, earn t+2, 10 bp, cash 0%.
+
+**Report.** Per rule: median and 5th-percentile Sharpe, median and 5th-percentile (bad case) worst fall, the single worst fall, share of paths with a worst fall deeper than −30% and −40%, share of paths beating buy & hold on Sharpe. For S: episodes, share stopped, worst episode. Results: `research/us_gauge/RESULTS_stress_synth.md`. No rule is changed because of this run.
