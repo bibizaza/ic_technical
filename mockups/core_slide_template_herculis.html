@@ -100,11 +100,11 @@ const months=(H)=>{const m0={};let s='';D.dates.forEach((d,i)=>{const m=d.slice(
  let a=`${x(0)},${yw(0)} `,edge='';D.w.forEach((v,i)=>{if(v!==null){a+=`${x(i)},${yw(v)} `;edge+=`${x(i)},${yw(v)} `}});a+=`${x(n-1)},${yw(0)}`;
  s+=`<polygon points="${a}" fill="#b29a5e66"/><polyline fill="none" stroke="#a58b4e" stroke-width="1.5" points="${edge}"/>`;
  document.getElementById('e').innerHTML=s+months(H)}
-// allocation gauge: three-quarter ring. One light track, the S&P 500 share drawn on top in gold, number in the centre.
+// allocation gauge: three-quarter ring. One light track, the S&P 500 share drawn on top in gold, number in the centre ("75" over "% invested").
 {const cx=84,cy=80,r=70,sw=14,F=f=>{const t=(225-270*f)*Math.PI/180;return `${(cx+r*Math.cos(t)).toFixed(1)},${(cy-r*Math.sin(t)).toFixed(1)}`},
  arc=(f,c)=>f>0.002?`<path d="M${F(0)} A${r} ${r} 0 ${270*f>180?1:0} 1 ${F(f)}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>`:'';
  let s=arc(1,'#e7eae3')+arc(HELD,'#a58b4e');
- s+=`<text x="${cx}" y="${cy+8}" font-size="38" font-weight="600" text-anchor="middle" fill="#303934" letter-spacing="-1">${Math.round(HELD*100)}%</text>`;
- s+=`<text x="${cx}" y="${cy+34}" font-size="12" font-weight="600" text-anchor="middle" fill="#806329" letter-spacing="1.5">INVESTED</text>`;
+ s+=`<text x="${cx}" y="${cy+12}" font-size="46" font-weight="600" text-anchor="middle" fill="#303934" letter-spacing="-1.5">${Math.round(HELD*100)}</text>`;
+ s+=`<text x="${cx}" y="${cy+36}" font-size="15" font-weight="500" text-anchor="middle" fill="#5f6a63">% invested</text>`;
  document.getElementById('g').innerHTML=s}
 </script></body></html>

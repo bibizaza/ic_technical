@@ -22,7 +22,7 @@ STYLES = {
     # herculis.ai tokens (market-herculis/quant-web/site/tokens.css): positive, negative, gold accent, text, muted, dim
     'herculis': dict(GREEN='#287451', RED='#a74950', AMBER='#8c6d2b', TRACK='#e4e8e1', MARK='#252d2a', LAB='#465349',
                      END='#727c75', GREY='#8597a0', tpl='core_slide_template_herculis.html', out='us_gauge_slide_herculis.html',
-                     name='S&amp;P 500', W=410, trend=('Trend (DMAS)', 'switch at 45'),
+                     name='S&amp;P 500', W=410, trend=('Trend', 'switch at 45'),
                      earn=('Earnings', '3-month revisions vs 5-year average · switch at 0', 'σ')),
 }
 GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY = (STYLES['ic'][k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY'))
