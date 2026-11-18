@@ -240,3 +240,7 @@ done, count it as US test no. 23, and require placebo p ≤ 0.01.
 - The developed vs emerging split of the six L markets is post-hoc.
 - Episode guesses for 1928–1954 are from memory of the price history, not from a run. Nothing was computed on it.
 - I did not recompute any RESULTS file; the numbers in section 1 are copied from them.
+
+## Addendum 2026-11-18: ML sizing of the shock re-entry (spec 2026-11-18-ml-reentry-sizing-design.md, one run)
+
+Not adopted. Gate model (6-feature logistic): out-of-sample 2000–2026 AUC 0.563 (gate ≥ 0.60), permutation p 0.075 (gate ≤ 0.01); calibration slope 0.11; sizing skill K +0.005 (p 0.025, gate ≤ 0.01); product Sharpe better in only 4 of 21 markets; clean set AUC 0.564. Boosting challenger: no skill (AUC 0.511). The model did not beat its best single feature: "days from the low to the trigger" alone (AUC 0.635, K +0.0047; fast re-entries fail more). That single-feature finding was a design-time hint (STOPS memo, in-sample), so it may only return as a new pre-registration with new data or a live record. US 1987 scored p 0.32 (normal bucket): the model could not flag it. Class (b). File closed with these data. Results: RESULTS_ml.md.
