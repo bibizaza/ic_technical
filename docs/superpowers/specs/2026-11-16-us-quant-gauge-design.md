@@ -691,3 +691,10 @@ to put it in the core.
 - The keys (DMAS, revisions) keep the tested Tuesday rule (month lock, early exit only if DMAS < 30).
 - Info (RESULTS_core.md, same period 1999-02 → 2026-11-13): act next day Sharpe 0.70, worst fall −25.9%; wait for Wednesday 0.70 / −26.7%; keys read daily with month lock 0.70 / −19.9% (but 2013–2026 0.92 vs 1.01); keys read daily without lock 0.53 / −34.7% (rejected: too many false switches).
 - The 10-point threshold is a choice taken from the old month-start band. Not optimised.
+
+### 11b. Everything daily, sizes in 5-point steps (user decision, 2026-11-18)
+
+- Replaces 11a. The keys are read every trading day (daily DMAS + daily revision z). The month lock stays: the first trading day of the month sets the state; mid-month exit only if DMAS < 30. Without the lock the Sharpe falls to 0.53 (info row), so the lock is kept.
+- Desired weight rounded to the nearest 5 points. Trade next day if the gap is >= 10 points, or to/from cash.
+- RESULTS_core.md row 6 (1999-02 → 2026-11-13): Sharpe 0.69, +1108%, worst fall −20.1%. Not rounded: 0.70 / −19.9%. Keys on Tuesdays: 0.70 / −25.9% (stronger 2013–2026: 1.01 vs 0.90).
+- Slide: no back-test (it goes to herculis.ai). Chart shows the 200-day average. Re-entry rules shown with their current reading and trigger.

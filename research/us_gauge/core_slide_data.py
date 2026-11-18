@@ -82,43 +82,48 @@ def main():
         inputs = load_inputs()
     br = breadth()
     idx = inputs.index
-    gf = build_signals(inputs)
-    s1 = states(gf.loc['1993-04-01':].index, gf.cash_R1, gf.deep, gf.dmas, None)
-    w1, w2 = to_weights(idx, s1), v2_from_states(inputs, s1).reindex(idx)
+    gf = build_signals(inputs)                             # Tuesday keys: information rows only
     v = run_vol.target_weight(inputs.eq_ret)
     live = v.shift(2)
-    epf = f_episodes(idx, s1, inputs.vix, inputs.vix, inputs.px, .5, 30.)
-    wf = floor_weights(idx, list(zip(epf.i_entry, epf.i_end)), .5)
-    eps = shock_episodes(inputs.px, w1)
-    ws = layer(idx, eps, live)
     ratio = deemer_ratio(br.adv, br.dec)
-    epb = thrust_episodes(inputs.px, w1, thrust_days(ratio))
-    wb = layer(idx, epb, live)
-    core = pd.concat([w2, wf, ws, wb], axis=1).max(axis=1).where(w2.notna())
-    st_dec = s1.reindex(idx).ffill()                       # R1 state decided at each date (1 invested)
-    desired = pd.concat([st_dec * v, wf.shift(-2), ws.shift(-2), wb.shift(-2)], axis=1).max(axis=1)
-    wk = committee(idx, s1.index[idx.get_indexer(s1.index) + 2 < len(idx)], desired)
-    wc, held_now, trades = act_on_change(idx, desired)
-    # information only: the keys read every day (same month lock), and every day without the lock
+    td = thrust_days(ratio)
+    # ---- product keys: read every trading day; the month lock stays (first day of the month sets the state,
+    #      mid-month exit only if DMAS < 30). Without the lock the Sharpe falls to 0.53 (info row). ----
     days = idx[idx >= '1993-04-01']
     dm = pd.read_csv(ROOT / 'research/us_gauge/out/dmas_daily_1955.csv', index_col=0, parse_dates=True).iloc[:, 0].reindex(days)
     rz = rev_zscore(revisions(inputs.fy1, inputs.fy2, detect_rolls(inputs.fy1, inputs.fy2), window=63)).reindex(days)
     cash_d = (dm < 45) & (rz < 0)
-    td = thrust_days(ratio)
-    w_lock = act_on_change(idx, desired_from_states(inputs, states(days, cash_d, dm < 30, dm, None), v, live, td))[0]
+    s1 = states(days, cash_d, dm < 30, dm, None)
+    w1, w2 = to_weights(idx, s1), v2_from_states(inputs, s1).reindex(idx)
+    epf = f_episodes(idx, s1, inputs.vix, inputs.vix, inputs.px, .5, 30.)
+    wf = floor_weights(idx, list(zip(epf.i_entry, epf.i_end)), .5)
+    ws = layer(idx, shock_episodes(inputs.px, w1), live)
+    wb = layer(idx, thrust_episodes(inputs.px, w1, td), live)
+    core = pd.concat([w2, wf, ws, wb], axis=1).max(axis=1).where(w2.notna())
+    desired = pd.concat([s1.reindex(idx).ffill() * v, wf.shift(-2), ws.shift(-2), wb.shift(-2)], axis=1).max(axis=1)
+    desired5 = (desired * 20).round() / 20                 # sizes in steps of 5 points
+    wc, held_now, trades = act_on_change(idx, desired5)
+    w_raw = act_on_change(idx, desired)[0]
+    # ---- information rows: keys on Tuesdays only (the earlier rule), and daily keys without the month lock ----
+    s_tue = states(gf.loc['1993-04-01':].index, gf.cash_R1, gf.deep, gf.dmas, None)
+    d_tue = desired_from_states(inputs, s_tue, v, live, td)
+    w_tue = act_on_change(idx, d_tue)[0]
+    w_wed = committee(idx, s_tue.index[idx.get_indexer(s_tue.index) + 2 < len(idx)], d_tue)
     w_free = act_on_change(idx, desired_from_states(inputs, (~cash_d).astype(float), v, live, td))[0]
     r = net_returns(core, inputs.eq_ret, inputs.cash_ret).loc['1999-02-01':]
     bh = inputs.eq_ret.loc[r.index]
     cash = inputs.cash_ret.reindex(r.index)
     # ---- single source of truth: the product built step by step, same period, same execution ----
+    CORE = '6. CORE: daily, 5-pt sizes, trade next day if gap >= 10 pts'
     steps = {'S&P 500 buy & hold': None, '1. Keys only (100% or 0%)': w1, '2. + volatility sizing': w2,
              '3. + fear-over re-entry (F)': pd.concat([w2, wf], axis=1).max(axis=1).where(w2.notna()),
              '4. + shock re-entry (S-live)': pd.concat([w2, wf, ws], axis=1).max(axis=1).where(w2.notna()),
-             '5. + breadth re-entry (B), daily': core,
-             '6. CORE: act next day if gap >= 10 pts': wc,
-             'info: wait for Wednesday committee': wk,
-             'info: keys read daily, month lock': w_lock,
-             'info: keys read daily, no lock': w_free}
+             '5. + breadth re-entry (B)': core,
+             CORE: wc,
+             'info: same, sizes not rounded': w_raw,
+             'info: keys on Tuesdays, act next day': w_tue,
+             'info: keys on Tuesdays, wait for Wednesday': w_wed,
+             'info: keys daily, no month lock': w_free}
     rets = {k: (bh if wk is None else net_returns(wk, inputs.eq_ret, inputs.cash_ret).loc[r.index]) for k, wk in steps.items()}
     full_lab = f'Full {r.index[0]:%Y-%m} → {r.index[-1]:%Y-%m-%d}'
     wins = [(full_lab, None, None)] + [w_ for w_ in WINDOWS if not w_[0].startswith('FULL')]
@@ -144,26 +149,25 @@ def main():
     (ROOT / 'research/us_gauge/RESULTS_core.md').write_text('\n'.join(L))
     per = []
     for name, a, b in wins:
-        tc, sc, dc = stats(rets['6. CORE: act next day if gap >= 10 pts'].loc[a:b], cash)
+        tc, sc, dc = stats(rets[CORE].loc[a:b], cash)
         tb, sb, db = stats(bh.loc[a:b], cash)
         per.append(dict(window=name, core_total=tc, core_sharpe=sc, core_dd=dc, bh_total=tb, bh_sharpe=sb, bh_dd=db))
     y = idx[idx >= '2025-01-01']
     trades = [t_ for t_ in trades if t_['signal'] >= '2025-01-01']
     last = idx[-1]
-    dec = gf.loc['2025-01-01':]
     sig = inputs.eq_ret.rolling(21).std().iloc[-1] * np.sqrt(252)
     out = dict(
         asof=str(last.date()), breadth_asof=str(br.index[-1].date()),
         dates=[str(d.date()) for d in y], px=[round(float(p), 2) for p in inputs.px.loc[y]],
         w=[None if pd.isna(x) else round(float(x), 3) for x in wc.loc[y]],
         tgt=[None if pd.isna(x) else round(float(x), 3) for x in (v * (w1 > 0)).loc[y]],
-        dec=[dict(d=str(d.date()), dmas=int(round(rw.dmas)), rev=round(float(rw.rev_z), 2), cash=bool(rw.cash_R1)) for d, rw in dec.iterrows()],
         trades=trades,
-        now=dict(weight=float(held_now), in_force=float(wc.iloc[-1]), desired=float(desired.iloc[-1]), v2=float(w2.iloc[-1]), target=float(v.iloc[-1]), sigma21=float(sig),
-                 dmas=float(gf.dmas.iloc[-1]), rev_z=float(gf.rev_z.iloc[-1]), r1_cash=bool(gf.cash_R1.iloc[-1]),
+        ma200=[round(float(x), 2) for x in inputs.px.rolling(200).mean().loc[y]],
+        now=dict(weight=float(held_now), in_force=float(wc.iloc[-1]), desired=float(desired5.iloc[-1]), desired_raw=float(desired.iloc[-1]), v2=float(w2.iloc[-1]), target=float(v.iloc[-1]), sigma21=float(sig),
+                 dmas=float(dm.iloc[-1]), rev_z=float(rz.iloc[-1]), r1_cash=bool(cash_d.iloc[-1]), state=float(s1.iloc[-1]),
                  vix=float(inputs.vix.iloc[-1]), breadth_ratio=float(ratio.iloc[-1]),
                  fall_1y=float(1 - inputs.px.iloc[-1] / inputs.px.iloc[-252:].max()),
-                 last_decision=str(gf.index[-1].date()),
+                 last_decision=str(idx[-1].date()), shock_trigger=float(inputs.px.iloc[-252:].max() * .85),
                  f_on=bool(wf.iloc[-1] > 0), s_on=bool(ws.iloc[-1] > 0), b_on=bool(wb.iloc[-1] > 0)),
         periods=per, full_label=full_lab)
     (ROOT / 'mockups/core_slide_data.json').write_text(json.dumps(out))

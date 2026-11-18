@@ -12,12 +12,7 @@ body{width:1600px;height:1000px;font-family:Calibri,'Segoe UI',Arial,sans-serif;
 .chart{flex:1;padding:18px 24px;display:flex;flex-direction:column}
 .legend{display:flex;gap:28px;justify-content:center;font-size:15px;font-weight:700;margin-bottom:4px}
 .legend i{display:inline-block;width:26px;height:5px;border-radius:3px;vertical-align:middle;margin-right:7px}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th{font-size:13px;color:#64748B;font-weight:700;padding:4px;text-align:center;border-bottom:1px solid #E2E8F0}
-td{text-align:center;padding:5px 4px;font-size:18px;font-weight:700}
-td.l{text-align:left;font-size:14px;color:#64748B;width:80px}
-tr.g td:not(.l){color:#1B3A5A}
-.panel{width:500px;background:#F6F8FB;border-left:1px solid #E2E8F0;padding:22px 26px;display:flex;flex-direction:column;gap:14px}
+.panel{width:500px;background:#F6F8FB;border-left:1px solid #E2E8F0;padding:20px 26px;display:flex;flex-direction:column;gap:11px}
 .dec{background:var(--navy);color:#fff;border-radius:12px;padding:16px 20px;text-align:center}
 .dec small{display:block;font-size:13px;letter-spacing:2px;color:#C8D3E3}
 .dec b{display:block;font-size:44px;letter-spacing:1px;margin:4px 0 2px}
@@ -26,7 +21,8 @@ tr.g td:not(.l){color:#1B3A5A}
 .gh{display:flex;justify-content:space-between;align-items:flex-start}
 .gh b{font-size:18px}.gh small{display:block;font-size:13px;color:#64748B;margin-top:1px}
 .gv{text-align:right}.gv strong{font-size:24px;display:block;line-height:1}.gv span{font-size:13px;font-weight:700;letter-spacing:1px}
-.re{font-size:14px;color:#475569}.re b{color:var(--ink)}
+.re{font-size:14px;color:#475569}.re>b{color:var(--ink);font-size:15px}.re em{font-style:normal}
+.rr{display:flex;gap:10px;margin-top:4px}.rr b{width:78px;flex:none;color:var(--ink)}
 .src{position:absolute;left:72px;bottom:20px;font-size:15px;color:#8A97AD;font-weight:700}
 .draft{position:absolute;right:24px;top:100px;background:#FEF3C7;color:#92400E;font-weight:700;font-size:14px;padding:4px 10px;border-radius:4px}
 svg text{font-family:Calibri,'Segoe UI',Arial,sans-serif}
@@ -36,24 +32,24 @@ svg text{font-family:Calibri,'Segoe UI',Arial,sans-serif}
 <div class="head"><h2>{{HEAD}}</h2><p>{{LEAD}}</p></div>
 <div class="card">
  <div class="chart">
-  <div class="legend"><span><i style="background:var(--ink)"></i>S&amp;P 500 ({{PXLAST}})</span><span><i style="background:#9DC3E6;height:10px"></i>Share of the portfolio in the S&amp;P 500</span></div>
-  <svg id="c" width="908" height="440"></svg>
-  <table><tr><th></th>{{TH}}</tr><tr class="g"><td class="l">Gauge</td>{{TC}}</tr><tr><td class="l">S&amp;P 500</td>{{TB}}</tr></table>
+  <div class="legend"><span><i style="background:var(--ink)"></i>S&amp;P 500 ({{PXLAST}})</span><span><i style="background:#C9A227"></i>200-day average</span><span><i style="background:#9DC3E6;height:10px"></i>Share of the portfolio in the S&amp;P 500</span></div>
+  <svg id="c" width="908" height="590"></svg>
  </div>
  <div class="panel">
   <div class="dec"><small>COMMITTEE REVIEW · WEDNESDAY {{WED}}</small><b>{{VERB}}</b><span>S&amp;P 500 share · rest in T-bills<br>{{MOVE}}</span></div>
   {{GAUGES}}
-  <div class="re"><b>Early re-entry rules</b> (fear over, shock, breadth): {{RE}}.</div>
+  <div class="re"><b>Early re-entry</b> <em>({{RE}})</em>{{RER}}</div>
  </div>
 </div>
-<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Data to {{ASOF}}. Rule: when the target moves 10 points or more from our weight, we trade the next day; the committee reviews on Wednesday. Back-test 1999–2026, 10 bp costs; not a guarantee.</div>
+<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Data to {{ASOF}}. Signals read daily; a gap of 10 points or more is traded the next day; the committee reviews on Wednesday.</div>
 <script>
 const D={{DATA}};
-const svg=document.getElementById('c'),W=908,H=440,L=58,R=10,T=10,B=30,ph=260,wy=T+ph+34,wh=H-B-wy;
+const svg=document.getElementById('c'),W=908,H=590,L=58,R=10,T=10,B=30,ph=380,wy=T+ph+34,wh=H-B-wy;
 const n=D.dates.length,x=i=>L+i*(W-L-R)/(n-1);
-const lo=Math.min(...D.px)*0.97,hi=Math.max(...D.px)*1.01,y=v=>T+(hi-v)/(hi-lo)*ph;
+const mav=D.ma200.filter(v=>v!==null);const lo=Math.min(...D.px,...mav)*0.97,hi=Math.max(...D.px)*1.01,y=v=>T+(hi-v)/(hi-lo)*ph;
 let s='';
 for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#E2E8F0"/><text x="${L-8}" y="${y(v)+5}" font-size="13" font-weight="700" text-anchor="end" fill="#64748B">${Math.round(v).toLocaleString('en-US')}</text>`}
+s+=`<polyline fill="none" stroke="#C9A227" stroke-width="2.5" stroke-dasharray="7 5" points="${D.ma200.map((v,i)=>v===null?'':x(i)+','+y(v)).join(' ')}"/>`;
 s+=`<polyline fill="none" stroke="#040C38" stroke-width="2.5" points="${D.px.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
 const yw=v=>wy+(1-v)*wh;[0,0.5,1].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1="${yw(v)}" y2="${yw(v)}" stroke="#E2E8F0"/><text x="${L-8}" y="${yw(v)+5}" font-size="13" text-anchor="end" font-weight="700" fill="#64748B">${v*100}%</text>`});
 let a=`${x(0)},${yw(0)} `;D.w.forEach((v,i)=>{if(v!==null)a+=`${x(i)},${yw(v)} `});a+=`${x(n-1)},${yw(0)}`;

@@ -38,8 +38,6 @@ def wednesday_after(d: date) -> date:
 def main():
     D = json.loads((HERE / 'core_slide_data.json').read_text())
     n = D['now']
-    P = {p['window']: p for p in D['periods']}
-    full = P[D['full_label']]
     trend_in, earn_in = n['dmas'] >= 45, n['rev_z'] >= 0
     held, want = n['weight'], n['desired']
     wed = wednesday_after(date.fromisoformat(D['asof']))
@@ -66,7 +64,11 @@ def main():
                    else f'{why_vol}.')
     if last and verb == 'HOLD':
         lead += f' Last trade: {fmt(last["trade"])}, {last["frm"]:.0%} → {last["to"]:.0%}.'
-    st = 'ACTIVE' if held == 0 else 'standby, used only while in cash'
+    st = 'ACTIVE' if n['state'] == 0 else 'standby, used only in cash'
+    re_rows = ''.join(f'<div class="rr"><b>{k}</b><span>{v}</span></div>' for k, v in (
+        ('Fear over', f'VIX {n["vix"]:.0f} · trigger: half its peak and below 30'),
+        ('Shock', minus(f'{-n["fall_1y"]:.0%} from 1-year high · trigger: −15%, then +10%')),
+        ('Breadth', f'up/down ratio {n["breadth_ratio"]:.2f} · trigger: above 1.97')))
     gauges = ''.join([
         gauge('Trend', 'trend score 0–100 · switch at 45', f'{n["dmas"]:.0f}', 'ON' if trend_in else 'OFF', GREEN if trend_in else RED,
               bar(n['dmas'], 0, 100, GREEN if trend_in else RED, 45, '45')),
@@ -75,18 +77,11 @@ def main():
         gauge('Volatility', 'size = 15% ÷ volatility, at most 100%', f'{n["sigma21"]:.0%}', f'TARGET {want:.0%}',
               AMBER if n['target'] < 1 else GREEN, bar(n['sigma21'] * 100, 0, 40, AMBER if n['sigma21'] > .15 else GREEN, 15, '15%')),
     ])
-    cols = [('2008 crisis', '2008 crisis 2007-10 to 2009-03'), ('2022', '2022 full year'),
-            ('COVID rebound', 'COVID rebound 24 Mar-31 Aug 2020'), ('2025', '2025 full year')]
-    th = ''.join(f'<th>{a}</th>' for a, _ in cols) + '<th>Sharpe 1999–2026</th><th>Worst fall</th>'
-    tc = (''.join(f'<td>{minus(f"{P[k]['core_total']:+.0%}")}</td>' for _, k in cols)
-          + f'<td>{full["core_sharpe"]:.2f}</td><td>{minus(f"{full['core_dd']:.0%}")}</td>')
-    tb = (''.join(f'<td>{minus(f"{P[k]['bh_total']:+.0%}")}</td>' for _, k in cols)
-          + f'<td>{full["bh_sharpe"]:.2f}</td><td>{minus(f"{full['bh_dd']:.0%}")}</td>')
     asof = '/'.join(reversed(D['asof'].split('-')))
-    data = json.dumps({k: D[k] for k in ('dates', 'px', 'w')})
+    data = json.dumps({k: D[k] for k in ('dates', 'px', 'w', 'ma200')})
     html = (HERE / 'core_slide_template.html').read_text()
     for k, v in dict(MOVE=move, HEAD=head, LEAD=lead, PXLAST=f'{D["px"][-1]:,.0f}', WED=wtxt, VERB=f'{verb} · {held:.0%}', HELD=f'{held:.0%}',
-                     GAUGES=gauges, RE=st, TH=th, TC=tc, TB=tb, ASOF=asof, DATA=data).items():
+                     GAUGES=gauges, RE=st, RER=re_rows, ASOF=asof, DATA=data).items():
         html = html.replace('{{' + k + '}}', v)
     (HERE / 'us_gauge_slide.html').write_text(html)
     print('written', HERE / 'us_gauge_slide.html', '|', verb, f'{held:.0%}', '| target', f'{want:.0%}')
