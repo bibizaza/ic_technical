@@ -1,4 +1,4 @@
-"""Data for the core slide (spec section 11): core = 100% S&P 500 x max(V2, F floor, S-live, B).
+"""Data for the core slide (spec 11c): core = 100% S&P 500 x max(keys x vol size, F floor, S at 100%, B at 100%).
 
 Writes mockups/core_slide_data.json: 2026 daily price and weight, Tuesday decisions, current state of every
 layer, and back-test stats of the core vs buy and hold by period (1999-02 → last day, daily, 10 bp).
@@ -66,7 +66,7 @@ def act_on_change(index, desired, band=.10):
 
 
 def desired_from_states(inputs, s1, v, live, td):
-    """Desired weight on each signal day: max(key state x v, F floor, S-live, B), and the daily layers."""
+    """Desired weight on each signal day: max(key state x v, F floor, S, B); S and B sized by `live` (a series)."""
     idx = inputs.index
     w1 = to_weights(idx, s1)
     epf = f_episodes(idx, s1, inputs.vix, inputs.vix, inputs.px, .5, 30.)
@@ -85,6 +85,7 @@ def main():
     gf = build_signals(inputs)                             # Tuesday keys: information rows only
     v = run_vol.target_weight(inputs.eq_ret)
     live = v.shift(2)
+    full = pd.Series(1., index=idx)                       # spec 11c: S and B at 100% during an episode
     ratio = deemer_ratio(br.adv, br.dec)
     td = thrust_days(ratio)
     # ---- product keys: read every trading day; the month lock stays (first day of the month sets the state,
@@ -97,8 +98,9 @@ def main():
     w1, w2 = to_weights(idx, s1), v2_from_states(inputs, s1).reindex(idx)
     epf = f_episodes(idx, s1, inputs.vix, inputs.vix, inputs.px, .5, 30.)
     wf = floor_weights(idx, list(zip(epf.i_entry, epf.i_end)), .5)
-    ws = layer(idx, shock_episodes(inputs.px, w1), live)
-    wb = layer(idx, thrust_episodes(inputs.px, w1, td), live)
+    eps_s, eps_b = shock_episodes(inputs.px, w1), thrust_episodes(inputs.px, w1, td)
+    ws, wb = layer(idx, eps_s, full), layer(idx, eps_b, full)
+    w_live = act_on_change(idx, (desired_from_states(inputs, s1, v, live, td) * 20).round() / 20)[0]
     core = pd.concat([w2, wf, ws, wb], axis=1).max(axis=1).where(w2.notna())
     desired = pd.concat([s1.reindex(idx).ffill() * v, wf.shift(-2), ws.shift(-2), wb.shift(-2)], axis=1).max(axis=1)
     desired5 = (desired * 20).round() / 20                 # sizes in steps of 5 points
@@ -106,10 +108,10 @@ def main():
     w_raw = act_on_change(idx, desired)[0]
     # ---- information rows: keys on Tuesdays only (the earlier rule), and daily keys without the month lock ----
     s_tue = states(gf.loc['1993-04-01':].index, gf.cash_R1, gf.deep, gf.dmas, None)
-    d_tue = desired_from_states(inputs, s_tue, v, live, td)
+    d_tue = desired_from_states(inputs, s_tue, v, full, td)
     w_tue = act_on_change(idx, d_tue)[0]
     w_wed = committee(idx, s_tue.index[idx.get_indexer(s_tue.index) + 2 < len(idx)], d_tue)
-    w_free = act_on_change(idx, desired_from_states(inputs, (~cash_d).astype(float), v, live, td))[0]
+    w_free = act_on_change(idx, desired_from_states(inputs, (~cash_d).astype(float), v, full, td))[0]
     r = net_returns(core, inputs.eq_ret, inputs.cash_ret).loc['1999-02-01':]
     bh = inputs.eq_ret.loc[r.index]
     cash = inputs.cash_ret.reindex(r.index)
@@ -117,10 +119,11 @@ def main():
     CORE = '6. CORE: daily, 5-pt sizes, trade next day if gap >= 10 pts'
     steps = {'S&P 500 buy & hold': None, '1. Keys only (100% or 0%)': w1, '2. + volatility sizing': w2,
              '3. + fear-over re-entry (F)': pd.concat([w2, wf], axis=1).max(axis=1).where(w2.notna()),
-             '4. + shock re-entry (S-live)': pd.concat([w2, wf, ws], axis=1).max(axis=1).where(w2.notna()),
-             '5. + breadth re-entry (B)': core,
+             '4. + shock re-entry (S, 100%)': pd.concat([w2, wf, ws], axis=1).max(axis=1).where(w2.notna()),
+             '5. + breadth re-entry (B, 100%)': core,
              CORE: wc,
              'info: same, sizes not rounded': w_raw,
+             'info: S and B at live vol size (spec 11b)': w_live,
              'info: keys on Tuesdays, act next day': w_tue,
              'info: keys on Tuesdays, wait for Wednesday': w_wed,
              'info: keys daily, no month lock': w_free}

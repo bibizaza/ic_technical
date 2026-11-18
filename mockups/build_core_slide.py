@@ -66,9 +66,9 @@ def main():
         lead += f' Last trade: {fmt(last["trade"])}, {last["frm"]:.0%} → {last["to"]:.0%}.'
     st = 'ACTIVE' if n['state'] == 0 else 'standby, used only in cash'
     re_rows = ''.join(f'<div class="rr"><b>{k}</b><span>{v}</span></div>' for k, v in (
-        ('Fear over', f'VIX {n["vix"]:.0f} · trigger: half its peak and below 30'),
-        ('Shock', minus(f'{-n["fall_1y"]:.0%} from 1-year high · trigger: −15%, then +10%')),
-        ('Breadth', f'up/down ratio {n["breadth_ratio"]:.2f} · trigger: above 1.97')))
+        ('Fear over', f'VIX {n["vix"]:.0f} · back to 50% at half its peak, below 30'),
+        ('Shock', minus(f'{-n["fall_1y"]:.0%}') + ' from 1-year high · back to 100% after −15%, +10%'),
+        ('Breadth', f'up/down ratio {n["breadth_ratio"]:.2f} · back to 100% above 1.97')))
     gauges = ''.join([
         gauge('Trend', 'trend score 0–100 · switch at 45', f'{n["dmas"]:.0f}', 'ON' if trend_in else 'OFF', GREEN if trend_in else RED,
               bar(n['dmas'], 0, 100, GREEN if trend_in else RED, 45, '45')),
