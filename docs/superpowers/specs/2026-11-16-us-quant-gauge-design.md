@@ -753,3 +753,23 @@ to put it in the core.
 - Basis: US evidence at 100% on the plain trend rule: S 1955–2026, 7 episodes, 6 add value, 1 stop (Oct 1987, −8% vs base); B 1965–2026, pre-registered, 14/14 gates, 9 of 10 episodes add value (one +0.00%). The six-market test (6L) failed; the user decided that non-US markets have their own structure and do not overrule US evidence (US-first).
 - RESULTS_core.md row 6 (1999-02 → 2026-11-13): Sharpe 0.73, worst fall −20.1%; COVID rebound +31%, 2009 rebound +34%. The worst fall does not include any failed S or B episode (none since 1998). Expected cost of a 1987-type failure: about 8–10 points.
 - 1987 lesson: STOPS_s_2026-11-18.md. The stop was a retest of the low, not a new crash; the stop is kept because in other markets it avoided further falls in about half the cases.
+
+### 6LU. L-US: shock re-entry at 100% on S&P 500 1928–1954 — pre-registration (2026-11-18, before any run)
+
+**Why.** S at 100% (spec 11c) has weak US support (1955–90 half fails; gain near zero without 2020 and 2025). S&P 1928–1954 has never been used for S, R0 or DMAS (REJECTED_fable_2026-11-18.md, rank 1).
+
+**Data (read-only).** `GSPC.INDX` closes 1927-12-30 → 1954-12-31. Equity return = price change + `SHILLER_SPX_DIV`/price/252 (as data.py). Cash = 0% (no T-bill series before 1954 in the store; fixed now). 10 bp per unit traded.
+
+**Rule (unchanged code).** Base R0: `gauge.dmas_on` on the closes, decision days `run_p.decision_days` from 252 trading days after the first close, cash if DMAS < 45, month lock, mid-month exit if DMAS < 30 (`run_fast.states`), binary weight (`to_weights`). Episodes: `run_s.shock_episodes` on the R0 weight in force. R0+S = max(R0, 1) during an episode. Main schedule Tuesday (W-TUE).
+
+**Gates (one run).**
+- G1. Sharpe(R0+S) > Sharpe(R0) on the Tuesday schedule AND on the mean of the five weekday schedules (W-MON … W-FRI).
+- G2. Worst fall of R0+S no more than 3 points deeper than R0 (Tuesday).
+- G3. More than half of the episodes positive (index total return over the earn days > 0), Tuesday.
+- G4. Worst single episode index return >= −15%, Tuesday.
+- G5. Placebo: `run_s.placebo_spans`, 1,000 draws, `default_rng(7)`, same episode count, at 100%; p = share of placebo Sharpe >= real Sharpe(R0+S); pass if p <= 0.10. Tuesday.
+- Fewer than 5 Tuesday episodes → "too few to conclude".
+
+**Consequence (declared now).** PASS or too few → 11c stays. Fail on G2 or G4 only → S at max(live, 50%), B stays at 100%. Fail on G1 and G5 → S back to the live vol size, B stays at 100%. Any other combination → 11c stays, result recorded.
+
+**One run.** Results to `research/us_gauge/RESULTS_lus.md`. A vol-sized base (R0 x vol size, S-live vs S-full) is reported as information only.
