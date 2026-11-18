@@ -16,10 +16,12 @@ HERE = Path(__file__).resolve().parent
 # colours used inside the builder's SVG/HTML snippets; the rest of each look lives in its template
 STYLES = {
     'ic': dict(GREEN='#16A34A', RED='#DC2626', AMBER='#D97706', TRACK='#E5E9F0', MARK='#040C38', LAB='#475569',
-               END='#94A3B8', GREY='#94A3B8', tpl='core_slide_template.html', out='us_gauge_slide.html'),
+               END='#94A3B8', GREY='#94A3B8', tpl='core_slide_template.html', out='us_gauge_slide.html',
+               name='US equities', W=268),
     # herculis.ai tokens (market-herculis/quant-web/site/tokens.css): positive, negative, gold accent, text, muted, dim
     'herculis': dict(GREEN='#287451', RED='#a74950', AMBER='#8c6d2b', TRACK='#e4e8e1', MARK='#252d2a', LAB='#465349',
-                     END='#727c75', GREY='#8597a0', tpl='core_slide_template_herculis.html', out='us_gauge_slide_herculis.html'),
+                     END='#727c75', GREY='#8597a0', tpl='core_slide_template_herculis.html', out='us_gauge_slide_herculis.html',
+                     name='S&amp;P 500', W=410),
 }
 GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY = (STYLES['ic'][k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY'))
 
@@ -70,7 +72,7 @@ def main():
     else:
         move = f'No trade since the last committee. Last trade: {fmt(last["trade"])}, {last["frm"]:.0%} → {last["to"]:.0%}.' if last else 'No trade yet.'
     sig = n['sigma21']
-    head = f'US equities: {"hold" if verb == "HOLD" else "now"} {held:.0%} invested'
+    head = f'{S["name"]}: {"hold" if verb == "HOLD" else "now"} {held:.0%} invested'
     keys = ('Trend weak, but analysts still raise earnings: we stay invested. ' if not trend_in and earn_in else
             'Trend and earnings both positive: we stay invested. ' if trend_in and earn_in else
             'Trend positive: we stay invested. ' if trend_in else 'Trend and earnings both negative: we are in cash. ')
@@ -103,7 +105,7 @@ def main():
     st = 'active' if held == 0 else 'standby, used only in cash'
     rer = ' · '.join((f'fear over: VIX {n["vix"]:.0f}', 'shock: ' + minus(f'{-n["fall_1y"]:.0%}') + ' from 1-year high',
                       f'breadth: up/down {n["breadth_ratio"]:.2f} (trigger 1.97)'))
-    W = 268
+    W = S['W']
     gauges = ''.join([
         gauge('Trend', 'score 0–100 · switch at 45', f'{n["dmas"]:.0f}', 'ON' if trend_in else 'OFF', GREEN if trend_in else RED,
               bar(n['dmas'], 0, 100, GREEN if trend_in else RED, 45, '45', W)),
