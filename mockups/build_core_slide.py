@@ -48,40 +48,59 @@ def main():
     new = [t for t in T if t['trade'] > str(prev_wed) or not t['trade'][0].isdigit()]
     last = T[-1] if T else None
     verb = 'HOLD' if not new else ('TRADED' if new[-1]['trade'][0].isdigit() else 'TRADE TOMORROW')
-    lo_, hi_ = max(held - .10, 0), min(held + .10, 1)
     if new:
-        move = ' · '.join(f'{fmt(t["trade"]) if t["trade"][0].isdigit() else "next day"}: {t["frm"]:.0%} → {t["to"]:.0%}' for t in new)
+        move = ' · '.join(f'Traded {fmt(t["trade"]) if t["trade"][0].isdigit() else "next day"}: {t["frm"]:.0%} → {t["to"]:.0%}' for t in new)
     else:
-        move = (f'No trade since the last committee · next trade if the target goes below {lo_:.0%}'
-                + (f' or above {hi_:.0%}' if hi_ < 1 else ''))
-    head = f'S&amp;P 500: hold at {held:.0%}' if verb == 'HOLD' else f'S&amp;P 500: now at {held:.0%}'
-    why_vol = (f'Volatility is {n["sigma21"]:.0%}, so the target is {want:.0%}' if n['sigma21'] > .15
-               else f'Volatility is low, so the target is {want:.0%}')
-    keys = ('The trend is weak, but analysts are still raising earnings, so we stay invested. ' if not trend_in and earn_in else
-            'Trend and earnings are both positive. ' if trend_in and earn_in else
-            'The trend is positive. ' if trend_in else 'Trend and earnings are both negative. ')
-    lead = keys + (f'{why_vol}: less than 10 points from our {held:.0%}, so no trade.' if abs(want - held) < .10
-                   else f'{why_vol}.')
-    if last and verb == 'HOLD':
-        lead += f' Last trade: {fmt(last["trade"])}, {last["frm"]:.0%} → {last["to"]:.0%}.'
-    st = 'ACTIVE' if n['state'] == 0 else 'standby, used only in cash'
-    re_rows = ''.join(f'<div class="rr"><b>{k}</b><span>{v}</span></div>' for k, v in (
-        ('Fear over', f'VIX {n["vix"]:.0f} · back to 50% at half its peak, below 30'),
-        ('Shock', minus(f'{-n["fall_1y"]:.0%}') + ' from 1-year high · back to 100% after −15%, +10%'),
-        ('Breadth', f'up/down ratio {n["breadth_ratio"]:.2f} · back to 100% above 1.97')))
+        move = f'No trade since the last committee. Last trade: {fmt(last["trade"])}, {last["frm"]:.0%} → {last["to"]:.0%}.' if last else 'No trade yet.'
+    sig = n['sigma21']
+    head = f'US equities: {"hold" if verb == "HOLD" else "now"} {held:.0%} invested'
+    keys = ('Trend weak, but analysts still raise earnings: we stay invested. ' if not trend_in and earn_in else
+            'Trend and earnings both positive: we stay invested. ' if trend_in and earn_in else
+            'Trend positive: we stay invested. ' if trend_in else 'Trend and earnings both negative: we are in cash. ')
+    lead = keys + (f'Volatility of {sig:.0%} keeps the size below 100%.' if held and sig > .15 else '')
+    # what would make us trade (5-point rounding, 10-point gap)
+    first = (date.fromisoformat(D['asof']).replace(day=1) + timedelta(days=32)).replace(day=1)
+    while first.weekday() > 4:
+        first += timedelta(days=1)
+    fday = f'{first.day} {first.strftime("%b")}'
+    ic = lambda c, t: f'<div class="ic" style="background:{c}">{t}</div>'
+    rows = []
+    if held > 0:
+        if held - .10 >= .05:
+            s_cut = .15 / (held - .075)
+            near = ' class="near"' if s_cut - sig < .01 else ''
+            rows.append((ic(AMBER, '↓'), f'Cut to {held - .10:.0%} or less',
+                         f'if volatility rises above <em{near}>{s_cut:.1%}</em> (now {sig:.1%})'))
+        if held + .10 <= 1.0001:
+            s_add = .15 / (held + .075)
+            rows.append((ic(GREEN, '↑'), f'Raise to {held + .10:.0%} or more', f'if volatility falls below <em>{s_add:.1%}</em> (now {sig:.1%})'))
+        rows.append((ic(RED, '✕'), 'Go to cash',
+                     f'on {fday} if trend &lt; 45 <em>and</em> earnings &lt; 0 (now {n["dmas"]:.0f} and {minus(f"{n["rev_z"]:+.1f}")}); '
+                     'any day if trend &lt; 30 and earnings &lt; 0'))
+    else:
+        rows.append((ic(GREEN, '↑'), 'Buy back', f'on {fday} if trend ≥ 45 or earnings ≥ 0, or earlier on a re-entry signal'))
+    if held > 0:
+        rows.append((ic('#94A3B8', '↺'), 'Early buy-back rules: standby',
+                     f'used only in cash. Today: VIX {n["vix"]:.0f}, ' + minus(f'{-n["fall_1y"]:.0%}') + f' from the 1‑year high, breadth {n["breadth_ratio"]:.2f} (trigger 1.97)'))
+    trig = ''.join(f'<div class="tr">{i}<div><b>{t}</b><span>{d}</span></div></div>' for i, t, d in rows)
+    st = 'active' if held == 0 else 'standby, used only in cash'
+    rer = ' · '.join((f'fear over: VIX {n["vix"]:.0f}', 'shock: ' + minus(f'{-n["fall_1y"]:.0%}') + ' from 1-year high',
+                      f'breadth: up/down {n["breadth_ratio"]:.2f} (trigger 1.97)'))
+    W = 268
     gauges = ''.join([
-        gauge('Trend', 'trend score 0–100 · switch at 45', f'{n["dmas"]:.0f}', 'ON' if trend_in else 'OFF', GREEN if trend_in else RED,
-              bar(n['dmas'], 0, 100, GREEN if trend_in else RED, 45, '45')),
-        gauge('Earnings', 'analysts’ revisions, 3 months · switch at 0', minus(f'{n["rev_z"]:+.1f}'), 'ON' if earn_in else 'OFF',
-              GREEN if earn_in else RED, bar(n['rev_z'], -3, 3, GREEN if earn_in else RED, 0, '0')),
-        gauge('Volatility', 'size = 15% ÷ volatility, at most 100%', f'{n["sigma21"]:.0%}', f'TARGET {want:.0%}',
-              AMBER if n['target'] < 1 else GREEN, bar(n['sigma21'] * 100, 0, 40, AMBER if n['sigma21'] > .15 else GREEN, 15, '15%')),
+        gauge('Trend', 'score 0–100 · switch at 45', f'{n["dmas"]:.0f}', 'ON' if trend_in else 'OFF', GREEN if trend_in else RED,
+              bar(n['dmas'], 0, 100, GREEN if trend_in else RED, 45, '45', W)),
+        gauge('Earnings', 'revisions, 3 months · switch at 0', minus(f'{n["rev_z"]:+.1f}'), 'ON' if earn_in else 'OFF',
+              GREEN if earn_in else RED, bar(n['rev_z'], -3, 3, GREEN if earn_in else RED, 0, '0', W)),
+        gauge('Volatility', 'size = 15% ÷ volatility', f'{sig:.0%}', f'SIZE {want:.0%}',
+              AMBER if n['target'] < 1 else GREEN, bar(sig * 100, 0, 40, AMBER if sig > .15 else GREEN, 15, '15%', W)),
     ])
     asof = '/'.join(reversed(D['asof'].split('-')))
     data = json.dumps({k: D[k] for k in ('dates', 'px', 'w', 'ma200')})
     html = (HERE / 'core_slide_template.html').read_text()
-    for k, v in dict(MOVE=move, HEAD=head, LEAD=lead, PXLAST=f'{D["px"][-1]:,.0f}', WED=wtxt, VERB=f'{verb} · {held:.0%}', HELD=f'{held:.0%}',
-                     GAUGES=gauges, RE=st, RER=re_rows, ASOF=asof, DATA=data).items():
+    for k, v in dict(MOVE=move, HEAD=head, LEAD=lead, PXLAST=f'{D["px"][-1]:,.0f}', WED=wtxt.upper(), VERB=verb, HELD=f'{held:.0%}',
+                     HELDW=f'{held * 100:.0f}', CASHW=f'{1 - held:.0%}', TRIG=trig,
+                     GAUGES=gauges, RE=st, RER=rer, ASOF=asof, DATA=data).items():
         html = html.replace('{{' + k + '}}', v)
     (HERE / 'us_gauge_slide.html').write_text(html)
     print('written', HERE / 'us_gauge_slide.html', '|', verb, f'{held:.0%}', '| target', f'{want:.0%}')

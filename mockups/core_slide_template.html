@@ -1,50 +1,74 @@
 <!doctype html><html><head><meta charset="utf-8"><title>US Equity Gauge</title>
 <style>
-:root{--navy:#1B3A5A;--ink:#040C38;--sky:#00AEEF;--gold:#C9A227}
+:root{--navy:#1B3A5A;--ink:#040C38;--sky:#00AEEF;--gold:#C9A227;--mute:#64748B;--line:#E2E8F0;--soft:#F6F8FB;--green:#16A34A;--red:#DC2626;--amber:#D97706}
 *{box-sizing:border-box;margin:0;padding:0}
 body{width:1600px;height:1000px;font-family:Calibri,'Segoe UI',Arial,sans-serif;background:#fff;color:var(--ink);position:relative;overflow:hidden}
 .top{height:86px;background:var(--navy);border-bottom:3px solid var(--gold);display:flex;align-items:center;padding-left:26px}
 .top h1{color:#fff;font-style:italic;font-size:46px;font-weight:700}
-.head{margin:44px 0 0 72px;border-left:4px solid var(--gold);padding-left:22px}
-.head h2{color:var(--sky);font-size:42px;font-weight:700}
-.head p{font-size:23px;font-weight:700;margin-top:12px;max-width:1360px;line-height:1.3}
-.card{position:absolute;left:72px;top:290px;width:1456px;height:650px;border:1px solid #D9DEE7;border-radius:12px;overflow:hidden;display:flex}
-.chart{flex:1;padding:18px 24px;display:flex;flex-direction:column}
-.legend{display:flex;gap:28px;justify-content:center;font-size:15px;font-weight:700;margin-bottom:4px}
-.legend i{display:inline-block;width:26px;height:5px;border-radius:3px;vertical-align:middle;margin-right:7px}
-.panel{width:500px;background:#F6F8FB;border-left:1px solid #E2E8F0;padding:20px 26px;display:flex;flex-direction:column;gap:11px}
-.dec{background:var(--navy);color:#fff;border-radius:12px;padding:16px 20px;text-align:center}
-.dec small{display:block;font-size:13px;letter-spacing:2px;color:#C8D3E3}
-.dec b{display:block;font-size:44px;letter-spacing:1px;margin:4px 0 2px}
-.dec span{font-size:15px;color:#C8D3E3;line-height:1.4}
-.gg{background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:10px 16px 4px}
-.gh{display:flex;justify-content:space-between;align-items:flex-start}
-.gh b{font-size:18px}.gh small{display:block;font-size:13px;color:#64748B;margin-top:1px}
-.gv{text-align:right}.gv strong{font-size:24px;display:block;line-height:1}.gv span{font-size:13px;font-weight:700;letter-spacing:1px}
-.re{font-size:14px;color:#475569}.re>b{color:var(--ink);font-size:15px}.re em{font-style:normal}
-.rr{display:flex;gap:10px;margin-top:4px}.rr b{width:78px;flex:none;color:var(--ink)}
-.src{position:absolute;left:72px;bottom:20px;font-size:15px;color:#8A97AD;font-weight:700}
 .draft{position:absolute;right:24px;top:100px;background:#FEF3C7;color:#92400E;font-weight:700;font-size:14px;padding:4px 10px;border-radius:4px}
+.head{margin:36px 0 0 72px;border-left:4px solid var(--gold);padding-left:22px}
+.head h2{color:var(--sky);font-size:44px;font-weight:700;line-height:1.05}
+.head p{font-size:22px;font-weight:700;margin-top:10px;max-width:1300px;line-height:1.3}
+.body{position:absolute;left:72px;top:262px;width:1456px;height:672px;display:flex;gap:24px}
+.left{width:470px;display:flex;flex-direction:column;gap:16px}
+.dec{background:var(--navy);color:#fff;border-radius:14px;padding:20px 26px}
+.dec small{display:block;font-size:14px;letter-spacing:2px;color:#C8D3E3;font-weight:700}
+.dec .row{display:flex;align-items:baseline;gap:18px;margin-top:6px}
+.dec b{font-size:64px;line-height:1;letter-spacing:1px}
+.dec .pct{font-size:64px;font-weight:700;color:var(--gold);line-height:1}
+.dec .mix{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:16px 0 8px}
+.dec .mix i{display:block;height:100%}
+.dec .leg{display:flex;justify-content:space-between;font-size:16px;color:#C8D3E3;font-weight:700}
+.dec .last{margin-top:10px;font-size:15px;color:#C8D3E3}
+.trig{border:1px solid var(--line);border-radius:14px;padding:16px 22px;flex:1;display:flex;flex-direction:column}
+.trig h3{font-size:19px;margin-bottom:6px}
+.tr{display:flex;gap:14px;align-items:flex-start;padding:11px 0;border-top:1px solid var(--line)}
+.tr:first-of-type{border-top:none}
+.ic{width:34px;height:34px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px}
+.tr b{display:block;font-size:18px}
+.tr span{display:block;font-size:15px;color:#475569;margin-top:2px;line-height:1.3}
+.tr em{font-style:normal;font-weight:700}
+.near{color:var(--amber)}
+.re{font-size:14px;color:#475569;line-height:1.35;padding:0 4px}
+.re b{color:var(--ink)}
+.right{flex:1;display:flex;flex-direction:column;gap:14px}
+.chart{border:1px solid var(--line);border-radius:14px;padding:12px 18px 6px;flex:1}
+.legend{display:flex;gap:26px;justify-content:center;font-size:15px;font-weight:700;margin-bottom:2px}
+.legend i{display:inline-block;width:26px;height:5px;border-radius:3px;vertical-align:middle;margin-right:7px}
+.sig{display:flex;gap:14px}
+.gg{flex:1;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px 14px 2px}
+.gh{display:flex;justify-content:space-between;align-items:flex-start}
+.gh b{font-size:17px}.gh small{display:block;font-size:12.5px;color:var(--mute);margin-top:1px}
+.gv{text-align:right}.gv strong{font-size:24px;display:block;line-height:1}.gv span{font-size:12.5px;font-weight:700;letter-spacing:1px}
+.src{position:absolute;left:72px;bottom:18px;font-size:14px;color:#8A97AD;font-weight:700}
 svg text{font-family:Calibri,'Segoe UI',Arial,sans-serif}
 </style></head><body>
 <div class="top"><h1>Equities</h1></div>
 <div class="draft">DRAFT — for discussion</div>
 <div class="head"><h2>{{HEAD}}</h2><p>{{LEAD}}</p></div>
-<div class="card">
- <div class="chart">
-  <div class="legend"><span><i style="background:var(--ink)"></i>S&amp;P 500 ({{PXLAST}})</span><span><i style="background:#C9A227"></i>200-day average</span><span><i style="background:#9DC3E6;height:10px"></i>Share of the portfolio in the S&amp;P 500</span></div>
-  <svg id="c" width="908" height="590"></svg>
+<div class="body">
+ <div class="left">
+  <div class="dec">
+   <small>COMMITTEE · WEDNESDAY {{WED}}</small>
+   <div class="row"><b>{{VERB}}</b><span class="pct">{{HELD}}</span></div>
+   <div class="mix"><i style="width:{{HELDW}}%;background:var(--gold)"></i><i style="flex:1;background:#5B7594"></i></div>
+   <div class="leg"><span>{{HELD}} S&amp;P 500</span><span>{{CASHW}} T-bills</span></div>
+   <div class="last">{{MOVE}}</div>
+  </div>
+  <div class="trig"><h3>What would make us trade</h3>{{TRIG}}</div>
  </div>
- <div class="panel">
-  <div class="dec"><small>COMMITTEE REVIEW · WEDNESDAY {{WED}}</small><b>{{VERB}}</b><span>S&amp;P 500 share · rest in T-bills<br>{{MOVE}}</span></div>
-  {{GAUGES}}
-  <div class="re"><b>Early re-entry</b> <em>({{RE}})</em>{{RER}}</div>
+ <div class="right">
+  <div class="chart">
+   <div class="legend"><span><i style="background:var(--ink)"></i>S&amp;P 500 ({{PXLAST}})</span><span><i style="background:#C9A227"></i>200-day average</span><span><i style="background:#9DC3E6;height:10px"></i>Share in the S&amp;P 500</span></div>
+   <svg id="c" width="944" height="520"></svg>
+  </div>
+  <div class="sig">{{GAUGES}}</div>
  </div>
 </div>
-<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Data to {{ASOF}}. Signals read daily; a gap of 10 points or more is traded the next day; the committee reviews on Wednesday.</div>
+<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Data to {{ASOF}}. Signals read daily; a target change of 10 points or more is traded the next day; the committee reviews on Wednesday.</div>
 <script>
 const D={{DATA}};
-const svg=document.getElementById('c'),W=908,H=590,L=58,R=10,T=10,B=30,ph=380,wy=T+ph+34,wh=H-B-wy;
+const svg=document.getElementById('c'),W=944,H=520,L=58,R=10,T=8,B=28,ph=340,wy=T+ph+26,wh=H-B-wy;
 const n=D.dates.length,x=i=>L+i*(W-L-R)/(n-1);
 const mav=D.ma200.filter(v=>v!==null);const lo=Math.min(...D.px,...mav)*0.97,hi=Math.max(...D.px)*1.01,y=v=>T+(hi-v)/(hi-lo)*ph;
 let s='';
@@ -55,6 +79,6 @@ const yw=v=>wy+(1-v)*wh;[0,0.5,1].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1
 let a=`${x(0)},${yw(0)} `;D.w.forEach((v,i)=>{if(v!==null)a+=`${x(i)},${yw(v)} `});a+=`${x(n-1)},${yw(0)}`;
 s+=`<polygon points="${a}" fill="#9DC3E6"/>`;
 const months={};D.dates.forEach((d,i)=>{const m=d.slice(0,7);if(!(m in months))months[m]=i});
-Object.entries(months).forEach(([m,i])=>{if(+m.slice(5)%3==1){const lab=new Date(m+'-15').toLocaleString('en-US',{month:'short'})+" '"+m.slice(2,4);s+=`<text x="${x(i)}" y="${H-8}" font-size="13" font-weight="700" text-anchor="middle" fill="#040C38">${lab}</text>`}});
+Object.entries(months).forEach(([m,i])=>{if(+m.slice(5)%3==1){const lab=new Date(m+'-15').toLocaleString('en-US',{month:'short'})+" '"+m.slice(2,4);s+=`<text x="${x(i)}" y="${H-6}" font-size="13" font-weight="700" text-anchor="middle" fill="#040C38">${lab}</text>`}});
 svg.innerHTML=s;
 </script></body></html>
