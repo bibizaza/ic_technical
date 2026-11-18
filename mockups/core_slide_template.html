@@ -21,7 +21,7 @@ tr.g td:not(.l){color:#1B3A5A}
 .dec{background:var(--navy);color:#fff;border-radius:12px;padding:16px 20px;text-align:center}
 .dec small{display:block;font-size:13px;letter-spacing:2px;color:#C8D3E3}
 .dec b{display:block;font-size:44px;letter-spacing:1px;margin:4px 0 2px}
-.dec span{font-size:16px;color:#C8D3E3}
+.dec span{font-size:15px;color:#C8D3E3;line-height:1.4}
 .gg{background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:10px 16px 4px}
 .gh{display:flex;justify-content:space-between;align-items:flex-start}
 .gh b{font-size:18px}.gh small{display:block;font-size:13px;color:#64748B;margin-top:1px}
@@ -41,12 +41,12 @@ svg text{font-family:Calibri,'Segoe UI',Arial,sans-serif}
   <table><tr><th></th>{{TH}}</tr><tr class="g"><td class="l">Gauge</td>{{TC}}</tr><tr><td class="l">S&amp;P 500</td>{{TB}}</tr></table>
  </div>
  <div class="panel">
-  <div class="dec"><small>COMMITTEE DECISION · WEDNESDAY {{WED}}</small><b>{{VERB}}</b><span>{{MOVE}} · rest in T-bills</span></div>
+  <div class="dec"><small>COMMITTEE REVIEW · WEDNESDAY {{WED}}</small><b>{{VERB}}</b><span>S&amp;P 500 share · rest in T-bills<br>{{MOVE}}</span></div>
   {{GAUGES}}
   <div class="re"><b>Early re-entry rules</b> (fear over, shock, breadth): {{RE}}.</div>
  </div>
 </div>
-<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Data to {{ASOF}}; the final decision uses the close of Tuesday {{TUE}}. Back-test 1999–2026, weekly committee, after 10 bp costs; not a guarantee.</div>
+<div class="src">Source: Bloomberg, FRED, CBOE, Herculis Group. Data to {{ASOF}}. Rule: when the target moves 10 points or more from our weight, we trade the next day; the committee reviews on Wednesday. Back-test 1999–2026, 10 bp costs; not a guarantee.</div>
 <script>
 const D={{DATA}};
 const svg=document.getElementById('c'),W=908,H=440,L=58,R=10,T=10,B=30,ph=260,wy=T+ph+34,wh=H-B-wy;

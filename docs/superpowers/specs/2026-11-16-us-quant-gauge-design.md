@@ -682,3 +682,12 @@ shows real added value on its own, measured against SPY, under a test pre-regist
 runs. Reason: in the core, the 70/30 tilt left the 27-year return unchanged (+1266% vs +1261%),
 cut the worst fall slightly (-23.5% vs -25.4%) and lost 14 points in 2014-2018; that is not enough
 to put it in the core.
+
+### 11a. Trading rule (user decision, 2026-11-18)
+
+- Every trading day t, compute the desired weight = max(R1 state x v, F floor, S-live, B).
+- If it differs from the held weight by 10 points or more, or if we go to / leave cash: trade at the close of t+1, earn from t+2.
+- We do not wait for the committee. The Wednesday committee reviews the trades and the gauges.
+- The keys (DMAS, revisions) keep the tested Tuesday rule (month lock, early exit only if DMAS < 30).
+- Info (RESULTS_core.md, same period 1999-02 → 2026-11-13): act next day Sharpe 0.70, worst fall −25.9%; wait for Wednesday 0.70 / −26.7%; keys read daily with month lock 0.70 / −19.9% (but 2013–2026 0.92 vs 1.01); keys read daily without lock 0.53 / −34.7% (rejected: too many false switches).
+- The 10-point threshold is a choice taken from the old month-start band. Not optimised.

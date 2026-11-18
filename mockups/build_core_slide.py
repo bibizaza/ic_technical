@@ -1,7 +1,8 @@
 """Build mockups/us_gauge_slide.html from mockups/core_slide_data.json (written by research/us_gauge/core_slide_data.py).
 
-One decision per Wednesday committee: move to the target if it differs from the current weight by 10 points or more
-(or if we go to / leave cash); otherwise hold. All numbers come from research/us_gauge/RESULTS_core.md (row 6).
+Rule: every day, if the target differs from the current weight by 10 points or more (or we go to / leave cash),
+we trade the next day, without waiting. The Wednesday committee reviews. All numbers come from
+research/us_gauge/RESULTS_core.md (row 6).
 """
 import json
 from datetime import date, timedelta
@@ -41,38 +42,37 @@ def main():
     full = P[D['full_label']]
     trend_in, earn_in = n['dmas'] >= 45, n['rev_z'] >= 0
     held, want = n['weight'], n['desired']
-    act = (want == 0) != (held == 0) or abs(want - held) >= .10 - 1e-12
-    if not act:
-        verb, new = 'HOLD', held
-    elif want == 0:
-        verb, new = 'GO TO CASH', 0.
-    elif held == 0:
-        verb, new = f'BUY BACK TO {want:.0%}', want
-    else:
-        verb, new = (f'REDUCE TO {want:.0%}' if want < held else f'INCREASE TO {want:.0%}'), want
     wed = wednesday_after(date.fromisoformat(D['asof']))
     wtxt = f'{wed.day} {wed.strftime("%B")}'
-    ch = [(d, x) for i, (d, x) in enumerate(zip(D['dates'], D['w'])) if i and x != D['w'][i - 1]]
-    last_d, last_w = ch[-1] if ch else (None, None)
-    prev_w = D['w'][D['dates'].index(last_d) - 1] if last_d else None
-    last_wed = date.fromisoformat(last_d) - timedelta(days=1) if last_d else None
-    head = f'S&amp;P 500: hold at {held:.0%}' if verb == 'HOLD' else f'S&amp;P 500: {verb.lower()}'
-    why_vol = (f'Volatility is {n["sigma21"]:.0%}, so the target size is {n["target"]:.0%}' if n['sigma21'] > .15
-               else 'Volatility is low, so the target size is 100%')
+    prev_wed = wed - timedelta(days=7)
+    fmt = lambda d: f'{date.fromisoformat(d).strftime("%a")} {date.fromisoformat(d).day} {date.fromisoformat(d).strftime("%b")}'
+    T = D['trades']
+    new = [t for t in T if t['trade'] > str(prev_wed) or not t['trade'][0].isdigit()]
+    last = T[-1] if T else None
+    verb = 'HOLD' if not new else ('TRADED' if new[-1]['trade'][0].isdigit() else 'TRADE TOMORROW')
+    lo_, hi_ = max(held - .10, 0), min(held + .10, 1)
+    if new:
+        move = ' · '.join(f'{fmt(t["trade"]) if t["trade"][0].isdigit() else "next day"}: {t["frm"]:.0%} → {t["to"]:.0%}' for t in new)
+    else:
+        move = (f'No trade since the last committee · next trade if the target goes below {lo_:.0%}'
+                + (f' or above {hi_:.0%}' if hi_ < 1 else ''))
+    head = f'S&amp;P 500: hold at {held:.0%}' if verb == 'HOLD' else f'S&amp;P 500: now at {held:.0%}'
+    why_vol = (f'Volatility is {n["sigma21"]:.0%}, so the target is {want:.0%}' if n['sigma21'] > .15
+               else f'Volatility is low, so the target is {want:.0%}')
     keys = ('The trend is weak, but analysts are still raising earnings, so we stay invested. ' if not trend_in and earn_in else
             'Trend and earnings are both positive. ' if trend_in and earn_in else
             'The trend is positive. ' if trend_in else 'Trend and earnings are both negative. ')
-    lead = keys + (f'{why_vol}: within 10 points of today’s {held:.0%}, so no trade this week.' if verb == 'HOLD'
-                   else f'{why_vol}, more than 10 points from today’s {held:.0%}: we trade.')
-    if last_d and verb == 'HOLD':
-        lead += f' Last change: {last_wed.day} {last_wed.strftime("%b")}, from {prev_w:.0%} to {last_w:.0%}.'
+    lead = keys + (f'{why_vol}: less than 10 points from our {held:.0%}, so no trade.' if abs(want - held) < .10
+                   else f'{why_vol}.')
+    if last and verb == 'HOLD':
+        lead += f' Last trade: {fmt(last["trade"])}, {last["frm"]:.0%} → {last["to"]:.0%}.'
     st = 'ACTIVE' if held == 0 else 'standby, used only while in cash'
     gauges = ''.join([
         gauge('Trend', 'trend score 0–100 · switch at 45', f'{n["dmas"]:.0f}', 'ON' if trend_in else 'OFF', GREEN if trend_in else RED,
               bar(n['dmas'], 0, 100, GREEN if trend_in else RED, 45, '45')),
         gauge('Earnings', 'analysts’ revisions, 3 months · switch at 0', minus(f'{n["rev_z"]:+.1f}'), 'ON' if earn_in else 'OFF',
               GREEN if earn_in else RED, bar(n['rev_z'], -3, 3, GREEN if earn_in else RED, 0, '0')),
-        gauge('Volatility', 'size = 15% ÷ volatility, at most 100%', f'{n["sigma21"]:.0%}', f'SIZE {n["target"]:.0%}',
+        gauge('Volatility', 'size = 15% ÷ volatility, at most 100%', f'{n["sigma21"]:.0%}', f'TARGET {want:.0%}',
               AMBER if n['target'] < 1 else GREEN, bar(n['sigma21'] * 100, 0, 40, AMBER if n['sigma21'] > .15 else GREEN, 15, '15%')),
     ])
     cols = [('2008 crisis', '2008 crisis 2007-10 to 2009-03'), ('2022', '2022 full year'),
@@ -85,12 +85,11 @@ def main():
     asof = '/'.join(reversed(D['asof'].split('-')))
     data = json.dumps({k: D[k] for k in ('dates', 'px', 'w')})
     html = (HERE / 'core_slide_template.html').read_text()
-    for k, v in dict(MOVE=(f'S&amp;P 500 share stays at {held:.0%}' if verb == 'HOLD' else f'S&amp;P 500 share: {held:.0%} → {new:.0%}'),
-                     TUE=(wed - timedelta(days=1)).strftime('%d/%m/%Y'), HEAD=head, LEAD=lead, PXLAST=f'{D["px"][-1]:,.0f}', WED=wtxt, VERB=verb, NEW=f'{new:.0%}', HELD=f'{held:.0%}',
+    for k, v in dict(MOVE=move, HEAD=head, LEAD=lead, PXLAST=f'{D["px"][-1]:,.0f}', WED=wtxt, VERB=f'{verb} · {held:.0%}', HELD=f'{held:.0%}',
                      GAUGES=gauges, RE=st, TH=th, TC=tc, TB=tb, ASOF=asof, DATA=data).items():
         html = html.replace('{{' + k + '}}', v)
     (HERE / 'us_gauge_slide.html').write_text(html)
-    print('written', HERE / 'us_gauge_slide.html', '|', verb, f'{held:.0%} -> {new:.0%}')
+    print('written', HERE / 'us_gauge_slide.html', '|', verb, f'{held:.0%}', '| target', f'{want:.0%}')
 
 
 if __name__ == '__main__':
