@@ -137,3 +137,17 @@ def test_truncation_on_real_events():
         f = fe.event_features(r.market, Pt[r.market], r.i_h, r.i_l, r.i_t, ctx, prior)
         np.testing.assert_allclose(pd.Series(f)[fe.FEATURES].to_numpy(float), F.loc[r.event_id, fe.FEATURES].to_numpy(float),
                                    rtol=1e-8, equal_nan=True, err_msg=r.event_id)
+
+
+def test_other_close_series_of_the_market_gives_same_features():
+    """US core episodes are scored on BBG_SPX closes: a series object outside the panel must give the same result."""
+    P, macro = _synthetic(5)
+    rows = _rows(P, 'GSPC')
+    ctx = fe.Context(P, macro)
+    prior = list(scan_events(P['GSPC']).t)
+    for r in rows.itertuples():
+        pr = [d for d in prior if d < r.t]
+        a = fe.event_features('GSPC', P['GSPC'], r.i_h, r.i_l, r.i_t, ctx, pr)
+        b = fe.event_features('GSPC', P['GSPC'].copy(), r.i_h, r.i_l, r.i_t, ctx, pr)
+        np.testing.assert_allclose(pd.Series(a)[fe.FEATURES].to_numpy(float), pd.Series(b)[fe.FEATURES].to_numpy(float),
+                                   rtol=1e-12, equal_nan=True)

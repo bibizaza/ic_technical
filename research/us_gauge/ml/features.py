@@ -134,7 +134,8 @@ def event_features(market, px, i_h, i_l, i_t, ctx: Context, prior_entries) -> di
     f['days_le'] = i_t - i_l
     lr = np.diff(np.log(p[i_h:i_l + 1]))                   # log returns on closes h+1 .. l
     f['crash_share'] = lr.min() / np.log(L / H)
-    sig = sigma21(px.iloc[:i_t + 1]) if ctx is None else ctx.sig[market]
+    panel_px = ctx.P.get(market) is px                    # else: another close series of this market (US core: BBG_SPX)
+    sig = ctx.sig[market] if panel_px else sigma21(px.iloc[:i_t + 1])
     sig_win = sig.iloc[max(0, i_h - 1259):i_h + 1].dropna()
     vol_level = float(sig_win.median()) if len(sig_win) >= 252 else np.nan
     f['vol_rel'] = sig.iloc[i_t] / vol_level
@@ -143,7 +144,7 @@ def event_features(market, px, i_h, i_l, i_t, ctx: Context, prior_entries) -> di
     f['attempt'] = min(3, sum(1 for d in prior_entries if lo <= pd.Timestamp(d) < t))
     oth = ctx.others_dd(market, cutoff)
     f['glob_breadth'] = float(np.mean([v <= -.15 for v in oth.values()])) if len(oth) >= 3 else np.nan
-    own = asof(ctx.dd[market].iloc[:i_t + 1], cutoff) if market in ctx.dd else asof(drawdown252(px.iloc[:i_t + 1]), cutoff)
+    own = asof((ctx.dd[market] if panel_px else drawdown252(px)).iloc[:i_t + 1], cutoff)
     f['rel_depth'] = float(own - np.median(list(oth.values()))) if len(oth) >= 1 and not np.isnan(own) else np.nan
     f['fx_shock'] = ctx.fx_shock(market, h, cutoff)
     f['vol_level'] = vol_level
