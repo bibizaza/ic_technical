@@ -722,3 +722,27 @@ to put it in the core.
 - G5. Both halves: Sharpe(product + H) >= Sharpe(product).
 
 **One run.** No change of threshold (35), exits or sample after the run. Results go to `research/us_gauge/RESULTS_h.md`.
+
+### 6L. L: re-entry layers at full weight — pre-registration (2026-11-18, before any run)
+
+**Idea (VGAP2_fable_2026-11-18.md, idea 1).** Inside a shock (S) or breadth (B) episode the price stop already bounds the loss. The live volatility size counts the same risk twice and keeps the size small right after a crash (18% at the COVID low). Test S at 100% (S-full) against S at the live size (S-live).
+
+**Fresh sample.** Six indices never opened in this project: `N225.INDX`, `TWII.INDX`, `GSPTSE.INDX`, `HSI.INDX`, `KS11.INDX`, `AXJO.INDX` (EODHD, in the market store, read-only). Price returns only, cash 0%, 10 bp per unit traded. Data cleaning fixed now: drop NaN and non-positive closes; daily moves above 25% are listed in the report, not removed.
+
+**Base in each market.** Plain trend rule: `gauge.dmas_on` on Tuesday decision days (`run_p.decision_days`, W-TUE), cash if DMAS < 45, month lock, mid-month exit if DMAS < 30 (`run_fast.states`), times the volatility size (`run_fast.v2_from_states`). Decisions start 252 trading days after the first close. Shock episodes: `run_s.shock_episodes` on the plain-rule weight (unchanged mechanics: fall >= 15% with the low within 63 days of the 1-year high, +10% off the low, exit on base invested, close below the low, or 126 days).
+- S-live: max(base, live v) during an episode (as spec 6sl). S-full: max(base, 1) during an episode.
+
+**Clusters.** Entries sorted by date across markets; a new cluster starts when an entry is more than 14 calendar days after the first entry of the current cluster.
+
+**Gates (all must pass).**
+- G1. Mean of the six Sharpe differences (S-full − S-live) > 0, and positive in at least 4 of 6 markets.
+- G2. Worst fall of S-full no more than 3 points deeper than S-live in every market.
+- G3. More than half of the clusters have a positive mean index return over their episodes (earn days); also true without the 2020 and 2025 clusters.
+- G4. Worst single episode index return (earn days, i.e. at full weight) no worse than −15%.
+- G5. Placebo: 1,000 draws, `default_rng(7)`; in each market the same number of episodes moved to random base-cash days (`run_s.placebo_spans`), at full weight. Pooled gain = mean over markets of Sharpe(base + episodes at 100%) − Sharpe(base). p = share of draws with pooled gain >= real pooled gain. Pass if p <= 0.10.
+- Fewer than 10 clusters → "too few to conclude", no change.
+- If G1, G3 and G5 pass but G2 or G4 fail → adopt the pre-declared fallback: S and B at max(live v, 50%).
+
+**Product consequence.** PASS → S and B at 100% during episodes in the core. B has no fresh sample (NYSE breadth only); it follows S by symmetry, and the report must say so. The US product effect is reported as information (in-sample).
+
+**One run.** No change of markets, thresholds, gates or cleaning after the run. Results to `research/us_gauge/RESULTS_l.md`.
