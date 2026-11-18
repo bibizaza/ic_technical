@@ -1,15 +1,27 @@
 """Build mockups/us_gauge_slide.html from mockups/core_slide_data.json (written by research/us_gauge/core_slide_data.py).
 
+`--style herculis` writes mockups/us_gauge_slide_herculis.html instead: same content and logic, the herculis.ai
+skin (marble, gold accents, Inter). The default (`--style ic`) is the navy/gold committee slide.
+
 Rule: every day, if the target differs from the current weight by 10 points or more (or we go to / leave cash),
 we trade the next day, without waiting. The Wednesday committee reviews. All numbers come from
 research/us_gauge/RESULTS_core.md (row 6).
 """
+import argparse
 import json
 from datetime import date, timedelta
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-GREEN, RED, AMBER, TRACK = '#16A34A', '#DC2626', '#D97706', '#E5E9F0'
+# colours used inside the builder's SVG/HTML snippets; the rest of each look lives in its template
+STYLES = {
+    'ic': dict(GREEN='#16A34A', RED='#DC2626', AMBER='#D97706', TRACK='#E5E9F0', MARK='#040C38', LAB='#475569',
+               END='#94A3B8', GREY='#94A3B8', tpl='core_slide_template.html', out='us_gauge_slide.html'),
+    # herculis.ai tokens (market-herculis/quant-web/site/tokens.css): positive, negative, gold accent, text, muted, dim
+    'herculis': dict(GREEN='#287451', RED='#a74950', AMBER='#8c6d2b', TRACK='#e4e8e1', MARK='#252d2a', LAB='#465349',
+                     END='#727c75', GREY='#8597a0', tpl='core_slide_template_herculis.html', out='us_gauge_slide_herculis.html'),
+}
+GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY = (STYLES['ic'][k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY'))
 
 
 def minus(s: str) -> str:
@@ -20,10 +32,10 @@ def bar(value, lo, hi, color, mark, mark_label, w=440):
     X = lambda v: 6 + (min(max(v, lo), hi) - lo) / (hi - lo) * (w - 12)
     return (f'<svg width="{w}" height="38"><rect x="6" y="8" width="{w - 12}" height="12" rx="6" fill="{TRACK}"/>'
             f'<rect x="6" y="8" width="{max(X(value) - 6, 12):.1f}" height="12" rx="6" fill="{color}"/>'
-            f'<rect x="{X(mark) - 1.5:.1f}" y="3" width="3" height="22" rx="1.5" fill="#040C38"/>'
-            f'<text x="{X(mark):.1f}" y="36" font-size="12" fill="#475569" text-anchor="middle" font-weight="700">{mark_label}</text>'
-            f'<text x="6" y="36" font-size="11" fill="#94A3B8">{minus(f"{lo:g}")}</text>'
-            f'<text x="{w - 6}" y="36" font-size="11" fill="#94A3B8" text-anchor="end">{minus(f"{hi:g}")}</text></svg>')
+            f'<rect x="{X(mark) - 1.5:.1f}" y="3" width="3" height="22" rx="1.5" fill="{MARK}"/>'
+            f'<text x="{X(mark):.1f}" y="36" font-size="12" fill="{LAB}" text-anchor="middle" font-weight="700">{mark_label}</text>'
+            f'<text x="6" y="36" font-size="11" fill="{END}">{minus(f"{lo:g}")}</text>'
+            f'<text x="{w - 6}" y="36" font-size="11" fill="{END}" text-anchor="end">{minus(f"{hi:g}")}</text></svg>')
 
 
 def gauge(title, sub, vtxt, status, scolor, svg):
@@ -36,6 +48,11 @@ def wednesday_after(d: date) -> date:
 
 
 def main():
+    global GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument('--style', choices=sorted(STYLES), default='ic', help='ic (default, navy/gold) or herculis (herculis.ai skin)')
+    S = STYLES[ap.parse_args().style]
+    GREEN, RED, AMBER, TRACK, MARK, LAB, END, GREY = (S[k] for k in ('GREEN', 'RED', 'AMBER', 'TRACK', 'MARK', 'LAB', 'END', 'GREY'))
     D = json.loads((HERE / 'core_slide_data.json').read_text())
     n = D['now']
     trend_in, earn_in = n['dmas'] >= 45, n['rev_z'] >= 0
@@ -80,7 +97,7 @@ def main():
     else:
         rows.append((ic(GREEN, '↑'), 'Buy back', f'on {fday} if trend ≥ 45 or earnings ≥ 0, or earlier on a re-entry signal'))
     if held > 0:
-        rows.append((ic('#94A3B8', '↺'), 'Early buy-back rules: standby',
+        rows.append((ic(GREY, '↺'), 'Early buy-back rules: standby',
                      f'used only in cash. Today: VIX {n["vix"]:.0f}, ' + minus(f'{-n["fall_1y"]:.0%}') + f' from the 1‑year high, breadth {n["breadth_ratio"]:.2f} (trigger 1.97)'))
     trig = ''.join(f'<div class="tr">{i}<div><b>{t}</b><span>{d}</span></div></div>' for i, t, d in rows)
     st = 'active' if held == 0 else 'standby, used only in cash'
@@ -97,13 +114,13 @@ def main():
     ])
     asof = '/'.join(reversed(D['asof'].split('-')))
     data = json.dumps({k: D[k] for k in ('dates', 'px', 'w', 'ma200')})
-    html = (HERE / 'core_slide_template.html').read_text()
+    html = (HERE / S['tpl']).read_text()
     for k, v in dict(MOVE=move, HEAD=head, LEAD=lead, PXLAST=f'{D["px"][-1]:,.0f}', WED=wtxt.upper(), VERB=verb, HELD=f'{held:.0%}',
                      HELDW=f'{held * 100:.0f}', CASHW=f'{1 - held:.0%}', TRIG=trig,
                      GAUGES=gauges, RE=st, RER=rer, ASOF=asof, DATA=data).items():
         html = html.replace('{{' + k + '}}', v)
-    (HERE / 'us_gauge_slide.html').write_text(html)
-    print('written', HERE / 'us_gauge_slide.html', '|', verb, f'{held:.0%}', '| target', f'{want:.0%}')
+    (HERE / S['out']).write_text(html)
+    print('written', HERE / S['out'], '|', verb, f'{held:.0%}', '| target', f'{want:.0%}')
 
 
 if __name__ == '__main__':
