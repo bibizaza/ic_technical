@@ -791,3 +791,38 @@ to put it in the core.
 **Rules on each path (price only: no earnings key, no VIX, no breadth).** Buy & hold; R0 (DMAS < 45 → cash, month lock, exit < 30, Tuesday); V = R0 x vol size (`v2_from_states`); V + S at live size; V + S at max(live, 50%) (the product, spec 11d); V + S at 100%. Trade t+1, earn t+2, 10 bp, cash 0%.
 
 **Report.** Per rule: median and 5th-percentile Sharpe, median and 5th-percentile (bad case) worst fall, the single worst fall, share of paths with a worst fall deeper than −30% and −40%, share of paths beating buy & hold on Sharpe. For S: episodes, share stopped, worst episode. Results: `research/us_gauge/RESULTS_stress_synth.md`. No rule is changed because of this run.
+
+### 6P. P: systematic-fund positioning (CTA + vol-target) — pre-registration (2026-11-19, before any run)
+
+**Idea.** Trend funds (CTAs) and vol-target funds trade the S&P by formula. After a crash they are forced sellers; when their exposure is flushed and starts rising, they are forced buyers. When their exposure is crowded at a maximum and starts falling, they become forced sellers. BNPP's EPI (`BNPEPUS2`, `BNPEPUS3`) tracks these flows but its history is not available to us (supplier restriction, user asked BNPP 2026-11-19). We rebuild both from S&P prices, back to 1928. Nothing in this section has been computed before this commit.
+
+**Data (read-only).** `GSPC.INDX` closes 1927-12-30 → last close; equity return = price change + `SHILLER_SPX_DIV`/price/252. Cash 0% before 1954, `FRED_DTB3` after (as `data.py` where available; else 0%). 10 bp per unit traded.
+
+**Proxies (fixed now, zero free choices left).**
+- σ21, σ63 = annualised standard deviation of daily total returns over 21 / 63 days.
+- Vol-target exposure `VT_t = min(1.5, 0.10 / max(σ21, σ63))`.
+- CTA exposure `CTA_t = mean over h in {21, 63, 252} of clip(ln(P_t/P_{t−h}) / (σ63/√252 · √h), −1, 1)`, times `min(2, 0.10/σ63)`.
+- Systematic exposure `E_t = CTA_t + VT_t`. Flow `F_t = E_t − E_{t−5}`.
+- `Rank_t` = share of the previous 2,520 trading days (10 years, minimum 1,260) with E below `E_t`. Undefined before.
+
+**Base (price-only product skeleton, 1929 → end).** Keys = DMAS only (`gauge.dmas_on` read daily), cash if DMAS < 45, month lock, mid-month exit if DMAS < 30 (`run_fast.states`); times the vol size v = min(1, 15%/σ21) (live, shifted 2); S episodes (`run_s.shock_episodes` on the key weight) at max(live v, 50%) as spec 11d. Desired weight rounded to 5 points, `act_on_change` (trade t+1 if gap ≥ 10 points or to/from cash, earn t+2).
+
+**Rule P-in (forced selling is over).** Trigger at close t: key weight is 0 (cash), `min(Rank over the last 21 days) ≤ 0.10`, `F_t > 0` and `F_{t−1} ≤ 0`. Episode mechanics = B (`run_b.thrust_episodes`: L = lowest close of the 63 closes ending t; end at key invested, close below L, or 126 days). Size max(live v, 50%). Desired = max(base desired, P-in).
+
+**Rule P-out (crowded, forced selling starts).** Trigger at close t: key weight is 1 (invested), `max(Rank over the last 21 days) ≥ 0.90`, `F_t < 0` and `F_{t−1} ≥ 0`. Then cap the desired weight at 50% for the next 21 trading days (earn days t+2 … t+22). Triggers inside a cut are ignored. Desired = min(base desired, cap).
+
+P-in and P-out are tested separately, each against the base.
+
+**Gates (each rule, all must pass).**
+- G1. Sharpe(base + P) > Sharpe(base) on 1929 → end AND on both halves (to 1976-12-31; from 1977-01-01).
+- G2. Worst fall(base + P) no more than 2 points deeper than base.
+- G3. Placebo, 1,000 draws, `default_rng(7)`. P-in: `run_b.placebo_spans` (same count, same exits, random key-cash days). P-out: the same count of 21-day cuts started on random key-invested days, not overlapping. p = share of placebo Sharpe ≥ real. Pass if p ≤ 0.10.
+- G4. Episodes right more than half of the time. P-in: S&P beats cash over the earn days. P-out: S&P total return over the cut days is negative.
+- G5. Modern check: the same rule added to the real product (spec 11d, `core_slide_data.py`, 1999-02 → end) does not lower the Sharpe.
+- Fewer than 8 episodes → "too few to conclude".
+
+**Consequence (declared now).** PASS → I propose adding that rule to the product; the user decides. FAIL → rule goes to the rejected list; no change.
+
+**Relationship tables (information only, same run).** For all days 1929 → end and both halves: next 21-day and 63-day S&P return (mean, share positive) and the worst close-to-close fall in the next 21 days, by Rank quintile and by Rank quintile × sign of F. These are shown, not traded.
+
+**One run.** No change of proxies, thresholds, windows or gates after the run. Code `research/us_gauge/run_pos.py`, results `research/us_gauge/RESULTS_pos.md`.
