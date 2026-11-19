@@ -244,3 +244,11 @@ done, count it as US test no. 23, and require placebo p ≤ 0.01.
 ## Addendum 2026-11-18: ML sizing of the shock re-entry (spec 2026-11-18-ml-reentry-sizing-design.md, one run)
 
 Not adopted. Gate model (6-feature logistic): out-of-sample 2000–2026 AUC 0.563 (gate ≥ 0.60), permutation p 0.075 (gate ≤ 0.01); calibration slope 0.11; sizing skill K +0.005 (p 0.025, gate ≤ 0.01); product Sharpe better in only 4 of 21 markets; clean set AUC 0.564. Boosting challenger: no skill (AUC 0.511). The model did not beat its best single feature: "days from the low to the trigger" alone (AUC 0.635, K +0.0047; fast re-entries fail more). That single-feature finding was a design-time hint (STOPS memo, in-sample), so it may only return as a new pre-registration with new data or a live record. US 1987 scored p 0.32 (normal bucket): the model could not flag it. Class (b). File closed with these data. Results: RESULTS_ml.md.
+
+## Addendum 2026-11-19: systematic-fund positioning, CTA + vol-target proxies (spec 6P, one run)
+
+Not adopted. Proxies rebuilt from S&P prices 1928–2026 (BNPP EPI history not available). Both rules failed on the price-only product skeleton 1929–2026.
+- P-in (exposure flushed, starts rising → buy at max(live, 50%)): FAIL on all 5 gates. Sharpe 0.44 vs 0.57, worst fall −48.8% vs −41.6%, placebo p 0.99, right in 62 of 178 episodes, real product 1999–2026 Sharpe 0.50 vs 0.71. It buys every bear-market rally (2001–02, 2008, 2022) and is stopped out again and again.
+- P-out (exposure crowded, starts falling → cap at 50% for 21 days): FAIL on G1, G3, G4. Sharpe 0.53 vs 0.57, placebo p 0.55, right in 72 of 193 cuts. Worst fall better (−37.4% vs −41.6%) and the real product almost unchanged (0.722 vs 0.713), but no more than random cuts of the same size.
+- Relationship tables: low exposure goes with deeper next-month falls (−4.0% vs −2.7%) but not with lower returns; the 5-day flow direction adds nothing in either half. The proxies restate volatility and trend, which the gauge already reads.
+- Class (b). Only real flow data (ETF, mutual fund, pension, short interest: `BNPEPUS4`–`7`) could add new information. Results: RESULTS_pos.md.

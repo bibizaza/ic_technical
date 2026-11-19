@@ -826,3 +826,5 @@ P-in and P-out are tested separately, each against the base.
 **Relationship tables (information only, same run).** For all days 1929 → end and both halves: next 21-day and 63-day S&P return (mean, share positive) and the worst close-to-close fall in the next 21 days, by Rank quintile and by Rank quintile × sign of F. These are shown, not traded.
 
 **One run.** No change of proxies, thresholds, windows or gates after the run. Code `research/us_gauge/run_pos.py`, results `research/us_gauge/RESULTS_pos.md`.
+
+**6P result (2026-11-19, one run; two earlier starts crashed in the placebo step before any result, fixed in 3840dd7 and d6b36ee with no rule change).** P-in FAIL (5 of 5 gates), P-out FAIL (G1, G3, G4). No change to the product. See `RESULTS_pos.md`.
