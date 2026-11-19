@@ -56,3 +56,9 @@ def test_with_in_ignores_episode_on_last_day():
     ep = pd.DataFrame({'i_entry': [10, 49], 'i_end': [20, 49]})
     out = run_pos.with_in(idx, d, ep, pd.Series(.5, index=idx))
     assert out.iloc[10:20].eq(.5).all() and out.iloc[20:].eq(0.).all()
+
+
+def test_random_cuts_dense_case():
+    rng = np.random.default_rng(2)
+    s = run_pos.random_cuts(rng, 60, np.arange(0, 3000), 3000)
+    assert len(s) == 60 and (np.diff(s) >= 21).all() and s[-1] + 21 <= 3000

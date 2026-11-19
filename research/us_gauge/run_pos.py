@@ -84,12 +84,17 @@ def cap_series(index, starts) -> pd.Series:
 
 
 def random_cuts(rng, n, elig, n_idx):
-    """n non-overlapping 21-day cut starts on eligible positions."""
-    for _ in range(1000):
-        s = np.sort(rng.choice(elig, size=n, replace=False))
-        if (np.diff(s) >= CUT_DAYS).all() and s[-1] + CUT_DAYS <= n_idx:
-            return list(s)
-    raise RuntimeError('no placebo draw without overlap')
+    """n non-overlapping 21-day cut starts on eligible positions: random order, keep a start if it does not overlap."""
+    taken = np.zeros(n_idx + CUT_DAYS, dtype=bool)
+    out = []
+    for k in rng.permutation(elig):
+        if k + CUT_DAYS > n_idx or taken[max(0, k - CUT_DAYS + 1):k + CUT_DAYS].any():
+            continue
+        out.append(int(k))
+        taken[k] = True
+        if len(out) == n:
+            return sorted(out)
+    raise RuntimeError('not enough room for the placebo cuts')
 
 
 # ---------------------------------------------------------------- base skeleton 1929 -> end
