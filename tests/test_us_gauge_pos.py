@@ -48,3 +48,11 @@ def test_random_cuts_do_not_overlap():
     rng = np.random.default_rng(1)
     s = run_pos.random_cuts(rng, 5, np.arange(0, 500), 600)
     assert len(s) == 5 and (np.diff(s) >= 21).all()
+
+
+def test_with_in_ignores_episode_on_last_day():
+    idx = pd.bdate_range('2000-01-03', periods=50)
+    d = pd.Series(0., index=idx)
+    ep = pd.DataFrame({'i_entry': [10, 49], 'i_end': [20, 49]})
+    out = run_pos.with_in(idx, d, ep, pd.Series(.5, index=idx))
+    assert out.iloc[10:20].eq(.5).all() and out.iloc[20:].eq(0.).all()

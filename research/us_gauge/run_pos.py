@@ -148,6 +148,7 @@ def run_w(idx, desired, df):
 
 
 def with_in(idx, desired, ep, half):
+    ep = ep[ep.i_entry + 2 < len(idx)]          # an episode with no earn day adds nothing (pandas fails on the empty slice)
     return pd.concat([desired, layer(idx, ep, half).shift(-2)], axis=1).max(axis=1).where(desired.notna())
 
 
