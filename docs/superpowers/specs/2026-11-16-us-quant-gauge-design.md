@@ -914,3 +914,5 @@ Nothing in this section has been computed. Unemployment appeared before only as 
 **Known limits (written before the run).** The product's earnings key already plays this role since 1990, so G5 is the hard gate. 1987 had no recession and no early unemployment rise: an M1 candidate stays invested through the October 1987 crash (vol size is the only defence). Monthly data cannot help the V-shaped rebound problem.
 
 **One run.** No change of keys, directions, lag, windows or gates after the run. Code `research/us_gauge/run_macro.py`, results `research/us_gauge/RESULTS_macro.md`.
+
+**6M result (2026-11-23, one run).** M1 (unemployment trend) PASS on all 5 gates (1955–2026 Sharpe 0.603 vs 0.546; placebo p 0.010; product 0.716 vs 0.713). M2 (credit trend) FAIL (G1, G3, G4, G5). Post-run information: M1 is worse after its 2016 publication (Sharpe 0.69 vs 0.81, worst fall −19.4% vs −12.0%) and adds almost nothing to the product. Per the declared consequence, M1 is proposed to the user; not adopted until the user decides. See `RESULTS_macro.md`.
