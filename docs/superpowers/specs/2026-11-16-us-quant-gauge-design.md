@@ -942,3 +942,5 @@ Nothing in this section has been computed. Unemployment appeared before only as 
 **Information only (same run).** Return and worst fall of base and each candidate in: 2000-03→2002-10, 2007-10→2009-03, 2011-04→2011-10, 2015-07→2016-02, 2018-09→2018-12, 2020-02-19→2020-03-23, 2022, 2025-02-19→2025-04-08, 2026-11 to date; time in each cap; trades a year; today's state of T2 and T3.
 
 **One run.** No change of rules, thresholds, windows or gates after the run. Code `research/us_gauge/run_t.py`, results `research/us_gauge/RESULTS_t.md`.
+
+**6T result (2026-11-23, one run).** T1 FAIL (G1, G2, G3), T2 FAIL (G1, G3; G2 and G4 pass), T3 FAIL (G1, G3, G4). No change to the product. See `RESULTS_t.md`.

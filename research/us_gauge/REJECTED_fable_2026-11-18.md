@@ -264,3 +264,11 @@ Not adopted. Window 1956-10-29 → 2026-11-11, price skeleton; candidate = cash 
 
 - M2 credit trend (Baa − Aaa above its 12-month average): FAIL on G1, G3, G4, G5 (Sharpe 0.538 vs 0.546; 1955–90 0.37 vs 0.48; placebo p 0.25; product 0.65 vs 0.71). Class (b).
 - M1 unemployment trend: PASSED the gates but is not adopted yet (user decision pending): worse after its 2016 publication and about zero effect on the product. See RESULTS_macro.md.
+
+## Addendum 2026-11-23: fast stress de-risking batch (spec 6T, one run)
+
+All three FAIL against the real product (spec 11d).
+- T1 tranched month lock (4 sub-books, days 1/6/11/16): Sharpe 0.718 vs 0.713 but 1999–2012 worse (0.48 vs 0.52), worst fall −22.8% vs −20.1%, bootstrap 46%. The single lock is not the weak point.
+- T2 bond / EM canary cap (Keller DAA, AGG + EEM, 2004–2026): cuts stress losses clearly (2022 −4.4% vs −13.9%, Q4 2018 −2.6% vs −6.1%, COVID −6.0% vs −8.5%; worst fall −16.3% vs −17.7%; placebo p 0.033, just at the bar) but costs 2.3% a year (9.5% vs 11.8%), Sharpe 0.83 vs 0.87, 30 trades a year, capped 47% of days. Fails G1 and G3. Class (c): a real stress signal, too expensive as a cap. On 20 Nov 2026: EEM negative, AGG just positive → cap 50%.
+- T3 credit-confirmed cap (HY OAS 20-day jump > trailing 90th percentile AND S&P < 50-day): Sharpe 0.710 vs 0.713, placebo p 0.16. Class (b).
+Results: RESULTS_t.md.
