@@ -828,3 +828,47 @@ P-in and P-out are tested separately, each against the base.
 **One run.** No change of proxies, thresholds, windows or gates after the run. Code `research/us_gauge/run_pos.py`, results `research/us_gauge/RESULTS_pos.md`.
 
 **6P result (2026-11-19, one run; two earlier starts crashed in the placebo step before any result, fixed in 3840dd7 and d6b36ee with no rule change).** P-in FAIL (5 of 5 gates), P-out FAIL (G1, G3, G4). No change to the product. See `RESULTS_pos.md`.
+
+### 6Q. Q: real money flows as a key (Fed Z.1) — pre-registration (2026-11-23, before any run)
+
+**Idea.** Price-built positioning failed (6P). Real flows are new information: who actually bought or sold US stocks. Two signals, each with the direction the research literature gives, fixed now:
+- **Q1 buyback yield (follow the companies).** Companies that buy back more stock come before better returns; heavy issuance comes before weak returns (Baker–Wurgler 2000; Boudoukh et al. 2007).
+- **Q2 fund flows (fade the crowd).** Large money into equity mutual funds and ETFs comes before weaker returns (Ben-Rephael, Kandel, Wohl 2012).
+
+Nothing in this section has been computed. No flow series has been compared with S&P returns in this project before this commit.
+
+**Data (read-only, `market_store`, stored 2026-11-19, current vintage).** Quarterly, quarter-end dates, USD million:
+- `Z1_FA103164105` nonfinancial corporations' net equity issuance (seasonally adjusted annual rate);
+- `Z1_FA653064100` mutual funds' and `Z1_FA563064100` ETFs' net purchases of equities (annual rate);
+- `Z1_LM883164115` all domestic public equities (market value), `Z1_LM893064105` all corporate equities held (market value).
+
+**Signals (zero free choices left).** For quarter q, with m(x) = mean of x over quarters q−3 … q:
+- `Q1_q = −m(FA103164105) / LM883164115_q` (net buybacks as a share of the market).
+- `Q2_q = m(FA653064100 + FA563064100) / LM893064105_q` (missing ETF values before 1993 count as 0).
+- `z_q` = z-score of the signal against the previous 40 quarters (current excluded), minimum 20 quarters.
+- **Q1 is "in" when z ≥ 0. Q2 is "in" when z ≤ 0.**
+- **Point in time:** quarter q is usable from the first trading day on or after quarter end + 120 calendar days (the Fed publishes about 10 weeks after the quarter; 120 days also covers the slower releases of earlier decades). The key holds its value until the next quarter is usable.
+
+**Base (same price skeleton as 6P, 1955 → end).** DMAS read daily (`out/dmas_daily_1955.csv`); cash if DMAS < 45; month lock; mid-month exit if DMAS < 30 (`run_fast.states`); times the vol size v = min(1, 15%/σ21); S episodes at max(live v, 50%); desired rounded to 5 points; `act_on_change` (trade t+1 if gap ≥ 10 points or to/from cash; earn t+2). 10 bp. Cash return = T-bill (`data.cash_daily`).
+
+**Candidate (each signal alone).** Same as the base, but **cash only if DMAS < 45 AND the flow key is "out"**. The DMAS < 30 mid-month exit is unchanged. S episodes are built on the candidate's own key weight.
+
+**Window.** 1955-01-03 → last common date. Halves: to 1990-12-31; from 1991-01-01.
+
+**Gates (each signal, all must pass).**
+- G1. Sharpe(candidate) > Sharpe(base) on the full window and on both halves (excess over cash, `run_c.sharpe`).
+- G2. Worst fall(candidate) no more than 2 points deeper than base.
+- G3. Paired block bootstrap candidate vs base (`evaluate.bootstrap_not_better`, 63-day blocks, 2,000 draws, seed 7): not-better share < 25%.
+- G4. Placebo: 1,000 draws, `default_rng(7)`. Each draw shifts the quarterly in/out key in a circle by a random number of quarters between 20 and (number of quarters − 20), then runs the candidate unchanged. p = share of placebo Sharpe ≥ real. **Pass if p ≤ 0.05** (two signals tested, so half of the usual 0.10).
+- G5. Real product check (spec 11d, `core_slide_data.py`, 1999-02 → end): cash only if DMAS < 45 AND revision z < 0 AND the flow key is "out". Sharpe not lower than the product.
+
+**Consequence (declared now).** A signal that passes all gates is proposed to the user as a key; the user decides. A signal that fails goes to the rejected list; no change.
+
+**Information only (same run).** Next 252-day and 756-day S&P total return by quintile of each z (point in time), full window and halves; correlation of Q1 and Q2; switches per year; share of days each key is "in".
+
+**Known limits (written before the run).**
+- Values are today's revised numbers, not what was known at the time. A PASS means "promising"; it then needs a check on first-release values (ALFRED vintages, when FRED answers).
+- Quarterly data with a 4-month delay can only help a slow key. It cannot help the V-shaped rebound problem.
+- Mutual fund flows were small before about 1980.
+
+**One run.** No change of signals, directions, lag, windows or gates after the run. Code `research/us_gauge/run_q.py`, results `research/us_gauge/RESULTS_q.md`.
