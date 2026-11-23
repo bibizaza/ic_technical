@@ -916,3 +916,29 @@ Nothing in this section has been computed. Unemployment appeared before only as 
 **One run.** No change of keys, directions, lag, windows or gates after the run. Code `research/us_gauge/run_macro.py`, results `research/us_gauge/RESULTS_macro.md`.
 
 **6M result (2026-11-23, one run).** M1 (unemployment trend) PASS on all 5 gates (1955–2026 Sharpe 0.603 vs 0.546; placebo p 0.010; product 0.716 vs 0.713). M2 (credit trend) FAIL (G1, G3, G4, G5). Post-run information: M1 is worse after its 2016 publication (Sharpe 0.69 vs 0.81, worst fall −19.4% vs −12.0%) and adds almost nothing to the product. Per the declared consequence, M1 is proposed to the user; not adopted until the user decides. See `RESULTS_macro.md`.
+
+### 6T. T: fast stress de-risking, batch of 3 — pre-registration (2026-11-23, before any run)
+
+**Why.** User: the month lock makes the product slow in real stress; cut or go to cash when stress is real. Source: `research/us_gauge/STRESS_IDEAS_2026-11-23.md` (3 research agents), top 3 ideas. Nothing below has been computed.
+
+**Base = the real product, spec 11d** (`core_slide_data.py` logic: daily keys with month lock, cash only if DMAS < 45 AND revision z < 0, mid-month exit if that AND DMAS < 30; vol size; F, S at max(live, 50%), B at 100%; 5-point sizes; `act_on_change`). Inputs as stored (`load_inputs`, to the last common date). 10 bp. Cash = T-bill.
+
+**T1 — tranched month lock (no new signal).** Four sub-books. Sub-book k sets its key state on trading day d_k ∈ {1, 6, 11, 16} of each calendar month and keeps it until the same trading day of the next month; mid-period exit as the base (cash condition AND DMAS < 30). Key state = average of the four. Desired = max(key state × v, F, S, B) with the layers exactly as in the base (built on the base key weight).
+
+**T2 — bond / EM canary cap (Keller DAA).** For AGG and EEM total return (`AGG.US_TR`, `EEM.US_TR`): `m = 12·r21 + 4·r63 + 2·r126 + r252` (simple returns over 21/63/126/252 trading days, at close t). Cap = 1 if both m ≥ 0; 0.5 if one m < 0; 0 if both < 0. Desired = min(base desired, cap), decided at close t like every signal.
+
+**T3 — credit-confirmed stress cap.** `dOAS_t` = 20-day change of `BBG_LF98OAS` (US HY OAS). Stress on day t when `dOAS_t` is above the 90th percentile of `dOAS` over the previous 1,260 trading days (minimum 504; current excluded) AND the S&P close is below its 50-day average. Cap = 0.5 on stress days, else 1. Desired = min(base desired, cap).
+
+**Windows.** T1 and T3: 1999-02-01 → end; halves 1999–2012 and 2013 → end. T2: first day m is defined for both ETFs (about 2004-09) → end; halves split at 2015-06-30; the base is measured on the same window.
+
+**Gates (each idea, all must pass).**
+- G1. Sharpe(candidate) > Sharpe(base) on the full window and both halves.
+- G2. Worst fall(candidate) no more than 2 points deeper than base.
+- G3. Paired block bootstrap (`evaluate.bootstrap_not_better`, 63-day blocks, 2,000 draws, seed 7): not-better share < 25%.
+- G4 (T2, T3 only). Placebo: 1,000 draws, `default_rng(7)`; the daily cap series is shifted in a circle by a random number of days between 252 and (n − 252); p = share of placebo Sharpe ≥ real. **Pass if p ≤ 0.033** (three ideas: 0.10 / 3). T1 has no signal to shift, so it has no G4.
+
+**Consequence (declared now).** PASS → proposed to the user; the user decides. FAIL → rejected list; no change.
+
+**Information only (same run).** Return and worst fall of base and each candidate in: 2000-03→2002-10, 2007-10→2009-03, 2011-04→2011-10, 2015-07→2016-02, 2018-09→2018-12, 2020-02-19→2020-03-23, 2022, 2025-02-19→2025-04-08, 2026-11 to date; time in each cap; trades a year; today's state of T2 and T3.
+
+**One run.** No change of rules, thresholds, windows or gates after the run. Code `research/us_gauge/run_t.py`, results `research/us_gauge/RESULTS_t.md`.
