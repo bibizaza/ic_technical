@@ -878,3 +878,39 @@ Nothing in this section has been computed. No flow series has been compared with
 2. "The DMAS < 30 mid-month exit is unchanged" is implemented as in the product: `run_fast.states` exits mid-month when the combined cash condition holds and DMAS < 30 (the product does the same with the earnings key).
 
 **6Q result (2026-11-23, one run).** Q1 FAIL (5 of 5 gates), Q2 FAIL (5 of 5 gates). No change to the product. See `RESULTS_q.md`.
+
+### 6M. M: macro filter on the trend exit (unemployment, credit) — pre-registration (2026-11-23, before any run)
+
+**Idea.** Rejected list #14 (credit and macro pillars, never reached) and #46 (recession filter on the exit, never run). A trend break without a weakening economy is often a false exit (1962, 1966, 1987 recovery, 1998, 2011, 2015–16, 2018). A trend break with rising unemployment or widening credit spreads is more often a real bear market (1957, 1969–70, 1973–74, 1980–82, 1990, 2001–02, 2008). Two keys, each with the direction the literature gives, fixed now:
+- **M1 unemployment trend** ("growth-trend timing", Philosophical Economics 2016; Sahm 2019 for the recession link): out when the unemployment rate is above its average of the previous 12 months.
+- **M2 credit trend** (Gilchrist–Zakrajšek 2012: credit spreads lead the economy): out when the Moody's Baa − Aaa spread is above its average of the previous 12 months.
+
+Nothing in this section has been computed. Unemployment appeared before only as one of 11 V-shape features (rejected #44, re-entry, not exit); credit spreads only in the P floor (#25, re-entry, HY from 2000).
+
+**Data (read-only, `market_store`).** `FRED_UNRATE` (monthly, 1948-01 →), `FRED_BAA`, `FRED_AAA` (monthly averages, 1919-01 →). Current vintage (unemployment revisions are small, mostly seasonal factors).
+
+**Keys (zero free choices left).** For month m:
+- `M1_m` out when `UNRATE_m > mean(UNRATE_{m−12} … UNRATE_{m−1})`.
+- `M2_m` out when `S_m > mean(S_{m−12} … S_{m−1})`, with `S = BAA − AAA`.
+- **Point in time:** month m is usable from the first trading day on or after the **10th calendar day of month m+1** (unemployment is released on the first Friday; Moody's monthly averages are final at month end). The key holds until the next month is usable.
+
+**Base (same price skeleton as 6P and 6Q).** DMAS read daily (`out/dmas_daily_1955.csv`); cash if DMAS < 45; month lock; mid-month exit through `run_fast.states` (combined cash condition and DMAS < 30, as in the product); vol size v = min(1, 15%/σ21); S episodes at max(live v, 50%); desired rounded to 5 points; `act_on_change` (trade t+1 if gap ≥ 10 points or to/from cash; earn t+2); 10 bp; cash = T-bill.
+
+**Candidate (each key alone).** Same as the base, but **cash only if DMAS < 45 AND the macro key is out**.
+
+**Window.** 1955-01-03 → last common date (both keys are defined from 1949). Halves: to 1990-12-31; from 1991-01-01.
+
+**Gates (each key, all must pass)** — same as 6Q:
+- G1. Sharpe(candidate) > Sharpe(base) on the full window and on both halves.
+- G2. Worst fall(candidate) no more than 2 points deeper than base.
+- G3. Paired block bootstrap (`evaluate.bootstrap_not_better`, 63-day blocks, 2,000 draws, seed 7): not-better share < 25%.
+- G4. Placebo: 1,000 draws, `default_rng(7)`; each draw shifts the monthly in/out key in a circle by a random number of months between 60 and (number of months − 60), then runs the candidate unchanged. p = share of placebo Sharpe ≥ real. **Pass if p ≤ 0.05** (two keys).
+- G5. Real product check (spec 11d, `core_slide_data.py`, 1999-02 → end): cash only if DMAS < 45 AND revision z < 0 AND the macro key is out. Sharpe not lower than the product.
+
+**Consequence (declared now).** A key that passes all gates is proposed to the user; the user decides. A key that fails goes to the rejected list; no change.
+
+**Information only (same run).** For every trend exit of the base (day the base key goes to cash): the macro key on that day and the S&P total return over the next 63 and 252 days, split by key in / out. Share of days each key is out; correlation of M1 and M2 out-states; trades per year.
+
+**Known limits (written before the run).** The product's earnings key already plays this role since 1990, so G5 is the hard gate. 1987 had no recession and no early unemployment rise: an M1 candidate stays invested through the October 1987 crash (vol size is the only defence). Monthly data cannot help the V-shaped rebound problem.
+
+**One run.** No change of keys, directions, lag, windows or gates after the run. Code `research/us_gauge/run_macro.py`, results `research/us_gauge/RESULTS_macro.md`.
