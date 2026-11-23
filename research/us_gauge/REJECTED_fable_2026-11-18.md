@@ -252,3 +252,10 @@ Not adopted. Proxies rebuilt from S&P prices 1928–2026 (BNPP EPI history not a
 - P-out (exposure crowded, starts falling → cap at 50% for 21 days): FAIL on G1, G3, G4. Sharpe 0.53 vs 0.57, placebo p 0.55, right in 72 of 193 cuts. Worst fall better (−37.4% vs −41.6%) and the real product almost unchanged (0.722 vs 0.713), but no more than random cuts of the same size.
 - Relationship tables: low exposure goes with deeper next-month falls (−4.0% vs −2.7%) but not with lower returns; the 5-day flow direction adds nothing in either half. The proxies restate volatility and trend, which the gauge already reads.
 - Class (b). Only real flow data (ETF, mutual fund, pension, short interest: `BNPEPUS4`–`7`) could add new information. Results: RESULTS_pos.md.
+
+## Addendum 2026-11-23: real money flows as a key, Fed Z.1 (spec 6Q, one run)
+
+Not adopted. Window 1956-10-29 → 2026-11-11, price skeleton; candidate = cash only if DMAS < 45 AND the flow key is out.
+- Q1 buyback yield (follow the companies): FAIL on all 5 gates. Sharpe 0.545 vs 0.527 but worse after 1990 (0.605 vs 0.609); worst fall −32.7% vs −28.5%; bootstrap not-better 38%; placebo p 0.20; real product 1999–2026 Sharpe 0.59 vs 0.71. The link flipped: high buybacks came before strong years in 1955–1990 (+21.6% next year, top quintile) and weak years after 1991 (+4.7%).
+- Q2 equity fund + ETF flows (fade the crowd): FAIL on all 5 gates. Sharpe 0.48 vs 0.53, placebo p 0.48, real product 0.48 vs 0.71. The information table points the other way (high inflows came before higher returns) but not in a steady line; reversing the direction after seeing it would be data snooping and is not allowed on this sample.
+- Q1 and Q2 are almost unrelated (z correlation +0.10). Class (b). Results: RESULTS_q.md.

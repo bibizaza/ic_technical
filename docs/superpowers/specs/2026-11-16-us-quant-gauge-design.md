@@ -876,3 +876,5 @@ Nothing in this section has been computed. No flow series has been compared with
 **6Q pre-run notes (2026-11-23, before any return was computed).**
 1. Z.1 flows are annual before the early 1950s, so with the 4-quarter mean, the 20-quarter z minimum and the 120-day lag, both keys are first usable on **1956-10-29**. The window starts there (base and candidates alike), not on 1955-01-03. Halves unchanged (split at 1990-12-31). Only inputs were inspected to find this.
 2. "The DMAS < 30 mid-month exit is unchanged" is implemented as in the product: `run_fast.states` exits mid-month when the combined cash condition holds and DMAS < 30 (the product does the same with the earnings key).
+
+**6Q result (2026-11-23, one run).** Q1 FAIL (5 of 5 gates), Q2 FAIL (5 of 5 gates). No change to the product. See `RESULTS_q.md`.
