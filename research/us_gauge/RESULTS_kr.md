@@ -46,3 +46,16 @@ Correlation of the KR and EEM-only cap states (daily, from 2004-04-13): +0.72.
 | Nov 2026 to date | -0.2% / -4.4% | -0.8% / -4.4% | +0.0% / -2.2% | +0.0% / -2.2% |
 
 Caps on the last input day (2026-11-13): KR = 50%, EEM-only = 50%.
+
+## Post-run information (2026-11-24, user question: has the market changed since COVID?). Not a test; the verdict stays FAIL.
+
+Code: `info_post_covid_caps.py` (run with `PYTHONPATH=.`). Same rules, shorter windows. Six years is short: the Sharpe error is about ±0.4, so gaps below that are noise.
+
+| Window | Product | KR (Korea cap) | T2 (AGG + EEM cap) |
+|---|---|---|---|
+| 2020-01 → end | Sharpe 0.89, 13.7%/yr, worst −17.7%, 11 trades/yr | 0.90, 12.5%, −12.0%, 18 | 0.88, 11.2%, −9.3%, 32 |
+| 2020-06 → end | 0.92, 14.0%, −17.7%, 11 | 0.88, 12.2%, −12.0%, 18 | 0.91, 11.2%, −9.1%, 32 |
+| 2023-01 → end | 1.06, 17.4%, −9.4%, 6 | 0.90, 13.9%, −8.5%, 18 | 0.93, 13.4%, −9.1%, 32 |
+
+Placebo on 2020-06 → end (300 draws): KR p 0.32, T2 p 0.097.
+Reading: after COVID the caps keep about the same Sharpe, cut the worst fall a lot (T2 −9% vs −18%, mostly 2022), and cost 1.5–3% a year. Since 2023 they only cost.
