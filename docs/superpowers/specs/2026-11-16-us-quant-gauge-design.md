@@ -780,6 +780,16 @@ to put it in the core.
 - Basis: 6LU (S&P 1928–1954) had 4 episodes ("too few", so 11c would formally stay) but every gate went against S at 100%: stops in Oct 1929 (−22%) and Sep 1930 (−15%), worst fall −55% vs −46%. With the 1955–90 half also weak, the user locked the 50% floor. The user judges the 1928–54 market very different from today; the floor is a hedge against a 1929/1987-type retest, not a verdict on that period.
 - RESULTS_core.md row 6 (1999-02 → 2026-11-13): Sharpe 0.71, worst fall −20.1%, COVID rebound +21%, 2009 rebound +34%.
 
+### 11e. Product locked; bond / EM canary shown as a warning light only (user decision, 2026-11-24)
+
+**Locked.** The product is spec 11d. No rule, threshold or layer changes from here. The live record starts now. A change needs a new spec section, a pre-registered test and the user's decision.
+
+**Why.** Since 11d, 6P, 6Q, 6M, 6T and 6KR tested 9 ideas against it; none was adopted (M1 passed the price skeleton but adds about nothing to the product). Each extra test raises the chance that a pass is luck.
+
+**Warning light (information, no trade).** The slide shows the T2 canary (spec 6T): `m = 12·r21 + 4·r63 + 2·r126 + r252` for `AGG.US_TR` and `EEM.US_TR`; 100% if both m ≥ 0, 50% if one is negative, 0% if both are. It never changes the weight. Reason: T2 cut stress losses (2022 −4.4% vs −13.9%; worst fall after 2020 −9% vs −18%) but cost about 2.5% a year as a rule (`RESULTS_t.md`, `RESULTS_kr.md` post-run table). The committee sees it and may discuss it; the product does not act on it.
+
+**Data.** AGG and EEM total return (EODHD adjusted close) are refreshed before each slide with `python -m research.us_gauge.refresh_canary`. The slide shows the canary at the slide's as-of date and says if the canary data is older.
+
 ### 6ST. Stress test on synthetic paths — method fixed before the run (2026-11-18)
 
 **Purpose.** Information, not a gate. See how the price-driven part of the core behaves in many crash histories that never happened, and how S at live / 50% floor / 100% compares.
