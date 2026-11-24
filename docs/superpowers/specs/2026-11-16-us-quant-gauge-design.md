@@ -944,3 +944,21 @@ Nothing in this section has been computed. Unemployment appeared before only as 
 **One run.** No change of rules, thresholds, windows or gates after the run. Code `research/us_gauge/run_t.py`, results `research/us_gauge/RESULTS_t.md`.
 
 **6T result (2026-11-23, one run).** T1 FAIL (G1, G2, G3), T2 FAIL (G1, G3; G2 and G4 pass), T3 FAIL (G1, G3, G4). No change to the product. See `RESULTS_t.md`.
+
+### 6KR. KR: Korea canary cap — pre-registration (2026-11-24, before any run)
+
+**Why.** User, after T2: be more selective inside emerging markets. EEM is now about 79% Asia (Taiwan 27%, Korea 23%, China 18%, India 11%; July 2026). Korea is a known early sign of the world goods and chip cycle. **Warning written before the run:** this idea was chosen after T2's result was seen, so a PASS is weaker evidence than a fresh idea. It is the 4th test in the stress family, so the placebo bar is stricter.
+
+**Base = the real product, spec 11d** (same as 6T, `run_t.product()`).
+
+**KR rule.** For EWY total return (`EWY.US_TR`, EODHD adjusted close): `m = 12·r21 + 4·r63 + 2·r126 + r252` (as T2). Cap = 0.5 if m < 0, else 1. Desired = min(base desired, cap), decided at close t. Same 5-point rounding, `fast_act` and 10 bp as 6T.
+
+**Window.** First day m is defined (about 2001-05) → end. Halves split at 2013-12-31. The base is measured on the same window.
+
+**Gates (all must pass).** G1, G2, G3 as 6T. G4 placebo as 6T (circular shift of the daily cap, 252 to n − 252 days, 1,000 draws, `default_rng(7)`). **Pass if p ≤ 0.025** (stress family now 4 ideas: 0.10 / 4).
+
+**Consequence (declared now).** PASS → proposed to the user; the user decides. FAIL → rejected list; no change. No other country, weight or threshold is tried after the run.
+
+**Information only (same run).** Same table for an EEM-only cap with the same rule (to see if Korea adds anything over the basket); stress episodes as 6T; share of days capped; trades a year; today's KR cap.
+
+**One run.** Code `research/us_gauge/run_kr.py`, results `research/us_gauge/RESULTS_kr.md`.
