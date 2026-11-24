@@ -82,6 +82,13 @@ def main():
     if held > 0:
         rows.append((ic('#94A3B8', '↺'), 'Early buy-back rules: standby',
                      f'used only in cash. Today: VIX {n["vix"]:.0f}, ' + minus(f'{-n["fall_1y"]:.0%}') + f' from the 1‑year high, breadth {n["breadth_ratio"]:.2f} (trigger 1.97)'))
+    if 'canary' in n:                                   # spec 11e: warning light, information only
+        cv = n['canary']
+        sign = lambda m: 'up' if m >= 0 else 'down'
+        stale = f' Data to {fmt(n["canary_asof"])}.' if n['canary_asof'] < D['asof'] else ''
+        rows.append((ic(GREEN if cv == 1 else AMBER if cv == .5 else RED, '!'), f'Stress warning light: {cv:.0%}',
+                     f'information only, no trade. Emerging markets {sign(n["canary_eem"])}, US bonds {sign(n["canary_agg"])} '
+                     f'(100% = both up, 0% = both down).{stale}'))
     trig = ''.join(f'<div class="tr">{i}<div><b>{t}</b><span>{d}</span></div></div>' for i, t, d in rows)
     st = 'active' if held == 0 else 'standby, used only in cash'
     rer = ' · '.join((f'fear over: VIX {n["vix"]:.0f}', 'shock: ' + minus(f'{-n["fall_1y"]:.0%}') + ' from 1-year high',

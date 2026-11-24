@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from research.us_gauge import run_vol
-from research.us_gauge.data import load_inputs
+from research.us_gauge.data import load, load_inputs
 from research.us_gauge.run_s1 import read_only_external
 from research.us_gauge.run_step1 import build_signals
 from research.us_gauge.revisions import detect_rolls, revisions, rev_zscore
@@ -77,9 +77,23 @@ def desired_from_states(inputs, s1, v, live, td, b_size=None):
     return pd.concat([st * v, wf.shift(-2), ws.shift(-2), wb.shift(-2)], axis=1).max(axis=1)
 
 
+def m13612(tr: pd.Series) -> pd.Series:
+    r = lambda h: tr / tr.shift(h) - 1
+    return 12 * r(21) + 4 * r(63) + 2 * r(126) + r(252)
+
+
+def canary(agg: pd.Series, eem: pd.Series, asof: pd.Timestamp) -> dict:
+    """Spec 11e warning light (= 6T T2 cap, information only): 100% / 50% / 0% for 0 / 1 / 2 negative momenta."""
+    a, e = m13612(agg.sort_index()).loc[:asof].dropna(), m13612(eem.sort_index()).loc[:asof].dropna()
+    bad = int(a.iloc[-1] < 0) + int(e.iloc[-1] < 0)
+    return dict(canary=(1., .5, 0.)[bad], canary_agg=float(a.iloc[-1]), canary_eem=float(e.iloc[-1]),
+                canary_asof=str(min(a.index[-1], e.index[-1]).date()))
+
+
 def main():
     with read_only_external():
         inputs = load_inputs()
+        agg, eem = load('AGG.US_TR', refresh=False), load('EEM.US_TR', refresh=False)
     br = breadth()
     idx = inputs.index
     gf = build_signals(inputs)                             # Tuesday keys: information rows only
@@ -174,7 +188,8 @@ def main():
                  vix=float(inputs.vix.iloc[-1]), breadth_ratio=float(ratio.iloc[-1]),
                  fall_1y=float(1 - inputs.px.iloc[-1] / inputs.px.iloc[-252:].max()),
                  last_decision=str(idx[-1].date()), shock_trigger=float(inputs.px.iloc[-252:].max() * .85),
-                 f_on=bool(wf.iloc[-1] > 0), s_on=bool(ws.iloc[-1] > 0), b_on=bool(wb.iloc[-1] > 0)),
+                 f_on=bool(wf.iloc[-1] > 0), s_on=bool(ws.iloc[-1] > 0), b_on=bool(wb.iloc[-1] > 0),
+                 **canary(agg, eem, last)),
         periods=per, full_label=full_lab)
     (ROOT / 'mockups/core_slide_data.json').write_text(json.dumps(out))
     print(json.dumps(out['now'], indent=1), out['asof'], out['breadth_asof'])
