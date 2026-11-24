@@ -962,3 +962,5 @@ Nothing in this section has been computed. Unemployment appeared before only as 
 **Information only (same run).** Same table for an EEM-only cap with the same rule (to see if Korea adds anything over the basket); stress episodes as 6T; share of days capped; trades a year; today's KR cap.
 
 **One run.** Code `research/us_gauge/run_kr.py`, results `research/us_gauge/RESULTS_kr.md`.
+
+**6KR result (2026-11-24, one run).** KR FAIL (G1, G3, G4; G2 passes). Sharpe 0.745 vs 0.808, placebo p 0.35. No change to the product. See `RESULTS_kr.md`.

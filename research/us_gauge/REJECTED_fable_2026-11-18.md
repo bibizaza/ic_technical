@@ -272,3 +272,8 @@ All three FAIL against the real product (spec 11d).
 - T2 bond / EM canary cap (Keller DAA, AGG + EEM, 2004–2026): cuts stress losses clearly (2022 −4.4% vs −13.9%, Q4 2018 −2.6% vs −6.1%, COVID −6.0% vs −8.5%; worst fall −16.3% vs −17.7%; placebo p 0.033, just at the bar) but costs 2.3% a year (9.5% vs 11.8%), Sharpe 0.83 vs 0.87, 30 trades a year, capped 47% of days. Fails G1 and G3. Class (c): a real stress signal, too expensive as a cap. On 20 Nov 2026: EEM negative, AGG just positive → cap 50%.
 - T3 credit-confirmed cap (HY OAS 20-day jump > trailing 90th percentile AND S&P < 50-day): Sharpe 0.710 vs 0.713, placebo p 0.16. Class (b).
 Results: RESULTS_t.md.
+
+## Addendum 2026-11-24: Korea canary cap (spec 6KR, one run)
+
+- KR (cap 50% when EWY 13612W momentum < 0, 2001-05 → 2026-11): FAIL on G1, G3, G4. Sharpe 0.745 vs 0.808 (both halves worse), return 9.1% vs 10.8% a year, worst fall −14.7% vs −17.7%, 17 trades a year vs 9, capped 36% of days, bootstrap 93%, placebo p 0.35 (random dates with the same share of caps do about as well). It cuts stress losses (2022 −8.3% vs −13.9%, COVID −3.8% vs −8.5%) but less than T2 and at a cost. EEM-only with the same rule (information): Sharpe 0.79 vs 0.84; KR and EEM caps correlate +0.72. Chosen after T2 was seen. Class (b): being capped a third of the time explains the stress gains; Korea adds no timing. On 20 Nov 2026: EWY momentum −3.49 → cap 50%.
+Results: RESULTS_kr.md.
